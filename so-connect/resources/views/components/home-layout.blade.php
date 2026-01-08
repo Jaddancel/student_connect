@@ -15,11 +15,11 @@
             <a href="#" class="btn btn-ghost text-xl">SOConnect</a>
         </div>
         <div class="flex-none">
-            <button class="btn btn-ghost ">Log In</button>
-            <button class="btn btn-primary">Sign Up</button>
+            <a href="" class="btn btn-ghost ">Log In</a>
+            <a href="" class="btn btn-primary text-white">Sign Up</a>
         </div>
     </div>
-    <main>
+    <main class="flex items-center justify-center min-h-screen md:min-3/4">
         {{ $slot }}
     </main>
 </body>
