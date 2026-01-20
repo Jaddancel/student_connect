@@ -11,7 +11,7 @@
 <body>
     <h1> Register </h1>
     <br>
-    <form action="/auth/register" method="POST">
+    <form action="/register" method="POST">
         @csrf
         <label for="name">Name:</label>
         <br>

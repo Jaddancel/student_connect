@@ -46,7 +46,12 @@
                                     </a>
                                 </li>
                                 <li><a>Settings</a></li>
-                                <li><a id="logout_btn">Logout</a></li>
+                                <li>
+                                    <form method="POST" action="{{ route('logout') }}" class="inline">
+                                        @csrf
+                                        <button type="submit" class="w-full text-left">Logout</button>
+                                    </form>
+                                </li>
                             </ul>
                         </div>
                 </nav>
