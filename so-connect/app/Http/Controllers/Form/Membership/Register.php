@@ -24,5 +24,7 @@ class Register extends Controller
             'organization_id' => $incoming['org_picker'],
         ]);
 
+        return redirect()->route('/student_dashboard');
+
     }
 }
