@@ -1,0 +1,22 @@
+name: Deploy to Dev Server
+
+on:
+  push:
+    branches: [ dev, main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.TAILSCALE_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/jad/Creations/student_connect
+            git pull origin dev
+            docker compose exec app composer install
+            docker compose exec app php artisan migrate --force
+            docker compose exec app php artisan config:cache
