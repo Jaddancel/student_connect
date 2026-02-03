@@ -17,7 +17,11 @@ class MembershipFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            // get random user id and organization id
+            'user_id' => \App\Models\User::inRandomOrder()->first()->id,
+            'organization_id' => \App\Models\Organization::inRandomOrder()->first()->organization_id,
+            'approval_id' => \App\Models\Approval::inRandomOrder()->first()->approval_id,
+            'role_code' => $this->faker->numberBetween(1, 5)
         ];
     }
 }

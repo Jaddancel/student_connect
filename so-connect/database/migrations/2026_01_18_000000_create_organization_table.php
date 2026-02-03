@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('organization_name');
             $table->string('organization_initial')->unique();
             $table->timestamp('organization_registered_at')->useCurrent();
+            $table->foreignId('organization_president_id')->constrained('administrators', 'administrator_id')->onDelete('cascade');
         });
     }
 
