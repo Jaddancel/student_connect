@@ -1,5 +1,22 @@
 <x-dashboard-layout>
-    <x-slot name="title">Dashboard</x-slot>
+        @php
+            $user = auth()->user();
+
+            $orgId = $organization->organization_id ?? null;
+
+            $membership = $orgId
+                ? $user->memberships()->where('organization_id', $orgId)->first()
+                : null;
+
+            $roleCode = $membership?->role_code; // null when no membership
+        @endphp
+
+        @if ($roleCode > 1) 
+            <x-slot name="title">Officer Dashboard</x-slot>
+        @else 
+            <x-slot name="title">Admin Dashboard</x-slot>
+        @endif
+
     <div class="card bg-base-100 w-full shadow-sm">
         <div class="card-body">
             <h2 class="card-title pb-2">Upcoming Events</h2>

@@ -22,6 +22,13 @@ class MembershipFactory extends Factory
             'organization_id' => \App\Models\Organization::inRandomOrder()->first()->organization_id,
             'approval_id' => \App\Models\Approval::inRandomOrder()->first()->approval_id,
             'role_code' => $this->faker->numberBetween(1, 5)
+            // Membership Codes
+            // 00 - Non-member
+            // 01 - Lower Offcial
+            // 02 - Secretary
+            // 03 - President
+            // 04 - Administrator
+            // 05 - Superadmin
         ];
     }
 }

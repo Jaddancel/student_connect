@@ -15,8 +15,8 @@ Route::get('/home', function(){
     return view('home');
 });
 
-Route::get('/student_dashboard', function () {
-    return view('student/dashboard');
+Route::get('/dashboard', function () {
+    return view('dashboard');
 });
 
 Route::view('/register' , 'auth.register')
