@@ -42,7 +42,7 @@
                                 <li>
                                     <a class="justify-between">
                                         Profile
-                                        <span class="badge bg-green-300 font-semibold">Student</span>
+                                        <span class="badge text-white bg-green-300 font-semibold">Student</span>
                                     </a>
                                 </li>
                                 <li><a>Settings</a></li>
@@ -76,7 +76,8 @@
 
                         <li>
                             <details>
-                                <summary class="is-drawer-close:tooltip is-drawer-close:tooltip-right" data-tip="Organization Services">
+                                <summary class="is-drawer-close:tooltip is-drawer-close:tooltip-right"
+                                    data-tip="Organization Services">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
                                         stroke="currentColor" class="size-4 my-1.5 inline-block">
                                         <path stroke-linecap="round" stroke-linejoin="round"
@@ -86,14 +87,15 @@
                                 </summary>
                                 <ul class="is-drawer-close:hidden">
                                     <li><a href="/forms/membership_registration">Register For A Membership</a></li>
-                                    <li><a href="#">My Organizations</a></li>
+                                    <li><a href="/my_organization">My Organizations</a></li>
                                 </ul>
                             </details>
                         </li>
 
                         <li>
                             <details>
-                                <summary class="is-drawer-close:tooltip is-drawer-close:tooltip-right" data-tip="Document Services">
+                                <summary class="is-drawer-close:tooltip is-drawer-close:tooltip-right"
+                                    data-tip="Document Services">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
                                         stroke="currentColor" class="size-4 my-1.5 inline-block">
                                         <path stroke-linecap="round" stroke-linejoin="round"
@@ -102,16 +104,17 @@
                                     <span class="is-drawer-close:hidden">Document Services</span>
                                 </summary>
                                 <ul class="is-drawer-close:hidden">
-                                    <li><a href="#">Upload Document</a></li>
-                                    <li><a href="#">My Documents</a></li>
-                                    <li><a href="#">Document Requests</a></li>
+                                    <li><a href="/forms/document_upload">Upload Document</a></li>
+                                    <li><a href="/my_documents">My Documents</a></li>
+                                    <li><a href="/document_request">Document Requests</a></li>
                                 </ul>
                             </details>
                         </li>
 
                         <li>
                             <details>
-                                <summary class="is-drawer-close:tooltip is-drawer-close:tooltip-right" data-tip="Scheduled Events">
+                                <summary class="is-drawer-close:tooltip is-drawer-close:tooltip-right"
+                                    data-tip="Scheduled Events">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
                                         stroke="currentColor" class="size-4 my-1.5 inline-block">
                                         <path stroke-linecap="round" stroke-linejoin="round"
@@ -120,8 +123,8 @@
                                     <span class="is-drawer-close:hidden">Scheduled Events</span>
                                 </summary>
                                 <ul class="is-drawer-close:hidden">
-                                    <li><a href="#">Calendar</a></li>
-                                    <li><a href="#">My Events</a></li>
+                                    <li><a href="/my_calendar">Calendar</a></li>
+                                    <li><a href="/my_events">My Events</a></li>
                                 </ul>
                             </details>
                         </li>
