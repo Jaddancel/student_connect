@@ -15,13 +15,13 @@
         @php
             $user = auth()->user();
 
-            $orgid = $organization->organization_id ?? null;
+            $orgId = $organization->organization_id ?? null;
 
-            $membership = $orgid
-                ? $user->memberships()->where('organization_id', $orgid)->first()
+            $membership = $orgId
+                ? $user->memberships()->where('organization_id', $orgId)->first()
                 : null;
 
-            $rolecode = $membership?->role_code; // null when no membership
+            $roleCode = $membership?->role_code; // null when no membership
         @endphp
 
         <div class="drawer lg:drawer-open">
@@ -77,7 +77,7 @@
                     <ul class="menu w-full grow">
                     @if (is_null($roleCode))
                     @switch ($roleCode)
-                    @case (1)
+                    @case ($roleCode === 1)
                         @include ('components.sidebar.officer')
                     @default
                         @include ('components.sidebar.admin')
