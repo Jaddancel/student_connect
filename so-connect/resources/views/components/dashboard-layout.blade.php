@@ -77,7 +77,7 @@
                     <ul class="menu w-full grow">
                     @if (is_null($roleCode))
                     @switch ($roleCode)
-                    @case ($roleCode === 1)
+                    @case (1)
                         @include ('components.sidebar.officer')
                     @default
                         @include ('components.sidebar.admin')
