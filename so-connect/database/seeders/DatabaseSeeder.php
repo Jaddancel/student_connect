@@ -2,7 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Models\Organization;
 use App\Models\User;
+use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -18,5 +20,6 @@ class DatabaseSeeder extends Seeder
         // User::factory(10)->create();
 
         User::factory(10)->create();
+        Organization::factory(5)->create();
     }
 }

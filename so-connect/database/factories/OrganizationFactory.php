@@ -17,9 +17,9 @@ class OrganizationFactory extends Factory
     public function definition(): array
     {
         return [
-            'organization_name' => fake()->name(),
-            'organization_initial' => fake(),
-            'organization_registered_at' => now()
+            'organization_name' => fake()->company(),
+            'organization_initial' => fake()->unique()->regexify('[A-Z]{4}'),
+            'organization_registered_at' => now(),
         ];
     }
 }
