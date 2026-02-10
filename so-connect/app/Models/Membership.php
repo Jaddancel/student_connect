@@ -27,4 +27,8 @@ public function approval(){
     return $this->belongsTo(Approval::class);
 }
 
+public function returnRole(){
+    return $this->role_code;
+}
+
 }

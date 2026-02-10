@@ -1,21 +1,17 @@
 <x-dashboard-layout>
+    @auth
         @php
-            $user = auth()->user();
-
-            $orgId = $organization->organization_id ?? null;
-
-            $membership = $orgId
-                ? $user->memberships()->where('organization_id', $orgId)->first()
-                : null;
-
-            $roleCode = $membership?->role_code; // null when no membership
+            $roleCode = auth()->user()
+                ->memberships()
+                ->oldest('membership_id')
+                ->value('role_code');
         @endphp
-
-        @if ($roleCode > 1) 
+        @if ($roleCode == 1)
             <x-slot name="title">Officer Dashboard</x-slot>
-        @else 
+        @else
             <x-slot name="title">Admin Dashboard</x-slot>
         @endif
+    @endauth
 
     <div class="card bg-base-100 w-full shadow-sm">
         <div class="card-body">

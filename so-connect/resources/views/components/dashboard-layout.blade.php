@@ -13,15 +13,10 @@
 
     @auth
         @php
-            $user = auth()->user();
-
-            $orgId = $organization->organization_id ?? null;
-
-            $membership = $orgId
-                ? $user->memberships()->where('organization_id', $orgId)->first()
-                : null;
-
-            $roleCode = $membership?->role_code; // null when no membership
+            $roleCode = auth()->user()
+                ->memberships()
+                ->oldest('membership_id')
+                ->value('role_code');
         @endphp
 
         <div class="drawer lg:drawer-open">
@@ -54,7 +49,13 @@
                                 <li>
                                     <a class="justify-between">
                                         Profile
-                                        <span class="badge bg-green-300 font-semibold">Student</span>
+                                        @if (is_null($roleCode))
+                                            <span class="badge bg-gray-300 font-semibold text-black">Unknown</span>
+                                        @elseif ($roleCode == 1)
+                                            <span class="badge bg-blue-300 font-semibold text-black">Officer</span>
+                                        @else
+                                            <span class="badge bg-green-300 font-semibold text-black">Admin</span>
+                                        @endif
                                     </a>
                                 </li>
                                 <li><a>Settings</a></li>
@@ -75,16 +76,17 @@
                 <label for="my-drawer-4" aria-label="close sidebar" class="drawer-overlay"></label>
                 <div class="flex min-h-full flex-col items-start bg-base-200 is-drawer-close:w-14 is-drawer-open:w-64">
                     <ul class="menu w-full grow">
-                    @if (is_null($roleCode))
-                    @switch ($roleCode)
-                    @case (1)
-                        @include ('components.sidebar.officer')
-                    @default
-                        @include ('components.sidebar.admin')
-                    @endswitch
-                    @else
-                        <p>User null</p>
-                    @endif
+                        @if (is_null($roleCode))
+                            <p>User has no role</p>
+                        @else
+                            @if ($roleCode == 1)
+                                @include('components.sidebar.officer')
+                            @elseif ($roleCode > 1)
+                                @include('components.sidebar.admin')
+                            @else
+                                <p>Unknown role: {{ $roleCode }}</p>
+                            @endif
+                        @endif
                     </ul>
                 </div>
             </div>
