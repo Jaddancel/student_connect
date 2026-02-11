@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Form\Membership;
 
 use App\Http\Controllers\Controller;
+use App\Models\Approval;
 use App\Models\Membership;
 use Illuminate\Http\Request;
 
@@ -18,13 +19,12 @@ class Register extends Controller
             'org_picker' => 'required'
         ]);
 
-
         Membership::create([
             'user_id' => $userId,
             'organization_id' => $incoming['org_picker'],
         ]);
 
-        return redirect()->route('/student_dashboard');
+        return redirect()->route('/dashboard');
 
     }
 }

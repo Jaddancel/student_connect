@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id('membership_id');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('organization_id')->constrained('organizations', 'organization_id')->onDelete('cascade');
-            $table->foreignId("approval_id")->constrained('approvals','approval_id')->onDelete('cascade');
+            $table->foreignId("approval_id")->nullable()->constrained('approvals','approval_id')->onDelete('cascade');
             $table->tinyInteger('role_code');
             $table->timestamps();
         });

@@ -24,11 +24,21 @@ class MembershipFactory extends Factory
             'role_code' => $this->faker->numberBetween(1, 5)
             // Membership Codes
             // 00 - Non-member
-            // 01 - Lower Offcial
+            // 01 - Lower Official
             // 02 - Secretary
             // 03 - President
             // 04 - Administrator
-            // 05 - Superadmin
+            // 05 - Super Admin
         ];
     }
+
+    public function unapproved()
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'approval_id' => null
+            ];
+        });
+    }
+
 }

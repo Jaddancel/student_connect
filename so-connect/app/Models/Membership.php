@@ -9,12 +9,14 @@ class Membership extends Model
 
 {
     use HasFactory;
+    protected $primaryKey = 'membership_id';
     protected $fillable = [
         'user_id',
         'organization_id',
         'approval_id',
         'role_code'
     ];
+
 public function user(){
     return $this->belongsTo(User::class);
 }
@@ -27,8 +29,8 @@ public function approval(){
     return $this->belongsTo(Approval::class);
 }
 
-public function returnRole(){
-    return $this->role_code;
+public function requests(){
+    return $this->morphMany(Request::class, 'action');  
 }
 
 }
