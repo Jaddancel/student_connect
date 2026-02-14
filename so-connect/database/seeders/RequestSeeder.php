@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
-class DatabaseSeeder extends Seeder
+class RequestSeeder extends Seeder
 {
     use WithoutModelEvents;
 
@@ -16,13 +16,8 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
         $this->call([
-            UserSeeder::class,
-            AdminSeeder::class,
-            OrganizationSeeder::class,
-            ApprovalSeeder::class,
-            MembershipSeeder::class,
-            EventSeeder::class,
-            RequestSeeder::class,
+            MembershipRequestSeeder::class,
         ]);
     }
 }
+

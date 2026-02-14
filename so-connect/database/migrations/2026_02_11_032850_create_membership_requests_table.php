@@ -11,11 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('organizations', function (Blueprint $table) {
-            $table->id('organization_id');
-            $table->string('organization_name');
-            $table->string('organization_initial')->unique();
-            $table->timestamp('organization_registered_at')->useCurrent();
+        Schema::create('membership_requests', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('action_id')->constrained('memberships', 'membership_id')->onDelete('cascade');
+            $table->timestamps();
         });
     }
 
@@ -24,6 +23,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('organizations');
+        Schema::dropIfExists('membership_requests');
     }
 };

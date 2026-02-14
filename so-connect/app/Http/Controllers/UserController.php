@@ -12,8 +12,9 @@ class UserController extends Controller
 
     public function logout(Request $request){
         auth()->guard()->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
         return redirect('/home');
     }
-
 
 }

@@ -16,9 +16,20 @@ class Organization extends Model
 
 protected $fillable = [
         'organization_name',
-        'organization_initial'
+        'organization_initial',
+        'organization_president_id'
     ];
     
+public function president(){
+        return $this->belongsTo(Membership::class, 'organization_president_id', 'membership_id');
+    }
+
+
+    
+    protected $attributes = [
+        'organization_registered_at' => null
+    ];
+
 
 public $timestamps = false;
     protected function casts(): array{
