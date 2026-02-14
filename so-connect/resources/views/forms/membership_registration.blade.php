@@ -1,9 +1,9 @@
 <x-dashboard-layout>
     <div class="container mx-auto lg:w-2/4 px-4 lg:px-0">
-        <h1 class="text-xl font-bold my-3">Registration</h1>
+        <h1 class="text-xl text-black font-bold my-3">Registration</h1>
         <form action="{{ route('membership.register') }}" method="post" class="flex flex-col  gap-4 p-6">
             @csrf
-            <label for="org_picker" class="pb-3">
+            <label for="org_picker" class=" text-black pb-3">
                 Pick a Organization </label> <br>
             <select class="select select-primary select-lg select-bordered" name="org_picker" id="org_picker">
                 @foreach ($organizations as $organization)
