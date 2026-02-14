@@ -2,9 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Organization;
-use App\Models\User;
-use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 

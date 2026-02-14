@@ -7,11 +7,17 @@ use Illuminate\Database\Seeder;
 
 class RequestSeeder extends Seeder
 {
+    use WithoutModelEvents;
+
     /**
-     * Run the database seeds.
+     * Seed the application's database.
      */
     public function run(): void
     {
-        \App\Models\Request::factory(10)->membershipRequest()->create();
+        // User::factory(10)->create();
+        $this->call([
+            MembershipRequestSeeder::class,
+        ]);
     }
 }
+

@@ -11,10 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('requests', function (Blueprint $table) {
+        Schema::create('membership_requests', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('action_id');
-            $table->string('action_type');
+            $table->foreignId('action_id')->constrained('memberships', 'membership_id')->onDelete('cascade');
             $table->timestamps();
         });
     }
@@ -24,6 +23,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('requests');
+        Schema::dropIfExists('membership_requests');
     }
 };

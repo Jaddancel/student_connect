@@ -29,8 +29,4 @@ public function approval(){
     return $this->belongsTo(Approval::class);
 }
 
-public function requests(){
-    return $this->morphMany(Request::class, 'action');  
-}
-
 }
