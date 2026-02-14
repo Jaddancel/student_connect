@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             OrganizationSeeder::class,
             ApprovalSeeder::class,
             MembershipSeeder::class,
+            EventSeeder::class,
             RequestSeeder::class,
         ]);
     }

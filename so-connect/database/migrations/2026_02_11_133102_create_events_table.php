@@ -20,8 +20,6 @@ return new class extends Migration
             $table->unsignedBigInteger('membership_id');
             $table->unsignedBigInteger('approval_id')->nullable();
             $table->timestamps();
-
-            // TODO: Factory for Events.
         });
     }
 
