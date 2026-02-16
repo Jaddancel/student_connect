@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SOConnect Admin Dashboard</title>
+    <link rel="stylesheet" href="css/admin_dashboard.css">
+</head>
+<body>
+
+<div class="layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <h2 class="logo">SOCadmin</h2>
+        <nav>
+            <a class="active">Dashboard</a>
+            <a>Manage Organizations</a>
+            <a>Approve / Reject Events</a>
+            <a>Announcements</a>
+            <a>Reports</a>
+            <a>Student Registration</a>
+            <a>Profile & Reports</a>
+            <hr>
+            <a>Export Reports</a>
+            <a>Logout</a>
+        </nav>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+
+        <!-- TOP BAR -->
+        <header class="topbar">
+            <h1>Admin Dashboard</h1>
+        </header>
+
+        <!-- STATS -->
+        <section class="stats">
+            <div class="stat">
+                <h3>Organizations</h3>
+                <p>385</p>
+            </div>
+            <div class="stat">
+                <h3>Pending Events</h3>
+                <p>12</p>
+            </div>
+            <div class="stat">
+                <h3>Announcements</h3>
+                <p>8</p>
+            </div>
+            <div class="stat">
+                <h3>Registrations</h3>
+                <p>29</p>
+            </div>
+        </section>
+
+        <!-- CONTENT GRID -->
+        <section class="grid">
+
+            <!-- Manage Organizations -->
+            <div class="card">
+                <h3>Manage Organizations</h3>
+                <table>
+                    <tr><th>Name</th><th>Category</th><th>Members</th><th></th></tr>
+                    <tr><td>Student Government Association</td><td>Government</td><td>120</td><td><button>Manage</button></td></tr>
+                    <tr><td>Environmental Club</td><td>Environment</td><td>75</td><td><button>Manage</button></td></tr>
+                    <tr><td>IT Society</td><td>Technology</td><td>98</td><td><button>Manage</button></td></tr>
+                </table>
+            </div>
+
+            <!-- Pending Events -->
+            <div class="card">
+                <h3>Pending Event Approvals</h3>
+                <table>
+                    <tr><th>Event</th><th>Date</th><th>Organizer</th><th></th></tr>
+                    <tr>
+                        <td>Charity Fundraiser</td>
+                        <td>April 28, 2024</td>
+                        <td>Environmental Club</td>
+                        <td>
+                            <button class="approve">Approve</button>
+                            <button class="reject">Reject</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Hackathon</td>
+                        <td>May 5, 2024</td>
+                        <td>IT Society</td>
+                        <td>
+                            <button class="approve">Approve</button>
+                            <button class="reject">Reject</button>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Announcements -->
+            <div class="card">
+                <h3>Announcements</h3>
+                <input type="text" placeholder="Title">
+                <textarea placeholder="Message"></textarea>
+                <button class="send">Send Announcement</button>
+            </div>
+
+            <!-- Student Registration -->
+            <div class="card">
+                <h3>Student Registrations</h3>
+                <table>
+                    <tr><th>Name</th><th>Email</th><th></th></tr>
+                    <tr><td>Sarah Miller</td><td>sarah@email.com</td><td><button class="approve">Approve</button></td></tr>
+                    <tr><td>David Lee</td><td>david@email.com</td><td><button class="approve">Approve</button></td></tr>
+                </table>
+            </div>
+
+            <!-- Reports -->
+            <div class="card">
+                <h3>Reports</h3>
+                <button>Generate Membership Report</button><br><br>
+                <button>Generate Financial Report</button>
+            </div>
+
+            <!-- Export PDF -->
+            <div class="card">
+                <h3>Export PDF</h3>
+                <button>Export as PDF</button>
+                <button>Print Report</button>
+            </div>
+
+        </section>
+
+    </main>
+</div>
+
+</body>
+</html>
