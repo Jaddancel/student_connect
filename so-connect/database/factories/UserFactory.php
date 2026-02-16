@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\user_type;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -23,11 +24,14 @@ class UserFactory extends Factory
      */
     public function definition(): array
     {
+
+
         return [
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
+            'user_email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
+            'user_password' => static::$password ??= Hash::make('password'),
+            'user_type_code' => user_type::query()->inRandomOrder()->first()->getKey(),
+            'profile_id' => \App\Models\Profile::factory(),
             'remember_token' => Str::random(10),
         ];
     }

@@ -11,9 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('administrators', function (Blueprint $table) {
-            $table->id('administrator_id');
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+        Schema::create('members', function (Blueprint $table) {
+            $table->id('member_id');
+            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('organization_id');
+            $table->unsignedBigInteger('role_code');
+            $table->unsignedBigInteger('approval_id')->nullable();
             $table->timestamps();
         });
     }
@@ -23,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('adminstrators');
+        Schema::dropIfExists('members');
     }
 };

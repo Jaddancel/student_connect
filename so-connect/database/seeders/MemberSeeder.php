@@ -2,17 +2,19 @@
 
 namespace Database\Seeders;
 
+use App;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
-class MembershipRequestSeeder extends Seeder
+class MemberSeeder extends Seeder
 {
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
-            \App\Models\Request\MembershipRequest::factory(10)->create();
-        //
+        // create ten members and five admins
+        \App\Models\Member::factory()->count(10)->create();
+        \App\Models\Member::factory()->admin()->count(5)->create();
     }
 }

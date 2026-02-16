@@ -13,10 +13,11 @@ return new class extends Migration
     {
         Schema::create('organizations', function (Blueprint $table) {
             $table->id('organization_id');
-            $table->string('organization_name');
-            $table->string('organization_initial')->unique();
-            $table->timestamp('organization_registered_at')->useCurrent();
-            $table->foreignId('organization_president_id')->constrained('administrators', 'administrator_id')->onDelete('cascade');
+            $table->unsignedBigInteger('president_id')->nullable();
+            $table->unsignedBigInteger('organization_type_code');
+            $table->string('organization_name', 100);
+            $table->string('organization_initials', 10);
+            $table->timestamps();
         });
     }
 

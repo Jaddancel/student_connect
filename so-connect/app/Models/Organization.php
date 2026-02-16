@@ -7,34 +7,19 @@ use Illuminate\Database\Eloquent\Model;
 
 class Organization extends Model
 {
-
+    /** @use HasFactory<\Database\Factories\OrganizationFactory> */
     use HasFactory;
 
     protected $primaryKey = 'organization_id';
-    protected $keyType = 'int';
-    public $incrementing = true;
-
-protected $fillable = [
+    protected $fillable = [
+        'president_id',
+        'organization_type_code',
         'organization_name',
-        'organization_initial',
-        'organization_president_id'
-    ];
-    
-public function president(){
-        return $this->belongsTo(Membership::class, 'organization_president_id', 'membership_id');
-    }
-
-
-    
-    protected $attributes = [
-        'organization_registered_at' => null
+        'organization_initials'
     ];
 
-
-public $timestamps = false;
-    protected function casts(): array{
-        return [
-            'organization_registered_at' => 'timestamp'
-        ];
+    public function members()
+    {
+        return $this->hasMany(Member::class, 'organization_id', 'organization_id');
     }
 }

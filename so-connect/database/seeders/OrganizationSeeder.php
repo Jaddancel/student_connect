@@ -12,6 +12,14 @@ class OrganizationSeeder extends Seeder
      */
     public function run(): void
     {
-        \App\Models\Organization::factory(6)->create();
+        $organization = [
+            // random company name
+            'organization_name' => fake()->company(),
+            'organization_initials' => fake()->lexify('???'),
+            'president_id' => null,
+            // get one organization type from table
+            'organization_type_code' => \App\Models\organization_type::query()->inRandomOrder()->first()->getKey(),
+        ];
+        \App\Models\Organization::query()->create($organization);
     }
 }

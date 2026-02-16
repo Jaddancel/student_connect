@@ -11,10 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('membership_requests', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('action_id')->constrained('memberships', 'membership_id')->onDelete('cascade');
-            $table->timestamps();
+        Schema::create('user_type_master', function (Blueprint $table) {
+            $table->id('user_type_code');
+            $table->string('user_type_name');
         });
     }
 
@@ -23,6 +22,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('membership_requests');
+        Schema::dropIfExists('user_type_master');
     }
 };

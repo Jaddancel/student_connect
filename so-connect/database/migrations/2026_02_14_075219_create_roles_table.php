@@ -11,10 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('approvals', function (Blueprint $table) {
-            $table->id('approval_id');
-            $table->foreignId('president_id')->constrained('organizations','organization_president_id')->onDelete('cascade');
-            $table->timestamps();
+        Schema::create('role_master', function (Blueprint $table) {
+            $table->id('role_code');
+            $table->string('role');
         });
     }
 
@@ -23,6 +22,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('approvals');
+        Schema::dropIfExists('role_master');
     }
 };
