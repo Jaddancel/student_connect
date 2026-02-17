@@ -23,16 +23,18 @@ class MemberFactory extends Factory
             'user_id' => \App\Models\User::factory(),
             'approval_id' => null, // You can set this to a factory if you have an Approval model
             'role_code' => $memberRoleCode,
-            'organization_id' => \App\Models\Organization::factory(),
+            'organization_id' => \App\Models\Organization::query()->inRandomOrder()->first()->getKey(),
         ];
     }
     
-    public function admin()
+    public function president()
     {
         return $this->state(function (array $attributes) {
-            $adminRoleCode = role::query()->firstOrCreate(['role' => 'admin'])->getKey();
-            return [
-                'role_code' => $adminRoleCode,
+            $presidentRoleCode= role::query()->firstOrCreate(['role' => 'president'])->getKey();
+            return [ //create a user with admin user_type
+                'user_id' => \App\Models\Administrator::factory()->create()->user_id,
+                'approval_id' => null, // You can set this to a factory if you have an Approval model
+                'role_code' => $presidentRoleCode,
             ];
         });
     }

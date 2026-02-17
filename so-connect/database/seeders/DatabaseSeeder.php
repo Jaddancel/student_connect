@@ -22,8 +22,8 @@ class DatabaseSeeder extends Seeder
             // ProfileSeeder::class,
             OrganizationTypeSeeder::class,
             RoleSeeder::class,
-            MemberSeeder::class,
             OrganizationSeeder::class,
+            MemberSeeder::class,
         ]);
     }
 }

@@ -36,6 +36,15 @@ class UserFactory extends Factory
         ];
     }
 
+    public function admin()
+    {
+        return $this->state(function (array $attributes) {
+            $adminUserTypeCode = user_type::query()->firstOrCreate(['user_type' => 'Admin'])->getKey();
+            return [
+                'user_type_code' => $adminUserTypeCode,
+            ];
+        });
+    }
     /**
      * Indicate that the model's email address should be unverified.
      */

@@ -19,8 +19,8 @@ return new class extends Migration
         });
         Schema::table( 'organizations', function (Blueprint $table) {
             $table->foreign('president_id')
-                ->references('user_id')
-                ->on('users')
+                ->references('president_id')
+                ->on('presidents')
                 ->onDelete('set null');
         });
         Schema::table( 'organizations', function (Blueprint $table) {
@@ -58,6 +58,24 @@ return new class extends Migration
             $table->foreign('occupation_code')
                 ->references('occupation_code')
                 ->on('occupation_master')
+                ->onDelete('cascade');
+        });
+        Schema::table('administrators', function (Blueprint $table){
+            $table->foreign('user_id')
+                ->references('user_id')
+                ->on('users')
+                ->onDelete('cascade');
+        });
+        Schema::table('super_administrators', function (Blueprint $table){
+            $table->foreign('user_id')
+                ->references('user_id')
+                ->on('users')
+                ->onDelete('cascade');
+        });
+        Schema::table('presidents', function (Blueprint $table){
+            $table->foreign('member_id')
+                ->references('member_id')
+                ->on('members')
                 ->onDelete('cascade');
         });
     }

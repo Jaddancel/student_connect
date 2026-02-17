@@ -15,11 +15,11 @@ return new class extends Migration
             $table->id('user_id');
             $table->string('user_email')->unique();
             $table->timestamp('email_verified_at')->nullable();
+            $table->timestamp('user_created_at')->useCurrent();
             $table->string('user_password');
             $table->unsignedBigInteger('user_type_code');
             $table->unsignedBigInteger('profile_id')->nullable();
             $table->rememberToken();
-            $table->timestamps();
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
