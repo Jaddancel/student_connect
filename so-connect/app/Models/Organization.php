@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Form\formDescription;
 use App\Models\Member\memberOrganization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -25,5 +26,8 @@ class Organization extends Model
     public function member_organizations()
     {
         return $this->hasMany(memberOrganization::class, 'organization_id', 'organization_id');
+    }
+    public function forms(){
+        return $this->hasMany(formDescription::class, 'form_organizations', 'organization_id');
     }
 };

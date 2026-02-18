@@ -56,6 +56,26 @@ class User extends Authenticatable
         return $this->belongsTo(userType::class, 'user_type_code', 'user_type_code');
     }
 
+    public function profile()
+    {
+        return $this->hasOne(Profile::class, 'profile_id', 'profile_id');
+    }
+
+    public function administrator()
+    {
+        return $this->hasOne(Administrator::class, 'user', 'user_id');
+    }
+
+    public function superAdministrator()
+    {
+        return $this->hasOne(superAdministrator::class, 'user', 'user_id');
+    }
+
+    public function members()
+    {
+        return $this->hasMany(Member::class, 'user', 'user_id');
+    }
+
 }
 
 ?>

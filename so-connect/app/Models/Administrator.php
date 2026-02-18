@@ -9,6 +9,7 @@ class Administrator extends Model
 {
     /** @use HasFactory<\Database\Factories\AdministratorFactory> */
     use HasFactory;
+    public $primaryKey = 'admin_id';
 
     protected $fillable = [
         'user',
