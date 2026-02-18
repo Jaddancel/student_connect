@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\User;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Member extends Model
+class userType extends Model
 {
-    /** @use HasFactory<\Database\Factories\MemberFactory> */
+    /** @use HasFactory<\Database\Factories\User\userTypeFactory> */
     use HasFactory;
 }

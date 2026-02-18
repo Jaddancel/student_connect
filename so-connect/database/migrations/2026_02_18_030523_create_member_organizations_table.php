@@ -11,9 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('occupation_master', function (Blueprint $table) {
-            $table->id('occupation_code');
-            $table->string('occupation_name');
+        Schema::create('member_organizations', function (Blueprint $table) {
+            $table->id();
+            $table->timestamps();
         });
     }
 
@@ -22,6 +22,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('occupation_master');
+        Schema::dropIfExists('member_organizations');
     }
 };

@@ -12,11 +12,6 @@ class OrganizationTypeSeeder extends Seeder
      */
     public function run(): void
     {
-        $types = ['academic', 'socio-civic', 'religious', 'fraternities-sororities', 'special interest'];
-        foreach ($types as $type) {
-            \App\Models\organization_type::create([
-                'organization_type' => $type
-            ]);
-        }
+        //
     }
 }

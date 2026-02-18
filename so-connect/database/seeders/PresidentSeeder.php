@@ -12,5 +12,6 @@ class PresidentSeeder extends Seeder
      */
     public function run(): void
     {
+        //
     }
 }

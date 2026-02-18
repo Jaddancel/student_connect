@@ -1,13 +1,13 @@
 <?php
 
-namespace Database\Factories;
+namespace Database\Factories\User;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\President>
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User\userType>
  */
-class PresidentFactory extends Factory
+class userTypeFactory extends Factory
 {
     /**
      * Define the model's default state.
@@ -17,7 +17,7 @@ class PresidentFactory extends Factory
     public function definition(): array
     {
         return [
-                'member_id' => \App\Models\Member::factory()->president(),
+            //
         ];
     }
 }

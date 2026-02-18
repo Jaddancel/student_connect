@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class OccupationSeeder extends Seeder
@@ -11,16 +12,6 @@ class OccupationSeeder extends Seeder
      */
     public function run(): void
     {
-        $occupations = [
-            ['occupation_name' => 'Student'],
-            ['occupation_name' => 'Administrative Staff'],
-            ['occupation_name' => 'Faculty'],
-            ['occupation_name' => 'Alumni'],
-            ['occupation_name' => 'Other'],
-        ];
-
-        foreach ($occupations as $occupation) {
-            \App\Models\occupation::create($occupation);
-        }
+        //
     }
 }

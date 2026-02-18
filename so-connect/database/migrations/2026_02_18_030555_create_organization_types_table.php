@@ -11,9 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('super_administrators', function (Blueprint $table) {
+        Schema::create('organization_types', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('user_id')->unique();
             $table->timestamps();
         });
     }
@@ -23,6 +22,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('super_administrators');
+        Schema::dropIfExists('organization_types');
     }
 };
