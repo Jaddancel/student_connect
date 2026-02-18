@@ -2,11 +2,20 @@
 
 namespace App\Models\User;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 class userType extends Model
 {
-    /** @use HasFactory<\Database\Factories\User\userTypeFactory> */
-    use HasFactory;
+    public $table = 'user_type_master';
+    public $primaryKey = 'user_type_code';
+    protected $fillable = [
+        'user_type',
+    ];
+
+    public function users()
+    {
+        return $this->hasMany(User::class, 'user_type_code', 'user_type_code');
+    }
+
 }

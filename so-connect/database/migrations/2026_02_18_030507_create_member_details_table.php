@@ -12,8 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('member_details', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
+            $table->id('member_detail_id');
+            $table->unsignedBigInteger('member_id');
+            $table->string('member_organization');
+            $table->timestamp('member_since')->useCurrent();
         });
     }
 

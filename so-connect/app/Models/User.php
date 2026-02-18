@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\User\userType;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -48,6 +49,11 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'user_password' => 'hashed',
         ];
+    }
+
+    public function userType()
+    {
+        return $this->belongsTo(userType::class, 'user_type_code', 'user_type_code');
     }
 
 }

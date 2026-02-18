@@ -11,9 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('organization_types', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
+        Schema::create('organization_type_master', function (Blueprint $table) {
+            $table->unsignedTinyInteger('organization_type_code')->primary();
+            $table->string('organization_type');
         });
     }
 
@@ -22,6 +22,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('organization_types');
+        Schema::dropIfExists('organization_type_master');
     }
 };
