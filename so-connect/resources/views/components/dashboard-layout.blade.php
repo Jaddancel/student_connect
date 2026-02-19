@@ -80,7 +80,7 @@
                         @else
                             @if ($typeCode == 3)
                                 @include('components.sidebar.officer')
-                            @elseif ($typeCode > 3)
+                            @elseif ($typeCode < 3)
                                 @include('components.sidebar.admin')
                             @else
                                 <p>Unknown role: {{ $typeCode }}</p>
