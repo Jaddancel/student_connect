@@ -14,10 +14,11 @@ class AdministratorFactory extends Factory
      *
      * @return array<string, mixed>
      */
+    // It also changes the role of the user_type to admin.
     public function definition(): array
     {
         return [
-            //
+            'user' => UserFactory::new()->admin()->create()->user_id,
         ];
     }
 }

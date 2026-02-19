@@ -1,14 +1,17 @@
 <?php
 
-namespace Database\Factories\Member;
+namespace Database\Factories\Event;
 
+use App\Models\Event\EventDetail;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Member\memberDetail>
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Event\EventDetail>
  */
-class memberDetailFactory extends Factory
+class EventDetailFactory extends Factory
 {
+    protected $model = EventDetail::class;
+
     /**
      * Define the model's default state.
      *

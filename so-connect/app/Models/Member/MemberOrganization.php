@@ -6,22 +6,22 @@ use App\Models\Organization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class memberOrganization extends Model
+class MemberOrganization extends Model
 {
-    /** @use HasFactory<\Database\Factories\Member\memberOrganizationFactory> */
+    /** @use HasFactory<\Database\Factories\Member\MemberOrganizationFactory> */
     use HasFactory;
 
     protected $primaryKey = 'member_organization_id';
+
     protected $fillable = [
-        'member_detail_id',
         'organization_id',
-        'member_organization',
     ];
 
     public $timestamps = false;
 
-   public function member_details(){
-        return $this->belongsTo(memberDetail::class, 'member_detail_id');
+    public function member_details()
+    {
+        return $this->belongsTo(MemberDetail::class, 'member_organization', 'member_organization_id');
     }
 
     public function organization()

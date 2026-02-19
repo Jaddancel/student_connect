@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Administrator;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -17,7 +18,9 @@ class ApprovalFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'request' => null,
+            'approver_admin' => Administrator::query()->inRandomOrder()->value('admin_id')
+                ?? Administrator::factory()->create()->admin_id,
         ];
     }
 }

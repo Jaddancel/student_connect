@@ -1,14 +1,14 @@
 <?php
 
-namespace Database\Factories\User;
+namespace Database\Factories\Organization;
 
+use App\Models\Organization\OrganizationType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User\userType>
- */
-class userTypeFactory extends Factory
+class OrganizationTypeFactory extends Factory
 {
+    protected $model = OrganizationType::class;
+
     /**
      * Define the model's default state.
      *

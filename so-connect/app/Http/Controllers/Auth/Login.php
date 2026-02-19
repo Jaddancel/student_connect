@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Auth;
 
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class Login extends Controller
@@ -13,18 +13,24 @@ class Login extends Controller
      */
     public function __invoke(Request $request)
     {
-        $credentials = $request->validate([
-            'email' => ['required'],
-            'password' => ['required'],
+        $validated = $request->validate([
+            'user_email' => ['required'],
+            'user_password' => ['required'],
         ]);
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))){
+        $credentials = [
+            'user_email' => $validated['user_email'],
+            'password' => $validated['user_password'],
+        ];
+
+        if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
-            return redirect()->intended("/dashboard");
+
+            return redirect()->intended('/dashboard');
         }
         //
-        //return back()
-        //-> withErrors(['email' => 'No records with the provided credentials.'])
-        //->onlyInput('email');
+        // return back()
+        // -> withErrors(['email' => 'No records with the provided credentials.'])
+        // ->onlyInput('email');
     }
 }

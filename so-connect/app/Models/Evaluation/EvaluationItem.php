@@ -6,9 +6,9 @@ use App\Models\Evaluation;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class evaluationItem extends Model
+class EvaluationItem extends Model
 {
-    /** @use HasFactory<\Database\Factories\Evaluation\evaluationItemFactory> */
+    /** @use HasFactory<\Database\Factories\Evaluation\EvaluationItemFactory> */
     use HasFactory;
 
     public $primaryKey = 'evaluation_item_id';

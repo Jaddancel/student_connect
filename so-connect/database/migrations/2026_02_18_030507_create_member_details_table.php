@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('member_details', function (Blueprint $table) {
             $table->id('member_detail_id');
-            $table->unsignedBigInteger('member_id');
-            $table->string('member_organization');
+            $table->unsignedBigInteger('role');
+            $table->unsignedBigInteger('member_organization')->nullable();
             $table->timestamp('member_since')->useCurrent();
         });
     }

@@ -6,9 +6,9 @@ use App\Models\Template;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class templateDescription extends Model
+class TemplateDescription extends Model
 {
-    /** @use HasFactory<\Database\Factories\Template\templateDescriptionFactory> */
+    /** @use HasFactory<\Database\Factories\Template\TemplateDescriptionFactory> */
     use HasFactory;
     public $timestamps = false;
     protected $primaryKey = 'template_description_id';

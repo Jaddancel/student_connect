@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\User\userType;
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -19,6 +17,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $primaryKey = 'user_id';
+
     protected $fillable = [
         'user_email',
         'user_password',
@@ -28,6 +27,7 @@ class User extends Authenticatable
     ];
 
     public $timestamps = false;
+
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -51,9 +51,14 @@ class User extends Authenticatable
         ];
     }
 
+    public function getAuthPassword()
+    {
+        return $this->user_password;
+    }
+
     public function userType()
     {
-        return $this->belongsTo(userType::class, 'user_type_code', 'user_type_code');
+        return $this->belongsTo(UserType::class, 'user_type_code', 'user_type_code');
     }
 
     public function profile()
@@ -68,14 +73,11 @@ class User extends Authenticatable
 
     public function superAdministrator()
     {
-        return $this->hasOne(superAdministrator::class, 'user', 'user_id');
+        return $this->hasOne(SuperAdministrator::class, 'user', 'user_id');
     }
 
-    public function members()
+    public function member()
     {
         return $this->hasMany(Member::class, 'user', 'user_id');
     }
-
 }
-
-?>

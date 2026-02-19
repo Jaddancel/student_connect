@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id('member_id');
             $table->unsignedBigInteger('member_detail');
             $table->unsignedBigInteger('user');
-            $table->unsignedBigInteger('role');
             $table->unsignedBigInteger('approval_id');
         });
     }

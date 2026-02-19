@@ -6,11 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Event;
 
-class eventDetail extends Model
+class EventDetail extends Model
 {
-    /** @use HasFactory<\Database\Factories\Event\eventDetailFactory> */
+    /** @use HasFactory<\Database\Factories\Event\EventDetailFactory> */
     use HasFactory;
-    
+
     protected $primaryKey = 'event_detail_id';
     protected $fillable = [
         'event_name',
@@ -30,7 +30,7 @@ class eventDetail extends Model
     protected $attributes = [
         'event_location' => null
     ];
-    
+
     public $timestamps = false;
 
     public function event()

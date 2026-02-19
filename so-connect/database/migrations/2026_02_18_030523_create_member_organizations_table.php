@@ -13,9 +13,7 @@ return new class extends Migration
     {
         Schema::create('member_organizations', function (Blueprint $table) {
             $table->id('member_organization_id');
-            $table->unsignedBigInteger('member_detail_id');
-            $table->unsignedBigInteger('organization_id');
-            $table->string('member_organization');
+            $table->unsignedBigInteger('organization_id')->nullable();
         });
     }
 

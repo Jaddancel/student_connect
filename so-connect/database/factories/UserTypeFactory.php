@@ -2,15 +2,15 @@
 
 namespace Database\Factories;
 
-use App\Models\SuperAdministrator;
+use App\Models\UserType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\SuperAdministrator>
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\UserType>
  */
-class SuperAdministratorFactory extends Factory
+class UserTypeFactory extends Factory
 {
-    protected $model = SuperAdministrator::class;
+    protected $model = UserType::class;
 
     /**
      * Define the model's default state.
@@ -20,7 +20,8 @@ class SuperAdministratorFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'user_type_code' => null,
+            'user_type' => null,
         ];
     }
 }

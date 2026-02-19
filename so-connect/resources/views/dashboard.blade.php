@@ -2,12 +2,10 @@
     @auth
         @php
             $roleCode = auth()->user()
-                ->memberships()
-                ->oldest('membership_id')
-                ->value('role_code');
+                ->user_type;
         @endphp
-        @if ($roleCode == 1)
-            <x-slot name="title">Officer Dashboard</x-slot>
+        @if ($roleCode > 0)
+            <x-slot name="title">Member Dashboard</x-slot>
         @else
             <x-slot name="title">Admin Dashboard</x-slot>
         @endif

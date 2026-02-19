@@ -1,18 +1,16 @@
 <?php
 
-
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-
-// Wise Words... 
-// A model BelongsTo a parent when the parent_id is in the model.
-// A model hasMany children when the model_id is in the children
-// A model hasOne child when the model_id is in a child and you only want one of them.
-//                                                          - some guy on Reddit
+    // Wise Words...
+    // A model BelongsTo a parent when the parent_id is in the model.
+    // A model hasMany children when the model_id is in the children
+    // A model hasOne child when the model_id is in a child and you only want one of them.
+    //                                                          - some guy on Reddit
 
     public function up(): void
     {
@@ -30,16 +28,16 @@ return new class extends Migration
         });
 
         Schema::table('members', function (Blueprint $table) {
+            $table->foreign('member_detail')->references('member_detail_id')->on('member_details')->onDelete('cascade');
             $table->foreign('user')->references('user_id')->on('users')->onDelete('cascade');
-            $table->foreign('role')->references('role_code')->on('role_master')->onDelete('cascade');
         });
 
         Schema::table('member_details', function (Blueprint $table) {
-            $table->foreign('member_id')->references('member_id')->on('members')->onDelete('cascade');
+            $table->foreign('role')->references('role_code')->on('role_master')->onDelete('cascade');
+            $table->foreign('member_organization')->references('member_organization_id')->on('member_organizations')->onDelete('cascade');
         });
 
         Schema::table('member_organizations', function (Blueprint $table) {
-            $table->foreign('member_detail_id')->references('member_detail_id')->on('member_details')->onDelete('cascade');
             $table->foreign('organization_id')->references('organization_id')->on('organizations')->onDelete('cascade');
         });
 
@@ -52,6 +50,7 @@ return new class extends Migration
         });
 
         Schema::table('organizations', function (Blueprint $table) {
+            $table->foreign('president')->references('member_id')->on('members')->onDelete('cascade');
             $table->foreign('organization_type')->references('organization_type_code')->on('organization_type_master')->onDelete('cascade');
         });
 
@@ -111,6 +110,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('organizations', function (Blueprint $table) {
+            $table->dropForeign(['president']);
             $table->dropForeign(['organization_type']);
         });
 
@@ -172,17 +172,17 @@ return new class extends Migration
         });
 
         Schema::table('member_organizations', function (Blueprint $table) {
-            $table->dropForeign(['member_detail_id']);
             $table->dropForeign(['organization_id']);
         });
 
         Schema::table('member_details', function (Blueprint $table) {
-            $table->dropForeign(['member_id']);
+            $table->dropForeign(['role']);
+            $table->dropForeign(['member_organization']);
         });
 
         Schema::table('members', function (Blueprint $table) {
+            $table->dropForeign(['member_detail']);
             $table->dropForeign(['user']);
-            $table->dropForeign(['role']);
         });
 
         Schema::table('administrators', function (Blueprint $table) {

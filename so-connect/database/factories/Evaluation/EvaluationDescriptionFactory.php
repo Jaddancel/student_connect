@@ -1,14 +1,14 @@
 <?php
 
-namespace Database\Factories\Form;
+namespace Database\Factories\Evaluation;
 
+use App\Models\Evaluation\EvaluationDescription;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Form\formDescription>
- */
-class formDescriptionFactory extends Factory
+class EvaluationDescriptionFactory extends Factory
 {
+    protected $model = EvaluationDescription::class;
+
     /**
      * Define the model's default state.
      *
