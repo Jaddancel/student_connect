@@ -50,7 +50,7 @@
                                         Profile
                                         @if (is_null($typeCode))
                                             <span class="badge bg-gray-300 font-semibold text-black">Unknown</span>
-                                        @elseif ($typeCode == 1)
+                                        @elseif ($typeCode == 3)
                                             <span class="badge bg-blue-300 font-semibold text-black">User</span>
                                         @else
                                             <span class="badge bg-green-300 font-semibold text-black">Admin</span>
@@ -78,9 +78,9 @@
                         @if (is_null($typeCode))
                             <p>User has no role</p>
                         @else
-                            @if ($typeCode == 0)
+                            @if ($typeCode == 3)
                                 @include('components.sidebar.officer')
-                            @elseif ($typeCode <= 1)
+                            @elseif ($typeCode > 3)
                                 @include('components.sidebar.admin')
                             @else
                                 <p>Unknown role: {{ $typeCode }}</p>

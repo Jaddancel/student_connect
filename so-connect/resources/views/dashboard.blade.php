@@ -1,10 +1,10 @@
 <x-dashboard-layout>
     @auth
         @php
-            $roleCode = auth()->user()
-                ->user_type;
+            $typeCode = auth()->user()
+                ->user_type_code;
         @endphp
-        @if ($roleCode > 0)
+        @if ($typeCode == 3)
             <x-slot name="title">Member Dashboard</x-slot>
         @else
             <x-slot name="title">Admin Dashboard</x-slot>
