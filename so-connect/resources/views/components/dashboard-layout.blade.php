@@ -13,10 +13,8 @@
 
     @auth
         @php
-            $roleCode = auth()->user()
-                ->memberships()
-                ->oldest('membership_id')
-                ->value('role_code');
+            $typeCode = auth()->user()
+                ->user_type_code;
         @endphp
 
         <div class="drawer lg:drawer-open">
@@ -41,7 +39,8 @@
                         <div class="dropdown dropdown-end">
                             <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar avatar-placeholder">
                                 <div class="bg-neutral text-neutral-content w-8 rounded-full">
-                                    <span class="text-xs">{{ strtoupper(auth()->user()->name[0] ?? '?') }}</span>
+                                    <span
+                                        class="text-xs">{{ strtoupper(auth()->user()->profile->first_name[0] ?? '?') }}</span>
                                 </div>
                             </div>
                             <ul tabindex="-1"
@@ -49,10 +48,10 @@
                                 <li>
                                     <a class="justify-between">
                                         Profile
-                                        @if (is_null($roleCode))
+                                        @if (is_null($typeCode))
                                             <span class="badge bg-gray-300 font-semibold text-black">Unknown</span>
-                                        @elseif ($roleCode == 1)
-                                            <span class="badge bg-blue-300 font-semibold text-black">Officer</span>
+                                        @elseif ($typeCode == 3)
+                                            <span class="badge bg-blue-300 font-semibold text-black">User</span>
                                         @else
                                             <span class="badge bg-green-300 font-semibold text-black">Admin</span>
                                         @endif
@@ -76,15 +75,15 @@
                 <label for="my-drawer-4" aria-label="close sidebar" class="drawer-overlay"></label>
                 <div class="flex min-h-full flex-col items-start bg-base-200 is-drawer-close:w-14 is-drawer-open:w-64">
                     <ul class="menu w-full grow">
-                        @if (is_null($roleCode))
+                        @if (is_null($typeCode))
                             <p>User has no role</p>
                         @else
-                            @if ($roleCode == 1)
+                            @if ($typeCode == 3)
                                 @include('components.sidebar.officer')
-                            @elseif ($roleCode > 1)
+                            @elseif ($typeCode > 3)
                                 @include('components.sidebar.admin')
                             @else
-                                <p>Unknown role: {{ $roleCode }}</p>
+                                <p>Unknown role: {{ $typeCode }}</p>
                             @endif
                         @endif
                     </ul>

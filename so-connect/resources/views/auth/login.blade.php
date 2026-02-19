@@ -82,10 +82,10 @@
             @csrf
 
             <label for="email">Email</label>
-            <input type="email" name="email" placeholder="Enter your email" required>
+            <input type="email" name="user_email" placeholder="Enter your email" required>
 
             <label for="password">Password</label>
-            <input type="password" name="password" placeholder="Enter your password" required>
+            <input type="password" name="user_password" placeholder="Enter your password" required>
 
             <button type="submit" name="login">Login</button>
         </form>

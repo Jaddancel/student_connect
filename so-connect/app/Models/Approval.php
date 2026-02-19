@@ -7,19 +7,22 @@ use Illuminate\Database\Eloquent\Model;
 
 class Approval extends Model
 {
+    /** @use HasFactory<\Database\Factories\ApprovalFactory> */
     use HasFactory;
-    protected $table = 'approvals';
-    protected $primaryKey = 'approval_id';
+    
+    public $primaryKey = 'approval_id';
     protected $fillable = [
-        'president_id'
+        'request', // this is null, for now
+        'approved_at',
+        'approver_admin'
+    ];    
+
+    protected $attributes = [
+        'request' => null,
     ];
-
-    public function organization(){
-        return $this->belongsTo(Organization::class, 'president_id', 'organization_president_id');
+    public function approver()
+    {
+        return $this->belongsTo(Administrator::class, 'approver_admin', 'admin_id');
     }
-
-    public function approvals(){
-        return $this->hasMany(Approval::class, 'president_id', 'organization_president_id');
-    }
-
+    
 }
