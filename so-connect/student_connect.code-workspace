@@ -11,6 +11,10 @@
 				"approve": true,
 				"matchCommandLine": true
 			}
-		}
+		},
+		"cSpell.words": [
+			"endforeach",
+			"onchange"
+		]
 	}
 }

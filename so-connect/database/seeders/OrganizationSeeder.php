@@ -12,7 +12,7 @@ class OrganizationSeeder extends Seeder
      */
     public function run(): void
     {
-        President::factory(2)->create();
-        \App\Models\Member::factory(10)->create();
+        President::factory(10)->create();
+        \App\Models\Member::factory(20)->create();
     }
 }

@@ -3,8 +3,8 @@
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\Register;
-use App\Http\Controllers\Form\Membership\Register as MembershipRegister;
 use App\Http\Controllers\FormView\Membership_Registration;
+use App\Http\Controllers\MemberController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -28,7 +28,7 @@ Route::post('register', [Register::class])
 
 Route::get('forms/membership_registration', [Membership_Registration::class, 'view']);
 
-Route::post('forms/membership/register', MembershipRegister::class)
+Route::post('forms/membership/register', [MemberController::class, 'register'])
     ->middleware('auth')
     ->name('membership.register');
 
