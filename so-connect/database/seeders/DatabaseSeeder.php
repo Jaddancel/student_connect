@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             OrganizationTypeSeeder::class,
             RoleSeeder::class,
             OrganizationSeeder::class,
+            EventSeeder::class,
         ]);
     }
 }

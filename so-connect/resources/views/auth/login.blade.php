@@ -4,93 +4,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
-
-    <style>
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            background-color: #f4f6f8;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-
-        .login-container {
-            background: #ffffff;
-            width: 360px;
-            padding: 30px 35px;
-            border-radius: 10px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-        }
-
-        h1 {
-            text-align: center;
-            margin-bottom: 25px;
-            color: #333;
-        }
-
-        label {
-            display: block;
-            font-size: 14px;
-            font-weight: 600;
-            color: #555;
-            margin-bottom: 6px;
-        }
-
-        input {
-            width: 100%;
-            padding: 10px 12px;
-            margin-bottom: 18px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            font-size: 14px;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: #2563eb;
-            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
-        }
-
-        button {
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 6px;
-            background-color: #46e56bff;
-            color: white;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-
-        button:hover {
-            background-color: #1e40af;
-        }
-    </style>
+    <title>Login - SOConnect</title>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
-<body>
+<body class="min-h-screen flex items-center justify-center bg-base-200 font-sans">
+    <div class="card w-full max-w-md bg-base-100 shadow-lg">
+        <div class="card-body">
+            <h1 class="text-2xl font-bold text-center mb-2">Welcome Back</h1>
+            <p class="text-center text-sm text-base-content/60 mb-6">Sign in to SOConnect</p>
 
-    <div class="login-container">
-        <h1>Login</h1>
+            @if ($errors->any())
+                <div role="alert" class="alert alert-error mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{{ $errors->first() }}</span>
+                </div>
+            @endif
 
-        <form action="/login" method="POST">
-            @csrf
+            <form method="POST" action="{{ route('login') }}" class="space-y-4">
+                @csrf
 
-            <label for="email">Email</label>
-            <input type="email" name="user_email" placeholder="Enter your email" required>
+                <fieldset class="fieldset">
+                    <label class="fieldset-legend text-sm font-semibold">Email</label>
+                    <input type="email" name="user_email" value="{{ old('user_email') }}"
+                        class="input input-bordered w-full" placeholder="you@example.com" required autofocus />
+                </fieldset>
 
-            <label for="password">Password</label>
-            <input type="password" name="user_password" placeholder="Enter your password" required>
+                <fieldset class="fieldset">
+                    <label class="fieldset-legend text-sm font-semibold">Password</label>
+                    <input type="password" name="user_password" class="input input-bordered w-full"
+                        placeholder="Enter your password" required />
+                </fieldset>
 
-            <button type="submit" name="login">Login</button>
-        </form>
+                <div class="flex items-center justify-between">
+                    <label class="label cursor-pointer gap-2">
+                        <input type="checkbox" name="remember" class="checkbox checkbox-sm checkbox-primary" />
+                        <span class="label-text text-sm">Remember me</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-full text-white">Sign In</button>
+            </form>
+
+            <p class="text-center text-sm mt-4">
+                Don't have an account?
+                <a href="{{ route('register') }}" class="link link-primary font-semibold">Register</a>
+            </p>
+        </div>
     </div>
-
 </body>
 
 </html>

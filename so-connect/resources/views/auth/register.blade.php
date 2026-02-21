@@ -4,93 +4,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register</title>
-
-    <style>
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            background-color: #f4f6f8;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-
-        .register-container {
-            background: #ffffff;
-            padding: 30px 35px;
-            width: 380px;
-            border-radius: 10px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-        }
-
-        h1 {
-            text-align: center;
-            margin-bottom: 25px;
-            color: #333;
-        }
-
-        label {
-            font-size: 14px;
-            font-weight: 600;
-            color: #555;
-        }
-
-        input {
-            width: 100%;
-            padding: 10px 12px;
-            margin: 8px 0 18px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            font-size: 14px;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: #4f46e5;
-            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
-        }
-
-        button {
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 6px;
-            background-color: #46e56bff;
-            color: white;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-
-        button:hover {
-            background-color: #4338ca;
-        }
-    </style>
+    <title>Register - SOConnect</title>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
-<body>
+<body class="min-h-screen flex items-center justify-center bg-base-200 font-sans">
+    <div class="card w-full max-w-md bg-base-100 shadow-lg">
+        <div class="card-body">
+            <h1 class="text-2xl font-bold text-center mb-2">Create an Account</h1>
+            <p class="text-center text-sm text-base-content/60 mb-6">Join SOConnect today</p>
 
-    <div class="register-container">
-        <h1>Register</h1>
+            @if ($errors->any())
+                <div role="alert" class="alert alert-error mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <ul class="list-disc list-inside text-sm">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
 
-        <form action="/register" method="POST">
-            @csrf
+            <form method="POST" action="/register" class="space-y-4">
+                @csrf
 
-            <label for="name">Name</label>
-            <input type="text" name="name" id="name_reg" placeholder="Enter your name">
+                <fieldset class="fieldset">
+                    <label class="fieldset-legend text-sm font-semibold">Name</label>
+                    <input type="text" name="name" value="{{ old('name') }}" class="input input-bordered w-full"
+                        placeholder="Enter your name" required autofocus />
+                </fieldset>
 
-            <label for="email">Email</label>
-            <input type="email" name="email" id="email_reg" placeholder="Enter your email">
+                <fieldset class="fieldset">
+                    <label class="fieldset-legend text-sm font-semibold">Email</label>
+                    <input type="email" name="email" value="{{ old('email') }}" class="input input-bordered w-full"
+                        placeholder="you@example.com" required />
+                </fieldset>
 
-            <label for="password">Password</label>
-            <input type="password" name="password" id="password_reg" placeholder="Enter your password">
+                <fieldset class="fieldset">
+                    <label class="fieldset-legend text-sm font-semibold">Password</label>
+                    <input type="password" name="password" class="input input-bordered w-full"
+                        placeholder="Enter your password" required />
+                </fieldset>
 
-            <button type="submit">Submit</button>
-        </form>
+                <button type="submit" class="btn btn-primary w-full text-white">Register</button>
+            </form>
+
+            <p class="text-center text-sm mt-4">
+                Already have an account?
+                <a href="{{ route('login') }}" class="link link-primary font-semibold">Sign In</a>
+            </p>
+        </div>
     </div>
-
 </body>
+
 </html>

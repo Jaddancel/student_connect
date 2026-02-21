@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Models\Approval;
+use App\Models\Event\EventDetail;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -17,7 +19,8 @@ class EventFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'approval_id' => Approval::factory(),
+            'event_detail' => EventDetail::factory(),
         ];
     }
 }

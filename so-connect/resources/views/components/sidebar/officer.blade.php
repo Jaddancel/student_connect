@@ -21,7 +21,7 @@
         </summary>
         <ul class="is-drawer-close:hidden">
             <li><a href="/forms/membership_registration">Register For A Membership</a></li>
-            <li><a href="/my_organization">My Organizations</a></li>
+            <li><a href="/my_organizations">My Organizations</a></li>
         </ul>
     </details>
 </li>

@@ -8,9 +8,11 @@
             <input class="p-2 border rounded text-black" type="file">
 
             <label class="text-black">Organization</label>
-            <select class="p-2 border rounded text-black">
-                <option>Student Government Association</option>
-                <option>Environmental Club</option>
+            <select class="p-2 border rounded text-black" name="organization">
+                <option value="" disabled selected>Select an organization</option>
+                @foreach ($organizations as $org)
+                    <option value="{{ $org->organization_id }}">{{ $org->organization_name }}</option>
+                @endforeach
             </select>
 
             <label class="text-black">Document Type</label>

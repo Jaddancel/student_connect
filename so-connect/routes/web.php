@@ -15,9 +15,8 @@ Route::get('/home', function () {
     return view('home');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-});
+Route::get('/dashboard', [\App\Http\Controllers\EventController::class, 'dashboard'])
+    ->middleware('auth');
 
 Route::view('/register', 'auth.register')
     ->middleware('guest')
@@ -36,25 +35,24 @@ Route::get('document_request', function () {
     return view('student/document_request');
 });
 
-Route::get('forms/document_upload', function () {
-    return view('forms/upload_document');
-});
+Route::get('forms/document_upload', [\App\Http\Controllers\DocumentController::class, 'uploadForm'])
+    ->middleware('auth');
 
 Route::get('my_documents', function () {
     return view('student/my_document');
 })->middleware('auth')->name('my_documents');
 
-Route::get('my_organization', function () {
-    return view('student/my_organization');
-})->middleware('auth')->name('my_organization');
+Route::get('my_organizations', [\App\Http\Controllers\OrganizationController::class, 'user_organizations'])
+    ->middleware('auth')
+    ->name('my_organizations');
 
 Route::get('my_events', function () {
     return view('student/my_events');
 })->middleware('auth')->name('my_events');
 
-Route::get('my_calendar', function () {
-    return view('student/calendar');
-})->middleware('auth')->name('my_calendar');
+Route::get('my_calendar', [\App\Http\Controllers\EventController::class, 'calendar'])
+    ->middleware('auth')
+    ->name('my_calendar');
 
 Route::post('/logout', Logout::class)
     ->middleware('auth')
@@ -66,3 +64,19 @@ Route::view('/login', 'auth.login')
 
 Route::post('login', Login::class)
     ->middleware('guest');
+
+Route::get('/admin/membership_requests', function () {
+    return view('admin.membership_requests');
+})->middleware('auth')->name('admin.membership_requests');
+
+Route::get('/admin/forms_management', function () {
+    return view('admin.forms_management');
+})->middleware('auth')->name('admin.forms_management');
+
+Route::get('/admin/template_management', function () {
+    return view('admin.template_management');
+})->middleware('auth')->name('admin.template_management');
+
+Route::get('/admin/event_requests', function () {
+    return view('admin.event_requests');
+})->middleware('auth')->name('admin.event_requests');

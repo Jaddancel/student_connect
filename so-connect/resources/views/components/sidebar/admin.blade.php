@@ -20,12 +20,12 @@
             <span class="is-drawer-close:hidden">Registration and Requests</span>
         </summary>
         <ul class="is-drawer-close:hidden">
-            <li><a href="/forms/membership_registration">Membership Requests</a></li>
-            <li><a href="#">Event Registration</a></li>
+            <li><a href="/forms/membership_registration">Request for a Membership</a></li>
+            <li><a href="/admin/membership_requests">Member Requests</a></li>
+            <li><a href="/admin/event_requests">Event Requests</a></li>
         </ul>
     </details>
 </li>
-
 
 <li>
     <details>
@@ -38,8 +38,8 @@
             <span class="is-drawer-close:hidden">Document Services</span>
         </summary>
         <ul class="is-drawer-close:hidden">
-            <li><a href="#">Manage Forms</a></li>
-            <li><a href="#">Manage Templates</a></li>
+            <li><a href="/admin/forms_management">Manage Forms</a></li>
+            <li><a href="/admin/template_management">Manage Templates</a></li>
         </ul>
     </details>
 </li>
