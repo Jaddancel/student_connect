@@ -28,7 +28,7 @@ class MemberDetail extends Model
 
     public function role()
     {
-        return $this->hasOne(Role::class, 'role', 'role_code');
+        return $this->belongsTo(Role::class, 'role', 'role_code');
     }
 
     public function organization()

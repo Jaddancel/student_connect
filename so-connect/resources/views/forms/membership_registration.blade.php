@@ -2,7 +2,7 @@
 
 <x-dashboard-layout>
     <div class="container mx-auto lg:w-2/4 px-4 lg:px-0">
-        <h1 class="text-xl text-black font-bold my-3">Registration</h1>
+        <h1 class="text-xl text-black font-bold my-3">Membership Registration</h1>
         <div id="form" class="flex flex-col gap-4 p-6">
             <form method="GET" action="membership_registration">
                 <label for="org_type_selector" class="text-black pb-2 flex flex-col gap-4">Organization Type Label</label>

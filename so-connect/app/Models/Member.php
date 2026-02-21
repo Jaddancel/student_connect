@@ -26,9 +26,9 @@ class Member extends Model
         return $this->belongsTo(User::class, 'user', 'user_id');
     }
 
-    public function member_detail()
+    public function memberDetail()
     {
-        return $this->hasMany(MemberDetail::class, 'member_detail', 'member_detail_id');
+        return $this->belongsTo(MemberDetail::class, 'member_detail', 'member_detail_id');
     }
 
     public function approval()
