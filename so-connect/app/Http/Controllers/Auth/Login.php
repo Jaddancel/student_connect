@@ -28,9 +28,9 @@ class Login extends Controller
 
             return redirect()->intended('/dashboard');
         }
-        //
-        // return back()
-        // -> withErrors(['email' => 'No records with the provided credentials.'])
-        // ->onlyInput('email');
+
+        return back()
+            ->withErrors(['user_email' => 'No records with the provided credentials.'])
+            ->onlyInput('user_email');
     }
 }

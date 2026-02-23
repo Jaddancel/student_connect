@@ -19,9 +19,9 @@
 
             <form action="{{ route('membership.register') }}" method="post" class="flex flex-col gap-4">
                 @csrf
-                <label for="org_picker" class=" text-black pb-3 ">
+                <label for="organization_id" class=" text-black pb-3 ">
                     Pick a Organization </label>
-                <select class="select select-primary select-lg select-bordered" name="org_picker" id="org_picker">
+                <select class="select select-primary select-lg select-bordered" name="organization_id" id="organization_id">
                     @foreach ($organizations as $organization)
                         <option value="{{ $organization->organization_id }}">{{ $organization->organization_name }}</option>
                     @endforeach

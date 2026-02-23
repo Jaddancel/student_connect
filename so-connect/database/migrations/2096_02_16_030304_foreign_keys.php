@@ -92,6 +92,11 @@ return new class extends Migration
 
         Schema::table('approvals', function (Blueprint $table) {
             $table->foreign('approver_admin')->references('admin_id')->on('administrators')->onDelete('cascade');
+            $table->foreign('request')->references('request_id')->on('action_requests')->onDelete('cascade');
+        });
+
+        Schema::table('action_requests', function (Blueprint $table) {
+            $table->foreign('request_action_type')->references('action_type_code')->on('action_types')->onDelete('cascade');
         });
 
         Schema::table('document_descriptions', function (Blueprint $table) {
@@ -161,6 +166,11 @@ return new class extends Migration
 
         Schema::table('approvals', function (Blueprint $table) {
             $table->dropForeign(['approver_admin']);
+            $table->dropForeign(['request']);
+        });
+
+        Schema::table('action_requests', function (Blueprint $table) {
+            $table->dropForeign(['request_action_type']);
         });
 
         Schema::table('super_administrators', function (Blueprint $table) {

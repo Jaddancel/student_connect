@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\Register;
 use App\Http\Controllers\FormView\Membership_Registration;
 use App\Http\Controllers\MemberController;
+use App\Http\Controllers\ApprovalController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -65,9 +66,9 @@ Route::view('/login', 'auth.login')
 Route::post('login', Login::class)
     ->middleware('guest');
 
-Route::get('/admin/membership_requests', function () {
-    return view('admin.membership_requests');
-})->middleware('auth')->name('admin.membership_requests');
+Route::get('/admin/membership_requests', [ApprovalController::class, 'membershipRequests'])
+    ->middleware('auth')
+    ->name('admin.membership_requests');
 
 Route::get('/admin/forms_management', function () {
     return view('admin.forms_management');

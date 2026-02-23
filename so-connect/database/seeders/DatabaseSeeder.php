@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             OrganizationSeeder::class,
             EventSeeder::class,
+            ActionTypeSeeder::class,
         ]);
     }
 }

@@ -9,20 +9,25 @@ class Approval extends Model
 {
     /** @use HasFactory<\Database\Factories\ApprovalFactory> */
     use HasFactory;
-    
+
     public $primaryKey = 'approval_id';
+
     protected $fillable = [
         'request', // this is null, for now
-        'approved_at',
-        'approver_admin'
-    ];    
+        'approver_admin',
+    ];
 
     protected $attributes = [
         'request' => null,
     ];
+
     public function approver()
     {
         return $this->belongsTo(Administrator::class, 'approver_admin', 'admin_id');
     }
-    
+
+    public function request()
+    {
+        return $this->belongsTo(ActionRequest::class, 'request', 'request_id');
+    }
 }
