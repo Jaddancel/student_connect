@@ -20,6 +20,7 @@
 /storage/pail
 /vendor
 /diagram
+/database/seeders
 Homestead.json
 Homestead.yaml
 Thumbs.db
