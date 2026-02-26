@@ -8,18 +8,37 @@
             <table class="table w-full">
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>Action</th>
+                        <th>Name</th>
+                        <th>Organization</th>
                         <th>Requested At</th>
+                        <th>Status</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($requests as $request)
                         <tr>
-                            <td>{{ $request->request_id }}</td>
-                            <td>{{ $request->action }}</td>
+                            <td>{{ $request->user->profile->first_name }}</td>
+                            <td>{{ $request->organization->organization_name}}</td>
+                            <td></td>
                             <td>
-                                {{ $request->request_made_at ? \Illuminate\Support\Carbon::parse($request->request_made_at)->format('M j, Y g:i A') : '-' }}
+                                @if ($request->status === 'pending')
+                                    <span class="badge badge-warning">Pending</span>
+                                @elseif ($request->status === 'approved')
+                                    <span class="badge badge-success">Approved</span>
+                                @elseif ($request->status === 'rejected')
+                                    <span class="badge badge-error">Rejected</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if ($request->status === 'pending')
+                                    <button class="btn btn-sm btn-success"
+                                        onclick="approveRequest({{ $request->id }})">Approve</button>
+                                    <button class="btn btn-sm btn-error"
+                                        onclick="rejectRequest({{ $request->id }})">Reject</button>
+                                @else
+                                    <span class="text-gray-500">No actions available</span>
+                                @endif
                             </td>
                         </tr>
                     @empty
