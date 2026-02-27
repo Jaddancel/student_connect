@@ -6,173 +6,95 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Super Admin Dashboard</title>
     <!-- Use existing admin styles for consistent look -->
-    <link rel="stylesheet" href="../admin/css/admin.css">
-    <link rel="stylesheet" href="../admin/css/admin_dashboard.css">
+    <!-- <link rel="stylesheet" href="../admin/css/admin.css"> -->
+    <link rel="stylesheet" href="../superadmin/css/super.css">
 </head>
 
 <body>
 
-    <!-- <div class="layout">
-        <aside class="sidebar">
-            <div class="logo">
-                <h2>Super Admin</h2>
-            </div>
-
-            <nav>
-                <a class="active">Dashboard</a>
-                <a>Security</a>
-                <a>Registrations</a>
-                <a>Reports</a>
-                <a>Policies</a>
-                <a>Organizations</a>
-                <a>Members</a>
-                <a>Users</a>
-                <a>Logs</a>
-                <hr>
-                <a>Settings</a>
-            </nav>
-        </aside> -->
-
-        <main class="main">
-            <div class="topbar">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <h3>System Overview</h3>
-                    </div>
-                    <div style="display:flex;gap:10px;align-items:center;">
-                        <button onclick="exportExcel()" class="btn-blue">Export Excel</button>
-                        <button onclick="exportPDF()" class="btn-blue">Export PDF</button>
-                    </div>
+    <main class="main" style="width: 100%;">
+        <div class="topbar">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <h3>Super Admin Dashboard</h3>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <button onclick="exportExcel()" class="btn-blue">Export Excel</button>
+                    <button onclick="exportPDF()" class="btn-blue">Export PDF</button>
                 </div>
             </div>
+        </div>
 
-            <section class="stats">
-                <div class="stat card">
-                    <p id="totalUsers">1,234</p>
-                    <small>Total Users</small>
-                </div>
-                <div class="stat card">
-                    <p id="totalOrgs">128</p>
-                    <small>Organizations</small>
-                </div>
-                <div class="stat card">
-                    <p id="pendingRegs">24</p>
-                    <small>Pending Registrations</small>
-                </div>
-                <div class="stat card">
-                    <p id="activeMemberships">3,210</p>
-                    <small>Active Memberships</small>
-                </div>
-            </section>
+        <section class="stats">
+            <div class="stat card">
+                <p id="totalUsers">1,234</p>
+                <small>Total Users</small>
+            </div>
+            <div class="stat card">
+                <p id="totalOrgs">128</p>
+                <small>Organizations</small>
+            </div>
+            <div class="stat card">
+                <p id="pendingRegs">24</p>
+                <small>Pending Registrations</small>
+            </div>
+            <div class="stat card">
+                <p id="activeMemberships">3,210</p>
+                <small>Active Memberships</small>
+            </div>
+        </section>
 
-            <section class="grid">
-                <div class="card">
-                    <h3>Registration Analytics</h3>
-                    <p>Chart placeholder — integrate chart library later.</p>
-                </div>
+        <section class="grid">
+            <div class="card dashboard-card">
+                <h3>Registration Analytics</h3>
+                <p>View registration trends and analytics.</p>
+                <a href="reports.html" class="btn-blue" style="display:inline-block;padding:8px 16px;text-decoration:none;color:white;margin-top:10px;border-radius:6px;">See All</a>
+            </div>
 
-                <div class="card">
-                    <h3>Recent Registrations</h3>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Organization</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="recentRegs">
-                            <tr>
-                                <td>Jane Doe</td>
-                                <td>jane@example.com</td>
-                                <td>CompSci Club</td>
-                                <td>Pending</td>
-                                <td>
-                                    <button class="approve">Approve</button>
-                                    <button class="reject">Reject</button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="card dashboard-card">
+                <h3>Recent Registrations</h3>
+                <p>Manage and approve pending registrations.</p>
+                <a href="registrations.html" class="btn-blue" style="display:inline-block;padding:8px 16px;text-decoration:none;color:white;margin-top:10px;border-radius:6px;">See All</a>
+            </div>
 
-                <div class="card">
-                    <h3>Organization Directory</h3>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Org Name</th>
-                                <th>Contact</th>
-                                <th>Members</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>CompSci Club</td>
-                                <td>coach@uni.edu</td>
-                                <td>42</td>
-                                <td><button class="btn-green">Manage</button></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="card dashboard-card">
+                <h3>Organization Directory</h3>
+                <p>Manage all organizations and their details.</p>
+                <a href="organizations.html" class="btn-blue" style="display:inline-block;padding:8px 16px;text-decoration:none;color:white;margin-top:10px;border-radius:6px;">See All</a>
+            </div>
 
-                <div class="card">
-                    <h3>Membership Data / Export</h3>
-                    <p>Generate system-wide reports and export member lists.</p>
-                    <div style="display:flex;gap:8px;margin-top:12px;">
-                        <button class="btn-blue" onclick="downloadMembersCSV()">Download CSV</button>
-                        <button class="btn-green" onclick="downloadMembersExcel()">Download Excel</button>
-                    </div>
-                </div>
+            <div class="card dashboard-card">
+                <h3>Membership Data</h3>
+                <p>Export and manage membership information.</p>
+                <a href="memberships.html" class="btn-blue" style="display:inline-block;padding:8px 16px;text-decoration:none;color:white;margin-top:10px;border-radius:6px;">See All</a>
+            </div>
 
-                <div class="card">
-                    <h3>User Accounts & Permissions</h3>
-                    <p>Search, edit roles, reset passwords, and manage permissions.</p>
-                    <input type="text" placeholder="Search users..." oninput="filterUsers(this.value)">
-                    <table id="usersTable" style="margin-top:10px;">
-                        <thead>
-                            <tr><th>User</th><th>Role</th><th>Org</th><th>Action</th></tr>
-                        </thead>
-                        <tbody>
-                            <tr><td>Admin One</td><td>Administrator</td><td>—</td><td><button class="btn-blue">Edit</button></td></tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="card dashboard-card">
+                <h3>User Accounts & Permissions</h3>
+                <p>Manage users, roles, and permissions.</p>
+                <a href="users.html" class="btn-blue" style="display:inline-block;padding:8px 16px;text-decoration:none;color:white;margin-top:10px;border-radius:6px;">See All</a>
+            </div>
 
-                <div class="card">
-                    <h3>System Logs & Audit Trails</h3>
-                    <p>Recent system events and audit records.</p>
-                    <table>
-                        <thead><tr><th>Time</th><th>User</th><th>Event</th></tr></thead>
-                        <tbody>
-                            <tr><td>2026-02-25 10:12</td><td>superadmin</td><td>Exported members.xlsx</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="card dashboard-card">
+                <h3>System Logs & Audit Trails</h3>
+                <p>Review system events and audit records.</p>
+                <a href="logs.html" class="btn-blue" style="display:inline-block;padding:8px 16px;text-decoration:none;color:white;margin-top:10px;border-radius:6px;">See All</a>
+            </div>
 
-                <div class="card">
-                    <h3>Policy Updates</h3>
-                    <p>Update system policies and announcements.</p>
-                    <textarea placeholder="Write update or policy change..."></textarea>
-                    <button class="send">Publish</button>
-                </div>
-            </section>
+            <div class="card dashboard-card">
+                <h3>Policy Updates</h3>
+                <p>Publish and manage system policies.</p>
+                <a href="policies.html" class="btn-blue" style="display:inline-block;padding:8px 16px;text-decoration:none;color:white;margin-top:10px;border-radius:6px;">See All</a>
+            </div>
 
-        </main>
-    </div>
+            <div class="card dashboard-card">
+                <h3>Security Management</h3>
+                <p>System security and access control.</p>
+                <a href="security.html" class="btn-blue" style="display:inline-block;padding:8px 16px;text-decoration:none;color:white;margin-top:10px;border-radius:6px;">See All</a>
+            </div>
+        </section>
 
-    <script>
-        // Simple placeholder functions for actions
-        function exportExcel(){ alert('Exporting dashboard data to Excel (placeholder)'); }
-        function exportPDF(){ alert('Exporting dashboard data to PDF (placeholder)'); }
-        function downloadMembersCSV(){ alert('Downloading members CSV (placeholder)'); }
-        function downloadMembersExcel(){ alert('Downloading members Excel (placeholder)'); }
-        function filterUsers(q){ /* implement client-side filter later */ }
-    </script>
+    </main>
 
 </body>
 
