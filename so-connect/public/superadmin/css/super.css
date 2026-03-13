@@ -6,8 +6,24 @@
 }
 
 body {
-    background: #111;
+    /* global background color requested by user */
+    background: #F7ECEC;
+    color: #111;
 }
+
+/* Global card background (dark) */
+.card,
+.stat {
+    background: #102C26;
+    color: #f1f5f9;
+}
+
+/* Ensure tables inside cards remain legible */
+.card table {
+    background: transparent;
+}
+
+
 
 .layout {
     display: flex;
@@ -47,18 +63,22 @@ body {
 /* MAIN */
 .main {
     flex: 1;
-    background: #f1f5f9;
+    background: #F7ECEC;
     padding: 20px;
 }
 
 /* TOPBAR */
 .topbar {
-    background: #111;
+    /* make topbar match the dashboard's dark/teal theme */
+    background: linear-gradient(135deg,#0f4c3a 0%,#0f766e 100%);
     color: white;
     padding: 15px 25px;
     border-radius: 10px;
     margin-bottom: 20px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
+
+
 
 /* STATS */
 .stats {
@@ -67,18 +87,29 @@ body {
     gap: 15px;
     margin-bottom: 20px;
 }
-
 .stat {
-    background: white;
+    background: #102C26;
     padding: 20px;
     border-radius: 12px;
-    box-shadow: 0 5px 15px rgba(0,0,0,.1);
+    box-shadow: 0 5px 15px rgba(0,0,0,.15);
     text-align: center;
+    transition: transform .2s, box-shadow .2s;
+}
+.stat:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0,0,0,.2);
+}
+
+.stat-icon {
+    font-size: 2rem;
+    color: #6ee7b7;
+    margin-bottom: 10px;
 }
 
 .stat p {
     font-size: 28px;
     font-weight: bold;
+    color: #fff;
 }
 
 /* GRID */
@@ -90,10 +121,16 @@ body {
 
 /* CARD */
 .card {
-    background: white;
+    background: #102C26;
+    color: #f1f5f9;
     padding: 18px;
     border-radius: 12px;
-    box-shadow: 0 8px 20px rgba(0,0,0,.08);
+    box-shadow: 0 8px 25px rgba(0,0,0,.1);
+    transition: transform .2s, box-shadow .2s;
+}
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0,0,0,.15);
 }
 
 .card h3 {
@@ -109,8 +146,9 @@ table {
 
 th, td {
     padding: 10px;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
     word-wrap: break-word;
+    color: #f1f5f9;
 }
 
 /* Responsive table wrapper to allow horizontal scroll on small viewports */
@@ -166,10 +204,18 @@ td {
 .small svg { display:block; }
 
 /* Utility button colors to match admin theme */
-.btn-blue { background: #2563eb; color: white; border: none; }
+.btn-blue { background: #14b8a6; color: white; border: none; }
 .btn-green { background: #16a34a; color: white; border: none; }
 .btn-red { background: #dc2626; color: white; border: none; }
-.btn-blue:hover, .btn-green:hover, .btn-red:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.08); }
+.btn-blue:hover, .btn-green:hover, .btn-red:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+    opacity: .95;
+}
+.button-focus {
+    outline: 2px solid #14b8a6;
+    outline-offset: 2px;
+}
 
 /* Ensure small variant removes extra padding and centers */
 .small { color: white; }
@@ -197,7 +243,7 @@ input, textarea {
 
 /* BUTTONS */
 button {
-    background: #2563eb;
+    background: #14b8a6;
     color: white;
     padding: 8px 14px;
     border: none;

@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <title>SOConnect Admin Dashboard</title>
     <link rel="stylesheet" href="css/admin_dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
 
 <div class="layout">
 
-    <!-- SIDEBAR -->
+    <!-- SIDEBAR
     <aside class="sidebar">
         <h2 class="logo">SOCadmin</h2>
         <nav>
@@ -24,14 +25,22 @@
             <a>Export Reports</a>
             <a>Logout</a>
         </nav>
-    </aside>
+    </aside> -->
 
     <!-- MAIN -->
     <main class="main">
 
         <!-- TOP BAR -->
         <header class="topbar">
-            <h1>Admin Dashboard</h1>
+            <div class="topbar-content">
+                <h1><i class="fas fa-tachometer-alt"></i> Admin Dashboard</h1>
+                <div class="user-info">
+                    <span>Welcome, Admin</span>
+                    <div class="user-avatar">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                </div>
+            </div>
         </header>
 
         <!-- STATS -->
@@ -60,38 +69,16 @@
             <!-- Manage Organizations -->
             <div class="card">
                 <h3>Manage Organizations</h3>
-                <table>
-                    <tr><th>Name</th><th>Category</th><th>Members</th><th></th></tr>
-                    <tr><td>Student Government Association</td><td>Government</td><td>120</td><td><button>Manage</button></td></tr>
-                    <tr><td>Environmental Club</td><td>Environment</td><td>75</td><td><button>Manage</button></td></tr>
-                    <tr><td>IT Society</td><td>Technology</td><td>98</td><td><button>Manage</button></td></tr>
-                </table>
+                <p>Manage all organizations and their details.</p>
+                <br>
+                <a href="manage-organize.html" class="btn btn-blue btn-sm">See All</a> <br><br>
             </div>
 
             <!-- Pending Events -->
             <div class="card">
                 <h3>Pending Event Approvals</h3>
-                <table>
-                    <tr><th>Event</th><th>Date</th><th>Organizer</th><th></th></tr>
-                    <tr>
-                        <td>Charity Fundraiser</td>
-                        <td>April 28, 2024</td>
-                        <td>Environmental Club</td>
-                        <td>
-                            <button class="approve">Approve</button>
-                            <button class="reject">Reject</button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Hackathon</td>
-                        <td>May 5, 2024</td>
-                        <td>IT Society</td>
-                        <td>
-                            <button class="approve">Approve</button>
-                            <button class="reject">Reject</button>
-                        </td>
-                    </tr>
-                </table>
+                <p>Approve or reject pending events.</p> <br>
+                <a href="event-approval.html" class="btn btn-blue btn-sm">See All</a>
             </div>
 
             <!-- Announcements -->
