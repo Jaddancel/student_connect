@@ -7,12 +7,12 @@ use App\Models\Approval;
 
 class ApprovalService
 {
-    public function approveRequest($requestId, $adminId)
+    public static function approveRequest($requestId, $adminId)
     {
         // find and get the request item
         $request = ActionRequest::find($requestId);
         $request_type = $request->actionType;
-        $this->parseRequest($request, $request_type);
+        self::parseRequest($request, $request_type);
 
         if (! $request) {
             return response()->json(['message' => 'Request not found'], 404);
@@ -28,7 +28,7 @@ class ApprovalService
     }
 
     // FORMAT: "[user_id]|[organization_id]"
-    private function parseRequest($request, $request_type)
+    private static function parseRequest($request, $request_type)
     {
         $action = $request->action ?? '';
         $data = explode('|', $action);

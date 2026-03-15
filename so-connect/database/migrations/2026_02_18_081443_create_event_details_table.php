@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id('event_detail_id');
             $table->string('event_name');
             $table->timestamp('event_created_at')->useCurrent();
-            $table->timestamp('event_start_date');
-            $table->timestamp('event_end_date');
+            $table->dateTime('event_start_date');
+            $table->dateTime('event_end_date');
             $table->string('event_description_text')->nullable();
             $table->string('event_location')->nullable();
         });

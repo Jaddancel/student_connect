@@ -18,9 +18,9 @@
                 <tbody>
                     @forelse ($requests as $request)
                         <tr>
-                            <td>{{ $request->user->profile->first_name }}</td>
+                            <td>{{ $request->user->profile->last_name .", ". $request->user->profile->first_name . " " . $request->user->profile->middle_name ?? ""}}</td>
                             <td>{{ $request->organization->organization_name}}</td>
-                            <td></td>
+                            <td>{{ $request->request_time }}</td>
                             <td>
                                 @if ($request->status === 'pending')
                                     <span class="badge badge-warning">Pending</span>

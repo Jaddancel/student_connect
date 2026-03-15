@@ -28,7 +28,7 @@ Route::post('register', [Register::class])
 
 Route::get('forms/membership_registration', [Membership_Registration::class, 'view']);
 
-Route::post('forms/membership/register', [MemberController::class, 'register'])
+Route::post('forms/membership/register', [MemberController::class, 'membershipRegistration'])
     ->middleware('auth')
     ->name('membership.register');
 
@@ -66,7 +66,7 @@ Route::view('/login', 'auth.login')
 Route::post('login', Login::class)
     ->middleware('guest');
 
-Route::get('/admin/membership_requests', [ApprovalController::class, 'membershipRequests'])
+Route::get('/admin/membership_requests', [MemberController::class, 'viewMembershipRequests'])
     ->middleware('auth')
     ->name('admin.membership_requests');
 
