@@ -6,10 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>{{isset($title) ? $title . " - SOConnect" : 'SOConnect'}}</title>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/dashboard.js'])
 </head>
 
-<body class="min-h-screen flex flex-col bg-[#fafaf6] font-sans">
+<body class="min-h-screen flex flex-col bg-base-200 font-sans">
 
     @auth
         @php
@@ -20,7 +20,7 @@
         <div class="drawer lg:drawer-open">
             <input id="my-drawer-4" type="checkbox" class="drawer-toggle" />
             <div class="drawer-content">
-                <nav class="navbar bg-base-100">
+                <nav class="navbar">
                     <label for="my-drawer-4" aria-label="open sidebar" class="btn btn-square btn-ghost">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-linejoin="round"
                             stroke-linecap="round" stroke-width="2" fill="none" stroke="currentColor"
@@ -73,7 +73,7 @@
             </div>
             <div class="drawer-side is-browser-close:overflow-visible">
                 <label for="my-drawer-4" aria-label="close sidebar" class="drawer-overlay"></label>
-                <div class="flex min-h-full flex-col items-start bg-base-200 is-drawer-close:w-14 is-drawer-open:w-64">
+                <div class="flex min-h-full flex-col items-start bg-base-100 is-drawer-close:w-14 is-drawer-open:w-64">
                     <ul class="menu w-full grow">
                         @if (is_null($typeCode))
                             <p>User has no role</p>
@@ -93,7 +93,6 @@
     @else
             You're not supposed to be here.
         @endauth
-
 
 </body>
 
