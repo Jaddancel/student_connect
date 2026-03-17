@@ -21,15 +21,13 @@
             <input id="my-drawer-4" type="checkbox" class="drawer-toggle" />
             <div class="drawer-content">
                 <nav class="navbar">
-                    <label for="my-drawer-4" aria-label="open sidebar" class="btn btn-square btn-ghost">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-linejoin="round"
-                            stroke-linecap="round" stroke-width="2" fill="none" stroke="currentColor"
-                            class="my-1.5 inline-block size-4">
-                            <path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z">
-                            </path>
-                            <path d="M9 4v16"></path>
-                            <path d="M14 10l2 2l-2 2"></path>
+                    <label for="my-drawer-4" aria-label="open sidebar" class="btn btn-square btn-ghost lg:hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" class="size-5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                         </svg>
+
                     </label>
                     <div class="navbar-start">
                         <p class="btn btn-ghost text-xl"><a href="http://" target="_blank"
@@ -73,7 +71,7 @@
             </div>
             <div class="drawer-side is-browser-close:overflow-visible">
                 <label for="my-drawer-4" aria-label="close sidebar" class="drawer-overlay"></label>
-                <div class="flex min-h-full flex-col items-start bg-base-100 is-drawer-close:w-14 is-drawer-open:w-64">
+                <div class="flex min-h-full flex-col items-start bg-base-100 ">
                     <ul class="menu w-full grow">
                         @if (is_null($typeCode))
                             <p>User has no role</p>
@@ -89,7 +87,6 @@
                     </ul>
                 </div>
             </div>
-            <script type="module" src="https://unpkg.com/cally"></script>
     @else
             You're not supposed to be here.
         @endauth

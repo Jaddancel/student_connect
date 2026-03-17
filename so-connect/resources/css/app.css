@@ -86,3 +86,9 @@
   --noise: 0;
 }
 
+@layer base {
+  html {
+    @apply text-lg; /* Changes default size from 16px to 18px */
+  }
+}
+

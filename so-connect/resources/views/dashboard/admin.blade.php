@@ -27,7 +27,8 @@
         <div class="card p-5 bg-base-100 shadow grow-2">
             <h3 class="card-title font-bold text-lg px-2">Make Announcement</h3>
             <div class="card-body">
-                <input type="text" name="ann_title" id="ann_title" class="input w-full" placeholder="Announcement Title">
+                <input type="text" name="ann_title" id="ann_title" class="input w-full"
+                    placeholder="Announcement Title">
                 <textarea name="" id="" cols="30" placeholder="Enter announcement text here."
                     class="textarea w-full"></textarea>
             </div>
@@ -93,7 +94,7 @@
         </div>
         <div class="card p-5 bg-base-100 shadow">
             <h3 class="card-title font-bold text-lg px-2">Recent Event Requests</h3>
-            <div class="card-body">
+            <div class="card-body hidden md:block">
                 <table class="table table-base">
                     <tr>
                         <th>Event</th>
@@ -113,6 +114,9 @@
                         </td>
                     </tr>
                 </table>
+            </div>
+            <div class="card-body md:hidden">
+                SMALL
             </div>
         </div>
     </div>
