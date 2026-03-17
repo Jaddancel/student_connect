@@ -21,67 +21,18 @@
         </div>
         <button class="btn btn-xs ghost m-4">Export as PDF</button>
     </div>
+
+
     <div class="flex flex-row align-middle flex-wrap gap-5">
-        <div class="card p-5 shadow bg-base-100">
-            <h3 class="card-title font-bold text-lg">Manage Organizations</h3>
-            <div class="card-body p-5">
-                <table class="table table-base">
-                    <tr>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Member Count</th>
-                    </tr>
-                    </a>
-                    <tr>
-                        <td><a href="#" class="link">Ang Mga Juan Dela Cruz</a></td>
-                        <td>Type</td>
-                        <td>29</td>
-                    </tr>
-                </table>
-            </div>
-        </div>
-        <div class="card p-5 bg-base-100 shadow">
-            <h3 class="card-title font-bold text-lg px-2">Recent Event Requests</h3>
-            <div class="card-body">
-                <table class="table table-base">
-                    <tr>
-                        <th>Event</th>
-                        <th>Date</th>
-                        <th>Organizer</th>
-                        <th></th>
-                    </tr>
-                    <tr>
-                        <td>Order 500 Cigarettes</td>
-                        <td>9-11-2026</td>
-                        <td>DOH</td>
-                        <td>
-                            <div class="flex flex-row">
-                                <button type="button" class="btn btn-primary bg-success mr-1 p-2">Y</button>
-                                <button type="button" class="btn btn-primary bg-error p-2">N</button>
-                            </div>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-        </div>
-        <div class="card p-5 bg-base-100 shadow">
-            <h3 class="card-title font-bold px-2">Reports</h3>
-            <div class="card-body">
-                <div class="flex flex-col gap-y-5">
-                    <div class="text-xs uppercase opacity-60 font-semibold">Updated: Sept. 20, 2025</div>
-                    <button class="btn btn-primary">Read Latest Report</button>
-                </div>
-            </div>
-        </div>
-        <div class="card p-5 bg-base-100 shadow">
+        <div class="card p-5 bg-base-100 shadow grow-2">
             <h3 class="card-title font-bold text-lg px-2">Make Announcement</h3>
             <div class="card-body">
-                <input type="text" name="ann_title" id="ann_title" class="input" placeholder="Announcement Title">
+                <input type="text" name="ann_title" id="ann_title" class="input w-full" placeholder="Announcement Title">
                 <textarea name="" id="" cols="30" placeholder="Enter announcement text here."
-                    class="textarea"></textarea>
+                    class="textarea w-full"></textarea>
             </div>
         </div>
-        <div class="card p-5 bg-base-100 shadow">
+        <div class="card p-5 bg-base-100 shadow grow-2">
             <h3 class="card-title font-bold text-lg px-2">Pending Membership Approvals</h3>
             <div class="card-body">
                 <ul class="list rounded-box">
@@ -110,6 +61,58 @@
                         </button>
                     </li>
                 </ul>
+            </div>
+        </div>
+        <div class="card p-5 bg-base-100 shadow grow-2">
+            <h3 class="card-title font-bold px-2">Reports</h3>
+            <div class="card-body">
+                <div class="flex flex-col gap-y-5">
+                    <div class="text-xs uppercase opacity-60 font-semibold">Updated: Sept. 20, 2025</div>
+                    <button class="btn btn-primary">Read Latest Report</button>
+                </div>
+            </div>
+        </div>
+        <div class="card p-5 shadow bg-base-100">
+
+            <h3 class="card-title font-bold text-lg">Manage Organizations</h3>
+            <div class="card-body p-5">
+                <table class="table table-base">
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Member Count</th>
+                    </tr>
+                    </a>
+                    <tr>
+                        <td><a href="#" class="link">Ang Mga Juan Dela Cruz</a></td>
+                        <td>Type</td>
+                        <td>29</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        <div class="card p-5 bg-base-100 shadow">
+            <h3 class="card-title font-bold text-lg px-2">Recent Event Requests</h3>
+            <div class="card-body">
+                <table class="table table-base">
+                    <tr>
+                        <th>Event</th>
+                        <th>Date</th>
+                        <th>Organizer</th>
+                        <th></th>
+                    </tr>
+                    <tr>
+                        <td>Webinar</td>
+                        <td>9-11-2026</td>
+                        <td>DOH</td>
+                        <td>
+                            <div class="flex flex-row">
+                                <button type="button" class="btn btn-primary bg-success mr-1 p-2">Y</button>
+                                <button type="button" class="btn btn-primary bg-error p-2">N</button>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
             </div>
         </div>
     </div>
