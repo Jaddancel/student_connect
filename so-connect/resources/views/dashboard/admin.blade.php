@@ -1,4 +1,4 @@
-<div class="flex flex-col align-middle space-y-5 :p-8">
+<div class="flex flex-col item-start space-y-5 p-8">
     <div class="card shadow bg-base-100 flex flex-col items-start">
         <div class="stats w-full">
             <div class="stat">
@@ -19,7 +19,7 @@
                 <div class="stat-value text-primary">29</div>
             </div>
         </div>
-        <button class="btn btn-xs ghost m-4">Export as PDF</button>
+        <button class="btn btn-xs ghost mb-3 ml-4">Export as PDF</button>
     </div>
 
 
@@ -84,7 +84,7 @@
                     </tr>
                     </a>
                     <tr>
-                        <td><a href="#" class="link">Ang Mga Juan Dela Cruz</a></td>
+                        <td>Ang Mga Juan Dela Cruz</td>
                         <td>Type</td>
                         <td>29</td>
                     </tr>
