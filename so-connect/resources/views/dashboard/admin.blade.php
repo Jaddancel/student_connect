@@ -2,11 +2,6 @@
     <div class="card shadow bg-base-100 flex flex-col items-start">
         <div class="stats w-full">
             <div class="stat">
-                <div class="stat-figure text-primary"></div>
-                <div class="stat-title">Organizations</div>
-                <div class="stat-value text-primary">10</div>
-            </div>
-            <div class="stat">
                 <div class="stat-title">Pending Events</div>
                 <div class="stat-value text-primary">12</div>
             </div>

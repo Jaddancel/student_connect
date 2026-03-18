@@ -1,0 +1,5 @@
+{
+    "require": {
+        "icehouse-ventures/laravel-chartjs": "^4.2"
+    }
+}

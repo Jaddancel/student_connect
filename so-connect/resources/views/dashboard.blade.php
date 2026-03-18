@@ -10,7 +10,7 @@
         @elseif ($typeCode == 2)
             <x-slot name="title">Admin Dashboard</x-slot>
             @include('dashboard.admin')
-        @else
+        @elseif ($typeCode == 1)
             <x-slot name="title">Super Admin Dashboard</x-slot>
             @include('dashboard.superadmin')
         @endif
