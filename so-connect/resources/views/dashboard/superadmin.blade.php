@@ -41,5 +41,35 @@
                 {{-- Insert A Chart Here --}}
             </div>
         </div>
+        <div class="card bg-base-100 p-5">
+            <h3 class="card-title font-bold">Server Status</h3>
+            <div class="card-body">
+                <table class="table table-base">
+                    {{-- <tr>
+                        <th>Service</th>
+                    </tr> --}}
+                    <tr>
+                        <td>
+                            <div class="status status-success mr-5" aria-label="success"></div>Relay
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="status status-success mr-5" aria-label="success"></div>Auditor
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="status status-success mr-5" aria-label="success"></div>Database
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="status status-success mr-5" aria-label="success"></div>Apache
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
