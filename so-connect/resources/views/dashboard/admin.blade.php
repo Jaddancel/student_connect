@@ -14,7 +14,7 @@
                 <div class="stat-value text-primary">29</div>
             </div>
         </div>
-        <button class="btn btn-xs ghost mb-3 ml-4">Export as PDF</button>
+        <button class="btn btn-xs pt-4 p-3 ghost mb-3 ml-4">Export as PDF</button>
     </div>
 
 
@@ -26,6 +26,7 @@
                     placeholder="Announcement Title">
                 <textarea name="" id="" cols="30" placeholder="Enter announcement text here."
                     class="textarea w-full"></textarea>
+                <button class="btn btn-primary hover">Post</button>
             </div>
         </div>
         <div class="card p-5 bg-base-100 shadow grow-2">
@@ -69,7 +70,6 @@
             </div>
         </div>
         <div class="card p-5 shadow bg-base-100">
-
             <h3 class="card-title font-bold text-lg">Manage Organizations</h3>
             <div class="card-body p-5">
                 <table class="table table-base">
@@ -103,8 +103,19 @@
                         <td>DOH</td>
                         <td>
                             <div class="flex flex-row">
-                                <button type="button" class="btn btn-primary bg-success mr-1 p-2">Y</button>
-                                <button type="button" class="btn btn-primary bg-error p-2">N</button>
+                                <button class="btn btn-square btn-ghost">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                        stroke-width="3" stroke="currentColor" class="size-[1.2em]">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="m4.5 12.75 6 6 9-13.5" />
+                                    </svg>
+                                </button>
+                                <button class="btn btn-square btn-ghost">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                        stroke-width="3" stroke="currentColor" class="size-[1.2em]">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -112,6 +123,14 @@
             </div>
             <div class="card-body md:hidden">
                 SMALL
+            </div>
+        </div>
+        <div class="card p-5 bg-base-100">
+            <h3 class="card-title">Calendar</h3>
+            <div class="card-body">
+                <div class="list">
+
+                </div>
             </div>
         </div>
     </div>

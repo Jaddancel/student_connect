@@ -65,7 +65,7 @@
                             </ul>
                         </div>
                 </nav>
-                <main class="flex-1 container mx-auto px-4 py-8 space-y-5">
+                <main class="flex-1 container m-auto px-4 py-8 space-y-5">
                     {{ $slot }}
                 </main>
             </div>
@@ -90,7 +90,8 @@
     @else
             You're not supposed to be here.
         @endauth
-
+        <script type="module" src="https://unpkg.com/cally"></script>
+        @stack('scripts')
 </body>
 
 </html>
