@@ -24,7 +24,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 document.getElementById('modal_body').innerHTML = body;
                 document.getElementById('event_modal').showModal();
-            }
+            },
+            dayCellClassNames: 'cursor-pointer hover:bg-base-200'
         });
         calendar.render();
     }
