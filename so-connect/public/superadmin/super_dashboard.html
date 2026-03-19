@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Super Admin Dashboard</title>
+    <!-- Use the unified admin dashboard styles for consistent look -->
+    <link rel="stylesheet" href="../admin/css/admin_dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body>
+
+    <main class="main">
+        <header class="topbar">
+            <div class="topbar-content">
+                <h1><i class="fas fa-crown"></i> Super Admin Dashboard</h1>
+                <div class="user-info">
+                    <span>Welcome, Super Admin</span>
+                    <div class="user-avatar">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <div class="topbar-actions" style="margin-bottom:16px; display:flex; gap:10px; flex-wrap:wrap;">
+            <button onclick="exportExcel()" class="btn btn-blue btn-sm"><i class="fas fa-file-excel"></i> Export Excel</button>
+            <button onclick="exportPDF()" class="btn btn-blue btn-sm"><i class="fas fa-file-pdf"></i> Export PDF</button>
+        </div>
+
+        <section class="stats">
+            <div class="stat card">
+                <div class="stat-icon"><i class="fas fa-users"></i></div>
+                <p id="totalUsers">1,234</p>
+                <small>Total Users</small>
+            </div>
+            <div class="stat card">
+                <div class="stat-icon"><i class="fas fa-building"></i></div>
+                <p id="totalOrgs">128</p>
+                <small>Organizations</small>
+            </div>
+            <div class="stat card">
+                <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                <p id="pendingRegs">24</p>
+                <small>Pending Registrations</small>
+            </div>
+            <div class="stat card">
+                <div class="stat-icon"><i class="fas fa-id-card"></i></div>
+                <p id="activeMemberships">3,210</p>
+                <small>Active Memberships</small>
+            </div>
+        </section>
+
+        <section class="grid">
+            <div class="card dashboard-card">
+                <h3>Registration Analytics</h3>
+                <p>View registration trends and analytics.</p>
+                <a href="reports.html" class="btn btn-blue btn-sm">See All</a>
+            </div>
+
+            <div class="card dashboard-card">
+                <h3>Recent Registrations</h3>
+                <p>Manage and approve pending registrations.</p>
+                <a href="registrations.html" class="btn btn-blue btn-sm">See All</a>
+            </div>
+
+            <div class="card dashboard-card">
+                <h3>Organization Directory</h3>
+                <p>Manage all organizations and their details.</p>
+                <a href="organizations.html" class="btn btn-blue btn-sm">See All</a>
+            </div>
+
+            <div class="card dashboard-card">
+                <h3>Membership Data</h3>
+                <p>Export and manage membership information.</p>
+                <a href="memberships.html" class="btn btn-blue btn-sm">See All</a>
+            </div>
+
+            <div class="card dashboard-card">
+                <h3>User Accounts & Permissions</h3>
+                <p>Manage users, roles, and permissions.</p>
+              <a href="users.html" class="btn btn-blue btn-sm">See All</a>
+            </div>
+
+            <div class="card dashboard-card">
+                <h3>System Logs & Audit Trails</h3>
+                <p>Review system events and audit records.</p>
+                <a href="logs.html" class="btn btn-blue btn-sm">See All</a>
+            </div>
+
+            <div class="card dashboard-card">
+                <h3>Policy Updates</h3>
+                <p>Publish and manage system policies.</p>
+                <a href="policies.html" class="btn btn-blue btn-sm">See All</a>
+            </div>
+
+            <div class="card dashboard-card">
+                <h3>Security Management</h3>
+                <p>System security and access control.</p>
+                <a href="security.html" class="btn btn-blue btn-sm">See All</a>
+            </div>
+        </section>
+
+    </main>
+
+</body>
+
+</html>
