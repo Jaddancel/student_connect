@@ -35,6 +35,16 @@ class Member extends Model
         return $this->hasOne(organizationDetail::class, 'president', 'member_id');
     }
 
+    public function evaluations()
+    {
+        return $this->hasMany(Evaluation::class, 'evaluation_author', 'member_id');
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(Document::class, 'document_author', 'member_id');
+    }
+
     public function organization()
     {
         return $this->belongsTo(Organization::class, 'organization', 'organization_id');

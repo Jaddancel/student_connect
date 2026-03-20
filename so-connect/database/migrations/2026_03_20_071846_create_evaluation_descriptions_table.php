@@ -11,11 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('requests', function (Blueprint $table) {
-            $table->id('request_id');
-            $table->string('action')->nullable();
-            $table->string('action_type')->nullable();
-            $table->dateTime('request_made_at')->useCurrent();
+        Schema::create('evaluation_descriptions', function (Blueprint $table) {
+            $table->id('evaluation_description_id');
+            $table->text('evaluation_description_text')->nullable();
+            $table->timestamp('evaluation_created_at')->nullable();
         });
     }
 
@@ -24,6 +23,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('requests');
+        Schema::dropIfExists('evaluation_descriptions');
     }
 };

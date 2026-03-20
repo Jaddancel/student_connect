@@ -13,13 +13,13 @@ return new class extends Migration
     {
         // Add foreign key to users table for profile_id
         Schema::table('users', function (Blueprint $table) {
-            if (!Schema::hasColumn('users', 'profile_id')) {
+            if (! Schema::hasColumn('users', 'profile_id')) {
                 $table->unsignedBigInteger('profile_id')->nullable()->change();
             }
             // Only add foreign key if it doesn't exist
             try {
                 $table->foreign('profile_id')->references('profile_id')->on('profiles')->onDelete('set null');
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // Foreign key might already exist
             }
         });
@@ -28,7 +28,7 @@ return new class extends Migration
         Schema::table('organizations', function (Blueprint $table) {
             try {
                 $table->foreign('organization_detail')->references('organization_detail_id')->on('organization_details')->onDelete('set null');
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // Foreign key might already exist
             }
         });
@@ -37,12 +37,12 @@ return new class extends Migration
         Schema::table('templates', function (Blueprint $table) {
             try {
                 $table->foreign('template_author')->references('member_id')->on('members')->onDelete('set null');
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // Foreign key might already exist
             }
             try {
                 $table->foreign('template_description')->references('template_desc_id')->on('template_descriptions')->onDelete('set null');
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // Foreign key might already exist
             }
         });
@@ -51,7 +51,7 @@ return new class extends Migration
         Schema::table('members', function (Blueprint $table) {
             try {
                 $table->foreign('approval_id')->references('approval_id')->on('approvals')->onDelete('set null');
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // Foreign key might already exist
             }
         });
@@ -60,7 +60,21 @@ return new class extends Migration
         Schema::table('events', function (Blueprint $table) {
             try {
                 $table->foreign('event_detail')->references('event_detail_id')->on('event_details')->onDelete('set null');
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
+                // Foreign key might already exist
+            }
+        });
+
+        // Add foreign keys to documents for description and author
+        Schema::table('documents', function (Blueprint $table) {
+            try {
+                $table->foreign('document_desc_id')->references('document_desc_id')->on('document_descriptions')->onDelete('set null');
+            } catch (Exception $e) {
+                // Foreign key might already exist
+            }
+            try {
+                $table->foreign('document_author')->references('member_id')->on('members')->onDelete('set null');
+            } catch (Exception $e) {
                 // Foreign key might already exist
             }
         });
@@ -90,6 +104,11 @@ return new class extends Migration
 
         Schema::table('events', function (Blueprint $table) {
             $table->dropForeignIfExists('events_event_detail_foreign');
+        });
+
+        Schema::table('documents', function (Blueprint $table) {
+            $table->dropForeignIfExists('documents_document_desc_id_foreign');
+            $table->dropForeignIfExists('documents_document_author_foreign');
         });
     }
 };
