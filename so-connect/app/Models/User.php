@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
     /**
@@ -18,10 +19,12 @@ class User extends Authenticatable
      */
     protected $primaryKey = 'user_id';
 
+    protected $table = 'users';
+
     protected $fillable = [
         'user_email',
         'user_password',
-        'user_type_code',
+        'user_type',
         'profile_id',
         'user_created_at',
     ];
@@ -56,24 +59,9 @@ class User extends Authenticatable
         return $this->user_password;
     }
 
-    public function userType()
-    {
-        return $this->belongsTo(UserType::class, 'user_type_code', 'user_type_code');
-    }
-
     public function profile()
     {
         return $this->hasOne(Profile::class, 'profile_id', 'profile_id');
-    }
-
-    public function administrator()
-    {
-        return $this->hasOne(Administrator::class, 'user', 'user_id');
-    }
-
-    public function superAdministrator()
-    {
-        return $this->hasOne(SuperAdministrator::class, 'user', 'user_id');
     }
 
     public function member()

@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Profile\Occupation;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,10 +17,7 @@ class ProfileFactory extends Factory
     public function definition(): array
     {
         return [
-            'first_name' => $this->faker->firstName(),
-            'middle_name' => $this->faker->optional(0.7)->firstName(),
-            'last_name' => $this->faker->lastName(),
-            'occupation_code' => Occupation::query()->inRandomOrder()->value('occupation_code') ?? 1,
+            //
         ];
     }
 }

@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\ActionRequest;
+
 class RequestService
 {
     public function createRequest($action, $actionTypeCode)
     {
-        $request = new \App\Models\ActionRequest;
+        $request = new ActionRequest;
         $request->action = $action;
         $request->request_action_type = $actionTypeCode;
         if ($this->validateRequest($action)) {

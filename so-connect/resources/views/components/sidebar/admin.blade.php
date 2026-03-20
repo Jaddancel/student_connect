@@ -39,7 +39,6 @@
         </summary>
         <ul class="is-drawer-close:hidden">
             <li><a href="/admin/forms_management">Manage Forms</a></li>
-            <li><a href="/admin/template_management">Manage Templates</a></li>
         </ul>
     </details>
 </li>
