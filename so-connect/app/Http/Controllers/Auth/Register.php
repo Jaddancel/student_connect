@@ -15,16 +15,15 @@ class Register extends Controller
     public function __invoke(Request $request)
     {
         $incomingFields = $request->validate([
-            'name' => ['required', 'min:3', 'max:23', Rule::unique('users', 'name')],
-            'email' => ['required', 'min:3', Rule::unique('users', 'email')],
-            'password' => 'required',
+            'user_email' => ['required', 'min:3', Rule::unique('users', 'user_email')],
+            'user_password' => ['required', 'min:6'],
         ]);
 
-        $incomingFields['password'] = bcrypt($incomingFields['password']);
+        $incomingFields['user_password'] = bcrypt($incomingFields['user_password']);
         $loggedUser = User::create($incomingFields);
 
         auth()->guard()->login($loggedUser);
 
-        return redirect('/student_dashboard');
+        return redirect('/profile/create');
     }
 }

@@ -5,23 +5,27 @@
         <h1 class="text-xl text-black font-bold my-3">Membership Registration</h1>
         <div id="form" class="flex flex-col gap-4 p-6">
             <form method="GET" action="membership_registration">
-                <label for="org_type_selector" class="text-black pb-2 flex flex-col gap-4">Organization Type Label</label>
+                <label for="org_type_selector" class="text-black pb-2 flex flex-col gap-4">Organization Type
+                    Label</label>
                 <select name="org_type_selector" class="select select-primary select-lg select-bordered"
                     id="org_type_select" onchange="this.form.submit()">
                     @foreach ($organization_types as $organization_type)
-                        <option value="{{ $organization_type->organization_type_code }}"
-                            {{ request('org_type_selector') == $organization_type->organization_type_code ? 'selected' : '' }}>
-                            {{ $organization_type->organization_type }}
+                        <option value="{{ $organization_type}}" {{ request('org_type_selector') == $organization_type ? 'selected' : '' }}>
+                            {{ $organization_type}}
                         </option>
                     @endforeach
                 </select>
             </form>
 
-            <form action="{{ route('membership.register') }}" method="post" class="flex flex-col gap-4">
+            <form action="{{ route('member.register_request') }}" method="post" class="flex flex-col gap-4">
                 @csrf
                 <label for="organization_id" class=" text-black pb-3 ">
                     Pick a Organization </label>
-                <select class="select select-primary select-lg select-bordered" name="organization_id" id="organization_id">
+                <select class="select select-primary select-lg select-bordered" name="organization_id"
+                    id="organization_id">
+                    @if ($organizations->isEmpty())
+                        <option value="" disabled>No organizations available</option>
+                    @endif
                     @foreach ($organizations as $organization)
                         <option value="{{ $organization->organization_id }}">{{ $organization->organization_name }}</option>
                     @endforeach

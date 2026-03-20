@@ -33,20 +33,14 @@
                 @csrf
 
                 <fieldset class="fieldset">
-                    <label class="fieldset-legend text-sm font-semibold">Name</label>
-                    <input type="text" name="name" value="{{ old('name') }}" class="input input-bordered w-full"
-                        placeholder="Enter your name" required autofocus />
-                </fieldset>
-
-                <fieldset class="fieldset">
                     <label class="fieldset-legend text-sm font-semibold">Email</label>
-                    <input type="email" name="email" value="{{ old('email') }}" class="input input-bordered w-full"
+                    <input type="email" name="user_email" value="{{ old('email') }}" class="input input-bordered w-full"
                         placeholder="you@example.com" required />
                 </fieldset>
 
                 <fieldset class="fieldset">
                     <label class="fieldset-legend text-sm font-semibold">Password</label>
-                    <input type="password" name="password" class="input input-bordered w-full"
+                    <input type="password" name="user_password" class="input input-bordered w-full"
                         placeholder="Enter your password" required />
                 </fieldset>
 

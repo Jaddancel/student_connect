@@ -21,6 +21,12 @@ class User extends Authenticatable
 
     protected $table = 'users';
 
+    // default value for user_type is 1 (student)
+
+    protected $attributes = [
+        'user_type' => 3,
+    ];
+
     protected $fillable = [
         'user_email',
         'user_password',
