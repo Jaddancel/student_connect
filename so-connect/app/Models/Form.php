@@ -24,4 +24,9 @@ class Form extends Model
     {
         return $this->belongsTo(formDescription::class, 'form_description', 'form_desc_id');
     }
+
+    public function template()
+    {
+        return $this->belongsTo(Template::class, 'form_template', 'template_id');
+    }
 }
