@@ -3,6 +3,19 @@
 <x-dashboard-layout>
     <div class="container mx-auto lg:w-2/4 px-4 lg:px-0">
         <h1 class="text-xl text-black font-bold my-3">Membership Registration</h1>
+
+        @if (session('success'))
+            <div class="alert alert-success mb-4" role="alert">
+                <span>{{ session('success') }}</span>
+            </div>
+        @endif
+
+        @if ($errors->any())
+            <div class="alert alert-error mb-4" role="alert">
+                <span>{{ $errors->first() }}</span>
+            </div>
+        @endif
+
         <div id="form" class="flex flex-col gap-4 p-6">
             <form method="GET" action="{{ route('forms.membership_registration') }}">
                 <label for="org_type_selector" class="text-black pb-2 flex flex-col gap-4">Organization Type
@@ -42,5 +55,7 @@
                 <button type="submit" class="block sm:hidden btn btn-primary text-white">Submit</button>
             </form>
         </div>
+
+
     </div>
 </x-dashboard-layout>

@@ -12,15 +12,16 @@ class MemberController extends Controller
         // Validate the incoming request data
         $validatedData = $request->validate([
             'organization_id' => 'required|integer',
-            'user_id' => 'required|integer',
-            // Add other necessary validation rules
         ]);
 
+        $validatedData['user_id'] = auth()->user()->getKey();
         (new ActionService)->passAction($validatedData, 0);
     }
 
     public function post(Request $request)
     {
         $this->createMembershipRequest($request);
+
+        return redirect()->route('forms.membership_registration')->with('success', 'Membership request submitted successfully.');
     }
 }
