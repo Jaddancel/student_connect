@@ -2,7 +2,7 @@
     @auth
         @php
             $typeCode = auth()->user()
-                ->user_type_code;
+                ->user_type;
         @endphp
         @if ($typeCode == 3)
             <x-slot name="title">Member Dashboard</x-slot>
@@ -94,21 +94,21 @@
                     const style = document.createElement('style');
                     style.id = 'event-dot-styles';
                     style.textContent = `
-                                                                                        .has-event {
-                                                                                            position: relative;
-                                                                                        }
-                                                                                        .has-event .event-dot {
-                                                                                            position: absolute;
-                                                                                            bottom: 2px;
-                                                                                            left: 50%;
-                                                                                            transform: translateX(-50%);
-                                                                                            width: 6px;
-                                                                                            height: 6px;
-                                                                                            border-radius: 50%;
-                                                                                            background-color: oklch(0.7 0.15 60);
-                                                                                            pointer-events: none;
-                                                                                        }
-                                                                                    `;
+                                                                                                .has-event {
+                                                                                                    position: relative;
+                                                                                                }
+                                                                                                .has-event .event-dot {
+                                                                                                    position: absolute;
+                                                                                                    bottom: 2px;
+                                                                                                    left: 50%;
+                                                                                                    transform: translateX(-50%);
+                                                                                                    width: 6px;
+                                                                                                    height: 6px;
+                                                                                                    border-radius: 50%;
+                                                                                                    background-color: oklch(0.7 0.15 60);
+                                                                                                    pointer-events: none;
+                                                                                                }
+                                                                                            `;
                     shadowRoot.prepend(style);
                 }
 

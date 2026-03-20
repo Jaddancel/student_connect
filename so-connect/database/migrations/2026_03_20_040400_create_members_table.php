@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('members', function (Blueprint $table) {
             $table->id('member_id');
-            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('user');
             $table->unsignedBigInteger('organization');
             $table->unsignedBigInteger('approval_id')->nullable();
             $table->string('role')->nullable();
@@ -21,7 +21,7 @@ return new class extends Migration
             $table->timestamps();
 
             // Foreign keys
-            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+            $table->foreign('user')->references('user_id')->on('users')->onDelete('cascade');
             $table->foreign('organization')->references('organization_id')->on('organizations')->onDelete('cascade');
         });
     }

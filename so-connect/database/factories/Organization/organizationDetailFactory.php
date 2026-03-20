@@ -5,10 +5,12 @@ namespace Database\Factories\Organization;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Organization\organizationDetail>
+ * @extends Factory<\App\Models\Organization\organizationDetail>
  */
 class organizationDetailFactory extends Factory
 {
+     protected $model = \App\Models\Organization\organizationDetail::class;
+
     /**
      * Define the model's default state.
      *
@@ -17,7 +19,9 @@ class organizationDetailFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'organization_name' => $this->faker->company(),
+            'organization_initials' => $this->faker->lexify('???'),
+            'president' => null,
         ];
     }
 }

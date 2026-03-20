@@ -4,14 +4,17 @@
     <div class="container mx-auto lg:w-2/4 px-4 lg:px-0">
         <h1 class="text-xl text-black font-bold my-3">Membership Registration</h1>
         <div id="form" class="flex flex-col gap-4 p-6">
-            <form method="GET" action="membership_registration">
+            <form method="GET" action="{{ route('forms.membership_registration') }}">
                 <label for="org_type_selector" class="text-black pb-2 flex flex-col gap-4">Organization Type
                     Label</label>
                 <select name="org_type_selector" class="select select-primary select-lg select-bordered"
                     id="org_type_select" onchange="this.form.submit()">
-                    @foreach ($organization_types as $organization_type)
-                        <option value="{{ $organization_type}}" {{ request('org_type_selector') == $organization_type ? 'selected' : '' }}>
-                            {{ $organization_type}}
+                    <option value="" {{ request('org_type_selector') === null || request('org_type_selector') === '' ? 'selected' : '' }}>
+                        All Organization Types
+                    </option>
+                    @foreach ($organization_types as $type_code => $organization_type)
+                        <option value="{{ $type_code }}" {{ (string) request('org_type_selector') === (string) $type_code ? 'selected' : '' }}>
+                            {{ $organization_type }}
                         </option>
                     @endforeach
                 </select>
@@ -27,7 +30,9 @@
                         <option value="" disabled>No organizations available</option>
                     @endif
                     @foreach ($organizations as $organization)
-                        <option value="{{ $organization->organization_id }}">{{ $organization->organization_name }}</option>
+                        <option value="{{ $organization->organization_id }}">
+                            {{ $organization->organizationDetail?->organization_name ?? 'N/A' }}
+                        </option>
                     @endforeach
                 </select>
                 <br>
