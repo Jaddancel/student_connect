@@ -2,30 +2,27 @@
 
 namespace App\Models;
 
-use App\Models\Event\EventDetail;
+use App\Models\Event\eventDetails;
+use Database\Factories\EventFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Event extends Model
 {
-    /** @use HasFactory<\Database\Factories\EventFactory> */
+    /** @use HasFactory<EventFactory> */
     use HasFactory;
-    
+
     protected $primaryKey = 'event_id';
-    protected $fillable = [
-        'approval_id',
-        'event_detail'
-    ];
-    
-    public $timestamps = false;
-    
-    public function approval()
+
+    protected $fillable = ['creator', 'event_detail'];
+
+    public function creator()
     {
-        return $this->belongsTo(Approval::class, 'approval_id', 'approval_id');
+        return $this->belongsTo(Member::class, 'creator', 'member_id');
     }
 
-    public function detail()
+    public function details()
     {
-        return $this->belongsTo(EventDetail::class, 'event_detail', 'event_detail_id');
+        return $this->hasOne(eventDetails::class, 'event_id', 'event_id');
     }
 }
