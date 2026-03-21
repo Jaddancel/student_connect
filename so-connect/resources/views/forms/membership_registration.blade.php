@@ -1,5 +1,3 @@
-{{-- TODO: Make the registration controller work - Jad --}}
-
 <x-dashboard-layout>
     <div class="container mx-auto lg:w-2/4 px-4 lg:px-0">
         <h1 class="text-xl text-black font-bold my-3">Membership Registration</h1>

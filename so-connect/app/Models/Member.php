@@ -16,7 +16,7 @@ class Member extends Model
     protected $table = 'members';
 
     protected $fillable = [
-        ['organization', 'approval_id', 'user', 'role', 'member_since'],
+        'organization', 'approval_id', 'user', 'role', 'member_since',
     ];
 
     public $timestamps = false;
@@ -45,7 +45,7 @@ class Member extends Model
         return $this->hasMany(Document::class, 'document_author', 'member_id');
     }
 
-    public function organization()
+    public function organizationrelation()
     {
         return $this->belongsTo(Organization::class, 'organization', 'organization_id');
     }

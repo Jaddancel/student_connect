@@ -15,6 +15,24 @@ class OrganizationController extends Controller
         //
     }
 
+    public function getUserOrganizations()
+    {
+        $organizations = auth()->user()
+            ->member()
+            ->with('organizationrelation.organizationDetail')
+            ->get()
+            ->map(function ($member) {
+                return (object) [
+                    'organization_name' => $member->organizationrelation?->organizationDetail?->organization_name ?? 'Unknown Organization',
+                    'role_name' => $member->role ?? 'Member',
+                    'member_since' => $member->member_since,
+                    'status' => $member->approval_id ? 'Approved' : 'Pending',
+                ];
+            });
+
+        return view('my_organization', ['organizations' => $organizations]);
+    }
+
     /**
      * Show the form for creating a new resource.
      */

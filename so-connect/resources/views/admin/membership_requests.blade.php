@@ -18,9 +18,11 @@
                 <tbody>
                     @forelse ($requests as $request)
                         <tr>
-                            <td>{{ $request->user->profile->last_name .", ". $request->user->profile->first_name . " " . $request->user->profile->middle_name ?? ""}}</td>
-                            <td>{{ $request->organization->organization_name}}</td>
-                            <td>{{ $request->request_time }}</td>
+                            <td>{{ trim(($request->user->profile->last_name ?? '') . ', ' . ($request->user->profile->first_name ?? '') . ' ' . ($request->user->profile->middle_name ?? '')) }}
+                            </td>
+                            <td>{{ $request->organization->organizationDetail->organization_name ?? 'Unknown Organization' }}
+                            </td>
+                            <td>{{ $request->requested_at }}</td>
                             <td>
                                 @if ($request->status === 'pending')
                                     <span class="badge badge-warning">Pending</span>
@@ -32,6 +34,7 @@
                             </td>
                             <td>
                                 @if ($request->status === 'pending')
+                                    {{-- This way of tying entries to IDs is insecure lmao. Fix it - Jad --}}
                                     <button class="btn btn-sm btn-success"
                                         onclick="approveRequest({{ $request->id }})">Approve</button>
                                     <button class="btn btn-sm btn-error"
@@ -43,7 +46,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="3" class="text-center text-gray-500">No membership requests found.</td>
+                            <td colspan="5" class="text-center text-gray-500">No membership requests found.</td>
                         </tr>
                     @endforelse
                 </tbody>

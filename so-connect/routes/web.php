@@ -9,6 +9,7 @@ use App\Http\Controllers\Form\MembershipRegistration;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -48,7 +49,7 @@ Route::get('my_documents', function () {
     return view('student/my_document');
 })->middleware('auth')->name('my_documents');
 
-Route::get('my_organizations', [OrganizationController::class, 'user_organizations'])
+Route::get('my_organizations', [OrganizationController::class, 'getUserOrganizations'])
     ->middleware('auth')
     ->name('my_organizations');
 
@@ -71,7 +72,7 @@ Route::view('/login', 'auth.login')
 Route::post('login', Login::class)
     ->middleware('guest');
 
-Route::get('/admin/membership_requests', [MemberController::class, 'viewMembershipRequests'])
+Route::get('/admin/membership_requests', [RequestController::class, 'getMembershipRequests'])
     ->middleware('auth')
     ->name('admin.membership_requests');
 
