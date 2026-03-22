@@ -2,7 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\Member\President;
+use App\Models\Member;
+use App\Models\Organization;
 use Illuminate\Database\Seeder;
 
 class OrganizationSeeder extends Seeder
@@ -12,7 +13,16 @@ class OrganizationSeeder extends Seeder
      */
     public function run(): void
     {
-        President::factory(10)->create();
-        \App\Models\Member::factory(20)->create();
+        $organizations = Organization::factory()->count(10)->create();
+
+        foreach ($organizations as $organization) {
+            $president = Member::factory()->president()->create([
+                'organization' => $organization->getKey(),
+            ]);
+
+            $organization->organizationDetail?->update([
+                'president' => $president->getKey(),
+            ]);
+        }
     }
 }

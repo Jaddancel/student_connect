@@ -2,39 +2,40 @@
 
 namespace App\Models;
 
-use App\Models\Profile\Occupation;
+use Database\Factories\ProfileFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Profile extends Model
 {
-    /** @use HasFactory<\Database\Factories\ProfileFactory> */
+    /** @use HasFactory<ProfileFactory> */
     use HasFactory;
 
-    protected $table = 'profiles';
+    const CREATED_AT = 'created_at';
+
+    const UPDATED_AT = 'updated_at';
+
     protected $primaryKey = 'profile_id';
 
     protected $fillable = [
         'first_name',
-        'middle_name',
         'last_name',
-        'occupation_code',
-        ];
+        'profile_picture_url',
+        'middle_name',
+        'occupation',
+    ];
 
     public $timestamps = false;
 
-        protected $attributes = [
-            'middle_name' => null,
-        ];
+    protected $table = 'profiles';
+
+    protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->hasOne(User::class, 'profile_id', 'profile_id');
     }
-
-    public function occupation()
-    {
-        return $this->belongsTo(Occupation::class, 'occupation_code', 'occupation_code');
-    }
-        
 }

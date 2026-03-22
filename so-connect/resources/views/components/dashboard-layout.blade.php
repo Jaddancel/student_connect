@@ -14,7 +14,7 @@
     @auth
         @php
             $typeCode = auth()->user()
-                ->user_type_code;
+                ->user_type;
         @endphp
 
         <div class="drawer lg:drawer-open">

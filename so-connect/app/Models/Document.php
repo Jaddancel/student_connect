@@ -2,25 +2,37 @@
 
 namespace App\Models;
 
+use Database\Factories\DocumentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Document extends Model
 {
-    /** @use HasFactory<\Database\Factories\DocumentFactory> */
+    /** @use HasFactory<DocumentFactory> */
     use HasFactory;
-    
-    protected $primaryKey = 'document_id';
-    protected $fillable = [
-        'document_link',
-        'document_description',
-        'approval_id',
-    ];
-     
-    public $timestamps = false;
 
-    public function approval()
+    protected $primaryKey = 'document_id';
+
+    protected $table = 'documents';
+
+    protected $fillable = [
+        'document_desc_id',
+        'document_link',
+        'document_author',
+    ];
+
+    protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
+    public function documentDescription()
     {
-        return $this->belongsTo(Approval::class, 'approval_id', 'approval_id');
+        return $this->belongsTo(Document\documentDescription::class, 'document_desc_id', 'document_desc_id');
+    }
+
+    public function author()
+    {
+        return $this->belongsTo(Member::class, 'document_author', 'member_id');
     }
 }

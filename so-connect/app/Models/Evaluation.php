@@ -2,24 +2,27 @@
 
 namespace App\Models;
 
-use App\Models\Member\President;
+use Database\Factories\EvaluationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Evaluation extends Model
 {
-    /** @use HasFactory<\Database\Factories\EvaluationFactory> */
+    /** @use HasFactory<EvaluationFactory> */
     use HasFactory;
-    
-    public $primaryKey = 'evaluation_id';
+
+    protected $primaryKey = 'evaluation_id';
+
+    protected $table = 'evaluations';
+
     protected $fillable = [
+        'evaluation_description',
         'evaluation_author',
-        'evaluation_item',
+        'evaluation_score',
     ];
 
-    public $timestamps = false;
-    public function president()
+    public function evaluationDescription()
     {
-        return $this->belongsTo(President::class, 'evaluation_author', 'president_id');
+        return $this->belongsTo(Evaluation\EvaluationDescription::class, 'evaluation_description', 'evaluation_description_id');
     }
 }

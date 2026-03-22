@@ -2,11 +2,11 @@
 
 namespace Database\Factories;
 
-use App\Models\Profile\Occupation;
+use App\Models\Profile;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Profile>
+ * @extends Factory<Profile>
  */
 class ProfileFactory extends Factory
 {
@@ -19,9 +19,9 @@ class ProfileFactory extends Factory
     {
         return [
             'first_name' => $this->faker->firstName(),
-            'middle_name' => $this->faker->optional(0.7)->firstName(),
             'last_name' => $this->faker->lastName(),
-            'occupation_code' => Occupation::query()->inRandomOrder()->value('occupation_code') ?? 1,
+            'middle_name' => $this->faker->optional()->firstName(),
+            'occupation' => $this->faker->randomElement(['student', 'faculty', 'other']),
         ];
     }
 }

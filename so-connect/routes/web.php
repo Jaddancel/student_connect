@@ -3,8 +3,14 @@
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\Register;
-use App\Http\Controllers\FormView\Membership_Registration;
+use App\Http\Controllers\ApprovalController;
+use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\EventController;
+use App\Http\Controllers\Form\MembershipRegistration;
 use App\Http\Controllers\MemberController;
+use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -15,34 +21,36 @@ Route::get('/home', function () {
     return view('home');
 });
 
-Route::get('/dashboard', [\App\Http\Controllers\EventController::class, 'dashboard'])
+Route::get('/dashboard', [EventController::class, 'dashboard'])
     ->middleware('auth');
 
 Route::view('/register', 'auth.register')
     ->middleware('guest')
     ->name('register');
 
-Route::post('register', [Register::class])
+Route::post('register', Register::class)
     ->middleware('guest');
 
-Route::get('forms/membership_registration', [Membership_Registration::class, 'view']);
-
-Route::post('forms/membership/register', [MemberController::class, 'register'])
+Route::post('/profile/create', [ProfileController::class, 'create'])
     ->middleware('auth')
-    ->name('membership.register');
+    ->name('profile.make_profile');
+
+Route::view('/profile/create', 'profile.create')
+    ->middleware('auth')
+    ->name('profile.create');
 
 Route::get('document_request', function () {
     return view('student/document_request');
 });
 
-Route::get('forms/document_upload', [\App\Http\Controllers\DocumentController::class, 'uploadForm'])
+Route::get('forms/document_upload', [DocumentController::class, 'uploadForm'])
     ->middleware('auth');
 
 Route::get('my_documents', function () {
     return view('student/my_document');
 })->middleware('auth')->name('my_documents');
 
-Route::get('my_organizations', [\App\Http\Controllers\OrganizationController::class, 'user_organizations'])
+Route::get('my_organizations', [OrganizationController::class, 'getUserOrganizations'])
     ->middleware('auth')
     ->name('my_organizations');
 
@@ -50,7 +58,7 @@ Route::get('my_events', function () {
     return view('student/my_events');
 })->middleware('auth')->name('my_events');
 
-Route::get('my_calendar', [\App\Http\Controllers\EventController::class, 'calendar'])
+Route::get('my_calendar', [EventController::class, 'calendar'])
     ->middleware('auth')
     ->name('my_calendar');
 
@@ -65,9 +73,17 @@ Route::view('/login', 'auth.login')
 Route::post('login', Login::class)
     ->middleware('guest');
 
-Route::get('/admin/membership_requests', function () {
-    return view('admin.membership_requests');
-})->middleware('auth')->name('admin.membership_requests');
+Route::get('/admin/membership_requests', [RequestController::class, 'getMembershipRequests'])
+    ->middleware('auth')
+    ->name('admin.membership_requests');
+
+Route::post('/admin/membership_requests/{membershipRequest}/approve', [ApprovalController::class, 'approveMembershipRequest'])
+    ->middleware('auth')
+    ->name('admin.membership_requests.approve');
+
+Route::post('/admin/membership_requests/{membershipRequest}/deny', [ApprovalController::class, 'denyMembershipRequest'])
+    ->middleware('auth')
+    ->name('admin.membership_requests.deny');
 
 Route::get('/admin/forms_management', function () {
     return view('admin.forms_management');
@@ -80,3 +96,11 @@ Route::get('/admin/template_management', function () {
 Route::get('/admin/event_requests', function () {
     return view('admin.event_requests');
 })->middleware('auth')->name('admin.event_requests');
+
+Route::get('/forms/membership_registration', [MembershipRegistration::class, 'view'])
+    ->middleware('auth')
+    ->name('forms.membership_registration');
+
+Route::post('/member/register/request', [MemberController::class, 'post'])
+    ->middleware('auth')
+    ->name('member.register_request');

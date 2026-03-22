@@ -2,47 +2,36 @@
 
 namespace App\Models;
 
-use App\Models\Form\FormDescription;
-use App\Models\Member\MemberOrganization;
-use App\Models\Organization\OrganizationType;
+use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Organization extends Model
 {
-    /** @use HasFactory<\Database\Factories\OrganizationFactory> */
+    /** @use HasFactory<OrganizationFactory> */
     use HasFactory;
-
-    protected $table = 'organizations';
 
     protected $primaryKey = 'organization_id';
 
+    protected $table = 'organizations';
+
     protected $fillable = [
-        'organization_name',
-        'president',
+        'organization_detail',
         'organization_type',
-        'organization_initials',
     ];
 
-    public $timestamps = false;
-
-    public function member_organizations()
+    public function organizationDetail()
     {
-        return $this->hasMany(MemberOrganization::class, 'organization_id', 'organization_id');
+        return $this->belongsTo(Organization\organizationDetail::class, 'organization_detail', 'organization_detail_id');
     }
 
-    public function forms()
+    public function members()
     {
-        return $this->hasMany(FormDescription::class, 'form_organizations', 'organization_id');
+        return $this->hasMany(Member::class, 'organization', 'organization_id');
     }
 
-    public function organization_type()
+    public function events()
     {
-        return $this->belongsTo(OrganizationType::class, 'organization_type', 'organization_type_id');
-    }
-
-    public function president()
-    {
-        return $this->belongsTo(Member::class, 'president', 'member_id');
+        return $this->hasMany(Event::class, 'organization', 'organization_id');
     }
 }

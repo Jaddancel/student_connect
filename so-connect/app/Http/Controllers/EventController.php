@@ -3,26 +3,31 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
+use App\Services\ActionService;
+use Illuminate\Http\Request;
 
 class EventController extends Controller
 {
-    public function dashboard()
+    public function createEventRequest(Request $request)
     {
-        $events = Event::with('detail')
-            ->whereHas('detail', function ($query) {
-                $query->where('event_start_date', '>=', now());
-            })
-            ->get()
-            ->sortBy(fn ($event) => $event->detail->event_start_date);
+        $validatedData = $request->validate([
+            'organization' => auth()->user()->member->organization,
+            'event_name' => 'required|string',
+            'event_start_time' => 'required|datetime',
+            'event_end_time' => 'required|datetime|after:event_start_time',
+            'event_desc_text' => 'nullable|string',
+        ]);
 
-        return view('dashboard', compact('events'));
+        (new ActionService)->passAction($validatedData, 1);
     }
 
-    public function calendar()
+    public function dashboard()
     {
-        $events = Event::with('detail')->get()
-            ->sortBy(fn ($event) => $event->detail->event_start_date);
+        // get events and event details of the user's organization for the dashboard
+        $events = Event::whereHas('organization', function ($query) {
+            $query->whereIn('organization_id', auth()->user()->member()->pluck('organization')->toArray());
+        })->with('details')->get();
 
-        return view('student.calendar', compact('events'));
+        return view('dashboard', ['events' => $events]);
     }
 }

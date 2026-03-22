@@ -2,28 +2,26 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Member;
+use App\Services\ActionService;
 use Illuminate\Http\Request;
 
 class MemberController extends Controller
 {
-    public function register(Request $request)
+    protected function createMembershipRequest(Request $request)
     {
         // Validate the incoming request data
         $validatedData = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:members',
-            'password' => 'required|string|min:8|confirmed',
+            'organization_id' => 'required|integer',
         ]);
 
-        // Create a new member record in the database
-        $member = Member::create([
-            'name' => $validatedData['name'],
-            'email' => $validatedData['email'],
-            'password' => bcrypt($validatedData['password']),
-        ]);
+        $validatedData['user_id'] = auth()->user()->getKey();
+        (new ActionService)->passAction($validatedData, 0);
+    }
 
-        // Redirect to a success page or return a response
-        return redirect()->route('dashboard')->with('success', 'Membership registration successful!');
+    public function post(Request $request)
+    {
+        $this->createMembershipRequest($request);
+
+        return redirect()->route('forms.membership_registration')->with('success', 'Membership request submitted successfully.');
     }
 }
