@@ -4,6 +4,18 @@
     <div class="container">
         <h2 class="text-3xl text-black font-bold pb-6">Membership Requests</h2>
 
+        @if (session('success'))
+            <div class="alert alert-success mb-4">
+                <span>{{ session('success') }}</span>
+            </div>
+        @endif
+
+        @if (session('error'))
+            <div class="alert alert-error mb-4">
+                <span>{{ session('error') }}</span>
+            </div>
+        @endif
+
         <div class="overflow-x-auto card bg-base-200 p-4">
             <table class="table w-full">
                 <thead>
@@ -34,11 +46,18 @@
                             </td>
                             <td>
                                 @if ($request->status === 'pending')
-                                    {{-- This way of tying entries to IDs is insecure lmao. Fix it - Jad --}}
-                                    <button class="btn btn-sm btn-success"
-                                        onclick="approveRequest({{ $request->id }})">Approve</button>
-                                    <button class="btn btn-sm btn-error"
-                                        onclick="rejectRequest({{ $request->id }})">Reject</button>
+                                    <div class="flex gap-2">
+                                        <form method="POST"
+                                            action="{{ route('admin.membership_requests.approve', $request->id) }}">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                                        </form>
+                                        <form method="POST"
+                                            action="{{ route('admin.membership_requests.deny', $request->id) }}">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-error">Reject</button>
+                                        </form>
+                                    </div>
                                 @else
                                     <span class="text-gray-500">No actions available</span>
                                 @endif

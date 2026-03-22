@@ -20,6 +20,6 @@ class Request extends Model
 
     public function approval()
     {
-        return $this->hasOne(Approval::class, 'request_id', 'request_id');
+        return $this->hasOne(Approval::class, 'request', 'request_id');
     }
 }

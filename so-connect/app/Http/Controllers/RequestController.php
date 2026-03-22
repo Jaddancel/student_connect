@@ -14,6 +14,7 @@ class RequestController extends Controller
         $userOrgIds = auth()->user()->member()->pluck('organization')->map(fn ($id) => (int) $id)->toArray();
 
         $parsedRequests = RequestModel::where('action_type', 0)
+            ->with('approval')
             ->get()
             ->map(function ($req) {
                 $parts = explode('|', (string) $req->action);
@@ -21,12 +22,17 @@ class RequestController extends Controller
                     return null;
                 }
 
+                $status = 'pending';
+                if ($req->approval) {
+                    $status = $req->approval->decision === 'rejected' ? 'rejected' : 'approved';
+                }
+
                 return [
                     'request_id' => $req->request_id,
                     'organization_id' => (int) $parts[0],
                     'user_id' => (int) $parts[1],
                     'requested_at' => $req->request_made_at,
-                    'status' => 'pending',
+                    'status' => $status,
                 ];
             })
             ->filter()

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\Register;
+use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\Form\MembershipRegistration;
@@ -75,6 +76,14 @@ Route::post('login', Login::class)
 Route::get('/admin/membership_requests', [RequestController::class, 'getMembershipRequests'])
     ->middleware('auth')
     ->name('admin.membership_requests');
+
+Route::post('/admin/membership_requests/{membershipRequest}/approve', [ApprovalController::class, 'approveMembershipRequest'])
+    ->middleware('auth')
+    ->name('admin.membership_requests.approve');
+
+Route::post('/admin/membership_requests/{membershipRequest}/deny', [ApprovalController::class, 'denyMembershipRequest'])
+    ->middleware('auth')
+    ->name('admin.membership_requests.deny');
 
 Route::get('/admin/forms_management', function () {
     return view('admin.forms_management');
