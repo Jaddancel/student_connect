@@ -13,15 +13,20 @@ return new class extends Migration
     {
         Schema::create('event_details', function (Blueprint $table) {
             $table->id('event_detail_id');
-            $table->unsignedBigInteger('event_id');
             $table->string('event_name');
             $table->text('event_desc_text')->nullable();
-            $table->longText('event_desc_html')->nullable();
             $table->timestamp('event_start_time')->nullable();
             $table->timestamp('event_end_time')->nullable();
+            $table->string('event_location')->nullable();
 
-            // Foreign key
-            $table->foreign('event_id')->references('event_id')->on('events')->onDelete('cascade');
+        });
+
+        Schema::table('events', function (Blueprint $table) {
+            $table->foreign('event_detail')
+                ->references('event_detail_id')
+                ->on('event_details')
+                ->nullOnDelete()
+                ->cascadeOnUpdate();
         });
     }
 
@@ -30,6 +35,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::table('events', function (Blueprint $table) {
+            $table->dropForeign(['event_detail']);
+        });
+
         Schema::dropIfExists('event_details');
     }
 };

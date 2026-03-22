@@ -29,4 +29,9 @@ class Organization extends Model
     {
         return $this->hasMany(Member::class, 'organization', 'organization_id');
     }
+
+    public function events()
+    {
+        return $this->hasMany(Event::class, 'organization', 'organization_id');
+    }
 }

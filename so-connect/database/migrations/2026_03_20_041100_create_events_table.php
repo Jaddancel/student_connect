@@ -15,10 +15,12 @@ return new class extends Migration
             $table->id('event_id');
             $table->unsignedBigInteger('creator');
             $table->unsignedBigInteger('event_detail')->nullable();
+            $table->unsignedBigInteger('organization');
             $table->timestamps();
 
             // Foreign key
-            $table->foreign('creator')->references('member_id')->on('members')->onDelete('cascade');
+            $table->foreign('creator')->references('member_id')->on('members')->onDelete('cascade')->onUpdate('cascade');
+            $table->foreign('organization')->references('organization_id')->on('organizations')->onDelete('cascade')->onUpdate('cascade');
         });
     }
 

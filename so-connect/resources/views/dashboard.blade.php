@@ -43,22 +43,24 @@
                         </div>
                         <div class="space-y-3" id="events-container">
                             @foreach ($events as $event)
-                                <div class="event-card p-4 bg-base-200 rounded-lg"
-                                    data-start="{{ $event->detail->event_start_date->format('Y-m-d') }}"
-                                    data-end="{{ $event->detail->event_end_date->format('Y-m-d') }}">
-                                    <h3 class="font-semibold text-lg">{{ $event->detail->event_name }}</h3>
-                                    <p class="text-sm text-gray-500">
-                                        {{ $event->detail->event_start_date->format('M d, Y g:i A') }}
-                                        &mdash;
-                                        {{ $event->detail->event_end_date->format('M d, Y g:i A') }}
-                                    </p>
-                                    @if ($event->detail->event_location)
-                                        <p class="text-sm">📍 {{ $event->detail->event_location }}</p>
-                                    @endif
-                                    @if ($event->detail->event_description_text)
-                                        <p class="text-sm mt-1">{{ $event->detail->event_description_text }}</p>
-                                    @endif
-                                </div>
+                                @if ($event->details)
+                                    <div class="event-card p-4 bg-base-200 rounded-lg"
+                                        data-start="{{ $event->details->event_start_time->format('Y-m-d') }}"
+                                        data-end="{{ $event->details->event_end_time->format('Y-m-d') }}">
+                                        <h3 class="font-semibold text-lg">{{ $event->details->event_name }}</h3>
+                                        <p class="text-sm text-gray-500">
+                                            {{ $event->details->event_start_time->format('M d, Y g:i A') }}
+                                            &mdash;
+                                            {{ $event->details->event_end_time->format('M d, Y g:i A') }}
+                                        </p>
+                                        @if ($event->details->event_location)
+                                            <p class="text-sm">📍 {{ $event->details->event_location }}</p>
+                                        @endif
+                                        @if ($event->details->event_description_text)
+                                            <p class="text-sm mt-1">{{ $event->details->event_description_text }}</p>
+                                        @endif
+                                    </div>
+                                @endif
                             @endforeach
                         </div>
                     @endif
@@ -72,8 +74,11 @@
             document.addEventListener('DOMContentLoaded', function () {
                 const eventDates = @json(
                     $events->flatMap(function ($event) {
-                        $start = $event->detail->event_start_date->startOfDay();
-                        $end = $event->detail->event_end_date->startOfDay();
+                        if (!$event->details) {
+                            return [];
+                        }
+                        $start = $event->details->event_start_time->startOfDay();
+                        $end = $event->details->event_end_time->startOfDay();
                         $dates = [];
                         for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
                             $dates[] = $d->format('Y-m-d');
@@ -94,21 +99,21 @@
                     const style = document.createElement('style');
                     style.id = 'event-dot-styles';
                     style.textContent = `
-                                                                                                .has-event {
-                                                                                                    position: relative;
-                                                                                                }
-                                                                                                .has-event .event-dot {
-                                                                                                    position: absolute;
-                                                                                                    bottom: 2px;
-                                                                                                    left: 50%;
-                                                                                                    transform: translateX(-50%);
-                                                                                                    width: 6px;
-                                                                                                    height: 6px;
-                                                                                                    border-radius: 50%;
-                                                                                                    background-color: oklch(0.7 0.15 60);
-                                                                                                    pointer-events: none;
-                                                                                                }
-                                                                                            `;
+                                                                                                        .has-event {
+                                                                                                            position: relative;
+                                                                                                        }
+                                                                                                        .has-event .event-dot {
+                                                                                                            position: absolute;
+                                                                                                            bottom: 2px;
+                                                                                                            left: 50%;
+                                                                                                            transform: translateX(-50%);
+                                                                                                            width: 6px;
+                                                                                                            height: 6px;
+                                                                                                            border-radius: 50%;
+                                                                                                            background-color: oklch(0.7 0.15 60);
+                                                                                                            pointer-events: none;
+                                                                                                        }
+                                                                                                    `;
                     shadowRoot.prepend(style);
                 }
 

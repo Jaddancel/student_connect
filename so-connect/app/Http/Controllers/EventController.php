@@ -11,7 +11,7 @@ class EventController extends Controller
     public function createEventRequest(Request $request)
     {
         $validatedData = $request->validate([
-            'organization_id' => 'required|integer',
+            'organization' => auth()->user()->member->organization,
             'event_name' => 'required|string',
             'event_start_time' => 'required|datetime',
             'event_end_time' => 'required|datetime|after:event_start_time',
@@ -23,8 +23,10 @@ class EventController extends Controller
 
     public function dashboard()
     {
-        // get events and event details for the dashboard
-        $events = Event::with('organization')->get();
+        // get events and event details of the user's organization for the dashboard
+        $events = Event::whereHas('organization', function ($query) {
+            $query->whereIn('organization_id', auth()->user()->member()->pluck('organization')->toArray());
+        })->with('details')->get();
 
         return view('dashboard', ['events' => $events]);
     }

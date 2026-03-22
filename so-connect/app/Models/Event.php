@@ -14,7 +14,7 @@ class Event extends Model
 
     protected $primaryKey = 'event_id';
 
-    protected $fillable = ['creator', 'event_detail'];
+    protected $fillable = ['creator', 'event_detail', 'organization'];
 
     public function creator()
     {
@@ -23,6 +23,11 @@ class Event extends Model
 
     public function details()
     {
-        return $this->hasOne(eventDetails::class, 'event_id', 'event_id');
+        return $this->belongsTo(eventDetails::class, 'event_detail', 'event_detail_id');
+    }
+
+    public function organization()
+    {
+        return $this->belongsTo(Organization::class, 'organization', 'organization_id');
     }
 }

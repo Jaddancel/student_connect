@@ -16,10 +16,15 @@ class eventDetails extends Model
 
     protected $primaryKey = 'event_detail_id';
 
-    protected $fillable = ['event_name', 'event_desc_text', 'event_desc_html', 'event_start_time', 'event_end_time'];
+    protected $fillable = ['event_name', 'event_desc_text', 'event_location', 'event_start_time', 'event_end_time'];
+
+    protected $casts = [
+        'event_start_time' => 'datetime',
+        'event_end_time' => 'datetime',
+    ];
 
     public function event()
     {
-        return $this->belongsTo(Event::class, 'event_id', 'event_id');
+        return $this->hasOne(Event::class, 'event_detail', 'event_detail_id');
     }
 }
