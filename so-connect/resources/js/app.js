@@ -1,5 +1,2 @@
 import './bootstrap';
-
-function acceptMemberRequest(requestId) {
-
-}
+import './calendar';

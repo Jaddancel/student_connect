@@ -62,6 +62,9 @@ Route::get('my_calendar', [EventController::class, 'calendar'])
     ->middleware('auth')
     ->name('my_calendar');
 
+Route::get('/events/all', [\App\Http\Controllers\EventController::class, 'allEvents'])
+    ->middleware('auth');
+
 Route::post('/logout', Logout::class)
     ->middleware('auth')
     ->name('logout');

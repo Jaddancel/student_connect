@@ -5,8 +5,25 @@
 $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
-return array(
-    'Database\\Seeders\\' => array($vendorDir . '/laravel/pint/database/seeders'),
-    'Database\\Factories\\' => array($vendorDir . '/laravel/pint/database/factories'),
-    'App\\' => array($vendorDir . '/laravel/pint/app'),
-);
+return [
+    'voku\\' => [$vendorDir.'/voku/portable-ascii/src/voku'],
+    'Symfony\\Polyfill\\Php85\\' => [$vendorDir.'/symfony/polyfill-php85'],
+    'Symfony\\Polyfill\\Php84\\' => [$vendorDir.'/symfony/polyfill-php84'],
+    'Symfony\\Polyfill\\Php83\\' => [$vendorDir.'/symfony/polyfill-php83'],
+    'Symfony\\Polyfill\\Mbstring\\' => [$vendorDir.'/symfony/polyfill-mbstring'],
+    'Symfony\\Contracts\\Translation\\' => [$vendorDir.'/symfony/translation-contracts'],
+    'Symfony\\Component\\Translation\\' => [$vendorDir.'/symfony/translation'],
+    'Symfony\\Component\\Clock\\' => [$vendorDir.'/symfony/clock'],
+    'Psr\\SimpleCache\\' => [$vendorDir.'/psr/simple-cache/src'],
+    'Psr\\Container\\' => [$vendorDir.'/psr/container/src'],
+    'Psr\\Clock\\' => [$vendorDir.'/psr/clock/src'],
+    'Illuminate\\Support\\' => [$vendorDir.'/illuminate/macroable', $vendorDir.'/illuminate/conditionable', $vendorDir.'/illuminate/collections', $vendorDir.'/illuminate/reflection', $vendorDir.'/illuminate/support'],
+    'Illuminate\\Contracts\\' => [$vendorDir.'/illuminate/contracts'],
+    'IcehouseVentures\\LaravelChartjs\\' => [$vendorDir.'/icehouse-ventures/laravel-chartjs/src'],
+    'Doctrine\\Inflector\\' => [$vendorDir.'/doctrine/inflector/src'],
+    'Carbon\\Doctrine\\' => [$vendorDir.'/carbonphp/carbon-doctrine-types/src/Carbon/Doctrine'],
+    'Carbon\\' => [$vendorDir.'/nesbot/carbon/src/Carbon'],
+    'Database\\Seeders\\' => [$vendorDir.'/laravel/pint/database/seeders'],
+    'Database\\Factories\\' => [$vendorDir.'/laravel/pint/database/factories'],
+    'App\\' => [$vendorDir.'/laravel/pint/app'],
+];

@@ -10,6 +10,13 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
+
+@layer base {
+  html {
+    @apply text-xl; /* Changes default size from 16px to 18px */
+  }
+}
+
 @plugin "daisyui";
 
 
@@ -46,6 +53,27 @@
   --border: 1px;
   --depth: 0;
   --noise: 0;
+}
+
+.fc {
+    --fc-border-color: var(--color-base-300);
+    --fc-daygrid-day-bg-color: var(--color-base-100);
+    --fc-daygrid-day-text-color: var(--color-base-content);
+    --fc-button-bg-color: var(--color-primary);
+    --fc-button-text-color: var(--color-primary-content);
+    --fc-button-border-color: var(--color-primary);
+    --fc-button-hover-bg-color: var(--color-secondary);
+    --fc-button-hover-border-color: var(--color-secondary);
+    --fc-button-active-bg-color: var(--color-secondary);
+    --fc-button-active-border-color: var(--color-secondary);
+    --fc-today-bg-color: var(--color-base-200);
+    --fc-event-bg-color: var(--color-accent);
+    --fc-event-border-color: var(--color-accent);
+    --fc-event-text-color: var(--color-accent-content);
+}
+
+.fc .fc-button {
+    @apply shadow-lg;
 }
 
 

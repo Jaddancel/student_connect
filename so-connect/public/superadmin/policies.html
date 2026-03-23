@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Policies - Super Admin</title>
+    <link rel="stylesheet" href="../superadmin/css/super.css">
+</head>
+
+<body>
+
+    <main class="main" style="width: 100%;">
+        <div class="topbar" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h3>Policy Updates</h3>
+            </div>
+            <a href="super_dashboard.html" class="btn-blue" style="text-decoration: none; padding: 8px 16px; border-radius: 6px; display: inline-block; color: white;">← Back to Dashboard</a>
+        </div>
+
+        <section class="grid">
+                <div class="card" style="grid-column: 1 / -1;">
+                    <h3>Create Policy Update</h3>
+                    <form style="margin-bottom: 30px;">
+                        <label>Policy Title</label>
+                        <input type="text" placeholder="Enter policy title..." required>
+
+                        <label>Content</label>
+                        <textarea placeholder="Write policy update or announcement..." style="min-height: 150px;" required></textarea>
+
+                        <button type="submit" class="send">Publish Policy</button>
+                    </form>
+                </div>
+
+                <div class="card" style="grid-column: 1 / -1;">
+                    <h3>Recent Policies</h3>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Policy Title</th>
+                                    <th>Published By</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Code of Conduct Update</td>
+                                    <td>superadmin</td>
+                                    <td>2026-02-25</td>
+                                    <td>Active</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+    </main>
+
+</body>
+
+</html>
