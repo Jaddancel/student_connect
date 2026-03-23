@@ -41,7 +41,7 @@ class EventController extends Controller
                 'extendedProps' => [
                     'location' => $event->detail->event_location,
                     'description' => $event->detail->event_description_text,
-                ]
+                ],
             ];
         });
 
