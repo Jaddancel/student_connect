@@ -29,8 +29,19 @@ class ProfileController extends Controller
         return redirect('/dashboard');
     }
 
-    public function view()
+    public function form()
     {
         return view('profile.create');
+    }
+
+    public function view($user_id)
+    {   // get profile of user with id $user_id
+        $profile = User::where('user_id', $user_id)->first()->profile;
+
+        if (! $profile) {
+            return redirect('/dashboard')->with('error', 'Profile not found.');
+        }
+
+        return view('profile.view', ['profile' => $profile]);
     }
 }

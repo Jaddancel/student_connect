@@ -25,7 +25,7 @@ class Member extends Model
         'member_since' => 'datetime',
     ];
 
-    public function user()
+    public function member_user()
     {
         return $this->belongsTo(User::class, 'user', 'user_id');
     }

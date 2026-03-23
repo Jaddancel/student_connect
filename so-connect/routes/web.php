@@ -1,9 +1,9 @@
 <?php
 
+use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\Register;
-use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\Form\MembershipRegistration;
@@ -35,9 +35,8 @@ Route::post('/profile/create', [ProfileController::class, 'create'])
     ->middleware('auth')
     ->name('profile.make_profile');
 
-Route::view('/profile/create', 'profile.create')
-    ->middleware('auth')
-    ->name('profile.create');
+Route::get('/profile/create', [ProfileController::class, 'form'])
+    ->middleware('auth');
 
 Route::get('document_request', function () {
     return view('student/document_request');
@@ -62,7 +61,7 @@ Route::get('my_calendar', [EventController::class, 'calendar'])
     ->middleware('auth')
     ->name('my_calendar');
 
-Route::get('/events/all', [\App\Http\Controllers\EventController::class, 'allEvents'])
+Route::get('/events/all', [EventController::class, 'allEvents'])
     ->middleware('auth');
 
 Route::post('/logout', Logout::class)
@@ -96,6 +95,9 @@ Route::get('/admin/template_management', function () {
     return view('admin.template_management');
 })->middleware('auth')->name('admin.template_management');
 
+Route::get('/admin/members/list/{organization_id}', [MemberController::class, 'index'])
+    ->middleware('auth')->name('admin.members.list');
+
 Route::get('/admin/event_requests', function () {
     return view('admin.event_requests');
 })->middleware('auth')->name('admin.event_requests');
@@ -107,3 +109,16 @@ Route::get('/forms/membership_registration', [MembershipRegistration::class, 'vi
 Route::post('/member/register/request', [MemberController::class, 'post'])
     ->middleware('auth')
     ->name('member.register_request');
+
+// profile/view redirects to profile.view with the authenticated user's ID, while profile/view/{user_id} allows viewing any user's profile by their ID
+Route::get('/profile/view', function () {
+    if (! auth()->check()) {
+        return redirect()->route('login');
+    }
+
+    return redirect()->route('profile.view', ['user_id' => auth()->id()]);
+})->name('profile.view.redirect');
+
+Route::get('/profile/view/{user_id}', [ProfileController::class, 'view'])
+    ->middleware('auth')
+    ->name('profile.view');

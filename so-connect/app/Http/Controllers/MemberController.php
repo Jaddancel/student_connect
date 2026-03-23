@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Member;
 use App\Services\ActionService;
 use Illuminate\Http\Request;
 
@@ -23,5 +24,12 @@ class MemberController extends Controller
         $this->createMembershipRequest($request);
 
         return redirect()->route('forms.membership_registration')->with('success', 'Membership request submitted successfully.');
+    }
+
+    public function index($organization_id)
+    {
+        $members = Member::where('organization', $organization_id)->with(['member_user.profile'])->get();
+
+        return view('admin.list.members', ['members' => $members]);
     }
 }

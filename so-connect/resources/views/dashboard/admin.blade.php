@@ -2,6 +2,10 @@
     <div class="card shadow bg-base-100 flex flex-col items-start">
         <div class="stats w-full">
             <div class="stat">
+                <div class="stat-title">Pending Membership Requests</div>
+                <div class="stat-value text-primary">42</div>
+            </div>
+            <div class="stat">
                 <div class="stat-title">Pending Events</div>
                 <div class="stat-value text-primary">12</div>
             </div>
@@ -10,8 +14,8 @@
                 <div class="stat-value text-primary">8</div>
             </div>
             <div class="stat">
-                <div class="stat-title">Registrations</div>
-                <div class="stat-value text-primary">29</div>
+                <div class="stat-title">Members</div>
+                <div class="stat-value text-primary">39</div>
             </div>
         </div>
         <button class="btn btn-xs pt-4 p-3 ghost mb-3 ml-4">Export as PDF</button>

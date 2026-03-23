@@ -25,8 +25,6 @@ class Profile extends Model
         'occupation',
     ];
 
-    public $timestamps = false;
-
     protected $table = 'profiles';
 
     protected $casts = [
