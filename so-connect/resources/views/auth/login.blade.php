@@ -9,7 +9,7 @@
 </head>
 
 <body class="min-h-screen flex items-center justify-center bg-base-200 font-sans">
-    <div class="card w-full max-w-md bg-base-100 shadow-lg">
+    <div class="card w-full max-w-md bg-base-100 shadow-lg ">
         <div class="card-body">
             <h1 class="text-2xl font-bold text-center mb-2">Welcome Back</h1>
             <p class="text-center text-sm text-base-content/60 mb-6">Sign in to SOConnect</p>

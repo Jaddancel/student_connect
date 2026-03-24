@@ -30,4 +30,9 @@ class Event extends Model
     {
         return $this->belongsTo(Organization::class, 'organization', 'organization_id');
     }
+
+    public function organizationRelation()
+    {
+        return $this->belongsTo(Organization::class, 'organization', 'organization_id');
+    }
 }

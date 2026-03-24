@@ -91,7 +91,6 @@
     @else
             You're not supposed to be here.
         @endauth
-        <script type="module" src="https://unpkg.com/cally"></script>
         @stack('scripts')
 </body>
 

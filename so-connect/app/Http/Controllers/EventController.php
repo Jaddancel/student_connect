@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
+use App\Models\Organization;
+use App\Models\Request as RequestModel;
+use App\Models\User;
 
 class EventController extends Controller
 {
@@ -15,7 +18,100 @@ class EventController extends Controller
             ->get()
             ->sortBy(fn ($event) => $event->details->event_start_date);
 
-        return view('dashboard', compact('events'));
+        $organizationIds = auth()->user()
+            ?->member()
+            ->pluck('organization')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $memberDashboardEvents = collect();
+        $memberPendingMembershipRequests = collect();
+
+        if ($organizationIds && $organizationIds->isNotEmpty()) {
+            $memberDashboardEvents = Event::with(['details', 'organizationRelation.organizationDetail'])
+                ->whereIn('organization', $organizationIds)
+                ->whereHas('details', function ($query) {
+                    $query->where('event_start_time', '>=', now()->startOfDay());
+                })
+                ->get()
+                ->filter(fn ($event) => $event->details)
+                ->sortBy(fn ($event) => $event->details->event_start_time)
+                ->values()
+                ->map(function ($event) {
+                    return [
+                        'id' => $event->event_id,
+                        'title' => $event->details->event_name,
+                        'description' => $event->details->event_desc_text,
+                        'location' => $event->details->event_location,
+                        'organization' => $event->organizationRelation?->organizationDetail?->organization_name ?? 'Unknown Organization',
+                        'start' => $event->details->event_start_time?->toIso8601String(),
+                        'end' => $event->details->event_end_time?->toIso8601String(),
+                        'date' => $event->details->event_start_time?->toDateString(),
+                    ];
+                })
+                ->values();
+
+            $parsedRequests = RequestModel::where('action_type', 0)
+                ->doesntHave('approval')
+                ->get()
+                ->map(function ($request) {
+                    $parts = explode('|', (string) $request->action);
+
+                    if (count($parts) < 2) {
+                        return null;
+                    }
+
+                    return [
+                        'request_id' => $request->request_id,
+                        'organization_id' => (int) $parts[0],
+                        'user_id' => (int) $parts[1],
+                        'requested_at' => $request->request_made_at,
+                    ];
+                })
+                ->filter()
+                ->filter(fn ($request) => $organizationIds->contains($request['organization_id']))
+                ->values();
+
+            $users = User::with('profile')
+                ->whereIn('user_id', $parsedRequests->pluck('user_id')->unique()->values())
+                ->get()
+                ->keyBy('user_id');
+
+            $organizations = Organization::with('organizationDetail')
+                ->whereIn('organization_id', $parsedRequests->pluck('organization_id')->unique()->values())
+                ->get()
+                ->keyBy('organization_id');
+
+            $memberPendingMembershipRequests = $parsedRequests
+                ->map(function ($request) use ($users, $organizations) {
+                    $user = $users->get($request['user_id']);
+                    $organization = $organizations->get($request['organization_id']);
+
+                    if (! $user || ! $organization) {
+                        return null;
+                    }
+
+                    $profile = $user->profile;
+                    $fullName = trim(implode(' ', array_filter([
+                        $profile?->first_name,
+                        $profile?->middle_name,
+                        $profile?->last_name,
+                    ])));
+
+                    return [
+                        'id' => $request['request_id'],
+                        'requester_name' => $fullName !== '' ? $fullName : 'Unknown User',
+                        'organization_name' => $organization->organizationDetail->organization_name ?? 'Unknown Organization',
+                        'requested_at' => $request['requested_at'],
+                    ];
+                })
+                ->filter()
+                ->sortByDesc(fn ($request) => $request['requested_at'])
+                ->values();
+        }
+
+        return view('dashboard', compact('events', 'memberDashboardEvents', 'memberPendingMembershipRequests'));
     }
 
     public function calendar()
