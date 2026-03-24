@@ -1,124 +1,106 @@
 <?php
 
-use App\Http\Controllers\ApprovalController;
-use App\Http\Controllers\Auth\Login;
-use App\Http\Controllers\Auth\Logout;
-use App\Http\Controllers\Auth\Register;
-use App\Http\Controllers\DocumentController;
-use App\Http\Controllers\EventController;
-use App\Http\Controllers\Form\MembershipRegistration;
-use App\Http\Controllers\MemberController;
-use App\Http\Controllers\OrganizationController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\RequestController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DashboardController;
 
+// dashboard pages
 Route::get('/', function () {
-    return view('welcome');
-});
+    return view('pages.dashboard.ecommerce', ['title' => 'E-commerce Dashboard']);
+})->name('dashboard');
 
-Route::get('/home', function () {
-    return view('home');
-});
+// calender pages
+Route::get('/calendar', function () {
+    return view('pages.calender', ['title' => 'Calendar']);
+})->name('calendar');
 
-Route::get('/dashboard', [EventController::class, 'dashboard'])
-    ->middleware('auth');
+// profile pages
+Route::get('/profile', function () {
+    return view('pages.profile', ['title' => 'Profile']);
+})->name('profile');
 
-Route::view('/register', 'auth.register')
-    ->middleware('guest')
-    ->name('register');
+// form pages
+Route::get('/form-elements', function () {
+    return view('pages.form.form-elements', ['title' => 'Form Elements']);
+})->name('form-elements');
 
-Route::post('register', Register::class)
-    ->middleware('guest');
+// tables pages
+Route::get('/basic-tables', function () {
+    return view('pages.tables.basic-tables', ['title' => 'Basic Tables']);
+})->name('basic-tables');
 
-Route::post('/profile/create', [ProfileController::class, 'create'])
-    ->middleware('auth')
-    ->name('profile.make_profile');
+// pages
 
-Route::get('/profile/create', [ProfileController::class, 'form'])
-    ->middleware('auth');
+Route::get('/blank', function () {
+    return view('pages.blank', ['title' => 'Blank']);
+})->name('blank');
 
-Route::get('document_request', function () {
-    return view('student/document_request');
-});
+// error pages
+Route::get('/error-404', function () {
+    return view('pages.errors.error-404', ['title' => 'Error 404']);
+})->name('error-404');
 
-Route::get('forms/document_upload', [DocumentController::class, 'uploadForm'])
-    ->middleware('auth');
+// chart pages
+Route::get('/line-chart', function () {
+    return view('pages.chart.line-chart', ['title' => 'Line Chart']);
+})->name('line-chart');
 
-Route::get('my_documents', function () {
-    return view('student/my_document');
-})->middleware('auth')->name('my_documents');
+Route::get('/bar-chart', function () {
+    return view('pages.chart.bar-chart', ['title' => 'Bar Chart']);
+})->name('bar-chart');
 
-Route::get('my_organizations', [OrganizationController::class, 'getUserOrganizations'])
-    ->middleware('auth')
-    ->name('my_organizations');
 
-Route::get('my_events', function () {
-    return view('student/my_events');
-})->middleware('auth')->name('my_events');
+// authentication pages
+Route::get('/signin', function () {
+    return view('pages.auth.signin', ['title' => 'Sign In']);
+})->name('signin');
 
-Route::get('my_calendar', [EventController::class, 'calendar'])
-    ->middleware('auth')
-    ->name('my_calendar');
+Route::get('/signup', function () {
+    return view('pages.auth.signup', ['title' => 'Sign Up']);
+})->name('signup');
 
-Route::get('/events/all', [EventController::class, 'allEvents'])
-    ->middleware('auth');
+// ui elements pages
+Route::get('/alerts', function () {
+    return view('pages.ui-elements.alerts', ['title' => 'Alerts']);
+})->name('alerts');
 
-Route::post('/logout', Logout::class)
-    ->middleware('auth')
-    ->name('logout');
+Route::get('/avatars', function () {
+    return view('pages.ui-elements.avatars', ['title' => 'Avatars']);
+})->name('avatars');
 
-Route::view('/login', 'auth.login')
-    ->middleware('guest')
-    ->name('login');
+Route::get('/badge', function () {
+    return view('pages.ui-elements.badges', ['title' => 'Badges']);
+})->name('badges');
 
-Route::post('login', Login::class)
-    ->middleware('guest');
+Route::get('/buttons', function () {
+    return view('pages.ui-elements.buttons', ['title' => 'Buttons']);
+})->name('buttons');
 
-Route::get('/admin/membership_requests', [RequestController::class, 'getMembershipRequests'])
-    ->middleware('auth')
-    ->name('admin.membership_requests');
+Route::get('/image', function () {
+    return view('pages.ui-elements.images', ['title' => 'Images']);
+})->name('images');
 
-Route::post('/admin/membership_requests/{membershipRequest}/approve', [ApprovalController::class, 'approveMembershipRequest'])
-    ->middleware('auth')
-    ->name('admin.membership_requests.approve');
+Route::get('/videos', function () {
+    return view('pages.ui-elements.videos', ['title' => 'Videos']);
+})->name('videos');
 
-Route::post('/admin/membership_requests/{membershipRequest}/deny', [ApprovalController::class, 'denyMembershipRequest'])
-    ->middleware('auth')
-    ->name('admin.membership_requests.deny');
 
-Route::get('/admin/forms_management', function () {
-    return view('admin.forms_management');
-})->middleware('auth')->name('admin.forms_management');
 
-Route::get('/admin/template_management', function () {
-    return view('admin.template_management');
-})->middleware('auth')->name('admin.template_management');
 
-Route::get('/admin/members/list/{organization_id}', [MemberController::class, 'index'])
-    ->middleware('auth')->name('admin.members.list');
 
-Route::get('/admin/event_requests', function () {
-    return view('admin.event_requests');
-})->middleware('auth')->name('admin.event_requests');
 
-Route::get('/forms/membership_registration', [MembershipRegistration::class, 'view'])
-    ->middleware('auth')
-    ->name('forms.membership_registration');
 
-Route::post('/member/register/request', [MemberController::class, 'post'])
-    ->middleware('auth')
-    ->name('member.register_request');
 
-// profile/view redirects to profile.view with the authenticated user's ID, while profile/view/{user_id} allows viewing any user's profile by their ID
-Route::get('/profile/view', function () {
-    if (! auth()->check()) {
-        return redirect()->route('login');
-    }
 
-    return redirect()->route('profile.view', ['user_id' => auth()->id()]);
-})->name('profile.view.redirect');
 
-Route::get('/profile/view/{user_id}', [ProfileController::class, 'view'])
-    ->middleware('auth')
-    ->name('profile.view');
+
+
+
+
+
+
+
+
+
+
+
+
