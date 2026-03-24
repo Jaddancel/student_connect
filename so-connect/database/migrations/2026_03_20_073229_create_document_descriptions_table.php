@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id('document_desc_id');
             $table->string('document_title');
             $table->text('document_desc_text');
-            $table->timestamp('document_created_at');
-            $table->timestamp('document_modified_at');
+            $table->timestamp('document_created_at')->nullable();
+            $table->timestamp('document_modified_at')->nullable();
         });
     }
 
