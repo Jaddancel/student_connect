@@ -1,6 +1,7 @@
 import './bootstrap';
 import Alpine from 'alpinejs';
 import ApexCharts from 'apexcharts';
+import 'flag-icons/css/flag-icons.min.css';
 
 // flatpickr
 import flatpickr from 'flatpickr';

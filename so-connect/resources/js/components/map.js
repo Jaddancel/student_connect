@@ -569,6 +569,27 @@ const addLegend = (mapInstance) => {
     legend.addTo(mapInstance);
 };
 
+const formatGroupedBarangayTooltip = (groupedNames, groupedCount) => {
+    if (groupedCount <= 1 || !groupedNames) {
+        return '';
+    }
+
+    const names = String(groupedNames)
+        .split(',')
+        .map((name) => name.trim())
+        .filter(Boolean);
+
+    if (!names.length) {
+        return `<br>Includes: ${groupedCount} barangays`;
+    }
+
+    const previewNames = names.slice(0, 3).join(', ');
+    const remainingCount = names.length - 3;
+    const remainderLabel = remainingCount > 0 ? ` +${remainingCount} more` : '';
+
+    return `<br>Includes: ${previewNames}${remainderLabel}`;
+};
+
 const addBoundariesLayer = (mapInstance, hierarchicalGeoJson) => {
     return L.geoJSON(hierarchicalGeoJson, {
         style: (feature) => {
@@ -590,9 +611,7 @@ const addBoundariesLayer = (mapInstance, hierarchicalGeoJson) => {
             const customerLabel = customerCount > 0
                 ? `${customerCount.toLocaleString()} customers`
                 : 'No sample customers';
-            const groupedLabel = groupedCount > 1
-                ? `<br>Includes: ${groupedNames}`
-                : '';
+            const groupedLabel = formatGroupedBarangayTooltip(groupedNames, groupedCount);
 
             layer.bindTooltip(`${placeLabel}<br>${customerLabel}${groupedLabel}`, { sticky: true });
         },

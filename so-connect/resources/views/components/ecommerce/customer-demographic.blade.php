@@ -4,25 +4,25 @@
     $defaultCountries = [
         [
             'name' => 'Poblacion (Tarlac City)',
-            'flag' => '/images/country/philippines.svg',
+            'country_code' => 'ph',
             'customers' => '420',
             'percentage' => 18
         ],
         [
             'name' => 'Calingcuan (Tarlac City)',
-            'flag' => '/images/country/philippines.svg',
+            'country_code' => 'ph',
             'customers' => '365',
             'percentage' => 16
         ],
         [
             'name' => 'Matatalaib (Tarlac City)',
-            'flag' => '/images/country/philippines.svg',
+            'country_code' => 'ph',
             'customers' => '330',
             'percentage' => 14
         ],
         [
             'name' => 'Culipat (Tarlac City)',
-            'flag' => '/images/country/philippines.svg',
+            'country_code' => 'ph',
             'customers' => '290',
             'percentage' => 12
         ],
@@ -69,10 +69,13 @@
 
     <div class="space-y-5">
         @foreach($countriesList as $country)
+            @php
+                $flagCode = strtolower($country['country_code'] ?? 'ph');
+            @endphp
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <div class="w-full max-w-8 items-center rounded-full">
-                        <img src="{{ $country['flag'] }}" alt="{{ strtolower($country['name']) }}" />
+                    <div class="w-full max-w-8 items-center rounded-sm">
+                        <span class="fi fi-{{ $flagCode }} block h-5 w-7 rounded-sm" aria-hidden="true"></span>
                     </div>
                     <div>
                         <p class="text-theme-sm font-semibold text-gray-800 dark:text-white/90">
