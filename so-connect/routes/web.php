@@ -106,6 +106,13 @@ Route::get('/forms/membership_registration', [MembershipRegistration::class, 'vi
     ->middleware('auth')
     ->name('forms.membership_registration');
 
+Route::get('/forms/event_registration', [EventController::class, 'eventRegistrationForm'])
+    ->middleware('auth');
+
+Route::post('/event/create', [EventController::class, 'createEventRequest'])
+    ->middleware('auth'
+    )->name('events.create');
+
 Route::post('/member/register/request', [MemberController::class, 'post'])
     ->middleware('auth')
     ->name('member.register_request');

@@ -35,4 +35,22 @@ class UserFactory extends Factory
             ];
         });
     }
+
+    public function superAdmin()
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'user_type' => 1,
+            ];
+        });
+    }
+
+    public function regular()
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'user_type' => 3,
+            ];
+        });
+    }
 }

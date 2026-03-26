@@ -71,9 +71,6 @@
             There are no Document Requests.
         </div>
     </div>
-    <div class="card bg-base-100 p-5">
-
-    </div>
 </div>
 
 <style>
@@ -181,27 +178,29 @@
                                             </li>
                                         `;
 
-                    subtitleEl.textContent = dateKey
-                        ? `No events on ${dateFormatter.format(new Date(`${dateKey}T00:00:00`))}.`
-                        : 'No upcoming events assigned to your organization(s).';
+                    subtitleEl.textContent = dateKey ?
+                        `No events on ${dateFormatter.format(new Date(`${dateKey}T00:00:00`))}.` :
+                        'No upcoming events assigned to your organization(s).';
                     return;
                 }
 
-                subtitleEl.textContent = dateKey
-                    ? `Showing events on ${dateFormatter.format(new Date(`${dateKey}T00:00:00`))}.`
-                    : 'Showing all upcoming events for your organization(s).';
+                subtitleEl.textContent = dateKey ?
+                    `Showing events on ${dateFormatter.format(new Date(`${dateKey}T00:00:00`))}.` :
+                    'Showing all upcoming events for your organization(s).';
 
                 listEl.innerHTML = filteredEvents
                     .map((event) => {
                         const start = event.start ? new Date(event.start) : null;
                         const end = event.end ? new Date(event.end) : null;
-                        const schedule = start
-                            ? `${dateTimeFormatter.format(start)}${end ? ` - ${dateTimeFormatter.format(end)}` : ''}`
-                            : 'Schedule TBD';
+                        const schedule = start ?
+                            `${dateTimeFormatter.format(start)}${end ? ` - ${dateTimeFormatter.format(end)}` : ''}` :
+                            'Schedule TBD';
                         const title = escapeHtml(event.title || 'Untitled Event');
                         const organization = escapeHtml(event.organization || 'Organization');
                         const location = escapeHtml(event.location || 'Location TBD');
-                        const description = event.description ? `<p class="mt-2 text-sm opacity-80">${escapeHtml(event.description)}</p>` : '';
+                        const description = event.description ?
+                            `<p class="mt-2 text-sm opacity-80">${escapeHtml(event.description)}</p>` :
+                            '';
 
                         return `
                                                 <li class="rounded-box border border-base-300 p-4">

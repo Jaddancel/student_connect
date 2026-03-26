@@ -6,6 +6,8 @@ use App\Models\Event;
 use App\Models\Organization;
 use App\Models\Request as RequestModel;
 use App\Models\User;
+use App\Services\ActionService;
+use Illuminate\Http\Request;
 
 class EventController extends Controller
 {
@@ -137,5 +139,36 @@ class EventController extends Controller
         });
 
         return response()->json($events);
+    }
+
+    public function createEventRequest(Request $request)
+    {
+        $command = $request->validate([
+            'organization_id' => 'required|integer',
+            'event_name' => 'required|string|max:255',
+            'event_start_time' => 'required|date',
+            'event_end_time' => 'required|date|after_or_equal:event_start_time',
+            'event_desc_text' => 'nullable|string',
+        ]);
+
+        (new ActionService)->passAction($command, 1); // Assuming '1' is the action type code for event creation requests.
+
+        return redirect()->back()->with('success', 'Event creation request submitted successfully.');
+    }
+
+    public function eventRegistrationForm()
+    {
+        $organizationIds = auth()->user()
+            ?->member()
+            ->pluck('organization')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $organizationsOfUser = Organization::with('organizationDetail')
+            ->whereIn('organization_id', $organizationIds)
+            ->get();
+
+        return view('event.create', compact('organizationsOfUser'));
     }
 }

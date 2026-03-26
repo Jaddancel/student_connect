@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>{{isset($title) ? $title . " - SOConnect" : 'SOConnect'}}</title>
+    <title>{{ isset($title) ? $title . ' - SOConnect' : 'SOConnect' }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/dashboard.js'])
 </head>
 
@@ -13,8 +13,7 @@
 
     @auth
         @php
-            $typeCode = auth()->user()
-                ->user_type;
+            $typeCode = auth()->user()->user_type;
         @endphp
 
         <div class="drawer lg:drawer-open">
@@ -31,7 +30,8 @@
                     </label>
                     <div class="navbar-start">
                         <p class="btn btn-ghost text-xl"><a href="http://" target="_blank"
-                                rel="noopener noreferrer">{{isset($title) ? $title . " - SOConnect" : 'SOConnect'}}</a></p>
+                                rel="noopener noreferrer">{{ isset($title) ? $title . ' - SOConnect' : 'SOConnect' }}</a>
+                        </p>
                     </div>
                     <div class="navbar-end gap-1">
                         <div class="dropdown dropdown-end">
@@ -51,9 +51,11 @@
                                             <span class="badge bg-gray-300 font-semibold text-black">Unknown</span>
                                         @elseif ($typeCode == 3)
                                             <span class="badge bg-blue-300 font-semibold text-black">User</span>
-                                        @else
+                                        @elseif ($typeCode == 2)
                                             <span class="badge bg-green-300 font-semibold text-black">Admin</span>
-                                        @endif
+                                        @elseif ($typeCode == 1)
+                                            <span class="badge bg-yellow-300 font-semibold text-black">Super Admin</span
+                                                @endif
                                     </a>
                                 </li>
                                 <li><a>Settings</a></li>
@@ -88,7 +90,7 @@
                     </ul>
                 </div>
             </div>
-    @else
+        @else
             You're not supposed to be here.
         @endauth
         @stack('scripts')

@@ -1,11 +1,10 @@
 <x-dashboard-layout>
     @auth
         @php
-            $typeCode = auth()->user()
-                ->user_type;
+            $typeCode = auth()->user()->user_type;
         @endphp
         @if ($typeCode == 3)
-            <x-slot name="title">Member Dashboard</x-slot>
+            <x-slot name="title">Student Dashboard</x-slot>
             @include('dashboard.member')
         @elseif ($typeCode == 2)
             <x-slot name="title">Admin Dashboard</x-slot>
@@ -16,4 +15,4 @@
         @endif
     @endauth
 
-    </x-dashboard-layout>
+</x-dashboard-layout>

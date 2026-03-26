@@ -22,6 +22,7 @@
         <ul class="">
             <li><a href="/forms/membership_registration">Register For A Membership</a></li>
             <li><a href="/my_organizations">My Organizations</a></li>
+            <li><a href="/forms/event_registration">Register For An Event</a></li>
         </ul>
     </details>
 </li>
