@@ -14,6 +14,23 @@
     @auth
         @php
             $typeCode = auth()->user()->user_type;
+            // $isPresident = auth()
+            //     ->user()
+            //     ->member()
+            //     ->whereHas('organizationrelation.organizationDetail', function ($query) {
+            //         $query->whereColumn('organization_details.president', 'members.member_id');
+            //     })
+            //     ->exists();
+
+            // $isOfficer = auth()
+            //     ->user()
+            //     ->member()
+            //     ->get()
+            //     ->contains(function ($membership) {
+            //         $role = strtolower(trim((string) $membership->role));
+
+            //         return $role !== '' && $role !== 'member';
+            //     });
         @endphp
 
         <div class="drawer lg:drawer-open">
@@ -79,12 +96,14 @@
                         @if (is_null($typeCode))
                             <p>User has no role</p>
                         @else
-                            @if ($typeCode == 3)
+                            @if ($typeCode == 1)
+                                @include('components.sidebar.president')
+                            @elseif ($isPresident)
+                                @include('components.sidebar.president')
+                            @elseif ($isOfficer)
                                 @include('components.sidebar.officer')
-                            @elseif ($typeCode < 3)
-                                @include('components.sidebar.admin')
                             @else
-                                <p>Unknown role: {{ $typeCode }}</p>
+                                @include('components.sidebar.member')
                             @endif
                         @endif
                     </ul>
