@@ -6,25 +6,13 @@
             'name' => 'Poblacion (Tarlac City)',
             'country_code' => 'ph',
             'customers' => '420',
-            'percentage' => 18
+            'percentage' => 18,
         ],
         [
             'name' => 'Calingcuan (Tarlac City)',
             'country_code' => 'ph',
             'customers' => '365',
-            'percentage' => 16
-        ],
-        [
-            'name' => 'Matatalaib (Tarlac City)',
-            'country_code' => 'ph',
-            'customers' => '330',
-            'percentage' => 14
-        ],
-        [
-            'name' => 'Culipat (Tarlac City)',
-            'country_code' => 'ph',
-            'customers' => '290',
-            'percentage' => 12
+            'percentage' => 16,
         ],
     ];
 
@@ -38,7 +26,7 @@
                 Member Demographic
             </h3>
             <p class="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                Number of customers by barangay in Tarlac Province
+                Map of the residences of organization members.
             </p>
         </div>
 
@@ -68,7 +56,7 @@
     </div>
 
     <div class="space-y-5">
-        @foreach($countriesList as $country)
+        @foreach ($countriesList as $country)
             @php
                 $flagCode = strtolower($country['country_code'] ?? 'ph');
             @endphp

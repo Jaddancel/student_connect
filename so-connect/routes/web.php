@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\DashboardController;
 
 // dashboard pages
 Route::get('/', function () {
@@ -48,7 +47,6 @@ Route::get('/bar-chart', function () {
     return view('pages.chart.bar-chart', ['title' => 'Bar Chart']);
 })->name('bar-chart');
 
-
 // authentication pages
 Route::get('/signin', function () {
     return view('pages.auth.signin', ['title' => 'Sign In']);
@@ -83,24 +81,6 @@ Route::get('/videos', function () {
     return view('pages.ui-elements.videos', ['title' => 'Videos']);
 })->name('videos');
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Route::get('/dashboard/admin', function () {
+    return view('pages.dashboard.administrator', ['title' => 'Admin Dashboard']);
+})->name('admin-dashboard');

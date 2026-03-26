@@ -6,7 +6,7 @@
         <div class="pr-12 sm:pr-16">
             <h4 class="text-theme-xl font-semibold text-gray-800 dark:text-white/90">Member Demographic Map</h4>
             <p class="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                Expanded geographic view of customer distribution
+                Expanded geographic view of member distribution.
             </p>
         </div>
 

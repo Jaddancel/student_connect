@@ -609,8 +609,8 @@ const addBoundariesLayer = (mapInstance, hierarchicalGeoJson) => {
             const groupedCount = properties.GROUPED_BARANGAY_COUNT || 1;
             const groupedNames = properties.GROUPED_BARANGAY_NAMES;
             const customerLabel = customerCount > 0
-                ? `${customerCount.toLocaleString()} customers`
-                : 'No sample customers';
+                ? `${customerCount.toLocaleString()} members.`
+                : 'No recorded members.';
             const groupedLabel = formatGroupedBarangayTooltip(groupedNames, groupedCount);
 
             layer.bindTooltip(`${placeLabel}<br>${customerLabel}${groupedLabel}`, { sticky: true });
