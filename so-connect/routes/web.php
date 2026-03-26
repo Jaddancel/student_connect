@@ -98,9 +98,17 @@ Route::get('/admin/template_management', function () {
 Route::get('/admin/members/list/{organization_id}', [MemberController::class, 'index'])
     ->middleware('auth')->name('admin.members.list');
 
-Route::get('/admin/event_requests', function () {
-    return view('admin.event_requests');
-})->middleware('auth')->name('admin.event_requests');
+Route::get('/admin/event_requests', [RequestController::class, 'getEventRequests'])
+    ->middleware('auth')
+    ->name('admin.event_requests');
+
+Route::post('/admin/event_requests/{eventRequest}/approve', [ApprovalController::class, 'approveEventRequest'])
+    ->middleware('auth')
+    ->name('admin.event_requests.approve');
+
+Route::post('/admin/event_requests/{eventRequest}/deny', [ApprovalController::class, 'denyEventRequest'])
+    ->middleware('auth')
+    ->name('admin.event_requests.deny');
 
 Route::get('/forms/membership_registration', [MembershipRegistration::class, 'view'])
     ->middleware('auth')

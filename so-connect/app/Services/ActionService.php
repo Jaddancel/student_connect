@@ -38,10 +38,11 @@ class ActionService
         // For creation of event request in organizations, sans college organizations.
         Request::create([
             'action' => $command['organization_id'].'|'.
+            $command['user_id'].'|'.
             $command['event_name'].'|'.
             $command['event_start_time'].'|'.
             $command['event_end_time'].'|'.
-            $command['event_desc_text'],
+            ($command['event_desc_text'] ?? ''),
             'action_type' => $code,
         ]);
     }

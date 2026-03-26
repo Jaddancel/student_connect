@@ -70,7 +70,7 @@
             <span>Organization Management</span>
         </summary>
         <ul>
-            <li><a href="/admin/members/list/{{ auth()->user()->member->first()->organization}}">Member List</a>
+            <li><a href="/admin/members/list/{{ auth()->user()->member->first()->organization }}">Organization List</a>
             </li>
         </ul>
     </details>

@@ -23,6 +23,15 @@
             <li><a href="/forms/membership_registration">Register For A Membership</a></li>
             <li><a href="/my_organizations">My Organizations</a></li>
             <li><a href="/forms/event_registration">Register For An Event</a></li>
+            @php
+                $isOrganizationPresident = \App\Models\Organization\organizationDetail::whereIn(
+                    'president',
+                    auth()->user()->member()->pluck('member_id'),
+                )->exists();
+            @endphp
+            @if ($isOrganizationPresident)
+                <li><a href="/admin/event_requests">Event Requests</a></li>
+            @endif
         </ul>
     </details>
 </li>

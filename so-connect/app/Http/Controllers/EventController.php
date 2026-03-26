@@ -151,6 +151,8 @@ class EventController extends Controller
             'event_desc_text' => 'nullable|string',
         ]);
 
+        $command['user_id'] = (int) auth()->id();
+
         (new ActionService)->passAction($command, 1); // Assuming '1' is the action type code for event creation requests.
 
         return redirect()->back()->with('success', 'Event creation request submitted successfully.');

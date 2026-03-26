@@ -1,5 +1,5 @@
 <x-dashboard-layout>
-    <x-slot name="title">Members List</x-slot>
+    <x-slot name="title">Organization List</x-slot>
     <div class="overflow-x-auto rounded-box border border-base-content/5 bg-base-100">
         <table class="table">
             <!-- head -->
@@ -16,9 +16,10 @@
                 @foreach ($members as $member)
                     <tr>
                         <th>{{ $loop->iteration }}</th>
-                        <td>{{ $member->member_user->profile->first_name }} {{ $member->member_user->profile->last_name }}
+                        <td>{{ $member->member_user->profile->first_name }}
+                            {{ $member->member_user->profile->last_name }}
                         </td>
-                        <td>{{ ucwords($member->role ?: 'Undefined')}}</td>
+                        <td>{{ ucwords($member->role ?: 'Undefined') }}</td>
                         <td>{{ $member->member_since->format('M d, Y') }}</td>
                         <td>{{ $member->member_user->user_email }}</td>
                     </tr>
