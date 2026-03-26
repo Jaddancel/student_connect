@@ -14,23 +14,23 @@
     @auth
         @php
             $typeCode = auth()->user()->user_type;
-            // $isPresident = auth()
-            //     ->user()
-            //     ->member()
-            //     ->whereHas('organizationrelation.organizationDetail', function ($query) {
-            //         $query->whereColumn('organization_details.president', 'members.member_id');
-            //     })
-            //     ->exists();
+            $isPresident = auth()
+                ->user()
+                ->member()
+                ->whereHas('organizationrelation.organizationDetail', function ($query) {
+                    $query->whereColumn('organization_details.president', 'members.member_id');
+                })
+                ->exists();
 
-            // $isOfficer = auth()
-            //     ->user()
-            //     ->member()
-            //     ->get()
-            //     ->contains(function ($membership) {
-            //         $role = strtolower(trim((string) $membership->role));
+            $isOfficer = auth()
+                ->user()
+                ->member()
+                ->get()
+                ->contains(function ($membership) {
+                    $role = strtolower(trim((string) $membership->role));
 
-            //         return $role !== '' && $role !== 'member';
-            //     });
+                    return $role !== '' && $role !== 'member';
+                });
         @endphp
 
         <div class="drawer lg:drawer-open">
