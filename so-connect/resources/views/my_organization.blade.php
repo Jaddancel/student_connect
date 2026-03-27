@@ -4,6 +4,18 @@
     <div class="overflow-x-auto rounded-box border border-base-content/5 bg-base-100 p-4 ">
         <h2 class="text-2xl font-bold my-3">My Organizations</h2>
 
+        @if (session('success'))
+            <div class="alert alert-success mb-4" role="alert">
+                <span>{{ session('success') }}</span>
+            </div>
+        @endif
+
+        @if ($errors->any())
+            <div class="alert alert-error mb-4" role="alert">
+                <span>{{ $errors->first() }}</span>
+            </div>
+        @endif
+
         <table class="table">
             <thead>
                 <tr>
@@ -30,7 +42,8 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="4" class="text-center text-gray-500">You are not part of any organizations yet.</td>
+                        <td colspan="4" class="text-center text-gray-500">You are not part of any organizations yet.
+                        </td>
                     </tr>
                 @endforelse
             </tbody>

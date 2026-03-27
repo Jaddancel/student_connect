@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Organization;
+use App\Services\UserOrganizationService;
 use Illuminate\Http\Request;
 
 class OrganizationController extends Controller
@@ -15,20 +16,9 @@ class OrganizationController extends Controller
         //
     }
 
-    public function getUserOrganizations()
+    public function getUserOrganizations(UserOrganizationService $userOrganizationService)
     {
-        $organizations = auth()->user()
-            ->member()
-            ->with('organizationrelation.organizationDetail')
-            ->get()
-            ->map(function ($member) {
-                return (object) [
-                    'organization_name' => $member->organizationrelation?->organizationDetail?->organization_name ?? 'Unknown Organization',
-                    'role_name' => $member->role ?? 'Member',
-                    'member_since' => $member->member_since,
-                    'status' => $member->approval_id ? 'Approved' : 'Pending',
-                ];
-            });
+        $organizations = $userOrganizationService->getUserOrganizations(auth()->user());
 
         return view('my_organization', ['organizations' => $organizations]);
     }

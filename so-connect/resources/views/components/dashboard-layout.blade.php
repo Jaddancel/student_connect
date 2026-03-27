@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>{{ isset($title) ? $title . ' - SOConnect' : 'SOConnect' }}</title>
+    <title>{{ isset($title) ? $title . ' ' : 'SOConnect' }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/dashboard.js'])
 </head>
 
@@ -47,7 +47,7 @@
                     </label>
                     <div class="navbar-start">
                         <p class="btn btn-ghost text-xl"><a href="http://" target="_blank"
-                                rel="noopener noreferrer">{{ isset($title) ? $title . ' - SOConnect' : 'SOConnect' }}</a>
+                                rel="noopener noreferrer">{{ isset($title) ? $title . ' ' : 'SOConnect' }}</a>
                         </p>
                     </div>
                     <div class="navbar-end gap-1">

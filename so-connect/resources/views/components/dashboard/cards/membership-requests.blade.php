@@ -19,6 +19,17 @@
                     <p class="mt-2 text-sm opacity-80">
                         Requested {{ optional($request['requested_at'])->diffForHumans() ?? 'recently' }}
                     </p>
+                    <div class="mt-3 flex gap-2">
+                        <form method="POST"
+                            action="{{ route('officer.membership_requests.approve', $request['id']) }}">
+                            @csrf
+                            <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                        </form>
+                        <form method="POST" action="{{ route('officer.membership_requests.deny', $request['id']) }}">
+                            @csrf
+                            <button type="submit" class="btn btn-sm btn-error">Reject</button>
+                        </form>
+                    </div>
                 </li>
             @empty
                 <li class="rounded-box border border-base-300 bg-base-200/50 p-4 text-sm opacity-80">

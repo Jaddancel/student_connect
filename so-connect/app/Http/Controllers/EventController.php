@@ -7,11 +7,13 @@ use App\Models\Organization;
 use App\Models\Request as RequestModel;
 use App\Models\User;
 use App\Services\ActionService;
+use App\Services\UserOrganizationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class EventController extends Controller
 {
-    public function dashboard()
+    public function dashboard(UserOrganizationService $userOrganizationService)
     {
         $events = Event::with('details')
             ->whereHas('details', function ($query) {
@@ -19,6 +21,8 @@ class EventController extends Controller
             })
             ->get()
             ->sortBy(fn ($event) => $event->details->event_start_date);
+
+        $userOrganizations = $userOrganizationService->getUserOrganizations(auth()->user());
 
         $organizationIds = auth()->user()
             ?->member()
@@ -113,12 +117,17 @@ class EventController extends Controller
                 ->values();
         }
 
-        return view('dashboard', compact('events', 'memberDashboardEvents', 'memberPendingMembershipRequests'));
+        return view('dashboard', compact('events', 'memberDashboardEvents', 'memberPendingMembershipRequests', 'userOrganizations'));
     }
 
     public function calendar()
     {
-        $events = Event::with('details')->get()
+        $approvedOrganizationIds = $this->getApprovedOrganizationIds();
+
+        $events = Event::with('details')
+            ->whereIn('organization', $approvedOrganizationIds)
+            ->get()
+            ->filter(fn ($event) => $event->details)
             ->sortBy(fn ($event) => $event->details->event_start_date);
 
         return view('calendar', compact('events'));
@@ -126,19 +135,42 @@ class EventController extends Controller
 
     public function allEvents()
     {
-        $events = Event::with('details')->get()->map(function ($event) {
-            return [
-                'title' => $event->details->event_name,
-                'start' => $event->details->event_start_time,
-                'end' => $event->details->event_end_time,
-                'extendedProps' => [
-                    'location' => $event->details->event_location,
-                    'description' => $event->details->event_desc_text,
-                ],
-            ];
-        });
+        $approvedOrganizationIds = $this->getApprovedOrganizationIds();
+
+        if ($approvedOrganizationIds->isEmpty()) {
+            return response()->json([]);
+        }
+
+        $events = Event::with('details')
+            ->whereIn('organization', $approvedOrganizationIds)
+            ->get()
+            ->filter(fn ($event) => $event->details)
+            ->values()
+            ->map(function ($event) {
+                return [
+                    'title' => $event->details->event_name,
+                    'start' => $event->details->event_start_time,
+                    'end' => $event->details->event_end_time,
+                    'extendedProps' => [
+                        'location' => $event->details->event_location,
+                        'description' => $event->details->event_desc_text,
+                    ],
+                ];
+            });
 
         return response()->json($events);
+    }
+
+    protected function getApprovedOrganizationIds(): Collection
+    {
+        return auth()->user()
+            ->member()
+            ->whereNotNull('approval_id')
+            ->pluck('organization')
+            ->filter()
+            ->map(fn ($organizationId) => (int) $organizationId)
+            ->unique()
+            ->values();
     }
 
     public function createEventRequest(Request $request)

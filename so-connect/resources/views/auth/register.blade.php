@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - SOConnect</title>
+    <title>Register</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
@@ -34,8 +34,8 @@
 
                 <fieldset class="fieldset">
                     <label class="fieldset-legend text-sm font-semibold">Email</label>
-                    <input type="email" name="user_email" value="{{ old('email') }}" class="input input-bordered w-full"
-                        placeholder="you@example.com" required />
+                    <input type="email" name="user_email" value="{{ old('email') }}"
+                        class="input input-bordered w-full" placeholder="you@example.com" required />
                 </fieldset>
 
                 <fieldset class="fieldset">
@@ -53,7 +53,7 @@
             </p>
         </div>
     </div>
-     
+
 
 </body>
 

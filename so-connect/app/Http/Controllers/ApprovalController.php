@@ -17,7 +17,7 @@ class ApprovalController extends Controller
         $approvalService->approveMembershipRequest($membershipRequest, (int) auth()->id());
 
         return redirect()
-            ->route('admin.membership_requests')
+            ->route('officer.membership_requests')
             ->with('success', 'Membership request approved successfully.');
     }
 
@@ -31,7 +31,7 @@ class ApprovalController extends Controller
         $approvalService->denyMembershipRequest($membershipRequest, (int) auth()->id());
 
         return redirect()
-            ->route('admin.membership_requests')
+            ->route('officer.membership_requests')
             ->with('success', 'Membership request rejected successfully.');
     }
 
@@ -67,13 +67,13 @@ class ApprovalController extends Controller
     {
         if ((string) $membershipRequest->action_type !== '0') {
             return redirect()
-                ->route('admin.membership_requests')
+                ->route('officer.membership_requests')
                 ->with('error', 'Only membership requests can be processed here.');
         }
 
         if ($membershipRequest->approval()->exists()) {
             return redirect()
-                ->route('admin.membership_requests')
+                ->route('officer.membership_requests')
                 ->with('error', 'This membership request has already been processed.');
         }
 
@@ -87,7 +87,7 @@ class ApprovalController extends Controller
 
         if (! in_array($organizationId, $authorizedOrgIds, true)) {
             return redirect()
-                ->route('admin.membership_requests')
+                ->route('officer.membership_requests')
                 ->with('error', 'You are not authorized to process this request.');
         }
 

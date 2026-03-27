@@ -4,7 +4,6 @@
 
     <div class="flex flex-row align-middle flex-wrap gap-5">
         <x-dashboard.cards.announcement-form />
-        <x-dashboard.cards.pending-membership-approvals />
         <x-dashboard.cards.reports />
         <x-dashboard.cards.manage-organizations />
         <x-dashboard.cards.recent-event-requests />

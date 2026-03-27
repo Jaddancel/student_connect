@@ -23,7 +23,7 @@ class MemberController extends Controller
     {
         $this->createMembershipRequest($request);
 
-        return redirect()->route('forms.membership_registration')->with('success', 'Membership request submitted successfully.');
+        return redirect()->route('my_organizations')->with('success', 'Membership request submitted successfully.');
     }
 
     public function index($organization_id)

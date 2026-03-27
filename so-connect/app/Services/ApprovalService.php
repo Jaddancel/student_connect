@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Approval;
 use App\Models\Event;
+use App\Models\Event\eventDetails;
 use App\Models\Member;
 use App\Models\Request as RequestModel;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +27,7 @@ class ApprovalService
                 [
                     'organization' => $organizationId,
                     'user' => $userId,
+                    'role' => 'member',
                 ],
                 [
                     'approval_id' => $approval->approval_id,
@@ -59,7 +61,7 @@ class ApprovalService
 
             [$organizationId, $eventName, $eventStartTime, $eventEndTime, $eventDescText] = $this->parseEventRequestAction($eventRequest->action);
 
-            $eventDetail = \App\Models\Event\eventDetails::create([
+            $eventDetail = eventDetails::create([
                 'event_name' => $eventName,
                 'event_desc_text' => $eventDescText,
                 'event_start_time' => $eventStartTime,

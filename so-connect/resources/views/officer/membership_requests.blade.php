@@ -48,12 +48,12 @@
                                 @if ($request->status === 'pending')
                                     <div class="flex gap-2">
                                         <form method="POST"
-                                            action="{{ route('admin.membership_requests.approve', $request->id) }}">
+                                            action="{{ route('officer.membership_requests.approve', $request->id) }}">
                                             @csrf
                                             <button type="submit" class="btn btn-sm btn-success">Approve</button>
                                         </form>
                                         <form method="POST"
-                                            action="{{ route('admin.membership_requests.deny', $request->id) }}">
+                                            action="{{ route('officer.membership_requests.deny', $request->id) }}">
                                             @csrf
                                             <button type="submit" class="btn btn-sm btn-error">Reject</button>
                                         </form>

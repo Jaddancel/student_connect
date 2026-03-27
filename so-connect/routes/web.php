@@ -75,17 +75,17 @@ Route::view('/login', 'auth.login')
 Route::post('login', Login::class)
     ->middleware('guest');
 
-Route::get('/admin/membership_requests', [RequestController::class, 'getMembershipRequests'])
+Route::get('/officer/membership_requests', [RequestController::class, 'getMembershipRequests'])
     ->middleware('auth')
-    ->name('admin.membership_requests');
+    ->name('officer.membership_requests');
 
-Route::post('/admin/membership_requests/{membershipRequest}/approve', [ApprovalController::class, 'approveMembershipRequest'])
+Route::post('/officer/membership_requests/{membershipRequest}/approve', [ApprovalController::class, 'approveMembershipRequest'])
     ->middleware('auth')
-    ->name('admin.membership_requests.approve');
+    ->name('officer.membership_requests.approve');
 
-Route::post('/admin/membership_requests/{membershipRequest}/deny', [ApprovalController::class, 'denyMembershipRequest'])
+Route::post('/officer/membership_requests/{membershipRequest}/deny', [ApprovalController::class, 'denyMembershipRequest'])
     ->middleware('auth')
-    ->name('admin.membership_requests.deny');
+    ->name('officer.membership_requests.deny');
 
 Route::get('/admin/forms_management', function () {
     return view('admin.forms_management');

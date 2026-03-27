@@ -21,7 +21,6 @@
         </summary>
         <ul class="">
             <li><a href="/forms/membership_registration">Request for a Membership</a></li>
-            <li><a href="/admin/membership_requests">Member Requests</a></li>
             <li><a href="/admin/event_requests">Event Requests</a></li>
         </ul>
     </details>

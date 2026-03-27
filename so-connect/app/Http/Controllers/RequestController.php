@@ -69,7 +69,7 @@ class RequestController extends Controller
             ->filter()
             ->values();
 
-        return view('admin.membership_requests', ['requests' => $groupedRequests]);
+        return view('officer.membership_requests', ['requests' => $groupedRequests]);
     }
 
     public function getEventRequests(Request $request)
