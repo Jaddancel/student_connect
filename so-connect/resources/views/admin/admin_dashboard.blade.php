@@ -2,7 +2,7 @@
 <html>
 <head>
 <title>Admin Dashboard</title>
-<link rel="stylesheet" href="admin.css">
+@vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/dashboard.js'])
 </head>
 <body>
 
