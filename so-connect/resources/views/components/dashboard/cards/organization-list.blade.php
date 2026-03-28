@@ -7,7 +7,7 @@
     <ul class="list bg-base-100 rounded-box shadow-md">
         @forelse ($organizations as $org)
             <li class="list-row">
-                <div><img class="size-10 rounded-box" src="https://img.daisyui.com/images/profile/demo/1@94.webp" /></div>
+                <div><img class="size-10 rounded-box" src="" />Logo</div>
                 <div>
                     <div>{{ $org->organization_name }}</div>
                     <div class="text-xs uppercase font-semibold opacity-60">{{ $org->role_name }}</div>

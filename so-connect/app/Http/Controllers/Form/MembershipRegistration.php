@@ -10,10 +10,13 @@ class MembershipRegistration extends Controller
     public function view()
     {
         $organization_types = [
-            0 => 'College',
-            1 => 'Club',
-            2 => 'Fraternity/Sorority',
-            3 => 'Other',
+            // 0 => 'Academic',
+            1 => 'Socio-Civic',
+            2 => 'Fraternities-Sororities',
+            3 => 'Religious',
+            4 => 'Special Interest',
+            5 => 'University-Sanctioned',
+            6 => 'Student Government',
         ];
 
         $selectedType = request('org_type_selector');

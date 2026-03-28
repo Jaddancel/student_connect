@@ -7,15 +7,14 @@ use App\Http\Controllers\Auth\Register;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\Form\MembershipRegistration;
+use App\Http\Controllers\LandingPage;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RequestController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', [LandingPage::class, 'view']);
 
 Route::get('/home', function () {
     return view('home');

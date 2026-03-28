@@ -31,7 +31,7 @@
             <x-slot name="title">Officer Dashboard</x-slot>
             @include('dashboard.officer')
         @else
-            <x-slot name="title">Member Dashboard</x-slot>
+            <x-slot name="title">Student Dashboard</x-slot>
             @include('dashboard.member')
         @endif
     @endauth

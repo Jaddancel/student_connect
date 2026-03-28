@@ -38,7 +38,7 @@ class organizationDetailFactory extends Factory
                     'TAU Bulalayaw',
                     'Ladies Dormitory Organization',
                     'Men\'s Dormitory Organization',
-                    'Mulat TAU Deabte Society',
+                    'Mulat TAU Deabate Society',
                     'Passion, Rhythm, Inspiration, Melody, Excellence (PRIME)',
                     'Ranchers\' Club Philippines - TAU Chapter',
                     'Rodeo Club',
