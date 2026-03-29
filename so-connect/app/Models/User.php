@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -42,7 +41,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $hidden = [
-        'password',
+        'user_password',
         'remember_token',
     ];
 
@@ -55,8 +54,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'user_created_at' => 'datetime',
-            'password' => 'hashed',
+            'user_password' => 'hashed',
         ];
     }
 
