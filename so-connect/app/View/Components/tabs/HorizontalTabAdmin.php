@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\View\Component;
 
-class horizontal-tab extends Component
+class HorizontalTabAdmin extends Component
 {
     /**
      * Create a new component instance.
@@ -21,6 +21,6 @@ class horizontal-tab extends Component
      */
     public function render(): View|Closure|string
     {
-        return view('components.horizontal-tab');
+        return view('components.horizontal-tabs.admin');
     }
 }

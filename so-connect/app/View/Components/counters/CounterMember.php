@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\View\Component;
 
-class chart.oad-chart extends Component
+class CounterMember extends Component
 {
     /**
      * Create a new component instance.
@@ -21,6 +21,6 @@ class chart.oad-chart extends Component
      */
     public function render(): View|Closure|string
     {
-        return view('components.chart.oad-chart');
+        return view('components.counter.member');
     }
 }

@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\View\Component;
 
-class homeLayout extends Component
+class DashboardList extends Component
 {
     /**
      * Create a new component instance.
@@ -21,6 +21,6 @@ class homeLayout extends Component
      */
     public function render(): View|Closure|string
     {
-        return view('components.home-layout');
+        return view('components.list.recent-member-requests');
     }
 }
