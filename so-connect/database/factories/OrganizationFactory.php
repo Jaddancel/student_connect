@@ -17,7 +17,18 @@ class OrganizationFactory extends Factory
     public function definition(): array
     {
         return [
+<<<<<<< HEAD
             //
+=======
+<<<<<<< HEAD
+            //
+=======
+            // pick a random number from 1 to 5 and assign it to organization_type
+            'organization_type' => null,
+            // create a organization_detail entry and assign its id to organization_detail
+            'organization_detail' => OrganizationDetail::factory()->create()->getKey(),
+>>>>>>> main
+>>>>>>> 38779d9f7f289501ec430fe173a943e7552a93e4
         ];
     }
 }

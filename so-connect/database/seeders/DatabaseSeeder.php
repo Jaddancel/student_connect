@@ -18,7 +18,10 @@ class DatabaseSeeder extends Seeder
         $this->call([
             UserSeeder::class,
             OrganizationSeeder::class,
+<<<<<<< HEAD
             MemberSeeder::class,
+=======
+>>>>>>> 38779d9f7f289501ec430fe173a943e7552a93e4
             EventSeeder::class,
         ]);
     }

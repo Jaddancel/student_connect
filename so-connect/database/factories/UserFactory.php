@@ -17,5 +17,34 @@ class UserFactory extends Factory
      */
     public function definition(): array {}
 
+<<<<<<< HEAD
     public function admin() {}
+=======
+    public function admin()
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'user_type' => 2,
+            ];
+        });
+    }
+
+    public function superAdmin()
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'user_type' => 1,
+            ];
+        });
+    }
+
+    public function regular()
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'user_type' => 3,
+            ];
+        });
+    }
+>>>>>>> main
 }
