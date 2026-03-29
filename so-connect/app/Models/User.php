@@ -21,8 +21,6 @@ class User extends Authenticatable
 
     protected $table = 'users';
 
-    // default value for user_type is 1 (student)
-
     protected $attributes = [
         'user_type' => 3,
     ];
@@ -31,7 +29,7 @@ class User extends Authenticatable
         'user_email',
         'user_password',
         'user_type',
-        'profile_id',
+        'profile',
         'user_created_at',
     ];
 
@@ -67,11 +65,31 @@ class User extends Authenticatable
 
     public function profile()
     {
-        return $this->hasOne(Profile::class, 'profile_id', 'profile_id');
+        return $this->hasOne(Profile::class, 'profile_id', 'profile');
     }
 
-    public function member()
+    public function memberships()
     {
         return $this->hasMany(Member::class, 'user', 'user_id');
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(Document::class, 'author', 'user_id');
+    }
+
+    public function requests()
+    {
+        return $this->belongsTo(Request::class, 'user', 'user_id');
+    }
+
+    public function approvals()
+    {
+        return $this->belongsTo(Approval::class, 'admin', 'user_id');
+    }
+
+    public function reports()
+    {
+        return $this->hasMany(Report::class, 'generated_for', 'user_id');
     }
 }
