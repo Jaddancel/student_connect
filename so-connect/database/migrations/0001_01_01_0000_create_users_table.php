@@ -18,7 +18,7 @@ return new class extends Migration
             $table->timestamp('user_created_at')->useCurrent();
             $table->string('password');
             $table->unsignedBigInteger('user_type');
-            $table->unsignedBigInteger('profile_id')->nullable();
+            $table->unsignedBigInteger('profile')->nullable();
             $table->rememberToken();
         });
 

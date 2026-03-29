@@ -18,9 +18,20 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
+    protected $primaryKey = 'user_id';
+
+    protected $table = 'users';
+
+    protected $attributes = [
+        'user_type' => 3,
+    ];
+
     protected $fillable = [
-        'email',
-        'password',
+        'user_email',
+        'user_password',
+        'user_type',
+        'profile',
+        'user_created_at',
     ];
 
     public $timestamps = false;
@@ -47,5 +58,40 @@ class User extends Authenticatable
             'user_created_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function getAuthPassword()
+    {
+        return $this->user_password;
+    }
+
+    public function profile()
+    {
+        return $this->hasOne(Profile::class, 'profile_id', 'profile');
+    }
+
+    public function memberships()
+    {
+        return $this->hasMany(Member::class, 'user', 'user_id');
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(Document::class, 'author', 'user_id');
+    }
+
+    public function requests()
+    {
+        return $this->belongsTo(Request::class, 'user', 'user_id');
+    }
+
+    public function approvals()
+    {
+        return $this->belongsTo(Approval::class, 'admin', 'user_id');
+    }
+
+    public function reports()
+    {
+        return $this->hasMany(Report::class, 'generated_for', 'user_id');
     }
 }
