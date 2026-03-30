@@ -6,23 +6,32 @@ use Illuminate\Database\Eloquent\Model;
 
 class Approval extends Model
 {
-    protected $primaryKey = 'approval_id';
+    protected $table = 'approvals';
+
+    protected $fillable = [
+        'approved_at',
+        'request',
+        'admin',
+        'is_rejected',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'approved_at' => 'datetime',
+            'is_rejected' => 'boolean',
+        ];
+    }
 
     public $timestamps = false;
 
-    protected $fillable = ['admin', 'approval_timestamp', 'request', 'decision'];
-
-    public $casts = [
-        'approval_timestamp' => 'datetime',
-    ];
-
-    public function request()
+    public function adminThatApproved()
     {
-        return $this->belongsTo(Request::class, 'request', 'request_id');
+        return $this->hasOne(Officer::class, 'admin', 'officer_id');
     }
 
-    public function admin()
+    public function membershipApproval()
     {
-        return $this->belongsTo(User::class, 'admin', 'user_id');
+        return $this->belongsTo(Member::class, 'approval', 'approval_id');
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Organization\OrganizationDetail;
 use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,23 +12,27 @@ class Organization extends Model
     /** @use HasFactory<OrganizationFactory> */
     use HasFactory;
 
-    protected $primaryKey = 'organization_id';
-
     protected $table = 'organizations';
 
     protected $fillable = [
-        'organization_detail',
+        'detail',
         'organization_type',
+        'officer',
     ];
 
-    public function organizationDetail()
+    public function officer()
     {
-        return $this->belongsTo(Organization\organizationDetail::class, 'organization_detail', 'organization_detail_id');
+        return $this->hasMany(Officer::class, 'officer', 'officer_id');
     }
 
-    public function members()
+    public function detail()
     {
-        return $this->hasMany(Member::class, 'organization', 'organization_id');
+        return $this->hasOne(OrganizationDetail::class, 'detail', 'organization_detail_id');
+    }
+
+    public function memberOfThisOrganization()
+    {
+        return $this->belongsTo(Member::class, 'organization', 'organization_id');
     }
 
     public function events()

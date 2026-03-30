@@ -2,11 +2,14 @@
 
 namespace Database\Seeders;
 
+<<<<<<< HEAD
 use App\Models\Approval;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Organization\organizationDetail as OrganizationDetail;
 use App\Models\Request;
+=======
+>>>>>>> database-overhaul
 use Illuminate\Database\Seeder;
 
 class OrganizationSeeder extends Seeder
@@ -14,6 +17,7 @@ class OrganizationSeeder extends Seeder
     /**
      * Run the database seeds.
      */
+<<<<<<< HEAD
     public function run(): void
     {
         $orgNameAndTypes = [
@@ -139,4 +143,7 @@ class OrganizationSeeder extends Seeder
             'approval_id' => $approval->getKey(),
         ]);
     }
+=======
+    public function run(): void {}
+>>>>>>> database-overhaul
 }

@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Profile;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -16,41 +15,7 @@ class UserFactory extends Factory
      *
      * @return array<string, mixed>
      */
-    public function definition(): array
-    {
-        return [
-            'user_email' => $this->faker->unique()->safeEmail(),
-            'user_password' => bcrypt('password'),
-            'user_created_at' => $this->faker->dateTimeBetween('-2 years', 'now'),
-            'user_type' => $this->faker->numberBetween(1, 3),
-            'profile_id' => Profile::factory()->create()->getKey(),
-        ];
-    }
+    public function definition(): array {}
 
-    public function admin()
-    {
-        return $this->state(function (array $attributes) {
-            return [
-                'user_type' => 2,
-            ];
-        });
-    }
-
-    public function superAdmin()
-    {
-        return $this->state(function (array $attributes) {
-            return [
-                'user_type' => 1,
-            ];
-        });
-    }
-
-    public function regular()
-    {
-        return $this->state(function (array $attributes) {
-            return [
-                'user_type' => 3,
-            ];
-        });
-    }
+    public function admin() {}
 }

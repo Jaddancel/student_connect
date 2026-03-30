@@ -2,51 +2,47 @@
 
 namespace App\Models;
 
-use App\Models\Organization\organizationDetail;
+use Database\Factories\MembersFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Member extends Model
 {
-    /** @use HasFactory<MemberFactory> */
+    /** @use HasFactory<MembersFactory> */
     use HasFactory;
-
-    protected $primaryKey = 'member_id';
 
     protected $table = 'members';
 
+    protected $primaryKey = 'member_id';
+
     protected $fillable = [
-        'organization', 'approval_id', 'user', 'role', 'member_since',
+        'organization',
+        'approval',
+        'user',
+        'member_since',
     ];
 
     public $timestamps = false;
 
-    public $casts = [
-        'member_since' => 'datetime',
-    ];
-
-    public function member_user()
+    public function user()
     {
         return $this->belongsTo(User::class, 'user', 'user_id');
     }
 
-    public function organizationDetail()
+    public function organization()
     {
-        return $this->hasOne(organizationDetail::class, 'president', 'member_id');
+        return $this->hasMany(Organization::class, 'organization', 'organization_id');
     }
 
-    public function evaluations()
+    public function approval()
     {
-        return $this->hasMany(Evaluation::class, 'evaluation_author', 'member_id');
+        return $this->hasMany(Approval::class, 'approval', 'approval_id');
     }
 
-    public function documents()
+    protected function casts(): array
     {
-        return $this->hasMany(Document::class, 'document_author', 'member_id');
-    }
-
-    public function organizationrelation()
-    {
-        return $this->belongsTo(Organization::class, 'organization', 'organization_id');
+        return [
+            'member_since' => 'datetime',
+        ];
     }
 }

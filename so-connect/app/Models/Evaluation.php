@@ -11,18 +11,27 @@ class Evaluation extends Model
     /** @use HasFactory<EvaluationFactory> */
     use HasFactory;
 
-    protected $primaryKey = 'evaluation_id';
-
     protected $table = 'evaluations';
 
     protected $fillable = [
-        'evaluation_description',
-        'evaluation_author',
-        'evaluation_score',
+        'description',
+        'author',
+        'score',
     ];
 
-    public function evaluationDescription()
+    protected $primaryKey = 'evaluation_id';
+
+    public function authorOfEvaluation()
     {
-        return $this->belongsTo(Evaluation\EvaluationDescription::class, 'evaluation_description', 'evaluation_description_id');
+        return $this->belongsTo(Officer::class, 'author', 'officer_id');
+    }
+
+    public $timestamps = false;
+
+    public function casts()
+    {
+        return [
+            'evaluated_at' => 'dateTime',
+        ];
     }
 }

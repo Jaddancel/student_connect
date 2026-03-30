@@ -11,28 +11,26 @@ class Document extends Model
     /** @use HasFactory<DocumentFactory> */
     use HasFactory;
 
-    protected $primaryKey = 'document_id';
-
     protected $table = 'documents';
 
+    protected $primaryKey = 'document_id';
+
     protected $fillable = [
-        'document_desc_id',
-        'document_link',
-        'document_author',
+        'link',
+        'description_text',
+        'author',
     ];
 
-    protected $casts = [
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
-    ];
-
-    public function documentDescription()
+    protected function casts(): array
     {
-        return $this->belongsTo(Document\documentDescription::class, 'document_desc_id', 'document_desc_id');
+        return [
+            self::CREATED_AT => 'datetime',
+            self::UPDATED_AT => 'datetime',
+        ];
     }
 
-    public function author()
+    public function documentAuthor()
     {
-        return $this->belongsTo(Member::class, 'document_author', 'member_id');
+        return $this->belongsTo(User::class, 'author', 'user_id');
     }
 }

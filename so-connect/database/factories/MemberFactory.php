@@ -2,13 +2,10 @@
 
 namespace Database\Factories;
 
-use App\Models\Member;
-use App\Models\Organization;
-use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<Member>
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Member>
  */
 class MemberFactory extends Factory
 {
@@ -36,23 +33,8 @@ class MemberFactory extends Factory
     public function definition(): array
     {
         return [
-            'member_since' => $this->faker->dateTimeBetween('-2 years', 'now'),
-            'organization' => null,
-            'user' => null,
-            'role' => 'member',
-            'approval_id' => null,
+            //
         ];
-    }
-
-    public function president()
-    {
-        return $this->state(function (array $attributes) {
-            return [
-                'user' => User::factory()->superAdmin()->create()->getKey(),
-                'role' => 'president',
-                'approval_id' => null,
-            ];
-        });
     }
 
     public function officer()
