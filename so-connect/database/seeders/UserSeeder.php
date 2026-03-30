@@ -9,12 +9,5 @@ class UserSeeder extends Seeder
     /**
      * Run the database seeds.
      */
-<<<<<<< HEAD
-    public function run(): void
-    {
-        // User::factory(15)->create();
-    }
-=======
     public function run(): void {}
->>>>>>> database-overhaul
 }
