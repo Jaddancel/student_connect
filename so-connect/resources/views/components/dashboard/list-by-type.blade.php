@@ -150,24 +150,19 @@
                                             stroke-width="1.94437" stroke-linecap="round" stroke-linejoin="round" />
                                     </svg>
                                 </div>
-                                <span class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Deal ID</span>
+                                <span class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Request
+                                    ID</span>
                             </div>
                         </th>
+                        <th {{-- this should change by type! --}}
+                            class="px-6 py-3 font-medium text-gray-500 sm:px-6 text-theme-xs dark:text-gray-400 text-start">
+                            Member</th>
                         <th
                             class="px-6 py-3 font-medium text-gray-500 sm:px-6 text-theme-xs dark:text-gray-400 text-start">
-                            Customer</th>
+                            Organization</th>
                         <th
                             class="px-6 py-3 font-medium text-gray-500 sm:px-6 text-theme-xs dark:text-gray-400 text-start">
-                            Product/Service</th>
-                        <th
-                            class="px-6 py-3 font-medium text-gray-500 sm:px-6 text-theme-xs dark:text-gray-400 text-start">
-                            Deal Value</th>
-                        <th
-                            class="px-6 py-3 font-medium text-gray-500 sm:px-6 text-theme-xs dark:text-gray-400 text-start">
-                            Close Date</th>
-                        <th
-                            class="px-6 py-3 font-medium text-gray-500 sm:px-6 text-theme-xs dark:text-gray-400 text-start">
-                            Status</th>
+                            Request Date</th>
                         <th
                             class="px-6 py-3 font-medium text-gray-500 sm:px-6 text-theme-xs dark:text-gray-400 text-start">
                             Action</th>
@@ -214,24 +209,35 @@
                             <td class="px-4 sm:px-6 py-3.5">
                                 <p class="text-gray-700 text-theme-sm dark:text-gray-400" x-text="row.product"></p>
                             </td>
-                            <td class="px-4 sm:px-6 py-3.5">
+                            {{-- <td class="px-4 sm:px-6 py-3.5">
                                 <p class="text-gray-700 text-theme-sm dark:text-gray-400" x-text="row.value"></p>
-                            </td>
+                            </td> --}}
                             <td class="px-4 sm:px-6 py-3.5">
                                 <p class="text-gray-700 text-theme-sm dark:text-gray-400" x-text="row.closeDate"></p>
                             </td>
-                            <td class="px-4 sm:px-6 py-3.5">
+                            {{-- <td class="px-4 sm:px-6 py-3.5">
                                 <span class="text-theme-xs inline-block rounded-full px-2 py-0.5 font-medium"
                                     :class="getStatusClass(row.status)" x-text="row.status"></span>
-                            </td>
+                            </td> --}}
                             <td class="px-4 sm:px-6 py-3.5">
-                                <button @click="deleteRow(row.id)">
-                                    <svg class="text-gray-700 cursor-pointer size-5 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-500"
-                                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
+                                <div class="grid grid-cols-2">
+                                    <button @click="deleteRow(row.id)" class="col-span-1">
+                                        <svg class="text-gray-700 cursor-pointer size-5 hover:text-green-500 dark:text-gray-400 dark:hover:text-green-500"
+                                            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" <path
+                                                d="M19.5455 6.4965C19.9848 6.93584 19.9848 7.64815 19.5455 8.08749L10.1286 17.5043C9.6893 17.9437 8.97699 17.9437 8.53765 17.5043L4.45451 13.4212C4.01517 12.9819 4.01516 12.2695 4.4545 11.8302C4.89384 11.3909 5.60616 11.3909 6.0455 11.8302L9.33315 15.1179L17.9545 6.4965C18.3938 6.05716 19.1062 6.05716 19.5455 6.4965Z"
+                                                fill="#323544" />
+                                        </svg>
+                                    </button>
+                                    <button @click="deleteRow(row.id)" class="col-span-1">
+                                        <svg class="text-gray-700 cursor-pointer size-5 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-500"
+                                            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" <path
+                                                d="M5.9545 5.95548C6.39384 5.51614 7.10616 5.51614 7.5455 5.95548L11.999 10.409L16.4524 5.95561C16.8918 5.51627 17.6041 5.51627 18.0434 5.95561C18.4827 6.39495 18.4827 7.10726 18.0434 7.5466L13.59 12L18.0434 16.4534C18.4827 16.8927 18.4827 17.605 18.0434 18.0444C17.6041 18.4837 16.8918 18.4837 16.4524 18.0444L11.999 13.591L7.5455 18.0445C7.10616 18.4839 6.39384 18.4839 5.9545 18.0445C5.51517 17.6052 5.51516 16.8929 5.9545 16.4535L10.408 12L5.9545 7.54647C5.51516 7.10713 5.51517 6.39482 5.9545 5.95548Z"
+                                                fill="#323544" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     </template>
