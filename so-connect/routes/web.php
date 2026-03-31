@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\Auth\Login;
+use App\Http\Controllers\Auth\Logout;
+use App\Http\Controllers\UserController;
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 // dashboard pages
@@ -19,6 +23,15 @@ Route::get('/dashboard/member', function () {
     return view('pages.dashboard.member', ['title' => 'Member Dashboard']);
 })->name('member-dashboard');
 
+// Auth routes.
+
+Route::post('/login', Login::class)->middleware('guest');
+Route::post('/logout', Logout::class)->middleware('guest');
+
+// Auth pages.
+
+Route::get('/login', [UserController::class, 'loginPage']);
+
 // calender pages
 Route::get('/calendar', function () {
     return view('pages.calender', ['title' => 'Calendar']);
@@ -28,6 +41,10 @@ Route::get('/calendar', function () {
 Route::get('/profile', function () {
     return view('pages.profile', ['title' => 'Profile']);
 })->name('profile');
+
+Route::get('/api/user/{id}', function (string $id) {
+    return User::findOrFail($id)->toResource();
+})->middleware('auth');
 
 // form pages
 Route::get('/form-elements', function () {
