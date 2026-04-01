@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -41,6 +42,8 @@ Route::get('/calendar', function () {
 Route::get('/profile', function () {
     return view('pages.profile', ['title' => 'Profile']);
 })->name('profile');
+
+Route::get('/profile/create', [ProfileController::class, 'profileForm']);
 
 Route::get('/api/user/{id}', function (string $id) {
     return User::findOrFail($id)->toResource();
