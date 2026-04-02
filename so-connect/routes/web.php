@@ -8,8 +8,12 @@ use App\Http\Controllers\UserController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
-// dashboard pages
 Route::get('/', function () {
+    return redirect()->route('dashboard');
+});
+
+// dashboard pages
+Route::get('/sample_dashboard', function () {
     return view('pages.dashboard.ecommerce', ['title' => 'E-commerce Dashboard']);
 })->name('sample-dashboard');
 
@@ -29,7 +33,7 @@ Route::get('/dashboard/member', function () {
     return view('pages.dashboard.member', ['title' => 'Member Dashboard']);
 })->middleware('auth')->name('member-dashboard');
 
-Route::get('/dashboard', [Dashboard::class, 'viewDashboard'])->name('dashboard');
+Route::get('/dashboard', [Dashboard::class, 'viewDashboard'])->middleware('auth')->name('dashboard');
 
 // Auth routes.
 
@@ -38,7 +42,7 @@ Route::post('/logout', Logout::class)->middleware('auth');
 
 // Auth pages.
 
-Route::get('/login', [UserController::class, 'loginPage']);
+Route::get('/login', [UserController::class, 'loginPage'])->name('login');
 
 // calender pages
 Route::get('/calendar', function () {

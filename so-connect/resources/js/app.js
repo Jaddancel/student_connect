@@ -18,6 +18,13 @@ window.FullCalendar = Calendar;
 Alpine.start();
 
 // Initialize components on DOM ready
+
+// Alpine.data('clicked', () => ({
+//     clicked(){
+//         console.log("Javascript is so goddamn ugly holy shit.");
+//     }
+// }))
+
 document.addEventListener('DOMContentLoaded', () => {
     // Map imports
     if (document.querySelector('#mapOne')) {

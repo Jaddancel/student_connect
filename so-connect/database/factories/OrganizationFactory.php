@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Event;
 use App\Models\Member;
 use App\Models\Officer;
 use App\Models\Organization;
@@ -58,6 +59,24 @@ class OrganizationFactory extends Factory
                 $organization->update([
                     'detail' => $detailId,
                 ]);
+
+                // Create Events
+                // Event::factory()->count(20)->create([
+                //     'organization' => $organizationId,
+                //     'creator' => Officer::take(1)->where('organization', $organizationId),
+                // ]);
+
+                Event::factory()
+                    ->count(20)
+                    ->state(function () use ($organizationId) {
+                        return [
+                            'organization' => $organizationId,
+                            'creator' => Officer::where('organization', $organizationId)
+                                ->inRandomOrder()->first()
+                                ->getKey(),
+                        ];
+                    })
+                    ->create();
             });
     }
 }

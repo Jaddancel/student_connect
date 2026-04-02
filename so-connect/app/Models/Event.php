@@ -34,6 +34,6 @@ class Event extends Model
 
     public function creator()
     {
-        return $this->belongsTo(Officer::class, 'author', 'officer_id');
+        return $this->belongsTo(Officer::class, 'author', 'organization_officer_id');
     }
 }

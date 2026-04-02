@@ -44,6 +44,28 @@
                 }
             });
 
+            Alpine.store('dashboardType', {
+                type: 'memberships',
+
+                toggleType(typeCode) {
+                    switch (typeCode) {
+                        case 'membership':
+
+                            break;
+
+                        case 'events':
+
+                            break;
+
+                        case 'roles':
+
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            });
+
             Alpine.store('sidebar', {
                 // Initialize based on screen size
                 isExpanded: window.innerWidth >= 1280, // true for desktop, false for mobile
@@ -90,25 +112,23 @@
             }
         })();
     </script>
-    
+
 </head>
 
-<body
-    x-data="{ 'loaded': true}"
-    x-init="$store.sidebar.isExpanded = window.innerWidth >= 1280;
-    const checkMobile = () => {
-        if (window.innerWidth < 1280) {
-            $store.sidebar.setMobileOpen(false);
-            $store.sidebar.isExpanded = false;
-        } else {
-            $store.sidebar.isMobileOpen = false;
-            $store.sidebar.isExpanded = true;
-        }
-    };
-    window.addEventListener('resize', checkMobile);">
+<body x-data="{ 'loaded': true }" x-init="$store.sidebar.isExpanded = window.innerWidth >= 1280;
+const checkMobile = () => {
+    if (window.innerWidth < 1280) {
+        $store.sidebar.setMobileOpen(false);
+        $store.sidebar.isExpanded = false;
+    } else {
+        $store.sidebar.isMobileOpen = false;
+        $store.sidebar.isExpanded = true;
+    }
+};
+window.addEventListener('resize', checkMobile);">
 
     {{-- preloader --}}
-    <x-common.preloader/>
+    <x-common.preloader />
     {{-- preloader end --}}
 
     <div class="min-h-screen xl:flex">
