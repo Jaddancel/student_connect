@@ -2,12 +2,14 @@
 
 namespace Database\Factories;
 
+use App\Models\Profile;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
+ * @extends Factory<User>
  */
 class UserFactory extends Factory
 {
@@ -24,12 +26,34 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
+            'user_email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
+            'user_password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            'user_type' => null,
+            'profile' => Profile::factory()->create()->profile_id,
         ];
+    }
+
+    public function regular()
+    {
+        return $this->state(fn (array $attributes) => [
+            'user_type' => 3,
+        ]);
+    }
+
+    public function admin()
+    {
+        return $this->state(fn (array $attributes) => [
+            'user_type' => 2,
+        ]);
+    }
+
+    public function superadmin()
+    {
+        return $this->state(fn (array $attributes) => [
+            'user_type' => 1,
+        ]);
     }
 
     /**

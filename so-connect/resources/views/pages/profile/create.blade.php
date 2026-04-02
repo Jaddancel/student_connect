@@ -9,7 +9,7 @@
                 </h1>
             </div>
             <div>
-                <form>
+                <form method="post">
                     @csrf
                     <div class="space-y-5">
                         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -30,13 +30,14 @@
                                     class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
                             </div>
                         </div>
-                        <!-- Email -->
+                        {{-- Middle Name --}}
                         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                             <div class="sm:col-span-1">
-                                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                                <label for="mname"
+                                    class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                     Middle Name
                                 </label>
-                                <input type="email" id="email" name="email" placeholder="Enter your email"
+                                <input type="text" id="mname" name="mname" placeholder="Enter your email"
                                     class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
                             </div>
                         </div>
@@ -61,7 +62,7 @@
                         {{-- Gender --}}
                         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                             <div class="sm:col-span-1">
-                                <label for="occupation"
+                                <label for="gender"
                                     class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                     Gender<span class="text-error-500">*</span>
                                 </label>
@@ -81,7 +82,7 @@
                         <x-form.profile.address-field />
                         <!-- Button -->
                         <div>
-                            <button
+                            <button type="submit"
                                 class="bg-brand-500 shadow-theme-xs hover:bg-brand-600 flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-medium text-white transition">
                                 Save Profile
                             </button>

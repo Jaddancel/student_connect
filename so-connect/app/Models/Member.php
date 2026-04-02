@@ -39,6 +39,11 @@ class Member extends Model
         return $this->hasMany(Approval::class, 'approval', 'approval_id');
     }
 
+    public function officers()
+    {
+        return $this->hasMany(Officer::class, 'member', 'member_id');
+    }
+
     protected function casts(): array
     {
         return [

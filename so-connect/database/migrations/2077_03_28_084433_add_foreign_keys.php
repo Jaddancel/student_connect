@@ -16,18 +16,22 @@ return new class extends Migration
             $table->foreign('profile')->references('profile_id')->on('profiles')->onDelete('set null');
         });
 
+        Schema::table('profiles', function (Blueprint $table) {
+            $table->foreign('address')->references('profile_address_id')->on('profile_addresses')->onDelete('set null');
+        });
+
         Schema::table('members', function (Blueprint $table) {
             $table->foreign('user')->references('user_id')->on('users')->onDelete('set null');
             $table->foreign('approval')->references('approval_id')->on('approvals')->onDelete('set null');
         });
 
-        Schema::table('officers', function (Blueprint $table) {
+        Schema::table('organization_officers', function (Blueprint $table) {
             $table->foreign('member')->references('member_id')->on('members')->onDelete('set null');
             $table->foreign('yearterm')->references('year_term_code')->on('year_term_master')->onDelete('set null');
+            $table->foreign('organization')->references('organization_id')->on('organizations')->onDelete('set null');
         });
 
         Schema::table('organizations', function (Blueprint $table) {
-            $table->foreign('officer')->references('officer_id')->on('officers')->onDelete('set null');
             $table->foreign('detail')->references('organization_detail_id')->on('organization_details')->onDelete('set null');
         });
 
@@ -46,7 +50,7 @@ return new class extends Migration
             $table->foreign('generated_for')->references('user_id')->on('users')->onDelete('set null');
         });
         Schema::table('evaluations', function (Blueprint $table) {
-            $table->foreign('author')->references('officer_id')->on('officers')->onDelete('set null');
+            $table->foreign('author')->references('org_officer_id')->on('organization_officers')->onDelete('set null');
         });
     }
 
@@ -58,10 +62,12 @@ return new class extends Migration
         // Resolve actual constraint names from information_schema so rollback
         // works even if FK names changed between migration revisions.
         $this->dropForeignKeyIfExists('users', 'profile');
+        $this->dropForeignKeyIfExists('profiles', 'address');
         $this->dropForeignKeyIfExists('members', 'user');
         $this->dropForeignKeyIfExists('members', 'approval');
-        $this->dropForeignKeyIfExists('officers', 'member');
-        $this->dropForeignKeyIfExists('officers', 'yearterm');
+        $this->dropForeignKeyIfExists('organization_officers', 'member');
+        $this->dropForeignKeyIfExists('organization_officers', 'yearterm');
+        $this->dropForeignKeyIfExists('organization_officers', 'organization');
         $this->dropForeignKeyIfExists('organizations', 'officer');
         $this->dropForeignKeyIfExists('organizations', 'detail');
         $this->dropForeignKeyIfExists('requests', 'user');

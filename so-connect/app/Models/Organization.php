@@ -17,12 +17,13 @@ class Organization extends Model
     protected $fillable = [
         'detail',
         'organization_type',
-        'officer',
     ];
 
-    public function officer()
+    protected $primaryKey = 'organization_id';
+
+    public function officersOfThisOrganization()
     {
-        return $this->hasMany(Officer::class, 'officer', 'officer_id');
+        return $this->hasMany(Officer::class, 'organization', 'organization_id');
     }
 
     public function detail()

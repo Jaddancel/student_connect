@@ -1,3 +1,9 @@
+@php
+    $authUser = auth()->user();
+    $f_name = $authUser?->profile()->first()?->first_name ?? 'Guest';
+    $userEmail = $authUser?->user_email ?? '';
+@endphp
+
 <div class="relative" x-data="{
     dropdownOpen: false,
     toggleDropdown() {
@@ -8,45 +14,31 @@
     }
 }" @click.away="closeDropdown()">
     <!-- User Button -->
-    <button
-        class="flex items-center text-gray-700 dark:text-gray-400"
-        @click.prevent="toggleDropdown()"
-        type="button"
-    >
+    <button class="flex items-center text-gray-700 dark:text-gray-400" @click.prevent="toggleDropdown()" type="button">
         <span class="mr-3 overflow-hidden rounded-full h-11 w-11">
             <img src="/images/user/owner.png" alt="User" />
         </span>
 
-       <span class="block mr-1 font-medium text-theme-sm">Musharof</span>
+        <span class="block mr-1 font-medium text-theme-sm">{{ $f_name }}</span>
 
         <!-- Chevron Icon -->
-        <svg
-            class="w-5 h-5 transition-transform duration-200"
-            :class="{ 'rotate-180': dropdownOpen }"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-        >
+        <svg class="w-5 h-5 transition-transform duration-200" :class="{ 'rotate-180': dropdownOpen }" fill="none"
+            stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
         </svg>
     </button>
 
     <!-- Dropdown Start -->
-    <div
-        x-show="dropdownOpen"
-        x-transition:enter="transition ease-out duration-100"
-        x-transition:enter-start="transform opacity-0 scale-95"
-        x-transition:enter-end="transform opacity-100 scale-100"
-        x-transition:leave="transition ease-in duration-75"
-        x-transition:leave-start="transform opacity-100 scale-100"
+    <div x-show="dropdownOpen" x-transition:enter="transition ease-out duration-100"
+        x-transition:enter-start="transform opacity-0 scale-95" x-transition:enter-end="transform opacity-100 scale-100"
+        x-transition:leave="transition ease-in duration-75" x-transition:leave-start="transform opacity-100 scale-100"
         x-transition:leave-end="transform opacity-0 scale-95"
         class="absolute right-0 mt-[17px] flex w-[260px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark z-50"
-        style="display: none;"
-    >
+        style="display: none;">
         <!-- User Info -->
         <div>
-            <span class="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">Musharof Chowdhury</span>
-            <span class="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">randomuser@pimjo.com</span>
+            <span class="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">{{ $f_name }}</span>
+            <span class="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">{{ $userEmail }}</span>
         </div>
 
         <!-- Menu Items -->
@@ -75,7 +67,7 @@
                             fill="currentColor"
                         />
                         </svg>',
-                        'path' => 'chat'
+                        'path' => 'chat',
                     ],
                     [
                         'text' => 'Support',
@@ -87,17 +79,15 @@
                             fill="currentColor"
                           />
                         </svg>',
-                        'path' => 'profile'
+                        'path' => 'profile',
                     ],
                 ];
             @endphp
 
             @foreach ($menuItems as $item)
                 <li>
-                    <a
-                        href="{{ $item['path'] }}"
-                        class="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-                    >
+                    <a href="{{ $item['path'] }}"
+                        class="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300">
                         <span class="text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300">
                             {!! $item['icon'] !!}
                         </span>
@@ -108,21 +98,20 @@
         </ul>
 
         <!-- Sign Out -->
-        {{-- <form method="POST" action="#">
-            @csrf --}}
-            <a
-                href="/signin"
-                class="flex items-center w-full gap-3 px-3 py-2 mt-3 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-                @click="closeDropdown()"
-            >
+        <form method="POST" action="/logout" @submit="closeDropdown()">
+            @csrf
+            <button type="submit"
+                class="flex items-center w-full gap-3 px-3 py-2 mt-3 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300">
                 <span class="text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                        </path>
                     </svg>
                 </span>
                 Sign out
-            </a>
-        {{-- </form> --}}
+            </button>
+        </form>
     </div>
     <!-- Dropdown End -->
 </div>

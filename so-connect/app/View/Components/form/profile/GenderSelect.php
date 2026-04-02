@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\View\Component;
 
-class occupation-select extends Component
+class GenderSelect extends Component
 {
     /**
      * Create a new component instance.
@@ -21,6 +21,6 @@ class occupation-select extends Component
      */
     public function render(): View|Closure|string
     {
-        return view('components.form.profile.occupation-select');
+        return view('components.form.profile.gender-select');
     }
 }

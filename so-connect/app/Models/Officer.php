@@ -15,9 +15,9 @@ class Officer extends Model
 
     use HasFactory;
 
-    protected $table = 'officers';
+    protected $table = 'organization_officers';
 
-    protected $primaryKey = 'officer_id';
+    protected $primaryKey = 'org_officer_id';
 
     protected $fillable = [
         'role',
@@ -35,12 +35,12 @@ class Officer extends Model
 
     public function member()
     {
-        return $this->hasMany(Member::class, 'member', 'member_id');
+        return $this->belongsTo(Member::class, 'member', 'member_id');
     }
 
     public function organizationOfOfficer()
     {
-        return $this->belongsToMany(Organization::class, 'officer', 'officer_id');
+        return $this->belongsToMany(Organization::class, 'organization', 'organization_id');
     }
 
     public function yearTerm()

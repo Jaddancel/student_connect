@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
+use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
 use App\Models\User;
@@ -10,24 +11,30 @@ use Illuminate\Support\Facades\Route;
 // dashboard pages
 Route::get('/', function () {
     return view('pages.dashboard.ecommerce', ['title' => 'E-commerce Dashboard']);
-})->name('dashboard');
+})->name('sample-dashboard');
+
+Route::get('/dashboard/president', function () {
+    return view('pages.dashboard.administrator', ['title' => 'President Dashboard']);
+})->middleware('auth')->name('president-dashboard');
 
 Route::get('/dashboard/admin', function () {
     return view('pages.dashboard.administrator', ['title' => 'Administrator Dashboard']);
-})->name('admin-dashboard');
+})->middleware('auth')->name('admin-dashboard');
 
 Route::get('/dashboard/officer', function () {
     return view('pages.dashboard.officer', ['title' => 'Officer Dashboard']);
-})->name('officer-dashboard');
+})->middleware('auth')->name('officer-dashboard');
 
 Route::get('/dashboard/member', function () {
     return view('pages.dashboard.member', ['title' => 'Member Dashboard']);
-})->name('member-dashboard');
+})->middleware('auth')->name('member-dashboard');
+
+Route::get('/dashboard', [Dashboard::class, 'viewDashboard'])->name('dashboard');
 
 // Auth routes.
 
 Route::post('/login', Login::class)->middleware('guest');
-Route::post('/logout', Logout::class)->middleware('guest');
+Route::post('/logout', Logout::class)->middleware('auth');
 
 // Auth pages.
 
