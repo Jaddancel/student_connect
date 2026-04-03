@@ -19,32 +19,31 @@
 
     <div class="max-w-full overflow-x-auto">
         <div class="h-[420px] overflow-y-auto">
-            <table class="w-full min-w-[920px] table-fixed">
+            <table class="w-full min-w-[820px] table-fixed">
                 <thead class="border-y border-gray-100 bg-gray-50 dark:border-white/[0.05] dark:bg-gray-900">
                     <tr>
                         <th class="px-6 py-3 text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">
                             Request ID</th>
                         <th class="px-6 py-3 text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                            Requester</th>
-                        <th class="px-6 py-3 text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">Type
+                            Name / Event Title</th>
+                        <th class="px-6 py-3 text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                            Organization
                         </th>
                         <th class="px-6 py-3 text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                            Details</th>
-                        <th class="px-6 py-3 text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                            Requested At</th>
+                            Request Date/Time</th>
                     </tr>
                 </thead>
                 <tbody>
                     <template x-if="$store.dashboardData.loading">
                         <tr class="border-b border-gray-100 dark:border-white/[0.05]">
-                            <td colspan="5" class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">Loading
+                            <td colspan="4" class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">Loading
                                 requests...</td>
                         </tr>
                     </template>
 
                     <template x-if="!$store.dashboardData.loading && !$store.dashboardData.recentRequests.length">
                         <tr class="border-b border-gray-100 dark:border-white/[0.05]">
-                            <td colspan="5" class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">No requests in
+                            <td colspan="4" class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">No requests in
                                 the last 24 hours for this type.</td>
                         </tr>
                     </template>
@@ -54,21 +53,12 @@
                             <td class="px-6 py-3.5 text-theme-sm font-medium text-gray-700 dark:text-gray-300"
                                 x-text="'#' + row.request_id"></td>
                             <td class="px-6 py-3.5">
-                                <p class="text-theme-sm font-medium text-gray-700 dark:text-gray-300"
-                                    x-text="row.requester_name"></p>
-                                <p class="text-theme-xs text-gray-500 dark:text-gray-400" x-text="'User #' + row.user">
-                                </p>
-                            </td>
-                            <td class="px-6 py-3.5">
-                                <span
-                                    class="inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-theme-xs font-medium text-brand-700 dark:bg-brand-500/15 dark:text-brand-400"
-                                    x-text="$store.dashboardType.current.singularLabel"></span>
-                            </td>
-                            <td class="px-6 py-3.5">
                                 <p class="text-theme-sm font-medium text-gray-700 dark:text-gray-300 truncate"
-                                    x-text="row.action_headline"></p>
-                                <p class="text-theme-xs text-gray-500 dark:text-gray-400 truncate"
-                                    x-text="row.action_detail"></p>
+                                    x-text="row.name_or_title"></p>
+                            </td>
+                            <td class="px-6 py-3.5">
+                                <p class="text-theme-sm text-gray-700 dark:text-gray-300 truncate"
+                                    x-text="row.request_organization"></p>
                             </td>
                             <td class="px-6 py-3.5 text-theme-sm text-gray-700 dark:text-gray-300"
                                 x-text="row.requested_at_label"></td>

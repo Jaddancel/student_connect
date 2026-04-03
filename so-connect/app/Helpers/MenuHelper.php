@@ -2,98 +2,95 @@
 
 namespace App\Helpers;
 
+use App\Models\User;
+
 class MenuHelper
 {
     public static function getMainNavItems()
     {
-        return [
-            [
-                'icon' => 'dashboard',
-                'name' => 'Dashboard',
-                'subItems' => [
-                    ['name' => 'Ecommerce', 'path' => '/'],
-                ],
-            ],
-            [
-                'icon' => 'calendar',
-                'name' => 'Calendar',
-                'path' => '/calendar',
-            ],
-            [
-                'icon' => 'user-profile',
-                'name' => 'User Profile',
-                'path' => '/profile',
-            ],
-            [
-                'name' => 'Forms',
-                'icon' => 'forms',
-                'subItems' => [
-                    ['name' => 'Form Elements', 'path' => '/form-elements', 'pro' => false],
-                ],
-            ],
-            [
-                'name' => 'Tables',
-                'icon' => 'tables',
-                'subItems' => [
-                    ['name' => 'Basic Tables', 'path' => '/basic-tables', 'pro' => false]
-                ],
-            ],
-            [
-                'name' => 'Pages',
-                'icon' => 'pages',
-                'subItems' => [
-                    ['name' => 'Blank Page', 'path' => '/blank', 'pro' => false],
-                    ['name' => '404 Error', 'path' => '/error-404', 'pro' => false]
-                ],
-            ],
-        ];
+        return self::buildRoleBasedMainNav(auth()->user());
     }
 
     public static function getOthersItems()
     {
-        return [
-            [
-                'icon' => 'charts',
-                'name' => 'Charts',
-                'subItems' => [
-                    ['name' => 'Line Chart', 'path' => '/line-chart', 'pro' => false],
-                    ['name' => 'Bar Chart', 'path' => '/bar-chart', 'pro' => false]
-                ],
-            ],
-            [
-                'icon' => 'ui-elements',
-                'name' => 'UI Elements',
-                'subItems' => [
-                    ['name' => 'Alerts', 'path' => '/alerts', 'pro' => false],
-                    ['name' => 'Avatar', 'path' => '/avatars', 'pro' => false],
-                    ['name' => 'Badge', 'path' => '/badge', 'pro' => false],
-                    ['name' => 'Buttons', 'path' => '/buttons', 'pro' => false],
-                    ['name' => 'Images', 'path' => '/image', 'pro' => false],
-                    ['name' => 'Videos', 'path' => '/videos', 'pro' => false],
-                ],
-            ],
-            [
-                'icon' => 'authentication',
-                'name' => 'Authentication',
-                'subItems' => [
-                    ['name' => 'Sign In', 'path' => '/signin', 'pro' => false],
-                    ['name' => 'Sign Up', 'path' => '/signup', 'pro' => false],
-                ],
-            ],
-        ];
+        return [];
     }
 
     public static function getMenuGroups()
     {
-        return [
+        $groups = [
             [
                 'title' => 'Menu',
-                'items' => self::getMainNavItems()
+                'items' => self::getMainNavItems(),
             ],
             [
                 'title' => 'Others',
-                'items' => self::getOthersItems()
-            ]
+                'items' => self::getOthersItems(),
+            ],
+        ];
+
+        return array_values(array_filter($groups, function ($group) {
+            return ! empty($group['items']);
+        }));
+    }
+
+    private static function buildRoleBasedMainNav(?User $user): array
+    {
+        if (! $user) {
+            return [
+                ['icon' => 'authentication', 'name' => 'Sign In', 'path' => '/signin'],
+                ['icon' => 'authentication', 'name' => 'Sign Up', 'path' => '/signup'],
+            ];
+        }
+
+        $userType = (int) $user->user_type;
+
+        if ($userType === 3) {
+            return [
+                ['icon' => 'calendar', 'name' => 'View Upcoming Event', 'path' => '/upcoming-events'],
+                ['icon' => 'forms', 'name' => 'Register', 'path' => '/register'],
+                ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
+            ];
+        }
+
+        if ($userType === 2) {
+            $isPresident = $user
+                ->memberships()
+                ->whereHas('officers', function ($query) {
+                    $query->where('role', 'president');
+                })
+                ->exists();
+
+            $isOfficer = $user
+                ->memberships()
+                ->whereHas('officers', function ($query) {
+                    $query->where('role', 'officer');
+                })
+                ->exists();
+
+            $items = [
+                ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
+                ['icon' => 'task', 'name' => 'Recent Event Request', 'path' => '/recent-event-requests'],
+                ['icon' => 'user-profile', 'name' => 'Manage Organization', 'path' => '/manage-organization'],
+                ['icon' => 'forms', 'name' => 'Upload Forms', 'path' => '/upload-forms'],
+                ['icon' => 'task', 'name' => 'Approval of Request', 'path' => '/approval-requests'],
+            ];
+
+            // user_type 2 menu applies to both officers and presidents, with role-specific extras.
+            if ($isOfficer || $isPresident) {
+                $items[] = ['icon' => 'pages', 'name' => 'Download Files', 'path' => '/download-files'];
+                $items[] = ['icon' => 'calendar', 'name' => 'View Upcoming Events', 'path' => '/upcoming-events'];
+            }
+
+            if ($isPresident) {
+                $items[] = ['icon' => 'forms', 'name' => 'Request Forms', 'path' => '/request-forms'];
+            }
+
+            return $items;
+        }
+
+        return [
+            ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
         ];
     }
 

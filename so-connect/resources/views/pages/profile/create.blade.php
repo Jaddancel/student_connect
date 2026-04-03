@@ -9,7 +9,14 @@
                 </h1>
             </div>
             <div>
-                <form method="post">
+                @if ($errors->any())
+                    <div
+                        class="mb-4 rounded-lg border border-error-300 bg-error-50 px-4 py-3 text-sm text-error-700 dark:border-error-500/40 dark:bg-error-500/10 dark:text-error-400">
+                        {{ $errors->first() }}
+                    </div>
+                @endif
+
+                <form method="post" action="{{ route('profile.store') }}">
                     @csrf
                     <div class="space-y-5">
                         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -18,7 +25,8 @@
                                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                     First Name<span class="text-error-500">*</span>
                                 </label>
-                                <input type="text" id="fname" name="fname" placeholder="Enter your first name"
+                                <input type="text" id="fname" name="fname" value="{{ old('fname') }}"
+                                    placeholder="Enter your first name"
                                     class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
                             </div>
                             <!-- Last Name -->
@@ -26,7 +34,8 @@
                                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                     Last Name<span class="text-error-500">*</span>
                                 </label>
-                                <input type="text" id="lname" name="lname" placeholder="Enter your last name"
+                                <input type="text" id="lname" name="lname" value="{{ old('lname') }}"
+                                    placeholder="Enter your last name"
                                     class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
                             </div>
                         </div>

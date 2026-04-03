@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
+use App\Http\Controllers\Auth\Register;
 use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
@@ -11,6 +12,7 @@ use App\Http\Resources\UserResource;
 use App\Models\Approval;
 use App\Models\Request;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -43,6 +45,7 @@ Route::get('/dashboard', [Dashboard::class, 'viewDashboard'])->middleware('auth'
 // Auth routes.
 
 Route::post('/login', Login::class)->middleware('guest');
+Route::post('/signup', Register::class)->middleware('guest');
 Route::post('/logout', Logout::class)->middleware('auth');
 
 // Auth pages.
@@ -54,12 +57,45 @@ Route::get('/calendar', function () {
     return view('pages.calender', ['title' => 'Calendar']);
 })->name('calendar');
 
+Route::get('/upcoming-events', function () {
+    return view('pages.blank', ['title' => 'View Upcoming Events']);
+})->middleware('auth')->name('upcoming-events');
+
+Route::get('/register', function () {
+    return view('pages.blank', ['title' => 'Register']);
+})->middleware('auth')->name('register');
+
+Route::get('/download-files', function () {
+    return view('pages.blank', ['title' => 'Download Files']);
+})->middleware('auth')->name('download-files');
+
+Route::get('/approval-requests', function () {
+    return view('pages.blank', ['title' => 'View for Approval Request']);
+})->middleware('auth')->name('approval-requests');
+
+Route::get('/request-forms', function () {
+    return view('pages.blank', ['title' => 'Request Forms']);
+})->middleware('auth')->name('request-forms');
+
+Route::get('/recent-event-requests', function () {
+    return view('pages.blank', ['title' => 'Recent Event Request']);
+})->middleware('auth')->name('recent-event-requests');
+
+Route::get('/manage-organization', function () {
+    return view('pages.blank', ['title' => 'Manage Organization']);
+})->middleware('auth')->name('manage-organization');
+
+Route::get('/upload-forms', function () {
+    return view('pages.blank', ['title' => 'Upload Forms']);
+})->middleware('auth')->name('upload-forms');
+
 // profile pages
 Route::get('/profile', function () {
     return view('pages.profile', ['title' => 'Profile']);
 })->name('profile');
 
-Route::get('/profile/create', [ProfileController::class, 'profileForm']);
+Route::get('/profile/create', [ProfileController::class, 'profileForm'])->middleware('auth')->name('profile.create');
+Route::post('/profile/create', [ProfileController::class, 'store'])->middleware('auth')->name('profile.store');
 
 // form pages
 Route::get('/form-elements', function () {
@@ -98,7 +134,7 @@ Route::get('/signin', function () {
 
 Route::get('/signup', function () {
     return view('pages.auth.signup', ['title' => 'Sign Up']);
-})->name('signup');
+})->middleware('guest')->name('signup');
 
 // ui elements pages
 Route::get('/alerts', function () {
@@ -144,6 +180,35 @@ Route::get('/api/requests/{actionType}', function (int $actionType) {
     }
 
     return ActionRequestResource::collection($query->get());
+})->middleware('auth');
+
+Route::get('/api/organizations', function () {
+    $ids = collect(explode(',', (string) request()->query('ids', '')))
+        ->map(fn ($id) => (int) trim($id))
+        ->filter(fn ($id) => $id > 0)
+        ->unique()
+        ->values();
+
+    if ($ids->isEmpty()) {
+        return response()->json(['data' => []]);
+    }
+
+    $rows = DB::table('organizations as o')
+        ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+        ->whereIn('o.organization_id', $ids->all())
+        ->select('o.organization_id', 'od.name')
+        ->get();
+
+    $nameMap = $ids->mapWithKeys(function ($id) {
+        return [(string) $id => 'Unknown Organization'];
+    })->all();
+
+    foreach ($rows as $row) {
+        $id = (string) $row->organization_id;
+        $nameMap[$id] = $row->name ?: 'Unknown Organization';
+    }
+
+    return response()->json(['data' => $nameMap]);
 })->middleware('auth');
 
 Route::get('/api/approvals/{actionType}', function (int $actionType) {

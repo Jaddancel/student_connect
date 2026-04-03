@@ -8,7 +8,6 @@ class Dashboard extends Controller
     public function viewDashboard()
     {
         $user = auth()->user();
-        $f_name = $user->profile()->first()?->first_name ?? 'Guest';
 
         $isUserAnOfficer = $user
             ->memberships()
@@ -24,12 +23,12 @@ class Dashboard extends Controller
                 ->exists();
 
             if ($isPresident) {
-                return redirect()->route('president-dashboard', ['fname' => $f_name]);
+                return redirect()->route('president-dashboard');
             } else {
-                return redirect()->route('admin-dashboard', ['f_name' => $f_name]);
+                return redirect()->route('admin-dashboard');
             }
         } else {
-            return redirect()->route('member-dashboard', ['f_name' => $f_name]);
+            return redirect()->route('member-dashboard');
         }
     }
 }

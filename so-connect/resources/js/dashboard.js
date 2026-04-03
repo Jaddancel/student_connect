@@ -75,6 +75,50 @@ function formatActionSummary(action, typeCode) {
 	};
 }
 
+function extractOrganizationId(action) {
+	const firstPart = safeText(action, '').split('|')[0]?.trim() ?? '';
+	const organizationId = Number.parseInt(firstPart, 10);
+
+	if (!Number.isInteger(organizationId) || organizationId <= 0) {
+		return null;
+	}
+
+	return organizationId;
+}
+
+function formatListColumns(requestItem, typeCode, organizationNameMap = {}) {
+	const parts = safeText(requestItem?.action, '').split('|').map((part) => part.trim()).filter(Boolean);
+	const requesterName = buildRequesterName(requestItem?.profile);
+	const requesterId = safeText(requestItem?.user, 'Unknown');
+	const organizationId = extractOrganizationId(requestItem?.action);
+	const organizationName = organizationId
+		? safeText(organizationNameMap[String(organizationId)], `Organization #${organizationId}`)
+		: null;
+
+	if (typeCode === 1) {
+		return {
+			nameOrTitle: requesterName === 'Unknown Requester' ? `User #${requesterId}` : requesterName,
+			organization: organizationName ?? 'Organization Pending',
+		};
+	}
+
+	if (typeCode === 2) {
+		const eventTitle = parts.length >= 3
+			? safeText(parts[2], 'Event Request')
+			: safeText(parts[0], 'Event Request');
+
+		return {
+			nameOrTitle: eventTitle,
+			organization: organizationName ?? 'Organization Unknown',
+		};
+	}
+
+	return {
+		nameOrTitle: requesterName === 'Unknown Requester' ? `User #${requesterId}` : requesterName,
+		organization: 'N/A',
+	};
+}
+
 function formatRelativeTimestamp(dateString) {
 	const parsed = normalizeDate(dateString);
 
@@ -257,16 +301,38 @@ document.addEventListener('alpine:init', () => {
 
 				const rawRequests = Array.isArray(requestsPayload?.data) ? requestsPayload.data : [];
 				const rawApprovals = Array.isArray(approvalsPayload?.data) ? approvalsPayload.data : [];
+				const organizationIds = Array.from(new Set(rawRequests
+					.map((requestItem) => extractOrganizationId(requestItem.action))
+					.filter((organizationId) => organizationId !== null)));
+				let organizationNameMap = {};
+
+				if (organizationIds.length) {
+					try {
+						const organizationResponse = await fetch(`/api/organizations?ids=${organizationIds.join(',')}`);
+
+						if (organizationResponse.ok) {
+							const organizationsPayload = await organizationResponse.json();
+							organizationNameMap = organizationsPayload && typeof organizationsPayload.data === 'object'
+								? organizationsPayload.data
+								: {};
+						}
+					} catch (organizationError) {
+						console.warn('Unable to resolve organization names for dashboard list.', organizationError);
+					}
+				}
 
 				this.requests = rawRequests
 					.map((requestItem) => {
 						const summary = formatActionSummary(requestItem.action, actionTypeCode);
+						const listColumns = formatListColumns(requestItem, actionTypeCode, organizationNameMap);
 
 						return {
 							...requestItem,
 							requester_name: buildRequesterName(requestItem.profile),
 							action_headline: summary.headline,
 							action_detail: summary.detail,
+							name_or_title: listColumns.nameOrTitle,
+							request_organization: listColumns.organization,
 							requested_at_label: formatRelativeTimestamp(requestItem.requested_at),
 						};
 					})
