@@ -1,4 +1,5 @@
 import './bootstrap';
+import './dashboard';
 import Alpine from 'alpinejs';
 import ApexCharts from 'apexcharts';
 

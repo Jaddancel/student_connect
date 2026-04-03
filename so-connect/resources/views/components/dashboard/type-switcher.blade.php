@@ -19,9 +19,24 @@
     ');
 @endphp
 
-<div x-data="{ clicked() { console.log('I was clicked') } }" class="flex items-center gap-5">
-    <x-ui.button x-on:click="clicked()" size="md" variant="outline" :endIcon="$MemberIcon">Memberships</x-ui.button>
-    <x-ui.button x-on:click="clicked()" size="md" variant="outline" :endIcon="$CalendarIcon">Events</x-ui.button>
-    <x-ui.button x-on:click="clicked()" size="md" variant="outline" :endIcon="$KeyIcon">Roles and
-        Security</x-ui.button>
+<div class="flex flex-wrap items-center gap-3 md:gap-5">
+    <x-ui.button x-on:click="$store.dashboardType.toggleType('membership')" size="md" variant="outline"
+        :endIcon="$MemberIcon"
+        x-bind:class="$store.dashboardType.isActive('membership') ?
+            'ring-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400 dark:ring-brand-500' :
+            ''">
+        Memberships
+    </x-ui.button>
+    <x-ui.button x-on:click="$store.dashboardType.toggleType('events')" size="md" variant="outline" :endIcon="$CalendarIcon"
+        x-bind:class="$store.dashboardType.isActive('events') ?
+            'ring-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400 dark:ring-brand-500' :
+            ''">
+        Events
+    </x-ui.button>
+    <x-ui.button x-on:click="$store.dashboardType.toggleType('roles')" size="md" variant="outline" :endIcon="$KeyIcon"
+        x-bind:class="$store.dashboardType.isActive('roles') ?
+            'ring-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400 dark:ring-brand-500' :
+            ''">
+        Roles and Security
+    </x-ui.button>
 </div>

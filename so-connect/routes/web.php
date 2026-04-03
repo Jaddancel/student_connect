@@ -128,13 +128,29 @@ Route::get('/videos', function () {
 // API routes
 
 Route::get('/api/requests/{actionType}', function (int $actionType) {
-    return ActionRequestResource::collection(Request::where('action_type', $actionType)->get());
+    $hours = max((int) request()->query('hours', 0), 0);
+    $limit = min(max((int) request()->query('limit', 0), 0), 200);
+
+    $query = Request::query()
+        ->where('action_type', $actionType)
+        ->orderByDesc('requested_at');
+
+    if ($hours > 0) {
+        $query->where('requested_at', '>=', now()->subHours($hours));
+    }
+
+    if ($limit > 0) {
+        $query->limit($limit);
+    }
+
+    return ActionRequestResource::collection($query->get());
 })->middleware('auth');
 
 Route::get('/api/approvals/{actionType}', function (int $actionType) {
     return ApprovalResource::collection(
         Approval::query()
             ->whereIn('request', Request::query()->select('request_id')->where('action_type', $actionType))
+            ->orderByDesc('approved_at')
             ->get()
     );
 })->middleware('auth');

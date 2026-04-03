@@ -44,27 +44,6 @@
                 }
             });
 
-            Alpine.store('dashboardType', {
-                typeCode: 'membership',
-                toggleType(typeCode) {
-                    switch (typeCode) {
-                        case 'membership':
-
-                            break;
-
-                        case 'events':
-
-                            break;
-
-                        case 'roles':
-
-                            break;
-                        default:
-                            break;
-                    }
-                }
-            });
-
             Alpine.store('sidebar', {
                 // Initialize based on screen size
                 isExpanded: window.innerWidth >= 1280, // true for desktop, false for mobile
