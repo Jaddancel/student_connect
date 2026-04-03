@@ -40,6 +40,7 @@ return new class extends Migration
         });
         Schema::table('approvals', function (Blueprint $table) {
             $table->foreign('admin')->references('user_id')->on('users')->onDelete('set null');
+            $table->foreign('request')->references('request_id')->on('requests')->onDelete('set null');
         });
         Schema::table('events', function (Blueprint $table) {
             $table->foreign('creator')->references('user_id')->on('users')->onDelete('set null');
@@ -71,6 +72,7 @@ return new class extends Migration
         $this->dropForeignKeyIfExists('organizations', 'officer');
         $this->dropForeignKeyIfExists('organizations', 'detail');
         $this->dropForeignKeyIfExists('requests', 'user');
+        $this->dropForeignKeyIfExists('requests', 'request');
         $this->dropForeignKeyIfExists('approvals', 'admin');
         $this->dropForeignKeyIfExists('events', 'creator');
         $this->dropForeignKeyIfExists('events', 'event_detail');

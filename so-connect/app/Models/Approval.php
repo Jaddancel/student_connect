@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Approval extends Model
 {
+    use HasFactory;
+
     protected $table = 'approvals';
 
     protected $fillable = [
@@ -27,7 +30,7 @@ class Approval extends Model
 
     public function adminThatApproved()
     {
-        return $this->hasOne(Officer::class, 'admin', 'officer_id');
+        return $this->belongsTo(Officer::class, 'admin', 'org_officer_id');
     }
 
     public function membershipApproval()

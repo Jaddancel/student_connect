@@ -68,16 +68,31 @@ class UserFactory extends Factory
         ]);
     }
 
-    public function whoAppliesForRequest()
+    public function whoAppliesForRequest($org)
     {
         return $this->state(fn (array $attributes) => [
             'user_type' => 1,
-        ])->afterCreating(function (User $user) {
+        ])->afterCreating(function (User $user) use ($org) {
             $userId = $user->getKey();
-            $randomOrg = Organization::query()->inRandomOrder()->first()->getKey();
             Request::create([
                 'user' => $userId,
-                'action' => $randomOrg,
+                'action' => $org,
+                'action_type' => 1,
+            ]);
+        });
+    }
+
+    public function randomOrgRequest()
+    {
+        $org = Organization::query()->inRandomOrder()->first()->getKey();
+
+        return $this->state(fn (array $attributes) => [
+            'user_type' => 1,
+        ])->afterCreating(function (User $user) use ($org) {
+            $userId = $user->getKey();
+            Request::create([
+                'user' => $userId,
+                'action' => $org,
                 'action_type' => 1,
             ]);
         });

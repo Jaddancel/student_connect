@@ -7,6 +7,8 @@ use App\Models\Member;
 use App\Models\Officer;
 use App\Models\Organization;
 use App\Models\Organization\OrganizationDetail;
+use App\Models\Request;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -75,8 +77,32 @@ class OrganizationFactory extends Factory
                                 ->inRandomOrder()->first()
                                 ->getKey(),
                         ];
-                    })
-                    ->create();
+                    })->create();
+
+                $event_org = $organizationId;
+                $name = fake()->company();
+                $desc_text = fake()->text();
+                $start = now()->addDays(fake()->numberBetween(1, 30));
+                $end = (clone $start)->addDays(fake()->numberBetween(1, 7));
+                $start_time = $start->format('Y-m-d H:i:s');
+                $end_time = $end->format('Y-m-d H:i:s');
+                $location = fake()->address();
+
+                $name = substr(str_replace('|', '/', $name), 0, 40);
+                $desc_text = substr(str_replace(['|', "\r", "\n"], ['/', ' ', ' '], $desc_text), 0, 90);
+                $location = substr(str_replace(['|', "\r", "\n"], ['/', ' ', ' '], $location), 0, 40);
+                $action = $event_org.'|'.$name.'|'.$desc_text.'|'.$start_time.'|'.$end_time.'|'.$location;
+
+                Request::factory()->count(4)->state(function () use ($action) {
+                    return [
+                        'user' => Officer::query()->inRandomOrder()->first()->getKey(),
+                        'action' => $action,
+                        'requested_at' => now(),
+                        'action_type' => 2,
+                    ];
+                })->create();
+
+                User::factory()->count(5)->whoAppliesForRequest($organizationId)->create();
             });
     }
 }

@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('requests', function (Blueprint $table) {
             $table->id('request_id');
             $table->dateTime('requested_at')->useCurrent();
-            $table->string('action');
+            $table->text('action');
             $table->unsignedTinyInteger('action_type');
             $table->unsignedBigInteger('user')->nullable();
         });

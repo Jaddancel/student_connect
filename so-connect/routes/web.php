@@ -6,7 +6,9 @@ use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
 use App\Http\Resources\ActionRequestResource;
+use App\Http\Resources\ApprovalResource;
 use App\Http\Resources\UserResource;
+use App\Models\Approval;
 use App\Models\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -127,6 +129,37 @@ Route::get('/videos', function () {
 
 Route::get('/api/requests/{actionType}', function (int $actionType) {
     return ActionRequestResource::collection(Request::where('action_type', $actionType)->get());
+})->middleware('auth');
+
+Route::get('/api/approvals/{actionType}', function (int $actionType) {
+    return ApprovalResource::collection(
+        Approval::query()
+            ->whereIn('request', Request::query()->select('request_id')->where('action_type', $actionType))
+            ->get()
+    );
+})->middleware('auth');
+
+Route::get('/api/approvals/{status}/{actionType}', function (string $status, int $actionType) {
+    if ($status == 'approved') {
+        return ApprovalResource::collection(
+            Approval::query()
+                ->where('is_rejected', false)->whereIn('request', Request::query()->select('request_id')->where('action_type', $actionType))
+                ->get()
+        );
+    } elseif ($status == 'denied') {
+        return ApprovalResource::collection(
+            Approval::query()
+                ->where('is_rejected', true)->whereIn('request', Request::query()->select('request_id')->where('action_type', $actionType))
+                ->get()
+        );
+    } elseif ($status == 'pending') {
+        // add things for pending... - Jad
+        return ApprovalResource::collection(
+            Approval::query()
+                ->where('is_rejected', null)->whereIn('request', Request::query()->select('request_id')->where('action_type', $actionType))
+                ->get()
+        );
+    }
 })->middleware('auth');
 
 Route::get('/api/user/{id}', function (string $id) {

@@ -4,11 +4,14 @@ namespace App\Models;
 
 use App\Http\Resources\ActionRequestResource;
 use Illuminate\Database\Eloquent\Attributes\UseResource;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 #[UseResource(ActionRequestResource::class)]
 class Request extends Model
 {
+    use HasFactory;
+
     protected $table = 'requests';
 
     protected $primaryKey = 'request_id';
@@ -26,7 +29,6 @@ class Request extends Model
     {
         return [
             'requested_at' => 'datetime',
-            'action' => 'string',
             'action_type' => 'int',
         ];
     }

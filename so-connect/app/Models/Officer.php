@@ -50,11 +50,16 @@ class Officer extends Model
 
     public function evaluations()
     {
-        return $this->hasMany(Evaluation::class, 'author', 'officer_id');
+        return $this->hasMany(Evaluation::class, 'author', 'org_officer_id');
     }
 
     public function createdEvents()
     {
         return $this->hasMany(Event::class, 'author', 'officer_id');
+    }
+
+    public function approvals()
+    {
+        return $this->hasMany(Approval::class, 'admin', 'org_officer_id');
     }
 }
