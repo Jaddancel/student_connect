@@ -45,8 +45,7 @@
             });
 
             Alpine.store('dashboardType', {
-                type: 'memberships',
-
+                typeCode: 'membership',
                 toggleType(typeCode) {
                     switch (typeCode) {
                         case 'membership':

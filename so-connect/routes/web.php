@@ -5,6 +5,9 @@ use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
+use App\Http\Resources\ActionRequestResource;
+use App\Http\Resources\UserResource;
+use App\Models\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
@@ -55,10 +58,6 @@ Route::get('/profile', function () {
 })->name('profile');
 
 Route::get('/profile/create', [ProfileController::class, 'profileForm']);
-
-Route::get('/api/user/{id}', function (string $id) {
-    return User::findOrFail($id)->toResource();
-})->middleware('auth');
 
 // form pages
 Route::get('/form-elements', function () {
@@ -123,3 +122,17 @@ Route::get('/image', function () {
 Route::get('/videos', function () {
     return view('pages.ui-elements.videos', ['title' => 'Videos']);
 })->name('videos');
+
+// API routes
+
+Route::get('/api/requests/{actionType}', function (int $actionType) {
+    return ActionRequestResource::collection(Request::where('action_type', $actionType)->get());
+})->middleware('auth');
+
+Route::get('/api/user/{id}', function (string $id) {
+    return User::findOrFail($id)->toResource();
+})->middleware('auth');
+
+Route::get('/api/users', function () {
+    return UserResource::collection(User::all());
+});

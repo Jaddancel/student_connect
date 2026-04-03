@@ -80,7 +80,7 @@ class User extends Authenticatable
 
     public function requests()
     {
-        return $this->belongsTo(Request::class, 'user', 'user_id');
+        return $this->hasOne(Request::class, 'user', 'user_id');
     }
 
     public function approvals()

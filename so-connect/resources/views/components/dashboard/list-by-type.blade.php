@@ -1,102 +1,51 @@
 <div x-data="{
     tableRowData: [{
-            id: 'DE124321',
-            checked: false,
-            customerName: 'John Doe',
-            customerEmail: 'johndoe@gmail.com',
-            initials: 'JD',
-            avatarBg: 'bg-blue-100',
-            avatarColor: 'text-blue-500',
-            product: 'Software License',
-            value: '$18,50.34',
-            closeDate: '2024-06-15',
-            status: 'Complete',
+            {
+                id: 'DE124325',
+                checked: false,
+                customerName: 'Terry Geidt',
+                customerEmail: 'terry@gmail.com',
+                initials: 'TG',
+                avatarBg: 'bg-green-50',
+                avatarColor: 'text-green-600',
+                product: 'Software License',
+                value: '$18,50.34',
+                closeDate: '2024-06-15',
+                status: 'Complete',
+            },
+        ],
+        selectedRows: [],
+        selectAll: false,
+        handleSelectAll() {
+            this.selectAll = !this.selectAll;
+            if (this.selectAll) {
+                this.selectedRows = this.tableRowData.map(row => row.id);
+            } else {
+                this.selectedRows = [];
+            }
         },
-        {
-            id: 'DE124322',
-            checked: false,
-            customerName: 'Kierra Franci',
-            customerEmail: 'kierra@gmail.com',
-            initials: 'KF',
-            avatarBg: 'bg-[#fdf2fa]',
-            avatarColor: 'text-[#dd2590]',
-            product: 'Software License',
-            value: '$18,50.34',
-            closeDate: '2024-06-15',
-            status: 'Complete',
+        handleRowSelect(id) {
+            if (this.selectedRows.includes(id)) {
+                this.selectedRows = this.selectedRows.filter(rowId => rowId !== id);
+            } else {
+                this.selectedRows.push(id);
+            }
         },
-        {
-            id: 'DE124323',
-            checked: false,
-            customerName: 'Emerson Workman',
-            customerEmail: 'emerson@gmail.com',
-            initials: 'EW',
-            avatarBg: 'bg-[#f0f9ff]',
-            avatarColor: 'text-[#0086c9]',
-            product: 'Software License',
-            value: '$18,50.34',
-            closeDate: '2024-06-15',
-            status: 'Pending',
+        getStatusClass(status) {
+            const classes = {
+                'Complete': 'bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-500',
+                'Pending': 'bg-yellow-50 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-400',
+                'Cancel': 'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-500',
+            };
+            return classes[status] || '';
         },
-        {
-            id: 'DE124324',
-            checked: false,
-            customerName: 'Chance Philips',
-            customerEmail: 'chance@gmail.com',
-            initials: 'CP',
-            avatarBg: 'bg-[#fff6ed]',
-            avatarColor: 'text-[#ec4a0a]',
-            product: 'Software License',
-            value: '$18,50.34',
-            closeDate: '2024-06-15',
-            status: 'Complete',
-        },
-        {
-            id: 'DE124325',
-            checked: false,
-            customerName: 'Terry Geidt',
-            customerEmail: 'terry@gmail.com',
-            initials: 'TG',
-            avatarBg: 'bg-green-50',
-            avatarColor: 'text-green-600',
-            product: 'Software License',
-            value: '$18,50.34',
-            closeDate: '2024-06-15',
-            status: 'Complete',
-        },
-    ],
-    selectedRows: [],
-    selectAll: false,
-    handleSelectAll() {
-        this.selectAll = !this.selectAll;
-        if (this.selectAll) {
-            this.selectedRows = this.tableRowData.map(row => row.id);
-        } else {
-            this.selectedRows = [];
+        deleteRow(id) {
+            if (confirm('Are you sure you want to delete this order?')) {
+                this.tableRowData = this.tableRowData.filter(row => row.id !== id);
+                this.selectedRows = this.selectedRows.filter(rowId => rowId !== id);
+            }
         }
-    },
-    handleRowSelect(id) {
-        if (this.selectedRows.includes(id)) {
-            this.selectedRows = this.selectedRows.filter(rowId => rowId !== id);
-        } else {
-            this.selectedRows.push(id);
-        }
-    },
-    getStatusClass(status) {
-        const classes = {
-            'Complete': 'bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-500',
-            'Pending': 'bg-yellow-50 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-400',
-            'Cancel': 'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-500',
-        };
-        return classes[status] || '';
-    },
-    deleteRow(id) {
-        if (confirm('Are you sure you want to delete this order?')) {
-            this.tableRowData = this.tableRowData.filter(row => row.id !== id);
-            this.selectedRows = this.selectedRows.filter(rowId => rowId !== id);
-        }
-    }
-}">
+    }">
     <div
         class="overflow-hidden rounded-2xl border border-gray-200 bg-white pt-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
         <!-- Header -->

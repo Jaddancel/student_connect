@@ -2,8 +2,11 @@
 
 namespace App\Models;
 
+use App\Http\Resources\ActionRequestResource;
+use Illuminate\Database\Eloquent\Attributes\UseResource;
 use Illuminate\Database\Eloquent\Model;
 
+#[UseResource(ActionRequestResource::class)]
 class Request extends Model
 {
     protected $table = 'requests';
@@ -23,6 +26,8 @@ class Request extends Model
     {
         return [
             'requested_at' => 'datetime',
+            'action' => 'string',
+            'action_type' => 'int',
         ];
     }
 
@@ -33,6 +38,6 @@ class Request extends Model
 
     public function requester()
     {
-        return $this->hasOne(User::class, 'user', 'user_id');
+        return $this->belongsTo(User::class, 'user', 'user_id');
     }
 }
