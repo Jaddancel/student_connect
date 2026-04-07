@@ -11,6 +11,8 @@ class Approval extends Model
 
     protected $table = 'approvals';
 
+    protected $primaryKey = 'approval_id';
+
     protected $fillable = [
         'approved_at',
         'request',

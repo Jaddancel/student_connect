@@ -67,6 +67,11 @@ class OrganizationController extends Controller
                     WHEN SUM(CASE WHEN oo.role = 'officer' THEN 1 ELSE 0 END) > 0 THEN 'Officer'
                     ELSE 'Member'
                 END as membership_role")
+                ->selectRaw("CASE
+                    WHEN SUM(CASE WHEN oo.role = 'president' THEN 1 ELSE 0 END) > 0 THEN 1
+                    WHEN SUM(CASE WHEN oo.role = 'officer' THEN 1 ELSE 0 END) > 0 THEN 2
+                    ELSE 3
+                END as role_rank")
                 ->groupBy(
                     'm.member_id',
                     'u.user_email',
@@ -75,6 +80,9 @@ class OrganizationController extends Controller
                     'p.last_name',
                     'm.member_since'
                 )
+                ->orderBy('role_rank')
+                ->orderByRaw('m.member_since IS NULL')
+                ->orderByDesc('m.member_since')
                 ->orderBy('p.last_name')
                 ->orderBy('p.first_name')
                 ->get();

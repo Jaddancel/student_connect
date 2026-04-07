@@ -16,6 +16,7 @@ use App\Http\Resources\UserResource;
 use App\Models\Approval;
 use App\Models\Request;
 use App\Models\User;
+use App\Services\OrganizationAuthorizationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
@@ -169,13 +170,34 @@ Route::get('/videos', function () {
 
 // API routes
 
-Route::get('/api/requests/{actionType}', function (int $actionType) {
+$applyAuthorizedOrganizationScope = static function ($query, array $authorizedOrganizationIds) {
+    return $query->where(function ($organizationScopeQuery) use ($authorizedOrganizationIds) {
+        foreach ($authorizedOrganizationIds as $organizationId) {
+            $organizationScopeQuery->orWhere('action', 'like', $organizationId.'|%');
+        }
+    });
+};
+
+Route::get('/api/requests/{actionType}', function (int $actionType) use ($applyAuthorizedOrganizationScope) {
+    $user = request()->user();
+
+    if (! $user) {
+        abort(401);
+    }
+
+    $authorizedOrganizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
+
+    if (empty($authorizedOrganizationIds)) {
+        return ActionRequestResource::collection(collect());
+    }
+
     $hours = max((int) request()->query('hours', 0), 0);
     $limit = min(max((int) request()->query('limit', 0), 0), 200);
 
-    $query = Request::query()
-        ->where('action_type', $actionType)
-        ->orderByDesc('requested_at');
+    $query = $applyAuthorizedOrganizationScope(
+        Request::query()->where('action_type', $actionType),
+        $authorizedOrganizationIds
+    )->orderByDesc('requested_at');
 
     if ($hours > 0) {
         $query->where('requested_at', '>=', now()->subHours($hours));
@@ -221,33 +243,70 @@ Route::get('/api/organizations', function () {
     return response()->json(['data' => $nameMap]);
 })->middleware('auth');
 
-Route::get('/api/approvals/{actionType}', function (int $actionType) {
+Route::get('/api/approvals/{actionType}', function (int $actionType) use ($applyAuthorizedOrganizationScope) {
+    $user = request()->user();
+
+    if (! $user) {
+        abort(401);
+    }
+
+    $authorizedOrganizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
+
+    if (empty($authorizedOrganizationIds)) {
+        return ApprovalResource::collection(collect());
+    }
+
+    $scopedRequestIds = $applyAuthorizedOrganizationScope(
+        Request::query()->where('action_type', $actionType),
+        $authorizedOrganizationIds
+    )->select('request_id');
+
     return ApprovalResource::collection(
         Approval::query()
-            ->whereIn('request', Request::query()->select('request_id')->where('action_type', $actionType))
+            ->whereIn('request', $scopedRequestIds)
             ->orderByDesc('approved_at')
             ->get()
     );
 })->middleware('auth');
 
-Route::get('/api/approvals/{status}/{actionType}', function (string $status, int $actionType) {
+Route::get('/api/approvals/{status}/{actionType}', function (string $status, int $actionType) use ($applyAuthorizedOrganizationScope) {
+    $user = request()->user();
+
+    if (! $user) {
+        abort(401);
+    }
+
+    $authorizedOrganizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
+
+    if (empty($authorizedOrganizationIds)) {
+        return ApprovalResource::collection(collect());
+    }
+
+    $scopedRequestIds = $applyAuthorizedOrganizationScope(
+        Request::query()->where('action_type', $actionType),
+        $authorizedOrganizationIds
+    )->select('request_id');
+
     if ($status == 'approved') {
         return ApprovalResource::collection(
             Approval::query()
-                ->where('is_rejected', false)->whereIn('request', Request::query()->select('request_id')->where('action_type', $actionType))
+                ->where('is_rejected', false)
+                ->whereIn('request', $scopedRequestIds)
                 ->get()
         );
     } elseif ($status == 'denied') {
         return ApprovalResource::collection(
             Approval::query()
-                ->where('is_rejected', true)->whereIn('request', Request::query()->select('request_id')->where('action_type', $actionType))
+                ->where('is_rejected', true)
+                ->whereIn('request', $scopedRequestIds)
                 ->get()
         );
     } elseif ($status == 'pending') {
         // add things for pending... - Jad
         return ApprovalResource::collection(
             Approval::query()
-                ->where('is_rejected', null)->whereIn('request', Request::query()->select('request_id')->where('action_type', $actionType))
+                ->where('is_rejected', null)
+                ->whereIn('request', $scopedRequestIds)
                 ->get()
         );
     }
