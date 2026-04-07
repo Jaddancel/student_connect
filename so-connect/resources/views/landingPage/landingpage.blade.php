@@ -142,7 +142,7 @@
     </header>
 
     <main class="mx-auto w-full max-w-7xl px-4 pb-20 pt-8 sm:px-6 lg:px-8">
-        <section
+        {{-- <section
             class="grid gap-8 rounded-3xl bg-[color:var(--brand-cream)] p-6 shadow-sm ring-1 ring-emerald-100 md:grid-cols-5 md:p-10">
             <div class="md:col-span-3">
                 <p
@@ -175,7 +175,7 @@
                         navigation submenu.</p>
                 </div>
             </div>
-        </section>
+        </section> --}}
 
         <section id="feed" class="mt-12">
             <div class="mb-5 flex items-end justify-between gap-3">
