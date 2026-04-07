@@ -48,7 +48,7 @@
             x-bind:class="$store.dashboardType.isActive('roles') ?
                 'ring-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400 dark:ring-brand-500' :
                 ''">
-            Roles and Security
+            Policy and Security
         </x-ui.button>
     @endif
 </div>

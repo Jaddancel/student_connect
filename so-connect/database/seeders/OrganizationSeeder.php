@@ -39,6 +39,9 @@ class OrganizationSeeder extends Seeder
     protected function createOrganizations()
     {
 
+        //  Org Type
+        // 1 - Socio Civic, 2 - Religous, 3 - Fraternities and Sororities, 4 - Special Interest, 5 - University Sanctioned, Student Councils
+
         $orgNameAndTypes = [
             ['Buklod-Lahi', 1],
             ['Ecological and Solid Waste Management Society', 1],

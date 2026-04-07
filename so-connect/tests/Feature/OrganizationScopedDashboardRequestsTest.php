@@ -209,3 +209,131 @@ it('accepts membership as member only in the receiving organization', function (
         'organization' => (int) $otherOrganization->getKey(),
     ]);
 });
+
+it('allows policy and security requests only for presidents and scopes by president organizations', function () {
+    $president = createUserWithProfile('policy-president@example.test');
+    $officerOnly = createUserWithProfile('policy-officer@example.test');
+    $requester = createUserWithProfile('policy-requester@example.test');
+
+    $orgA = Organization::query()->create([
+        'organization_type' => 1,
+        'detail' => null,
+    ]);
+
+    $orgB = Organization::query()->create([
+        'organization_type' => 1,
+        'detail' => null,
+    ]);
+
+    assignOfficerRole($president, (int) $orgA->getKey(), 'president');
+    assignOfficerRole($officerOnly, (int) $orgA->getKey(), 'officer');
+
+    ActionRequest::query()->create([
+        'action' => $requester->getKey().'|'.$orgA->getKey().'|member',
+        'requested_at' => now(),
+        'user' => $requester->getKey(),
+        'action_type' => 7,
+    ]);
+
+    ActionRequest::query()->create([
+        'action' => $requester->getKey().'|'.$orgB->getKey().'|member',
+        'requested_at' => now()->subMinute(),
+        'user' => $requester->getKey(),
+        'action_type' => 7,
+    ]);
+
+    $this->actingAs($president)
+        ->getJson('/api/policy-security/requests')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.organization_id', (int) $orgA->getKey());
+
+    $this->actingAs($officerOnly)
+        ->getJson('/api/policy-security/requests')
+        ->assertForbidden();
+});
+
+it('approves type 7 member to officer role change', function () {
+    $president = createUserWithProfile('role-change-president@example.test');
+    $requester = createUserWithProfile('role-change-requester@example.test');
+
+    $organization = Organization::query()->create([
+        'organization_type' => 1,
+        'detail' => null,
+    ]);
+
+    assignOfficerRole($president, (int) $organization->getKey(), 'president');
+
+    $membership = Member::query()->create([
+        'organization' => (int) $organization->getKey(),
+        'approval' => null,
+        'user' => (int) $requester->getKey(),
+        'member_since' => now(),
+    ]);
+
+    $roleChangeRequest = ActionRequest::query()->create([
+        'action' => $requester->getKey().'|'.$organization->getKey().'|member',
+        'requested_at' => now(),
+        'user' => $requester->getKey(),
+        'action_type' => 7,
+    ]);
+
+    $this->actingAs($president)
+        ->postJson('/api/requests/'.$roleChangeRequest->getKey().'/decision', [
+            'decision' => 'approve',
+        ])
+        ->assertOk();
+
+    $this->assertDatabaseHas('organization_officers', [
+        'member' => (int) $membership->getKey(),
+        'organization' => (int) $organization->getKey(),
+        'role' => 'officer',
+    ]);
+});
+
+it('approves type 7 officer to president role change', function () {
+    $president = createUserWithProfile('role-change-president-2@example.test');
+    $requester = createUserWithProfile('role-change-requester-2@example.test');
+
+    $organization = Organization::query()->create([
+        'organization_type' => 1,
+        'detail' => null,
+    ]);
+
+    assignOfficerRole($president, (int) $organization->getKey(), 'president');
+
+    $membership = Member::query()->create([
+        'organization' => (int) $organization->getKey(),
+        'approval' => null,
+        'user' => (int) $requester->getKey(),
+        'member_since' => now(),
+    ]);
+
+    DB::table('organization_officers')->insert([
+        'role' => 'officer',
+        'organization' => (int) $organization->getKey(),
+        'member' => (int) $membership->getKey(),
+        'yearterm' => null,
+        'registered_at' => now(),
+        'reassigned_at' => now(),
+    ]);
+
+    $roleChangeRequest = ActionRequest::query()->create([
+        'action' => $requester->getKey().'|'.$organization->getKey().'|officer',
+        'requested_at' => now(),
+        'user' => $requester->getKey(),
+        'action_type' => 7,
+    ]);
+
+    $this->actingAs($president)
+        ->postJson('/api/requests/'.$roleChangeRequest->getKey().'/decision', [
+            'decision' => 'approve',
+        ])
+        ->assertOk();
+
+    $this->assertDatabaseHas('organization_officers', [
+        'member' => (int) $membership->getKey(),
+        'organization' => (int) $organization->getKey(),
+        'role' => 'president',
+    ]);
+});

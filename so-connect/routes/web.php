@@ -7,6 +7,7 @@ use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\MembershipRegistrationController;
 use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\PolicySecurityRequestController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RequestDecisionController;
 use App\Http\Controllers\UserController;
@@ -170,6 +171,15 @@ Route::get('/videos', function () {
 
 // API routes
 
+Route::get('/api/policy-security/requests', [PolicySecurityRequestController::class, 'index'])
+    ->middleware('auth');
+
+Route::get('/api/policy-security/approvals', [PolicySecurityRequestController::class, 'approvals'])
+    ->middleware('auth');
+
+Route::get('/api/policy-security/stats', [PolicySecurityRequestController::class, 'stats'])
+    ->middleware('auth');
+
 $applyAuthorizedOrganizationScope = static function ($query, array $authorizedOrganizationIds) {
     return $query->where(function ($organizationScopeQuery) use ($authorizedOrganizationIds) {
         foreach ($authorizedOrganizationIds as $organizationId) {
@@ -179,6 +189,12 @@ $applyAuthorizedOrganizationScope = static function ($query, array $authorizedOr
 };
 
 Route::get('/api/requests/{actionType}', function (int $actionType) use ($applyAuthorizedOrganizationScope) {
+    if ($actionType === 7) {
+        return response()->json([
+            'message' => 'Use the Policy and Security endpoint for this action type.',
+        ], 403);
+    }
+
     $user = request()->user();
 
     if (! $user) {
@@ -244,6 +260,12 @@ Route::get('/api/organizations', function () {
 })->middleware('auth');
 
 Route::get('/api/approvals/{actionType}', function (int $actionType) use ($applyAuthorizedOrganizationScope) {
+    if ($actionType === 7) {
+        return response()->json([
+            'message' => 'Use the Policy and Security endpoint for this action type.',
+        ], 403);
+    }
+
     $user = request()->user();
 
     if (! $user) {
@@ -270,6 +292,12 @@ Route::get('/api/approvals/{actionType}', function (int $actionType) use ($apply
 })->middleware('auth');
 
 Route::get('/api/approvals/{status}/{actionType}', function (string $status, int $actionType) use ($applyAuthorizedOrganizationScope) {
+    if ($actionType === 7) {
+        return response()->json([
+            'message' => 'Use the Policy and Security endpoint for this action type.',
+        ], 403);
+    }
+
     $user = request()->user();
 
     if (! $user) {

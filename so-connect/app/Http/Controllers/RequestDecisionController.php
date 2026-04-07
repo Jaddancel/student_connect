@@ -28,7 +28,8 @@ class RequestDecisionController extends Controller
             abort(401);
         }
 
-        $requiredDashboard = (int) $actionRequest->action_type === 3 ? 'president' : 'admin';
+        $isPresidentOnlyAction = in_array((int) $actionRequest->action_type, [3, 7], true);
+        $requiredDashboard = $isPresidentOnlyAction ? 'president' : 'admin';
 
         if (! Gate::forUser($user)->allows('access-dashboard', $requiredDashboard)) {
             return response()->json([
@@ -36,15 +37,26 @@ class RequestDecisionController extends Controller
             ], 403);
         }
 
-        $organizationId = OrganizationAuthorizationService::extractOrganizationIdFromAction($actionRequest->action);
+        if ((int) $actionRequest->action_type === 7) {
+            [, $organizationId] = $this->parseRoleChangeAction($actionRequest->action);
+            $authorizedOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
 
-        if ($organizationId !== null) {
-            $authorizedOrganizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
-
-            if (! in_array($organizationId, $authorizedOrganizationIds, true)) {
+            if ($organizationId <= 0 || ! in_array($organizationId, $authorizedOrganizationIds, true)) {
                 return response()->json([
                     'message' => 'You are not authorized to decide this request.',
                 ], 403);
+            }
+        } else {
+            $organizationId = OrganizationAuthorizationService::extractOrganizationIdFromAction($actionRequest->action);
+
+            if ($organizationId !== null) {
+                $authorizedOrganizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
+
+                if (! in_array($organizationId, $authorizedOrganizationIds, true)) {
+                    return response()->json([
+                        'message' => 'You are not authorized to decide this request.',
+                    ], 403);
+                }
             }
         }
 
@@ -79,6 +91,64 @@ class RequestDecisionController extends Controller
             }
         }
 
+        if ((int) $actionRequest->action_type === 7 && $validated['decision'] === 'approve') {
+            [$targetUserId, $targetOrganizationId, $currentRole] = $this->parseRoleChangeAction($actionRequest->action);
+
+            if ($targetOrganizationId > 0 && $targetUserId > 0) {
+                $membership = Member::query()->firstOrCreate(
+                    [
+                        'organization' => $targetOrganizationId,
+                        'user' => $targetUserId,
+                    ],
+                    [
+                        'member_since' => now(),
+                    ]
+                );
+
+                if ($currentRole === 'member') {
+                    DB::table('organization_officers')->updateOrInsert(
+                        [
+                            'member' => (int) $membership->getKey(),
+                            'organization' => $targetOrganizationId,
+                        ],
+                        [
+                            'role' => 'officer',
+                            'yearterm' => null,
+                            'registered_at' => now(),
+                            'reassigned_at' => now(),
+                        ]
+                    );
+                }
+
+                if ($currentRole === 'officer') {
+                    DB::table('organization_officers')
+                        ->where('member', (int) $membership->getKey())
+                        ->where('organization', $targetOrganizationId)
+                        ->update([
+                            'role' => 'president',
+                            'reassigned_at' => now(),
+                        ]);
+
+                    $hasPresidentRole = DB::table('organization_officers')
+                        ->where('member', (int) $membership->getKey())
+                        ->where('organization', $targetOrganizationId)
+                        ->where('role', 'president')
+                        ->exists();
+
+                    if (! $hasPresidentRole) {
+                        DB::table('organization_officers')->insert([
+                            'member' => (int) $membership->getKey(),
+                            'organization' => $targetOrganizationId,
+                            'role' => 'president',
+                            'yearterm' => null,
+                            'registered_at' => now(),
+                            'reassigned_at' => now(),
+                        ]);
+                    }
+                }
+            }
+        }
+
         return response()->json([
             'message' => $validated['decision'] === 'approve'
                 ? 'Request approved successfully.'
@@ -99,5 +169,25 @@ class RequestDecisionController extends Controller
         $userId = ctype_digit($parts[1]) ? (int) $parts[1] : 0;
 
         return [$organizationId, $userId];
+    }
+
+    /**
+     * @return array{0:int,1:int,2:string}
+     */
+    protected function parseRoleChangeAction(?string $action): array
+    {
+        $parts = array_map('trim', explode('|', (string) $action));
+
+        if (count($parts) < 3) {
+            return [0, 0, 'member'];
+        }
+
+        $userId = ctype_digit($parts[0]) ? (int) $parts[0] : 0;
+        $organizationId = ctype_digit($parts[1]) ? (int) $parts[1] : 0;
+        $currentRole = in_array($parts[2], ['member', 'officer', 'president'], true)
+            ? $parts[2]
+            : 'member';
+
+        return [$userId, $organizationId, $currentRole];
     }
 }
