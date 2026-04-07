@@ -1,19 +1,18 @@
 <div x-data="{
-    tableRowData: [{
+    {{-- tableRowData: [{
             {
                 id: 'DE124325',
-                checked: false,
-                customerName: 'Terry Geidt',
-                customerEmail: 'terry@gmail.com',
+                requesterName: 'Terry Geidt',
+                requesterEmail: 'terry@test.com',
                 initials: 'TG',
                 avatarBg: 'bg-green-50',
                 avatarColor: 'text-green-600',
-                product: 'Software License',
-                value: '$18,50.34',
-                closeDate: '2024-06-15',
-                status: 'Complete',
+                organization: 'Sample'
+                requestDate: '2024-06-15',
+                status: 'Pending',
             },
-        ],
+        ], --}}
+        tableRowData: [],
         selectedRows: [],
         selectAll: false,
         handleSelectAll() {
@@ -58,8 +57,8 @@
             <div class="flex items-center gap-3">
                 <button
                     class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-3 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200">
-                    <svg class="stroke-current fill-white dark:fill-gray-800" width="20" height="20"
-                        viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <svg class="stroke-current fill-white dark:fill-gray-800" width="20" height="20" viewBox="0 0 20 20"
+                        fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M2.29004 5.90393H17.7067" stroke="" stroke-width="1.5" stroke-linecap="round"
                             stroke-linejoin="round" />
                         <path d="M17.7075 14.0961H2.29085" stroke="" stroke-width="1.5" stroke-linecap="round"
@@ -149,20 +148,20 @@
                                     <div>
                                         <span
                                             class="mb-0.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400"
-                                            x-text="row.customerName"></span>
+                                            x-text="row.requesterName"></span>
                                         <span class="text-gray-500 text-theme-sm dark:text-gray-400"
-                                            x-text="row.customerEmail"></span>
+                                            x-text="row.requesterEmail"></span>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-4 sm:px-6 py-3.5">
-                                <p class="text-gray-700 text-theme-sm dark:text-gray-400" x-text="row.product"></p>
+                                <p class="text-gray-700 text-theme-sm dark:text-gray-400" x-text="row.organization"></p>
                             </td>
                             {{-- <td class="px-4 sm:px-6 py-3.5">
                                 <p class="text-gray-700 text-theme-sm dark:text-gray-400" x-text="row.value"></p>
                             </td> --}}
                             <td class="px-4 sm:px-6 py-3.5">
-                                <p class="text-gray-700 text-theme-sm dark:text-gray-400" x-text="row.closeDate"></p>
+                                <p class="text-gray-700 text-theme-sm dark:text-gray-400" x-text="row.requestDate"></p>
                             </td>
                             {{-- <td class="px-4 sm:px-6 py-3.5">
                                 <span class="text-theme-xs inline-block rounded-full px-2 py-0.5 font-medium"

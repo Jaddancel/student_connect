@@ -50,6 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.querySelector('#chartThirteen')) {
         import('./components/chart/chart-13').then(module => module.initChartThirteen());
     }
+    if (document.querySelector('#adChart')) {
+        import('./components/chart/dashboard/ad-chart').then(module => module.initADChart());
+    }
 
     // Calendar init
     if (document.querySelector('#calendar')) {
