@@ -17,8 +17,49 @@ const DASHBOARD_TYPES = {
 };
 
 const DASHBOARD_TYPE_KEYS = Object.keys(DASHBOARD_TYPES);
+const DASHBOARD_WINDOWS = {
+	day: {
+		key: 'day',
+		label: 'Last 24 hours',
+		metricLabel: 'Last 24h',
+		windowLabel: '24 hours',
+		chartWindowLabel: '24h window',
+		compareWindowText: 'in the last 24 hours',
+		listWindowText: 'in the last 24 hours',
+		queryHours: 24,
+		volumeLegendLabel: 'Requests per hour',
+		peakVolumeSuffix: '/hour',
+		series: 'hourly',
+	},
+	month: {
+		key: 'month',
+		label: '1 month',
+		metricLabel: 'Last month',
+		windowLabel: '1 month',
+		chartWindowLabel: '1 month',
+		compareWindowText: 'in the last month',
+		listWindowText: 'in the last month',
+		queryHours: 24 * 30,
+		volumeLegendLabel: 'Requests per day',
+		peakVolumeSuffix: '/day',
+		series: 'daily',
+	},
+	all: {
+		key: 'all',
+		label: 'Overall',
+		metricLabel: 'Overall',
+		windowLabel: 'Overall',
+		chartWindowLabel: 'overall',
+		compareWindowText: 'overall',
+		listWindowText: 'across all time',
+		queryHours: null,
+		volumeLegendLabel: 'Requests per month',
+		peakVolumeSuffix: '/month',
+		series: 'monthly',
+	},
+};
+const DASHBOARD_WINDOW_KEYS = Object.keys(DASHBOARD_WINDOWS);
 const RECENT_LIMIT = 10;
-const WINDOW_HOURS = 24;
 
 function safeText(value, fallback = 'N/A') {
 	if (value === null || value === undefined || value === '') {
@@ -146,11 +187,11 @@ function buildRequesterName(profile) {
 	return fullName || 'Unknown Requester';
 }
 
-function buildHourlySeries(requests) {
+function buildHourlySeries(requests, windowHours = 24) {
 	const now = new Date();
 	const buckets = [];
 
-	for (let offset = WINDOW_HOURS - 1; offset >= 0; offset -= 1) {
+	for (let offset = windowHours - 1; offset >= 0; offset -= 1) {
 		const bucket = new Date(now);
 		bucket.setMinutes(0, 0, 0);
 		bucket.setHours(bucket.getHours() - offset);
@@ -182,6 +223,134 @@ function buildHourlySeries(requests) {
 	return buckets;
 }
 
+function buildDailySeries(requests, days = 30) {
+	const now = new Date();
+	const buckets = [];
+
+	for (let offset = days - 1; offset >= 0; offset -= 1) {
+		const bucket = new Date(now);
+		bucket.setHours(0, 0, 0, 0);
+		bucket.setDate(bucket.getDate() - offset);
+
+		buckets.push({
+			label: bucket.toLocaleDateString(undefined, {
+				month: 'short',
+				day: 'numeric',
+			}),
+			from: bucket,
+			to: new Date(bucket.getTime() + 24 * 60 * 60 * 1000),
+			count: 0,
+		});
+	}
+
+	for (const request of requests) {
+		const at = normalizeDate(request.requested_at);
+
+		if (!at) {
+			continue;
+		}
+
+		const bucket = buckets.find((item) => at >= item.from && at < item.to);
+
+		if (bucket) {
+			bucket.count += 1;
+		}
+	}
+
+	return buckets;
+}
+
+function buildMonthlySeries(requests) {
+	const now = new Date();
+	const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+	const buckets = [];
+
+	const parsedTimes = requests
+		.map((requestItem) => normalizeDate(requestItem.requested_at))
+		.filter((dateValue) => dateValue instanceof Date);
+
+	const earliest = parsedTimes.length
+		? parsedTimes.reduce((minValue, currentValue) => (currentValue < minValue ? currentValue : minValue), parsedTimes[0])
+		: currentMonthStart;
+
+	const startMonth = new Date(earliest.getFullYear(), earliest.getMonth(), 1);
+	const cursor = new Date(startMonth);
+
+	while (cursor <= currentMonthStart) {
+		const key = `${cursor.getFullYear()}-${cursor.getMonth()}`;
+
+		buckets.push({
+			key,
+			label: cursor.toLocaleDateString(undefined, {
+				month: 'short',
+				year: '2-digit',
+			}),
+			count: 0,
+		});
+
+		cursor.setMonth(cursor.getMonth() + 1);
+	}
+
+	const bucketByKey = new Map(buckets.map((bucket) => [bucket.key, bucket]));
+
+	for (const request of requests) {
+		const at = normalizeDate(request.requested_at);
+
+		if (!at) {
+			continue;
+		}
+
+		const key = `${at.getFullYear()}-${at.getMonth()}`;
+		const bucket = bucketByKey.get(key);
+
+		if (bucket) {
+			bucket.count += 1;
+		}
+	}
+
+	return buckets;
+}
+
+function buildVolumeSeries(requests, windowType) {
+	if (windowType === 'daily') {
+		return buildDailySeries(requests, 30);
+	}
+
+	if (windowType === 'monthly') {
+		return buildMonthlySeries(requests);
+	}
+
+	return buildHourlySeries(requests, 24);
+}
+
+function getApprovalStatus(approvalItem) {
+	if (!approvalItem || typeof approvalItem !== 'object') {
+		return 'pending';
+	}
+
+	if (approvalItem.status === false) {
+		return 'approved';
+	}
+
+	if (approvalItem.status === true) {
+		return 'rejected';
+	}
+
+	return 'pending';
+}
+
+function getApprovalStatusLabel(status) {
+	if (status === 'approved') {
+		return 'Approved';
+	}
+
+	if (status === 'rejected') {
+		return 'Rejected';
+	}
+
+	return 'Pending';
+}
+
 document.addEventListener('alpine:init', () => {
 	const Alpine = window.Alpine;
 
@@ -207,11 +376,30 @@ document.addEventListener('alpine:init', () => {
 		},
 	});
 
+	Alpine.store('dashboardWindow', {
+		key: 'day',
+		all: DASHBOARD_WINDOWS,
+
+		get current() {
+			return this.all[this.key] ?? this.all.day;
+		},
+
+		async setWindow(windowKey) {
+			if (!DASHBOARD_WINDOW_KEYS.includes(windowKey) || this.key === windowKey) {
+				return;
+			}
+
+			this.key = windowKey;
+			await Alpine.store('dashboardData').load();
+		},
+	});
+
 	Alpine.store('dashboardData', {
 		loading: false,
 		loaded: false,
 		error: null,
 		activeRequestId: 0,
+		decisionRequestId: null,
 		requests: [],
 		approvals: [],
 
@@ -219,8 +407,36 @@ document.addEventListener('alpine:init', () => {
 			return Alpine.store('dashboardType').current;
 		},
 
-		get windowHours() {
-			return WINDOW_HOURS;
+		get window() {
+			return Alpine.store('dashboardWindow').current;
+		},
+
+		get metricWindowLabel() {
+			return this.window.metricLabel;
+		},
+
+		get windowLabel() {
+			return this.window.windowLabel;
+		},
+
+		get chartWindowLabel() {
+			return this.window.chartWindowLabel;
+		},
+
+		get compareWindowText() {
+			return this.window.compareWindowText;
+		},
+
+		get listWindowText() {
+			return this.window.listWindowText;
+		},
+
+		get volumeLegendLabel() {
+			return this.window.volumeLegendLabel;
+		},
+
+		get peakVolumeSuffix() {
+			return this.window.peakVolumeSuffix;
 		},
 
 		get totalRequests() {
@@ -267,12 +483,55 @@ document.addEventListener('alpine:init', () => {
 			return Math.round(((this.approvedCount + this.deniedCount) / this.totalRequests) * 100);
 		},
 
-		get hourlySeries() {
-			return buildHourlySeries(this.requests);
+		get volumeSeries() {
+			return buildVolumeSeries(this.requests, this.window.series);
 		},
 
-		get maxHourlyCount() {
-			return Math.max(...this.hourlySeries.map((item) => item.count), 1);
+		get maxVolumeCount() {
+			return Math.max(...this.volumeSeries.map((item) => item.count), 1);
+		},
+
+		isDecisionLoading(requestId) {
+			return this.decisionRequestId === requestId;
+		},
+
+		async decideRequest(requestId, decision) {
+			const normalizedRequestId = Number.parseInt(String(requestId), 10);
+
+			if (!Number.isInteger(normalizedRequestId) || normalizedRequestId <= 0) {
+				return;
+			}
+
+			if (!['approve', 'reject'].includes(decision)) {
+				return;
+			}
+
+			this.error = null;
+			this.decisionRequestId = normalizedRequestId;
+
+			try {
+				const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+				const response = await fetch(`/api/requests/${normalizedRequestId}/decision`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Accept: 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+					},
+					body: JSON.stringify({ decision }),
+				});
+
+				if (!response.ok) {
+					const payload = await response.json().catch(() => ({}));
+					throw new Error(payload?.message || 'Unable to submit decision.');
+				}
+
+				await this.load();
+			} catch (error) {
+				this.error = error instanceof Error ? error.message : 'Unable to submit decision.';
+			} finally {
+				this.decisionRequestId = null;
+			}
 		},
 
 		async load() {
@@ -281,10 +540,14 @@ document.addEventListener('alpine:init', () => {
 			this.error = null;
 
 			const actionTypeCode = this.type.code;
+			const queryHours = this.window.queryHours;
+			const requestsEndpoint = Number.isInteger(queryHours)
+				? `/api/requests/${actionTypeCode}?hours=${queryHours}`
+				: `/api/requests/${actionTypeCode}`;
 
 			try {
 				const [requestsResponse, approvalsResponse] = await Promise.all([
-					fetch(`/api/requests/${actionTypeCode}?hours=${WINDOW_HOURS}`),
+					fetch(requestsEndpoint),
 					fetch(`/api/approvals/${actionTypeCode}`),
 				]);
 
@@ -343,12 +606,30 @@ document.addEventListener('alpine:init', () => {
 						return rightTime - leftTime;
 					});
 
-				const requestIds = new Set(this.requests.map((requestItem) => requestItem.request_id));
+				const requestIds = new Set(this.requests
+					.map((requestItem) => Number.parseInt(String(requestItem.request_id), 10))
+					.filter((requestItemId) => Number.isInteger(requestItemId) && requestItemId > 0));
 
 				this.approvals = rawApprovals.filter((approvalItem) => {
-					const linkedRequestId = approvalItem?.request?.request_id;
+					const linkedRequestId = Number.parseInt(String(approvalItem?.request?.request_id ?? ''), 10);
 
 					return requestIds.has(linkedRequestId);
+				});
+
+				const approvalByRequestId = new Map(this.approvals
+					.map((approvalItem) => [Number.parseInt(String(approvalItem?.request?.request_id ?? ''), 10), approvalItem])
+					.filter(([linkedRequestId]) => Number.isInteger(linkedRequestId) && linkedRequestId > 0));
+
+				this.requests = this.requests.map((requestItem) => {
+					const requestItemId = Number.parseInt(String(requestItem.request_id), 10);
+					const approvalItem = approvalByRequestId.get(requestItemId) ?? null;
+					const approvalStatus = getApprovalStatus(approvalItem);
+
+					return {
+						...requestItem,
+						approval_status: approvalStatus,
+						approval_status_label: getApprovalStatusLabel(approvalStatus),
+					};
 				});
 				this.loaded = true;
 			} catch (error) {

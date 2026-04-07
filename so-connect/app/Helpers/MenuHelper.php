@@ -69,6 +69,7 @@ class MenuHelper
                 ->exists();
 
             $items = [
+                ['icon' => 'forms', 'name' => 'Register', 'path' => '/register'],
                 ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
                 ['icon' => 'task', 'name' => 'Recent Event Request', 'path' => '/recent-event-requests'],
                 ['icon' => 'user-profile', 'name' => 'Manage Organization', 'path' => '/manage-organization'],
@@ -90,6 +91,7 @@ class MenuHelper
         }
 
         return [
+            ['icon' => 'forms', 'name' => 'Register', 'path' => '/register'],
             ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
         ];
     }

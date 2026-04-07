@@ -41,41 +41,6 @@ export function calendarInit() {
       right: "dayGridMonth,timeGridWeek,timeGridDay",
     };
 
-    const calendarEventsList = [
-      {
-        id: "1",
-        title: "Event Conf.",
-        start: `${newDate.getFullYear()}-${getDynamicMonth()}-01`,
-        extendedProps: { calendar: "Danger" },
-      },
-      {
-        id: "2",
-        title: "Seminar #4",
-        start: `${newDate.getFullYear()}-${getDynamicMonth()}-07`,
-        end: `${newDate.getFullYear()}-${getDynamicMonth()}-10`,
-        extendedProps: { calendar: "Success" },
-      },
-      {
-        id: "3",
-        title: "Meeting #5",
-        start: `${newDate.getFullYear()}-${getDynamicMonth()}-09T16:00:00`,
-        extendedProps: { calendar: "Primary" },
-      },
-      {
-        id: "4",
-        title: "Submission #1",
-        start: `${newDate.getFullYear()}-${getDynamicMonth()}-16T16:00:00`,
-        extendedProps: { calendar: "Warning" },
-      },
-      {
-        id: "5",
-        title: "Seminar #6",
-        start: `${newDate.getFullYear()}-${getDynamicMonth()}-11`,
-        end: `${newDate.getFullYear()}-${getDynamicMonth()}-13`,
-        extendedProps: { calendar: "Danger" },
-      },
-    ];
-
     // Modal Functions
     const openModal = () => {
       const modal = document.getElementById("eventModal");
@@ -99,7 +64,7 @@ export function calendarInit() {
       if (getModalTitleEl) getModalTitleEl.value = "";
       if (getModalStartDateEl) getModalStartDateEl.value = "";
       if (getModalEndDateEl) getModalEndDateEl.value = "";
-      
+
       const getModalIfCheckedRadioBtnEl = document.querySelector(
         'input[name="event-level"]:checked'
       );
@@ -213,7 +178,7 @@ export function calendarInit() {
       initialView: "dayGridMonth",
       initialDate: `${newDate.getFullYear()}-${getDynamicMonth()}-07`,
       headerToolbar: calendarHeaderToolbar,
-      events: calendarEventsList,
+      events: "/api/events/calendar",
       select: calendarSelect,
       eventClick: calendarEventClick,
       displayEventTime: false, // Hide time display
@@ -230,7 +195,8 @@ export function calendarInit() {
       // },
       // Optional: Custom event content without time
       eventContent(eventInfo) {
-        const colorClass = `fc-bg-${eventInfo.event.extendedProps.calendar.toLowerCase()}`
+        const eventLevel = eventInfo.event.extendedProps?.calendar || "Primary";
+        const colorClass = `fc-bg-${eventLevel.toLowerCase()}`;
         return {
           html: `
             <div class="event-fc-color flex fc-event-main ${colorClass} p-1 rounded-sm">
@@ -265,7 +231,7 @@ export function calendarInit() {
     //       getEvent.setDates(setModalStartDateValue, setModalEndDateValue);
     //       getEvent.setExtendedProp("calendar", getModalUpdatedCheckedRadioBtnValue);
     //     }
-        
+
     //     closeModal();
     //   });
     // }
@@ -288,7 +254,7 @@ export function calendarInit() {
         if (getEvent) {
           // Remove the old event
           getEvent.remove();
-          
+
           // Add updated event with all properties
           calendar.addEvent({
             id: getPublicID,
@@ -299,7 +265,7 @@ export function calendarInit() {
             extendedProps: { calendar: getModalUpdatedCheckedRadioBtnValue },
           });
         }
-        
+
         closeModal();
       });
     }
@@ -326,7 +292,7 @@ export function calendarInit() {
           allDay: true,
           extendedProps: { calendar: getModalCheckedRadioBtnValue },
         });
-        
+
         closeModal();
       });
     }

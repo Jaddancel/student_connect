@@ -12,7 +12,7 @@
         <div class="flex items-end justify-between mt-5">
             <div>
                 <span class="text-sm text-gray-500 dark:text-gray-400"
-                    x-text="$store.dashboardType.current.label + ' in Last 24h'"></span>
+                    x-text="$store.dashboardType.current.label + ' in ' + $store.dashboardData.metricWindowLabel"></span>
                 <h4 class="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90"
                     x-text="$store.dashboardData.totalRequests"></h4>
             </div>

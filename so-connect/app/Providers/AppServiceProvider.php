@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Officer;
+use App\Models\User;
 use App\Policies\RolePolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -23,6 +24,27 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(Officer::class, RolePolicy::class);
-        //
+
+        Gate::define('access-dashboard', function (User $user, string $dashboard): bool {
+            $isPresident = $user
+                ->memberships()
+                ->whereHas('officers', function ($query) {
+                    $query->where('role', 'president');
+                })
+                ->exists();
+
+            $isOfficer = $user
+                ->memberships()
+                ->whereHas('officers', function ($query) {
+                    $query->where('role', 'officer');
+                })
+                ->exists();
+
+            return match ($dashboard) {
+                'president' => $isPresident,
+                'admin', 'officer' => $isOfficer || $isPresident,
+                default => false,
+            };
+        });
     }
 }

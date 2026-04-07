@@ -3,7 +3,8 @@
         <div>
             <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Approval Breakdown</h3>
             <p class="mt-1 text-theme-sm text-gray-500 dark:text-gray-400"
-                x-text="'Status distribution for ' + $store.dashboardType.current.label + ' in the last 24 hours.'"></p>
+                x-text="'Status distribution for ' + $store.dashboardType.current.label + ' ' + $store.dashboardData.compareWindowText + '.'">
+            </p>
         </div>
     </div>
 
@@ -76,7 +77,7 @@
         <div class="rounded-xl border border-gray-200 p-3 dark:border-gray-800">
             <p class="text-xs text-gray-500 dark:text-gray-400">Window</p>
             <p class="mt-1 text-lg font-semibold text-gray-800 dark:text-white/90"
-                x-text="$store.dashboardData.windowHours + 'h'"></p>
+                x-text="$store.dashboardData.windowLabel"></p>
         </div>
     </div>
 </div>

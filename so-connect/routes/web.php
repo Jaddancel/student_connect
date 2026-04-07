@@ -4,7 +4,11 @@ use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\Register;
 use App\Http\Controllers\Dashboard;
+use App\Http\Controllers\EventController;
+use App\Http\Controllers\MembershipRegistrationController;
+use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RequestDecisionController;
 use App\Http\Controllers\UserController;
 use App\Http\Resources\ActionRequestResource;
 use App\Http\Resources\ApprovalResource;
@@ -26,19 +30,17 @@ Route::get('/sample_dashboard', function () {
 
 Route::get('/dashboard/president', function () {
     return view('pages.dashboard.administrator', ['title' => 'President Dashboard']);
-})->middleware('auth')->name('president-dashboard');
+})->middleware(['auth', 'dashboard.access:president'])->name('president-dashboard');
 
 Route::get('/dashboard/admin', function () {
     return view('pages.dashboard.administrator', ['title' => 'Administrator Dashboard']);
-})->middleware('auth')->name('admin-dashboard');
+})->middleware(['auth', 'dashboard.access:admin'])->name('admin-dashboard');
 
 Route::get('/dashboard/officer', function () {
     return view('pages.dashboard.officer', ['title' => 'Officer Dashboard']);
-})->middleware('auth')->name('officer-dashboard');
+})->middleware(['auth', 'dashboard.access:officer'])->name('officer-dashboard');
 
-Route::get('/dashboard/member', function () {
-    return view('pages.dashboard.member', ['title' => 'Member Dashboard']);
-})->middleware('auth')->name('member-dashboard');
+Route::get('/dashboard/member', [Dashboard::class, 'memberDashboard'])->middleware('auth')->name('member-dashboard');
 
 Route::get('/dashboard', [Dashboard::class, 'viewDashboard'])->middleware('auth')->name('dashboard');
 
@@ -55,15 +57,19 @@ Route::get('/login', [UserController::class, 'loginPage'])->name('login');
 // calender pages
 Route::get('/calendar', function () {
     return view('pages.calender', ['title' => 'Calendar']);
-})->name('calendar');
+})->middleware('auth')->name('calendar');
 
 Route::get('/upcoming-events', function () {
     return view('pages.blank', ['title' => 'View Upcoming Events']);
 })->middleware('auth')->name('upcoming-events');
 
-Route::get('/register', function () {
-    return view('pages.blank', ['title' => 'Register']);
-})->middleware('auth')->name('register');
+Route::get('/register', [MembershipRegistrationController::class, 'create'])
+    ->middleware('auth')
+    ->name('register');
+
+Route::post('/register', [MembershipRegistrationController::class, 'store'])
+    ->middleware('auth')
+    ->name('register.store');
 
 Route::get('/download-files', function () {
     return view('pages.blank', ['title' => 'Download Files']);
@@ -81,9 +87,9 @@ Route::get('/recent-event-requests', function () {
     return view('pages.blank', ['title' => 'Recent Event Request']);
 })->middleware('auth')->name('recent-event-requests');
 
-Route::get('/manage-organization', function () {
-    return view('pages.blank', ['title' => 'Manage Organization']);
-})->middleware('auth')->name('manage-organization');
+Route::get('/manage-organization', [OrganizationController::class, 'manage'])
+    ->middleware('auth')
+    ->name('manage-organization');
 
 Route::get('/upload-forms', function () {
     return view('pages.blank', ['title' => 'Upload Forms']);
@@ -182,6 +188,10 @@ Route::get('/api/requests/{actionType}', function (int $actionType) {
     return ActionRequestResource::collection($query->get());
 })->middleware('auth');
 
+Route::post('/api/requests/{requestId}/decision', [RequestDecisionController::class, 'store'])
+    ->whereNumber('requestId')
+    ->middleware('auth');
+
 Route::get('/api/organizations', function () {
     $ids = collect(explode(',', (string) request()->query('ids', '')))
         ->map(fn ($id) => (int) trim($id))
@@ -250,3 +260,7 @@ Route::get('/api/user/{id}', function (string $id) {
 Route::get('/api/users', function () {
     return UserResource::collection(User::all());
 });
+
+Route::get('/api/events/calendar', [EventController::class, 'calendarEvents'])
+    ->middleware('auth')
+    ->name('api.events.calendar');
