@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\Register;
 use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\LandingPage;
 use App\Http\Controllers\MembershipRegistrationController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\PolicySecurityRequestController;
@@ -21,9 +22,10 @@ use App\Services\OrganizationAuthorizationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return redirect()->route('dashboard');
-});
+Route::get('/', [LandingPage::class, 'view'])->name('home');
+Route::get('/organizations/{organizationId}/{slug?}', [LandingPage::class, 'organizationFeed'])
+    ->whereNumber('organizationId')
+    ->name('organization-feed');
 
 // dashboard pages
 Route::get('/sample_dashboard', function () {
