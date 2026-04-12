@@ -47,20 +47,26 @@
 
             Alpine.store('dashboardType', {
                 typeCode: 'membership',
+                layout1: true,
+                layout2: false,
+
+                init() {
+                    this.toggleType(this.typeCode);
+                },
+
                 toggleType(typeCode) {
+                    this.typeCode = typeCode;
+
                     switch (typeCode) {
-                        case 'membership':
-
-                            break;
-
-                        case 'events':
-
-                            break;
-
                         case 'roles':
-
+                            this.layout1 = false;
+                            this.layout2 = true;
                             break;
+                        case 'membership':
+                        case 'events':
                         default:
+                            this.layout1 = true;
+                            this.layout2 = false;
                             break;
                     }
                 }
