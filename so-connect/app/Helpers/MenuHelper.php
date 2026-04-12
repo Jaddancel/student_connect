@@ -65,6 +65,12 @@ class MenuHelper
         ];
     }
 
+    public static function getAdminItems()
+    {
+        return self::organizationManagement();
+
+    }
+
     public static function getOthersItems()
     {
         return [
@@ -99,22 +105,35 @@ class MenuHelper
         ];
     }
 
-    public static function getMenuGroups()
+    public static function getMenuGroups($userId)
     {
-        return [
-            [
-                'title' => 'Menu',
-                'items' => self::getMainNavItems(),
-            ],
-            [
-                'title' => 'Administrator Section',
-                'items' => self::getAdminsItems(),
-            ],
-            [
-                'title' => 'Others',
-                'items' => self::getOthersItems(),
-            ],
-        ];
+        if (RoleHelper::isUserAdmin($userId)) {
+            return [
+                [
+                    'title' => 'Menu',
+                    'items' => self::getMainNavItems(),
+                ],
+                [
+                    'title' => 'Administrator Section',
+                    'items' => self::getAdminItems(),
+                ],
+                [
+                    'title' => 'Others',
+                    'items' => self::getOthersItems(),
+                ],
+            ];
+        } else {
+            return [
+                [
+                    'title' => 'Menu',
+                    'items' => self::getMainNavItems(),
+                ],
+                [
+                    'title' => 'Others',
+                    'items' => self::getOthersItems(),
+                ],
+            ];
+        }
     }
 
     public static function isActive($path)
