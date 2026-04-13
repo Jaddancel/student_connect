@@ -76,7 +76,7 @@ class UserFactory extends Factory
             $userId = $user->getKey();
             Request::create([
                 'user' => $userId,
-                'action' => $org,
+                'action' => $org.'|'.$userId,
                 'action_type' => 1,
             ]);
         });
@@ -84,15 +84,19 @@ class UserFactory extends Factory
 
     public function randomOrgRequest()
     {
-        $org = Organization::query()->inRandomOrder()->first()->getKey();
-
         return $this->state(fn (array $attributes) => [
             'user_type' => 1,
-        ])->afterCreating(function (User $user) use ($org) {
+        ])->afterCreating(function (User $user) {
+            $org = Organization::query()->inRandomOrder()->value('organization_id');
+
+            if (! $org) {
+                return;
+            }
+
             $userId = $user->getKey();
             Request::create([
                 'user' => $userId,
-                'action' => $org,
+                'action' => $org.'|'.$userId,
                 'action_type' => 1,
             ]);
         });

@@ -38,7 +38,7 @@ class ApprovalFactory extends Factory
             'admin' => Officer::query()->where('organization', $randomOrg)->inRandomOrder()->first()?->getKey(),
             'request' => Request::query()
                 ->where('action_type', 1)
-                ->where('action', $randomOrg)
+                ->where('action', 'like', $randomOrg.'|%')
                 ->inRandomOrder()
                 ->first()?->getKey(),
             'is_rejected' => false,
@@ -60,7 +60,7 @@ class ApprovalFactory extends Factory
             'admin' => Officer::query()->where('organization', $randomOrg)->inRandomOrder()->first()?->getKey(),
             'request' => Request::query()
                 ->where('action_type', 1)
-                ->where('action', $randomOrg)
+                ->where('action', 'like', $randomOrg.'|%')
                 ->inRandomOrder()
                 ->first()?->getKey(),
             'is_rejected' => true,
