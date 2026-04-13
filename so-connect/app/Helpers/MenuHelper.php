@@ -21,8 +21,8 @@ class MenuHelper
                 'icon' => 'organization',
                 'name' => 'Organization Services',
                 'subItems' => [
-                    ['name' => 'Membership Registration', 'path' => 'form/membership_registration'],
-                    ['name' => 'My Organizations', 'path' => 'my_organizations'],
+                    ['name' => 'Membership Registration', 'path' => '/form/membership_registration'],
+                    ['name' => 'My Organizations', 'path' => '/my_organizations'],
                 ],
             ],
             [
@@ -65,10 +65,27 @@ class MenuHelper
         ];
     }
 
+    public static function roleManagement()
+    {
+        return [
+            [
+                'icon' => 'forms',
+                'name' => 'Form Management',
+                'subItems' => [
+                    ['name' => 'Form List', 'path' => '#'],
+                    ['name' => 'Upload Template', 'path' => '#'],
+                ],
+            ],
+
+        ];
+    }
+
     public static function getAdminItems()
     {
-        return self::organizationManagement();
-
+        return array_merge(
+            self::organizationManagement(),
+            self::roleManagement()
+        );
     }
 
     public static function getOthersItems()

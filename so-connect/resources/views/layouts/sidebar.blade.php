@@ -17,7 +17,7 @@
         },
         initializeActiveMenus() {
             const currentPath = '{{ $currentPath }}';
-    
+
             @foreach ($menuGroups as $groupIndex => $menuGroup)
                 @foreach ($menuGroup['items'] as $itemIndex => $item)
                     @if (isset($item['subItems']))
@@ -34,12 +34,12 @@
         toggleSubmenu(groupIndex, itemIndex) {
             const key = groupIndex + '-' + itemIndex;
             const newState = !this.openSubmenus[key];
-    
+
             // Close all other submenus when opening a new one
             if (newState) {
                 this.openSubmenus = {};
             }
-    
+
             this.openSubmenus[key] = newState;
         },
         isSubmenuOpen(groupIndex, itemIndex) {
@@ -119,7 +119,7 @@
                                             <span
                                                 :class="isSubmenuOpen({{ $groupIndex }}, {{ $itemIndex }}) ?
                                                     'menu-item-icon-active' : 'menu-item-icon-inactive'">
-                                                {!! MenuHelper::getIconSvg($item['icon']) !!}
+                                                {!! MenuHelper::getIconSvg($item['icon'] ?? '') !!}
                                             </span>
 
                                             <!-- Text -->
@@ -200,7 +200,7 @@
                                             <span
                                                 :class="isActive('{{ $item['path'] ?? '' }}') ? 'menu-item-icon-active' :
                                                     'menu-item-icon-inactive'">
-                                                {!! MenuHelper::getIconSvg($item['icon']) !!}
+                                                {!! MenuHelper::getIconSvg($item['icon'] ?? '') !!}
                                             </span>
 
                                             <!-- Text -->

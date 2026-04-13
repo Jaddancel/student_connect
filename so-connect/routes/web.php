@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Dashboard;
+use App\Http\Controllers\MemberController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
 use App\Http\Resources\ActionRequestResource;
@@ -66,6 +67,10 @@ Route::get('/form-elements', function () {
     return view('pages.form.form-elements', ['title' => 'Form Elements']);
 })->name('form-elements');
 
+Route::get('/form/membership_registration', function (MemberController $controller) {
+    return $controller->registration_form(auth()->id());
+})->middleware('auth')->name('membership-registration');
+Route::post('/register/member', []);
 // tables pages
 Route::get('/basic-tables', function () {
     return view('pages.tables.basic-tables', ['title' => 'Basic Tables']);
