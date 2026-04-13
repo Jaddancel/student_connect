@@ -62,7 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
             module.initChartThirteen(),
         );
     }
-    if (document.querySelector("#adChart")) {
+    if (document.querySelector(".ad-chart")) {
         import("./components/chart/dashboard/ad-chart").then((module) =>
             module.initADChart(),
         );

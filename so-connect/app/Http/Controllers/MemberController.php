@@ -3,13 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\OrganizationHelper;
+use App\Services\ActionService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class MemberController extends Controller
 {
     public function registration_form($user_id)
     {
-        $joinedOrganizationIds = (new OrganizationHelper())->returnTheOrganizationsTheUserIsAMemberOf($user_id);
+        $joinedOrganizationIds = (new OrganizationHelper)->returnTheOrganizationsTheUserIsAMemberOf($user_id);
 
         $organizations = DB::table('organizations')
             ->leftJoin('organization_details', 'organizations.detail', '=', 'organization_details.organization_detail_id')
@@ -43,5 +45,21 @@ class MemberController extends Controller
             'title' => 'Membership Registration',
             'organizationsByType' => $organizationsByType,
         ]);
+    }
+
+    public function post(Request $request)
+    {
+        $validated = $request->validate([
+            'orgSelector' => ['required', 'integer', 'exists:organizations,organization_id'],
+        ]);
+
+        $userId = (int) auth()->id();
+
+        (new ActionService)->passAction([
+            'organization_id' => (int) $validated['orgSelector'],
+            'user_id' => $userId,
+        ], 0);
+
+        return redirect()->route('membership-registration')->with('status', 'Membership request submitted.');
     }
 }

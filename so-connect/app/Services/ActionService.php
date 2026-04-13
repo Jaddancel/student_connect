@@ -7,7 +7,7 @@ use App\Models\Request;
 class ActionService
 {
     // Receive action by code
-    public function passAction($command, $code)
+    public function passAction(array $command, int $code): void
     {
         // For demonstration, we will just return a simple message.
         // In a real application, you would look up the action by code and perform the necessary logic.
@@ -24,16 +24,17 @@ class ActionService
         }
     }
 
-    protected function createMembershipRequest($command, $code)
+    protected function createMembershipRequest(array $command, int $code): void
     {
         // For creation of membership request in organizations, sans college organizations.
         Request::create([
             'action' => $command['organization_id'].'|'.$command['user_id'],
+            'user' => $command['user_id'],
             'action_type' => $code,
         ]);
     }
 
-    protected function createEventRequest($command, $code)
+    protected function createEventRequest(array $command, int $code): void
     {
         // For creation of event request in organizations, sans college organizations.
         Request::create([
@@ -43,6 +44,7 @@ class ActionService
             $command['event_start_time'].'|'.
             $command['event_end_time'].'|'.
             ($command['event_desc_text'] ?? ''),
+            'user' => $command['user_id'],
             'action_type' => $code,
         ]);
     }

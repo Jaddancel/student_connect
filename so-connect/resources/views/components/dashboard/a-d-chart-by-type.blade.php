@@ -8,6 +8,6 @@
     </div>
 
     <div class="max-w-full overflow-x-auto custom-scrollbar">
-        <div id="adChart" class="-ml-5 h-full min-w-[690px] pl-2 xl:min-w-full"></div>
+        <div class="ad-chart -ml-5 h-full min-w-[690px] pl-2 xl:min-w-full"></div>
     </div>
 </div>

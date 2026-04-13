@@ -3,14 +3,27 @@
 @section('content')
     <x-common.page-breadcrumb pageTitle="Membership Registration" />
 
-    <div class="w-full flex justify-center">
+    <div class="w-full flex flex-col justify-center">
+
+        @if (session('status'))
+            <div class="w-full md:w-3/4 mx-auto mb-4">
+                <x-ui.alert variant="success" title="Request Submitted" :message="session('status')" :showLink="false" />
+            </div>
+        @endif
+
+        @if ($errors->any())
+            <div class="w-full md:w-3/4 mx-auto mb-4">
+                <x-ui.alert variant="error" title="Submission Failed" :message="$errors->first()" :showLink="false" />
+            </div>
+        @endif
 
         <form action="/register/member" method="post" x-data="membershipRegistrationForm(@js($organizationsByType ?? []))"
             class="space-y-5 w-full md:w-3/4 mx-auto rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
             @csrf
 
             <div>
-                <label for="typeSelect" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Organization
+                <label for="typeSelect"
+                    class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Organization
                     Type</label>
                 <div class="relative z-20 bg-transparent">
                     <select x-model="selectedType" x-on:change="updateOrgList" name="typeSelector" id="typeSelect"

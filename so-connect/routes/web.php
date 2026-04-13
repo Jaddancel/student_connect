@@ -70,7 +70,9 @@ Route::get('/form-elements', function () {
 Route::get('/form/membership_registration', function (MemberController $controller) {
     return $controller->registration_form(auth()->id());
 })->middleware('auth')->name('membership-registration');
-Route::post('/register/member', []);
+
+Route::post('/register/member', [MemberController::class, 'post'])->middleware('auth');
+
 // tables pages
 Route::get('/basic-tables', function () {
     return view('pages.tables.basic-tables', ['title' => 'Basic Tables']);
