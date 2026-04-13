@@ -1,5 +1,3 @@
-
-
 import { Calendar } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import listPlugin from "@fullcalendar/list";
@@ -9,310 +7,300 @@ import interactionPlugin from "@fullcalendar/interaction";
 export function calendarInit() {
   const calendarWrapper = document.querySelector("#calendar");
 
-  if (calendarWrapper) {
-    // Calendar Date variable
-    const newDate = new Date();
-    const getDynamicMonth = () => {
-      const month = newDate.getMonth() + 1;
-      return month < 10 ? `0${month}` : `${month}`;
-    };
+  if (!calendarWrapper) {
+    return;
+  }
 
-    // Calendar Modal Elements
-    const getModalTitleEl = document.querySelector("#event-title");
-    const getModalStartDateEl = document.querySelector("#event-start-date");
-    const getModalEndDateEl = document.querySelector("#event-end-date");
-    const getModalAddBtnEl = document.querySelector(".btn-add-event");
-    const getModalUpdateBtnEl = document.querySelector(".btn-update-event");
-    const getModalHeaderEl = document.querySelector("#eventModalLabel");
+  const canRequestEvent = calendarWrapper.dataset.canRequestEvent === "1";
+  const eventRequestEndpoint = calendarWrapper.dataset.eventRequestEndpoint || "";
+  const modalEl = document.getElementById("eventModal");
 
-    const calendarsEvents = {
-      Danger: "danger",
-      Success: "success",
-      Primary: "primary",
-      Warning: "warning",
-    };
+  const modalHeaderEl = document.querySelector("#eventModalLabel");
+  const feedbackEl = document.querySelector("#event-form-feedback");
+  const organizationEl = document.querySelector("#event-organization");
+  const titleEl = document.querySelector("#event-title");
+  const locationEl = document.querySelector("#event-location");
+  const descriptionEl = document.querySelector("#event-description");
+  const startDateEl = document.querySelector("#event-start-date");
+  const endDateEl = document.querySelector("#event-end-date");
+  const addBtnEl = document.querySelector(".btn-add-event");
+  const openModalBtnEl = document.querySelector("#open-event-request-modal");
 
-    // Calendar Elements and options
-    const calendarEl = document.querySelector("#calendar");
+  const newDate = new Date();
+  const getDynamicMonth = () => {
+    const month = newDate.getMonth() + 1;
+    return month < 10 ? `0${month}` : `${month}`;
+  };
 
-    const calendarHeaderToolbar = {
-      left: "prev,next addEventButton",
-      center: "title",
-      right: "dayGridMonth,timeGridWeek,timeGridDay",
-    };
+  const setFeedback = (message, type = "error") => {
+    if (!feedbackEl) {
+      return;
+    }
 
-    // Modal Functions
-    const openModal = () => {
-      const modal = document.getElementById("eventModal");
-      if (modal) {
-        modal.style.display = "flex";
-        document.body.style.overflow = "hidden"; // Prevent background scroll
-      }
-    };
+    feedbackEl.classList.remove(
+      "hidden",
+      "border-error-200",
+      "bg-error-50",
+      "text-error-700",
+      "dark:border-error-500/20",
+      "dark:bg-error-500/10",
+      "dark:text-error-400",
+      "border-success-200",
+      "bg-success-50",
+      "text-success-700",
+      "dark:border-success-500/20",
+      "dark:bg-success-500/10",
+      "dark:text-success-400"
+    );
 
-    const closeModal = () => {
-      const modal = document.getElementById("eventModal");
-      if (modal) {
-        modal.style.display = "none";
-        document.body.style.overflow = ""; // Restore scroll
-      }
-      resetModalFields();
-    };
-
-    // Reset modal fields
-    function resetModalFields() {
-      if (getModalTitleEl) getModalTitleEl.value = "";
-      if (getModalStartDateEl) getModalStartDateEl.value = "";
-      if (getModalEndDateEl) getModalEndDateEl.value = "";
-
-      const getModalIfCheckedRadioBtnEl = document.querySelector(
-        'input[name="event-level"]:checked'
+    if (type === "success") {
+      feedbackEl.classList.add(
+        "border-success-200",
+        "bg-success-50",
+        "text-success-700",
+        "dark:border-success-500/20",
+        "dark:bg-success-500/10",
+        "dark:text-success-400"
       );
-      if (getModalIfCheckedRadioBtnEl) {
-        getModalIfCheckedRadioBtnEl.checked = false;
+    } else {
+      feedbackEl.classList.add(
+        "border-error-200",
+        "bg-error-50",
+        "text-error-700",
+        "dark:border-error-500/20",
+        "dark:bg-error-500/10",
+        "dark:text-error-400"
+      );
+    }
+
+    feedbackEl.textContent = message;
+  };
+
+  const clearFeedback = () => {
+    if (!feedbackEl) {
+      return;
+    }
+
+    feedbackEl.textContent = "";
+    feedbackEl.classList.add("hidden");
+  };
+
+  const toLocalDatetimeInput = (date) => {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      return "";
+    }
+
+    const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return localDate.toISOString().slice(0, 16);
+  };
+
+  const applyDefaultDateRange = (baseDate = new Date()) => {
+    if (!(startDateEl && endDateEl)) {
+      return;
+    }
+
+    const startDate = new Date(baseDate);
+    startDate.setHours(9, 0, 0, 0);
+
+    const endDate = new Date(startDate);
+    endDate.setHours(startDate.getHours() + 1);
+
+    startDateEl.value = toLocalDatetimeInput(startDate);
+    endDateEl.value = toLocalDatetimeInput(endDate);
+  };
+
+  const resetModalFields = () => {
+    clearFeedback();
+
+    if (organizationEl) {
+      organizationEl.value = "";
+    }
+    if (titleEl) {
+      titleEl.value = "";
+    }
+    if (locationEl) {
+      locationEl.value = "";
+    }
+    if (descriptionEl) {
+      descriptionEl.value = "";
+    }
+
+    applyDefaultDateRange(new Date());
+  };
+
+  const openModalForRequest = (baseDate = new Date()) => {
+    if (!modalEl || !canRequestEvent) {
+      return;
+    }
+
+    if (modalHeaderEl) {
+      modalHeaderEl.textContent = "Request Event";
+    }
+
+    resetModalFields();
+    applyDefaultDateRange(baseDate);
+
+    modalEl.style.display = "flex";
+    document.body.style.overflow = "hidden";
+  };
+
+  const closeModal = () => {
+    if (!modalEl) {
+      return;
+    }
+
+    modalEl.style.display = "none";
+    document.body.style.overflow = "";
+    resetModalFields();
+  };
+
+  const parseErrorMessage = async (response) => {
+    const payload = await response.json().catch(() => ({}));
+
+    if (payload?.errors && typeof payload.errors === "object") {
+      const firstError = Object.values(payload.errors)
+        .flat()
+        .find((value) => typeof value === "string");
+
+      if (typeof firstError === "string" && firstError.trim() !== "") {
+        return firstError;
       }
     }
 
-    // Calendar Select function (when user clicks/drags on calendar)
-    const calendarSelect = (info) => {
-      resetModalFields();
+    if (typeof payload?.message === "string" && payload.message.trim() !== "") {
+      return payload.message;
+    }
 
-      // Update modal header
-      if (getModalHeaderEl) {
-        getModalHeaderEl.textContent = "Add Event";
-      }
+    return "Unable to submit event request.";
+  };
 
-      // Show Add button, hide Update button
-      if (getModalAddBtnEl) getModalAddBtnEl.style.display = "flex";
-      if (getModalUpdateBtnEl) getModalUpdateBtnEl.style.display = "none";
+  const submitEventRequest = async () => {
+    if (!canRequestEvent || !eventRequestEndpoint) {
+      setFeedback("You are not authorized to submit event requests.");
+      return;
+    }
 
-      // Set dates from selection
-      if (getModalStartDateEl) getModalStartDateEl.value = info.startStr;
-      if (getModalEndDateEl) {
-        getModalEndDateEl.value = info.endStr || info.startStr;
-      }
-
-      openModal();
+    const payload = {
+      organization_id: organizationEl ? organizationEl.value.trim() : "",
+      name: titleEl ? titleEl.value.trim() : "",
+      location: locationEl ? locationEl.value.trim() : "",
+      desc_text: descriptionEl ? descriptionEl.value.trim() : "",
+      start_time: startDateEl ? startDateEl.value : "",
+      end_time: endDateEl ? endDateEl.value : "",
     };
 
-    // Calendar AddEvent button click
-    const calendarAddEvent = () => {
-      resetModalFields();
+    if (!payload.organization_id || !payload.name || !payload.location || !payload.desc_text || !payload.start_time || !payload.end_time) {
+      setFeedback("Please complete all fields before submitting.");
+      return;
+    }
 
-      // Update modal header
-      if (getModalHeaderEl) {
-        getModalHeaderEl.textContent = "Add Event";
-      }
+    if (new Date(payload.end_time) < new Date(payload.start_time)) {
+      setFeedback("End date and time must be after the start date and time.");
+      return;
+    }
 
-      // Show Add button, hide Update button
-      if (getModalAddBtnEl) getModalAddBtnEl.style.display = "flex";
-      if (getModalUpdateBtnEl) getModalUpdateBtnEl.style.display = "none";
+    const originalLabel = addBtnEl ? addBtnEl.textContent : "";
 
-      // Set default start date to today
-      const currentDate = new Date();
-      const yyyy = currentDate.getFullYear();
-      const mm = String(currentDate.getMonth() + 1).padStart(2, "0");
-      const dd = String(currentDate.getDate()).padStart(2, "0");
-      const combineDate = `${yyyy}-${mm}-${dd}`;
+    if (addBtnEl) {
+      addBtnEl.disabled = true;
+      addBtnEl.textContent = "Sending...";
+    }
 
-      if (getModalStartDateEl) getModalStartDateEl.value = combineDate;
+    try {
+      const csrfToken =
+        document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
 
-      openModal();
-    };
-
-    // Calendar Event Click function (when user clicks existing event)
-    const calendarEventClick = (info) => {
-      const eventObj = info.event;
-
-      if (eventObj.url) {
-        window.open(eventObj.url);
-        info.jsEvent.preventDefault();
-      } else {
-        resetModalFields();
-
-        // Update modal header
-        if (getModalHeaderEl) {
-          getModalHeaderEl.textContent = "Edit Event";
-        }
-
-        // Get event details
-        const getModalEventId = eventObj.id;
-        const getModalEventLevel = eventObj.extendedProps.calendar;
-
-        // Set form values
-        if (getModalTitleEl) getModalTitleEl.value = eventObj.title;
-        if (getModalStartDateEl) {
-          getModalStartDateEl.value = eventObj.startStr.split("T")[0];
-        }
-        if (getModalEndDateEl) {
-          getModalEndDateEl.value = eventObj.endStr
-            ? eventObj.endStr.split("T")[0]
-            : "";
-        }
-
-        // Check the correct radio button
-        const getModalCheckedRadioBtnEl = document.querySelector(
-          `input[value="${getModalEventLevel}"]`
-        );
-        if (getModalCheckedRadioBtnEl) {
-          getModalCheckedRadioBtnEl.checked = true;
-        }
-
-        // Store event ID for update
-        if (getModalUpdateBtnEl) {
-          getModalUpdateBtnEl.dataset.fcEventPublicId = getModalEventId;
-        }
-
-        // Hide Add button, show Update button
-        if (getModalAddBtnEl) getModalAddBtnEl.style.display = "none";
-        if (getModalUpdateBtnEl) getModalUpdateBtnEl.style.display = "flex";
-
-        openModal();
-      }
-    };
-
-    // Initialize Calendar
-    const calendar = new Calendar(calendarEl, {
-      plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
-      selectable: true,
-      initialView: "dayGridMonth",
-      initialDate: `${newDate.getFullYear()}-${getDynamicMonth()}-07`,
-      headerToolbar: calendarHeaderToolbar,
-      events: "/api/events/calendar",
-      select: calendarSelect,
-      eventClick: calendarEventClick,
-      displayEventTime: false, // Hide time display
-      customButtons: {
-        addEventButton: {
-          text: "Add Event +",
-          click: calendarAddEvent,
+      const response = await fetch(eventRequestEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-CSRF-TOKEN": csrfToken,
         },
-      },
-      // eventClassNames({ event: calendarEvent }) {
-      //   const getColorValue =
-      //     calendarsEvents[calendarEvent._def.extendedProps.calendar];
-      //   return [`event-fc-color`, `fc-bg-${getColorValue}`];
-      // },
-      // Optional: Custom event content without time
-      eventContent(eventInfo) {
-        const eventLevel = eventInfo.event.extendedProps?.calendar || "Primary";
-        const colorClass = `fc-bg-${eventLevel.toLowerCase()}`;
-        return {
-          html: `
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorMessage = await parseErrorMessage(response);
+        throw new Error(errorMessage);
+      }
+
+      setFeedback("Event request submitted successfully.", "success");
+      window.setTimeout(() => {
+        closeModal();
+      }, 700);
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Unable to submit event request.";
+      setFeedback(message);
+    } finally {
+      if (addBtnEl) {
+        addBtnEl.disabled = false;
+        addBtnEl.textContent = originalLabel || "Send Event Request";
+      }
+    }
+  };
+
+  const calendarHeaderToolbar = {
+    left: "prev,next",
+    center: "title",
+    right: "dayGridMonth,timeGridWeek,timeGridDay",
+  };
+
+  const calendar = new Calendar(calendarWrapper, {
+    plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
+    selectable: canRequestEvent,
+    initialView: "dayGridMonth",
+    initialDate: `${newDate.getFullYear()}-${getDynamicMonth()}-07`,
+    headerToolbar: calendarHeaderToolbar,
+    events: "/api/events/calendar",
+    select(info) {
+      if (!canRequestEvent) {
+        return;
+      }
+
+      openModalForRequest(new Date(info.startStr));
+    },
+    displayEventTime: false,
+    eventContent(eventInfo) {
+      const eventLevel = eventInfo.event.extendedProps?.calendar || "Primary";
+      const colorClass = `fc-bg-${eventLevel.toLowerCase()}`;
+
+      return {
+        html: `
             <div class="event-fc-color flex fc-event-main ${colorClass} p-1 rounded-sm">
               <div class="fc-daygrid-event-dot"></div>
               <div class="fc-event-time">${eventInfo.timeText}</div>
               <div class="fc-event-title">${eventInfo.event.title}</div>
             </div>
           `,
-        }
-      },
-    });
+      };
+    },
+  });
 
-    // Update Calendar Event
-    // if (getModalUpdateBtnEl) {
-    //   getModalUpdateBtnEl.addEventListener("click", () => {
-    //     const getPublicID = getModalUpdateBtnEl.dataset.fcEventPublicId;
-    //     const getTitleUpdatedValue = getModalTitleEl.value;
-    //     const setModalStartDateValue = getModalStartDateEl.value;
-    //     const setModalEndDateValue = getModalEndDateEl.value;
-    //     const getEvent = calendar.getEventById(getPublicID);
-    //     const getModalUpdatedCheckedRadioBtnEl = document.querySelector(
-    //       'input[name="event-level"]:checked'
-    //     );
+  if (addBtnEl) {
+    addBtnEl.addEventListener("click", submitEventRequest);
+  }
 
-    //     const getModalUpdatedCheckedRadioBtnValue =
-    //       getModalUpdatedCheckedRadioBtnEl
-    //         ? getModalUpdatedCheckedRadioBtnEl.value
-    //         : "";
-
-    //     if (getEvent) {
-    //       getEvent.setProp("title", getTitleUpdatedValue);
-    //       getEvent.setDates(setModalStartDateValue, setModalEndDateValue);
-    //       getEvent.setExtendedProp("calendar", getModalUpdatedCheckedRadioBtnValue);
-    //     }
-
-    //     closeModal();
-    //   });
-    // }
-    if (getModalUpdateBtnEl) {
-      getModalUpdateBtnEl.addEventListener("click", () => {
-        const getPublicID = getModalUpdateBtnEl.dataset.fcEventPublicId;
-        const getTitleUpdatedValue = getModalTitleEl.value;
-        const setModalStartDateValue = getModalStartDateEl.value;
-        const setModalEndDateValue = getModalEndDateEl.value;
-        const getEvent = calendar.getEventById(getPublicID);
-        const getModalUpdatedCheckedRadioBtnEl = document.querySelector(
-          'input[name="event-level"]:checked'
-        );
-
-        const getModalUpdatedCheckedRadioBtnValue =
-          getModalUpdatedCheckedRadioBtnEl
-            ? getModalUpdatedCheckedRadioBtnEl.value
-            : "";
-
-        if (getEvent) {
-          // Remove the old event
-          getEvent.remove();
-
-          // Add updated event with all properties
-          calendar.addEvent({
-            id: getPublicID,
-            title: getTitleUpdatedValue,
-            start: setModalStartDateValue,
-            end: setModalEndDateValue,
-            allDay: true,
-            extendedProps: { calendar: getModalUpdatedCheckedRadioBtnValue },
-          });
-        }
-
-        closeModal();
-      });
-    }
-
-    // Add Calendar Event
-    if (getModalAddBtnEl) {
-      getModalAddBtnEl.addEventListener("click", () => {
-        const getModalCheckedRadioBtnEl = document.querySelector(
-          'input[name="event-level"]:checked'
-        );
-
-        const getTitleValue = getModalTitleEl.value;
-        const setModalStartDateValue = getModalStartDateEl.value;
-        const setModalEndDateValue = getModalEndDateEl.value;
-        const getModalCheckedRadioBtnValue = getModalCheckedRadioBtnEl
-          ? getModalCheckedRadioBtnEl.value
-          : "";
-
-        calendar.addEvent({
-          id: Date.now().toString(),
-          title: getTitleValue,
-          start: setModalStartDateValue,
-          end: setModalEndDateValue,
-          allDay: true,
-          extendedProps: { calendar: getModalCheckedRadioBtnValue },
-        });
-
-        closeModal();
-      });
-    }
-
-    // Render Calendar
-    calendar.render();
-
-    // Close modal event listeners
-    document.querySelectorAll(".modal-close-btn").forEach((btn) => {
-      btn.addEventListener("click", closeModal);
-    });
-
-    // Close when clicking outside modal
-    window.addEventListener("click", (event) => {
-      const modal = document.getElementById("eventModal");
-      if (event.target === modal) {
-        closeModal();
-      }
+  if (openModalBtnEl) {
+    openModalBtnEl.addEventListener("click", () => {
+      openModalForRequest(new Date());
     });
   }
+
+  calendar.render();
+
+  document.querySelectorAll(".modal-close-btn").forEach((btn) => {
+    btn.addEventListener("click", closeModal);
+  });
+
+  window.addEventListener("click", (event) => {
+    if (event.target === modalEl) {
+      closeModal();
+    }
+  });
 }
 
 export default calendarInit;

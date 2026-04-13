@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\ApprovalResource;
 use App\Models\Approval;
+use App\Models\Event;
+use App\Models\Event\EventDetail;
 use App\Models\Member;
 use App\Models\Request as ActionRequest;
 use App\Services\OrganizationAuthorizationService;
@@ -28,7 +30,7 @@ class RequestDecisionController extends Controller
             abort(401);
         }
 
-        $isPresidentOnlyAction = in_array((int) $actionRequest->action_type, [3, 7], true);
+        $isPresidentOnlyAction = in_array((int) $actionRequest->action_type, [2, 7], true);
         $requiredDashboard = $isPresidentOnlyAction ? 'president' : 'admin';
 
         if (! Gate::forUser($user)->allows('access-dashboard', $requiredDashboard)) {
@@ -49,9 +51,11 @@ class RequestDecisionController extends Controller
         } else {
             $organizationId = OrganizationAuthorizationService::extractOrganizationIdFromAction($actionRequest->action);
 
-            if ($organizationId !== null) {
-                $authorizedOrganizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
+            $authorizedOrganizationIds = (int) $actionRequest->action_type === 2
+                ? OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey())
+                : OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
 
+            if ($organizationId !== null) {
                 if (! in_array($organizationId, $authorizedOrganizationIds, true)) {
                     return response()->json([
                         'message' => 'You are not authorized to decide this request.',
@@ -149,6 +153,30 @@ class RequestDecisionController extends Controller
             }
         }
 
+        if ((int) $actionRequest->action_type === 2 && $validated['decision'] === 'approve') {
+            [$targetOrganizationId, $requesterUserId, $eventName, $eventStartTime, $eventEndTime, $eventDescription, $eventLocation] = $this->parseEventAction($actionRequest->action);
+
+            if ($targetOrganizationId <= 0 || $eventName === '' || $eventStartTime === '' || $eventEndTime === '' || $eventLocation === '') {
+                return response()->json([
+                    'message' => 'Invalid event request payload.',
+                ], 422);
+            }
+
+            $eventDetail = EventDetail::query()->create([
+                'name' => $eventName,
+                'location' => $eventLocation,
+                'desc_text' => $eventDescription,
+                'start_time' => $eventStartTime,
+                'end_time' => $eventEndTime,
+            ]);
+
+            Event::query()->create([
+                'organization' => $targetOrganizationId,
+                'creator' => $requesterUserId > 0 ? $requesterUserId : (int) $actionRequest->user,
+                'event_detail' => (int) $eventDetail->getKey(),
+            ]);
+        }
+
         return response()->json([
             'message' => $validated['decision'] === 'approve'
                 ? 'Request approved successfully.'
@@ -189,5 +217,27 @@ class RequestDecisionController extends Controller
             : 'member';
 
         return [$userId, $organizationId, $currentRole];
+    }
+
+    /**
+    * @return array{0:int,1:int,2:string,3:string,4:string,5:string,6:string}
+     */
+    protected function parseEventAction(?string $action): array
+    {
+        $parts = array_map('trim', explode('|', (string) $action));
+
+        if (count($parts) < 7) {
+            return [0, 0, '', '', '', '', ''];
+        }
+
+        $organizationId = ctype_digit($parts[0]) ? (int) $parts[0] : 0;
+        $requesterUserId = ctype_digit($parts[1]) ? (int) $parts[1] : 0;
+        $eventName = $parts[2];
+        $eventStartTime = $parts[3];
+        $eventEndTime = $parts[4];
+        $eventDescription = $parts[5];
+        $eventLocation = implode('|', array_slice($parts, 6));
+
+        return [$organizationId, $requesterUserId, $eventName, $eventStartTime, $eventEndTime, $eventDescription, $eventLocation];
     }
 }

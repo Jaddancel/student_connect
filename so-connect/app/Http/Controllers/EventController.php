@@ -2,8 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Approval;
+use App\Models\Request as ActionRequest;
+use App\Services\ActionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class EventController extends Controller
 {
@@ -60,6 +66,105 @@ class EventController extends Controller
             ->values();
 
         return response()->json($events);
+    }
+
+    public function storeEventRequest(Request $request, ActionService $actionService): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            abort(401);
+        }
+
+        $isOfficerOrPresident = Gate::forUser($user)->allows('access-dashboard', 'officer')
+            || Gate::forUser($user)->allows('access-dashboard', 'president');
+
+        if ((int) $user->user_type !== 2 && ! $isOfficerOrPresident) {
+            return response()->json([
+                'message' => 'Only organization officers and presidents can submit event requests.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'organization_id' => ['required', 'integer', Rule::exists('organizations', 'organization_id')],
+            'name' => ['required', 'string', 'max:255'],
+            'location' => ['required', 'string', 'max:255'],
+            'desc_text' => ['required', 'string', 'max:5000'],
+            'start_time' => ['required', 'date'],
+            'end_time' => ['required', 'date', 'after_or_equal:start_time'],
+        ]);
+
+        $userId = (int) $user->getKey();
+        $organizationId = (int) $validated['organization_id'];
+
+        $isOrganizationMember = DB::table('members')
+            ->where('user', $userId)
+            ->where('organization', $organizationId)
+            ->exists();
+
+        if (! $isOrganizationMember) {
+            return response()->json([
+                'message' => 'You can only request events for organizations you belong to.',
+            ], 403);
+        }
+
+        $hasPresident = DB::table('members as m')
+            ->join('organization_officers as oo', function ($join) {
+                $join->on('oo.member', '=', 'm.member_id')
+                    ->on('oo.organization', '=', 'm.organization');
+            })
+            ->where('m.organization', $organizationId)
+            ->where('oo.role', 'president')
+            ->exists();
+
+        if (! $hasPresident) {
+            return response()->json([
+                'message' => 'No president is assigned to this organization yet.',
+            ], 422);
+        }
+
+        $actionValue = implode('|', [
+            $organizationId,
+            $userId,
+            $validated['name'],
+            $validated['start_time'],
+            $validated['end_time'],
+            $validated['desc_text'],
+            $validated['location'],
+        ]);
+
+        $hasPendingRequest = ActionRequest::query()
+            ->where('action_type', 2)
+            ->where('action', $actionValue)
+            ->whereNotIn('request_id', Approval::query()->select('request')->whereNotNull('request'))
+            ->exists();
+
+        if ($hasPendingRequest) {
+            return response()->json([
+                'message' => 'You already have a pending event request with the same details.',
+            ], 422);
+        }
+
+        $actionRequest = $actionService->passAction([
+            'organization_id' => $organizationId,
+            'user_id' => $userId,
+            'event_name' => $validated['name'],
+            'event_start_time' => $validated['start_time'],
+            'event_end_time' => $validated['end_time'],
+            'event_desc_text' => $validated['desc_text'],
+            'event_location' => $validated['location'],
+        ], 2);
+
+        if (! $actionRequest) {
+            return response()->json([
+                'message' => 'Unable to submit event request.',
+            ], 500);
+        }
+
+        return response()->json([
+            'message' => 'Event request submitted successfully.',
+            'request_id' => (int) $actionRequest->getKey(),
+        ], 201);
     }
 
     private function resolveOrganizationColor(int $organizationId): string

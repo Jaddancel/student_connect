@@ -11,15 +11,18 @@ use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\PolicySecurityRequestController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RequestDecisionController;
+use App\Http\Controllers\SidebarMenuController;
 use App\Http\Controllers\UserController;
 use App\Http\Resources\ActionRequestResource;
 use App\Http\Resources\ApprovalResource;
 use App\Http\Resources\UserResource;
 use App\Models\Approval;
+use App\Models\Organization;
 use App\Models\Request;
 use App\Models\User;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingPage::class, 'view'])->name('home');
@@ -60,12 +63,37 @@ Route::get('/login', [UserController::class, 'loginPage'])->name('login');
 
 // calender pages
 Route::get('/calendar', function () {
-    return view('pages.calender', ['title' => 'Calendar']);
+    $user = request()->user();
+    $isOfficerOrPresident = Gate::forUser($user)->allows('access-dashboard', 'officer')
+        || Gate::forUser($user)->allows('access-dashboard', 'president');
+    $canRequestEvent = (int) $user->user_type === 2 || $isOfficerOrPresident;
+
+    $eventRequestOrganizations = collect();
+
+    if ($canRequestEvent) {
+        $eventRequestOrganizations = Organization::query()
+            ->join('members as m', 'm.organization', '=', 'organizations.organization_id')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'organizations.detail')
+            ->where('m.user', (int) $user->getKey())
+            ->orderBy('od.name')
+            ->get([
+                'organizations.organization_id',
+                DB::raw("COALESCE(od.name, 'Unknown Organization') as name"),
+            ])
+            ->unique('organization_id')
+            ->values();
+    }
+
+    return view('pages.calender', [
+        'title' => 'Calendar',
+        'canRequestEvent' => $canRequestEvent,
+        'eventRequestOrganizations' => $eventRequestOrganizations,
+    ]);
 })->middleware('auth')->name('calendar');
 
-Route::get('/upcoming-events', function () {
-    return view('pages.blank', ['title' => 'View Upcoming Events']);
-})->middleware('auth')->name('upcoming-events');
+Route::get('/upcoming-events', [SidebarMenuController::class, 'upcomingEvents'])
+    ->middleware('auth')
+    ->name('upcoming-events');
 
 Route::get('/register', [MembershipRegistrationController::class, 'create'])
     ->middleware('auth')
@@ -75,29 +103,42 @@ Route::post('/register', [MembershipRegistrationController::class, 'store'])
     ->middleware('auth')
     ->name('register.store');
 
-Route::get('/download-files', function () {
-    return view('pages.blank', ['title' => 'Download Files']);
-})->middleware('auth')->name('download-files');
+Route::get('/download-files', [SidebarMenuController::class, 'downloadFiles'])
+    ->middleware('auth')
+    ->name('download-files');
 
-Route::get('/approval-requests', function () {
-    return view('pages.blank', ['title' => 'View for Approval Request']);
-})->middleware('auth')->name('approval-requests');
+Route::get('/download-files/{documentId}/download', [SidebarMenuController::class, 'downloadDocument'])
+    ->whereNumber('documentId')
+    ->middleware('auth')
+    ->name('download-files.download');
 
-Route::get('/request-forms', function () {
-    return view('pages.blank', ['title' => 'Request Forms']);
-})->middleware('auth')->name('request-forms');
+Route::get('/approval-requests', [SidebarMenuController::class, 'approvalRequests'])
+    ->middleware('auth')
+    ->name('approval-requests');
 
-Route::get('/recent-event-requests', function () {
-    return view('pages.blank', ['title' => 'Recent Event Request']);
-})->middleware('auth')->name('recent-event-requests');
+Route::get('/request-forms', [SidebarMenuController::class, 'requestForms'])
+    ->middleware('auth')
+    ->name('request-forms');
+
+Route::post('/request-forms', [SidebarMenuController::class, 'storeRoleChangeRequest'])
+    ->middleware('auth')
+    ->name('request-forms.store');
+
+Route::get('/recent-event-requests', [SidebarMenuController::class, 'recentEventRequests'])
+    ->middleware('auth')
+    ->name('recent-event-requests');
 
 Route::get('/manage-organization', [OrganizationController::class, 'manage'])
     ->middleware('auth')
     ->name('manage-organization');
 
-Route::get('/upload-forms', function () {
-    return view('pages.blank', ['title' => 'Upload Forms']);
-})->middleware('auth')->name('upload-forms');
+Route::get('/upload-forms', [SidebarMenuController::class, 'uploadForms'])
+    ->middleware('auth')
+    ->name('upload-forms');
+
+Route::post('/upload-forms', [SidebarMenuController::class, 'storeUploadedForm'])
+    ->middleware('auth')
+    ->name('upload-forms.store');
 
 // profile pages
 Route::get('/profile', function () {
@@ -203,7 +244,9 @@ Route::get('/api/requests/{actionType}', function (int $actionType) use ($applyA
         abort(401);
     }
 
-    $authorizedOrganizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
+    $authorizedOrganizationIds = $actionType === 2
+        ? OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey())
+        : OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
 
     if (empty($authorizedOrganizationIds)) {
         return ActionRequestResource::collection(collect());
@@ -231,6 +274,10 @@ Route::get('/api/requests/{actionType}', function (int $actionType) use ($applyA
 Route::post('/api/requests/{requestId}/decision', [RequestDecisionController::class, 'store'])
     ->whereNumber('requestId')
     ->middleware('auth');
+
+Route::post('/api/events/requests', [EventController::class, 'storeEventRequest'])
+    ->middleware('auth')
+    ->name('api.events.requests.store');
 
 Route::get('/api/organizations', function () {
     $ids = collect(explode(',', (string) request()->query('ids', '')))
@@ -274,7 +321,9 @@ Route::get('/api/approvals/{actionType}', function (int $actionType) use ($apply
         abort(401);
     }
 
-    $authorizedOrganizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
+    $authorizedOrganizationIds = $actionType === 2
+        ? OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey())
+        : OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
 
     if (empty($authorizedOrganizationIds)) {
         return ApprovalResource::collection(collect());
@@ -306,7 +355,9 @@ Route::get('/api/approvals/{status}/{actionType}', function (string $status, int
         abort(401);
     }
 
-    $authorizedOrganizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
+    $authorizedOrganizationIds = $actionType === 2
+        ? OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey())
+        : OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
 
     if (empty($authorizedOrganizationIds)) {
         return ApprovalResource::collection(collect());

@@ -90,6 +90,13 @@ function formatActionSummary(action, typeCode) {
 	}
 
 	if (typeCode === 2) {
+		if (parts.length >= 7) {
+			return {
+				headline: safeText(parts[2], 'Event Request'),
+				detail: safeText(parts[6], 'No event description provided.'),
+			};
+		}
+
 		if (parts.length >= 6) {
 			return {
 				headline: safeText(parts[2], 'Event Request'),
