@@ -20,6 +20,10 @@
                     </a>
                 </div>
 
+                <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">
+                    Showing events from your organizations in the next 30 days.
+                </p>
+
                 @if ($upcomingEvents->isEmpty())
                     <p class="text-sm text-gray-500 dark:text-gray-400">No upcoming events found for your organizations.</p>
                 @else
@@ -29,7 +33,8 @@
                                 <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                                     <div>
                                         <p class="text-sm font-semibold text-gray-800 dark:text-white/90">
-                                            {{ $event->event_name }}</p>
+                                            {{ $event->event_name }}
+                                        </p>
                                         <p class="text-xs text-gray-500 dark:text-gray-400">{{ $event->organization_name }}
                                         </p>
                                     </div>

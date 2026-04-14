@@ -7,6 +7,7 @@ use App\Models\Profile;
 use App\Models\Request;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -32,8 +33,9 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'user_password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
-            'user_type' => null,
+            'user_type' => 3,
             'profile' => Profile::factory()->create()->profile_id,
+            'profile_pending' => false,
         ];
     }
 
@@ -58,6 +60,26 @@ class UserFactory extends Factory
         ]);
     }
 
+    public function superadminWithoutRoles()
+    {
+        return $this->superadmin()->afterCreating(function (User $user) {
+            $memberIds = $user->memberships()->pluck('member_id');
+
+            if ($memberIds->isNotEmpty()) {
+                DB::table('organization_officers')
+                    ->whereIn('member', $memberIds->all())
+                    ->delete();
+            }
+
+            $user->memberships()->delete();
+        });
+    }
+
+    public function tenSuperadminsWithoutRoles()
+    {
+        return $this->count(10)->superadminWithoutRoles();
+    }
+
     /**
      * Indicate that the model's email address should be unverified.
      */
@@ -71,7 +93,7 @@ class UserFactory extends Factory
     public function whoAppliesForRequest($org)
     {
         return $this->state(fn (array $attributes) => [
-            'user_type' => 1,
+            'user_type' => 3,
         ])->afterCreating(function (User $user) use ($org) {
             $userId = $user->getKey();
             Request::create([
@@ -85,7 +107,7 @@ class UserFactory extends Factory
     public function randomOrgRequest()
     {
         return $this->state(fn (array $attributes) => [
-            'user_type' => 1,
+            'user_type' => 3,
         ])->afterCreating(function (User $user) {
             $org = Organization::query()->inRandomOrder()->value('organization_id');
 

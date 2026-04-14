@@ -2,14 +2,13 @@
 
 namespace App\Models;
 
-use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
+    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
     /**
@@ -23,6 +22,7 @@ class User extends Authenticatable
 
     protected $attributes = [
         'user_type' => 3,
+        'profile_pending' => false,
     ];
 
     protected $fillable = [
@@ -30,6 +30,7 @@ class User extends Authenticatable
         'user_password',
         'user_type',
         'profile',
+        'profile_pending',
         'user_created_at',
     ];
 
@@ -55,6 +56,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'user_password' => 'hashed',
+            'profile_pending' => 'boolean',
         ];
     }
 

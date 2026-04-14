@@ -57,7 +57,8 @@
                     </div>
                 </form>
 
-                <form action="{{ route('request-forms.store') }}" method="post" class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                <form action="{{ route('request-forms.store') }}" method="post"
+                    class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
                     @csrf
                     <input type="hidden" name="organization_id" value="{{ $selectedOrganizationId }}" />
 

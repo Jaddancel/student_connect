@@ -77,14 +77,12 @@
                                             <div class="flex items-center gap-2">
                                                 <button type="button"
                                                     class="inline-flex items-center rounded-lg bg-success-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-success-700"
-                                                    data-approval-action="approve"
-                                                    data-request-id="{{ $row['request_id'] }}">
+                                                    data-approval-action="approve" data-request-id="{{ $row['request_id'] }}">
                                                     Approve
                                                 </button>
                                                 <button type="button"
                                                     class="inline-flex items-center rounded-lg bg-error-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-error-700"
-                                                    data-approval-action="reject"
-                                                    data-request-id="{{ $row['request_id'] }}">
+                                                    data-approval-action="reject" data-request-id="{{ $row['request_id'] }}">
                                                     Reject
                                                 </button>
                                             </div>

@@ -1,3 +1,11 @@
+@php
+    $authProfile = auth()->user()?->profile()->first();
+    $avatarName = trim(implode(' ', array_filter([
+        $authProfile?->first_name,
+        $authProfile?->last_name,
+    ])));
+@endphp
+
 <div x-data="{saveProfile(){
     console.log('Saving profile...');
 }}">
@@ -5,7 +13,8 @@
         <div class="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
             <div class="flex w-full flex-col items-center gap-6 xl:flex-row">
                 <div class="h-20 w-20 overflow-hidden rounded-full border border-gray-200 dark:border-gray-800">
-                    <img src="./images/user/owner.jpg" alt="user" />
+                    <x-common.initial-avatar :name="$avatarName" size="h-20 w-20" text="text-2xl"
+                        class="h-full w-full" />
                 </div>
                 <div class="order-3 xl:order-2">
                     <h4 class="mb-2 text-center text-lg font-semibold text-gray-800 xl:text-left dark:text-white/90">
@@ -78,7 +87,8 @@
     </div>
 
     <!-- Profile Info Modal -->
-    <x-ui.modal x-data="{ open: false }" @open-profile-info-modal.window="open = true" :isOpen="false" class="max-w-[700px]">
+    <x-ui.modal x-data="{ open: false }" @open-profile-info-modal.window="open = true" :isOpen="false"
+        class="max-w-[700px]">
         <div
             class="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
             <div class="px-2 pr-14">

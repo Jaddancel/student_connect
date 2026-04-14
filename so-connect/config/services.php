@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'superadmin_data_sync' => [
+        'key' => env('SUPERADMIN_DATA_SYNC_KEY'),
+    ],
+
 ];

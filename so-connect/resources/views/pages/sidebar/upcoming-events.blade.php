@@ -9,7 +9,11 @@
                 <div>
                     <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Your Organization Event Calendar</h3>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Events from organizations where you currently have membership.
+                        @if (!empty($windowDays))
+                            Events from organizations where you currently have membership in the next {{ $windowDays }} days.
+                        @else
+                            Events from organizations where you currently have membership.
+                        @endif
                     </p>
                 </div>
                 <span

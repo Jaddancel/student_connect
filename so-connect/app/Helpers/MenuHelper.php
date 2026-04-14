@@ -45,10 +45,10 @@ class MenuHelper
 
         $userType = (int) $user->user_type;
 
-        if ($userType === 3) {
+        if ($userType === 1) {
             return [
-                ['icon' => 'calendar', 'name' => 'View Upcoming Event', 'path' => '/upcoming-events'],
-                ['icon' => 'forms', 'name' => 'Register', 'path' => '/register'],
+                ['icon' => 'task', 'name' => 'Profile Match Requests', 'path' => '/superadmin/profile-requests'],
+                ['icon' => 'tables', 'name' => 'Data Sync', 'path' => '/superadmin/data-sync'],
                 ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
             ];
         }
@@ -88,6 +88,14 @@ class MenuHelper
             }
 
             return $items;
+        }
+
+        if ($userType === 3) {
+            return [
+                ['icon' => 'calendar', 'name' => 'View Upcoming Event', 'path' => '/upcoming-events'],
+                ['icon' => 'forms', 'name' => 'Register', 'path' => '/register'],
+                ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
+            ];
         }
 
         return [

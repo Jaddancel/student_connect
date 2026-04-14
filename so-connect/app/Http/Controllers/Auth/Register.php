@@ -19,7 +19,7 @@ class Register extends Controller
             'fname' => ['required', 'string', 'max:255'],
             'lname' => ['required', 'string', 'max:255'],
             'user_email' => ['required', 'email', 'max:255', Rule::unique('users', 'user_email')],
-            'user_password' => ['required', 'min:8'],
+            'user_password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
         $loggedUser = User::create([

@@ -16,7 +16,8 @@ class SidebarMenuController extends Controller
 {
     public function upcomingEvents(Request $request)
     {
-        $userId = (int) $request->user()->getKey();
+        $user = $request->user();
+        $userId = (int) $user->getKey();
 
         $organizationIds = DB::table('members')
             ->where('user', $userId)
@@ -27,6 +28,8 @@ class SidebarMenuController extends Controller
             ->values();
 
         $upcomingEvents = collect();
+        $isMemberUser = (int) $user->user_type === 3;
+        $windowEnd = now()->addDays(30);
 
         if ($organizationIds->isNotEmpty()) {
             $upcomingEvents = DB::table('events as e')
@@ -35,6 +38,9 @@ class SidebarMenuController extends Controller
                 ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
                 ->whereIn('e.organization', $organizationIds->all())
                 ->where('ed.start_time', '>=', now())
+                ->when($isMemberUser, function ($query) use ($windowEnd) {
+                    $query->where('ed.start_time', '<=', $windowEnd);
+                })
                 ->orderBy('ed.start_time')
                 ->get([
                     'e.event_id',
@@ -50,6 +56,7 @@ class SidebarMenuController extends Controller
         return view('pages.sidebar.upcoming-events', [
             'title' => 'Upcoming Events',
             'upcomingEvents' => $upcomingEvents,
+            'windowDays' => $isMemberUser ? 30 : null,
         ]);
     }
 

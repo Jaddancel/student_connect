@@ -48,7 +48,8 @@
                                 <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                                     <p class="font-medium">#{{ $row['request_id'] }}</p>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">
-                                        Submitted {{ \Illuminate\Support\Carbon::parse($row['requested_at'])->format('M d, Y h:i A') }}
+                                        Submitted
+                                        {{ \Illuminate\Support\Carbon::parse($row['requested_at'])->format('M d, Y h:i A') }}
                                     </p>
                                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $row['organization_name'] }}</p>
                                 </td>

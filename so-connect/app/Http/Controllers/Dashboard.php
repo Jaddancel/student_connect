@@ -11,6 +11,14 @@ class Dashboard extends Controller
     {
         $user = auth()->user();
 
+        if ((int) $user->user_type === 1) {
+            return redirect()->route('superadmin.profile-requests');
+        }
+
+        if ((int) $user->user_type === 3 && ! $user->profile && ! $user->profile_pending) {
+            return redirect()->route('profile.create');
+        }
+
         $isUserAnOfficer = $user
             ->memberships()
             ->whereHas('officers')
@@ -49,12 +57,18 @@ class Dashboard extends Controller
         $upcomingEvents = collect();
 
         if ($organizationIds->isNotEmpty()) {
+            $isMemberUser = (int) $user->user_type === 3;
+            $windowEnd = now()->addDays(30);
+
             $upcomingEvents = DB::table('events as e')
                 ->join('event_details as ed', 'ed.event_detail_id', '=', 'e.event_detail')
                 ->leftJoin('organizations as o', 'o.organization_id', '=', 'e.organization')
                 ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
                 ->whereIn('e.organization', $organizationIds->all())
                 ->where('ed.start_time', '>=', now())
+                ->when($isMemberUser, function ($query) use ($windowEnd) {
+                    $query->where('ed.start_time', '<=', $windowEnd);
+                })
                 ->orderBy('ed.start_time')
                 ->limit(5)
                 ->get([

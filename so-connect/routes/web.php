@@ -12,6 +12,7 @@ use App\Http\Controllers\PolicySecurityRequestController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RequestDecisionController;
 use App\Http\Controllers\SidebarMenuController;
+use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\UserController;
 use App\Http\Resources\ActionRequestResource;
 use App\Http\Resources\ApprovalResource;
@@ -139,6 +140,35 @@ Route::get('/upload-forms', [SidebarMenuController::class, 'uploadForms'])
 Route::post('/upload-forms', [SidebarMenuController::class, 'storeUploadedForm'])
     ->middleware('auth')
     ->name('upload-forms.store');
+
+Route::get('/superadmin/profile-requests', [SuperAdminController::class, 'profileRequests'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.profile-requests');
+
+Route::get('/superadmin/profiles/search', [SuperAdminController::class, 'searchProfiles'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.profiles.search');
+
+Route::post('/superadmin/profile-requests/{requestId}/decision', [SuperAdminController::class, 'decideProfileRequest'])
+    ->whereNumber('requestId')
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.profile-requests.decision');
+
+Route::get('/superadmin/data-sync', [SuperAdminController::class, 'dataSyncPage'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.data-sync');
+
+Route::get('/superadmin/data-sync/export', [SuperAdminController::class, 'exportData'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.data-sync.export');
+
+Route::post('/superadmin/data-sync/import-file', [SuperAdminController::class, 'importFromFile'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.data-sync.import-file');
+
+Route::post('/superadmin/data-sync/import-api', [SuperAdminController::class, 'importFromApi'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.data-sync.import-api');
 
 // profile pages
 Route::get('/profile', function () {
@@ -404,3 +434,8 @@ Route::get('/api/users', function () {
 Route::get('/api/events/calendar', [EventController::class, 'calendarEvents'])
     ->middleware('auth')
     ->name('api.events.calendar');
+
+Route::get('/api/superadmin/data/export', [SuperAdminController::class, 'apiExport']);
+
+Route::post('/api/superadmin/data/import', [SuperAdminController::class, 'apiImport'])
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
