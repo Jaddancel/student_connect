@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Models\Profile;
 use Illuminate\Database\Seeder;
 
 class ProfileSeeder extends Seeder
@@ -12,6 +12,8 @@ class ProfileSeeder extends Seeder
      */
     public function run(): void
     {
-        //
+        Profile::factory()
+            ->twentyUnassigned()
+            ->create();
     }
 }

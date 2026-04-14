@@ -149,6 +149,10 @@ Route::get('/superadmin/profiles/search', [SuperAdminController::class, 'searchP
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.profiles.search');
 
+Route::post('/superadmin/profile-requests/auto-accept-suggested', [SuperAdminController::class, 'autoAcceptSuggestedRequests'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.profile-requests.auto-accept-suggested');
+
 Route::post('/superadmin/profile-requests/{requestId}/decision', [SuperAdminController::class, 'decideProfileRequest'])
     ->whereNumber('requestId')
     ->middleware(['auth', 'superadmin'])

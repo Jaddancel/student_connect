@@ -11,6 +11,7 @@ use App\Services\UserProfileDataSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -50,8 +51,10 @@ class SuperAdminController extends Controller
             ->get(['profile_id', 'first_name', 'middle_name', 'last_name', 'occupation'])
             ->keyBy('profile_id');
 
+        $associatedSuggestedProfileIds = $this->associatedProfileIdLookup($suggestedProfileMap->values());
+
         $rows = $requests
-            ->map(function (ActionRequest $actionRequest) use ($approvalMap, $userMap, $suggestedProfileMap) {
+            ->map(function (ActionRequest $actionRequest) use ($approvalMap, $userMap, $suggestedProfileMap, $associatedSuggestedProfileIds) {
                 [$targetUserId, $firstName, $lastName, $middleName, $suggestedProfileId] = $this->parseProfileRequestAction($actionRequest->action);
 
                 $approval = $approvalMap->get((int) $actionRequest->request_id);
@@ -75,6 +78,7 @@ class SuperAdminController extends Controller
                                 $suggestedProfile->last_name,
                             ]))),
                             'occupation' => $suggestedProfile->occupation,
+                            'has_user' => isset($associatedSuggestedProfileIds[(int) $suggestedProfile->profile_id]),
                         ]
                         : null,
                     'status' => $status,
@@ -84,8 +88,14 @@ class SuperAdminController extends Controller
             })
             ->values();
 
-        $seedProfiles = ProfileMatchHelper::search('', 20)
-            ->map(fn (Profile $profile) => $this->toSearchPayload($profile));
+        $seedProfileResults = ProfileMatchHelper::search('', 20);
+        $associatedSeedProfileIds = $this->associatedProfileIdLookup($seedProfileResults);
+
+        $seedProfiles = $seedProfileResults
+            ->map(fn (Profile $profile) => $this->toSearchPayload(
+                $profile,
+                isset($associatedSeedProfileIds[(int) $profile->profile_id]),
+            ));
 
         return view('pages.sidebar.superadmin-profile-requests', [
             'title' => 'Profile Match Requests',
@@ -99,16 +109,152 @@ class SuperAdminController extends Controller
         $validated = $request->validate([
             'q' => ['nullable', 'string', 'max:255'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'exclude_associated' => ['nullable', 'boolean'],
         ]);
 
         $query = (string) ($validated['q'] ?? '');
         $limit = (int) ($validated['limit'] ?? 20);
+        $excludeAssociated = (bool) ($validated['exclude_associated'] ?? false);
 
-        $profiles = ProfileMatchHelper::search($query, $limit)
-            ->map(fn (Profile $profile) => $this->toSearchPayload($profile));
+        $profileResults = ProfileMatchHelper::search($query, $limit);
+        $associatedProfileIds = $this->associatedProfileIdLookup($profileResults);
+
+        if ($excludeAssociated) {
+            $profileResults = $profileResults
+                ->reject(fn (Profile $profile) => isset($associatedProfileIds[(int) $profile->profile_id]))
+                ->values();
+        }
+
+        $profiles = $profileResults
+            ->map(fn (Profile $profile) => $this->toSearchPayload(
+                $profile,
+                isset($associatedProfileIds[(int) $profile->profile_id]),
+            ));
 
         return response()->json([
             'data' => $profiles,
+        ]);
+    }
+
+    public function autoAcceptSuggestedRequests(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'exclude_associated' => ['nullable', 'boolean'],
+        ]);
+
+        $excludeAssociated = (bool) ($validated['exclude_associated'] ?? false);
+
+        $pendingRequests = ActionRequest::query()
+            ->where('action_type', 8)
+            ->whereNotIn('request_id', Approval::query()->select('request')->whereNotNull('request'))
+            ->orderBy('request_id')
+            ->get(['request_id', 'action', 'user']);
+
+        if ($pendingRequests->isEmpty()) {
+            return response()->json([
+                'message' => 'No pending profile requests to auto-accept.',
+                'stats' => [
+                    'approved' => 0,
+                    'skipped_missing_suggestion' => 0,
+                    'skipped_associated_profile' => 0,
+                    'skipped_invalid' => 0,
+                ],
+            ]);
+        }
+
+        $suggestedProfiles = $pendingRequests
+            ->map(function (ActionRequest $actionRequest) {
+                [, , , , $suggestedProfileId] = $this->parseProfileRequestAction($actionRequest->action);
+
+                return $suggestedProfileId;
+            })
+            ->filter(fn (int $profileId) => $profileId > 0)
+            ->unique()
+            ->values();
+
+        $associatedProfileIds = $suggestedProfiles->isEmpty()
+            ? []
+            : User::query()
+                ->whereIn('profile', $suggestedProfiles->all())
+                ->pluck('profile')
+                ->map(fn ($profileId) => (int) $profileId)
+                ->filter(fn (int $profileId) => $profileId > 0)
+                ->flip()
+                ->all();
+
+        $existingProfileIds = $suggestedProfiles->isEmpty()
+            ? []
+            : Profile::query()
+                ->whereIn('profile_id', $suggestedProfiles->all())
+                ->pluck('profile_id')
+                ->map(fn ($profileId) => (int) $profileId)
+                ->filter(fn (int $profileId) => $profileId > 0)
+                ->flip()
+                ->all();
+
+        $stats = [
+            'approved' => 0,
+            'skipped_missing_suggestion' => 0,
+            'skipped_associated_profile' => 0,
+            'skipped_invalid' => 0,
+        ];
+
+        foreach ($pendingRequests as $pendingRequest) {
+            [$targetUserId, , , , $suggestedProfileId] = $this->parseProfileRequestAction($pendingRequest->action);
+
+            if ($suggestedProfileId <= 0) {
+                $stats['skipped_missing_suggestion']++;
+
+                continue;
+            }
+
+            if (! isset($existingProfileIds[$suggestedProfileId])) {
+                $stats['skipped_invalid']++;
+
+                continue;
+            }
+
+            if ($excludeAssociated && isset($associatedProfileIds[$suggestedProfileId])) {
+                $stats['skipped_associated_profile']++;
+
+                continue;
+            }
+
+            $targetUser = User::query()->find($targetUserId);
+
+            if (! $targetUser) {
+                $stats['skipped_invalid']++;
+
+                continue;
+            }
+
+            Approval::query()->updateOrCreate(
+                ['request' => (int) $pendingRequest->request_id],
+                [
+                    'admin' => (int) $request->user()->getKey(),
+                    'approved_at' => now(),
+                    'is_rejected' => false,
+                ]
+            );
+
+            $targetUser->update([
+                'profile' => $suggestedProfileId,
+                'profile_pending' => false,
+            ]);
+
+            $associatedProfileIds[$suggestedProfileId] = true;
+            $stats['approved']++;
+        }
+
+        return response()->json([
+            'message' => sprintf(
+                'Auto-accept finished: %d approved, %d skipped (no suggestion), %d skipped (already linked), %d skipped (invalid).',
+                $stats['approved'],
+                $stats['skipped_missing_suggestion'],
+                $stats['skipped_associated_profile'],
+                $stats['skipped_invalid'],
+            ),
+            'stats' => $stats,
         ]);
     }
 
@@ -317,7 +463,7 @@ class SuperAdminController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function toSearchPayload(Profile $profile): array
+    private function toSearchPayload(Profile $profile, bool $hasUser = false): array
     {
         return [
             'profile_id' => (int) $profile->profile_id,
@@ -327,7 +473,35 @@ class SuperAdminController extends Controller
                 $profile->last_name,
             ]))),
             'occupation' => (string) $profile->occupation,
+            'has_user' => $hasUser,
         ];
+    }
+
+    /**
+     * @param  Collection<int, Profile>  $profiles
+     * @return array<int, bool>
+     */
+    private function associatedProfileIdLookup(Collection $profiles): array
+    {
+        $profileIds = $profiles
+            ->pluck('profile_id')
+            ->map(fn ($profileId) => (int) $profileId)
+            ->filter(fn (int $profileId) => $profileId > 0)
+            ->unique()
+            ->values();
+
+        if ($profileIds->isEmpty()) {
+            return [];
+        }
+
+        return User::query()
+            ->whereIn('profile', $profileIds->all())
+            ->pluck('profile')
+            ->map(fn ($profileId) => (int) $profileId)
+            ->filter(fn (int $profileId) => $profileId > 0)
+            ->flip()
+            ->map(fn () => true)
+            ->all();
     }
 
     /**
