@@ -55,13 +55,22 @@
                                         class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
                                 </div>
                                 <!-- Password -->
-                                <div>
-                                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                                        Password<span class="text-error-500">*</span>
-                                    </label>
-                                    <div x-data="{ showPassword: false }" class="relative">
+                                <div x-data="signupPasswordTools()">
+                                    <div class="mb-1.5 flex items-center justify-between gap-2">
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">
+                                            Password<span class="text-error-500">*</span>
+                                        </label>
+
+                                        <button type="button"
+                                            class="inline-flex items-center rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                                            @click="generatePassword()">
+                                            Generate Password
+                                        </button>
+                                    </div>
+
+                                    <div class="relative">
                                         <input :type="showPassword ? 'text' : 'password'" name="user_password"
-                                            placeholder="Enter your password"
+                                            x-model="userPassword" placeholder="Enter your password"
                                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pr-11 pl-4 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
                                         <span @click="showPassword = !showPassword"
                                             class="absolute top-1/2 right-4 z-30 -translate-y-1/2 cursor-pointer text-gray-500 dark:text-gray-400">
@@ -79,14 +88,19 @@
                                             </svg>
                                         </span>
                                     </div>
-                                </div>
-                                <div>
-                                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                                        Confirm Password<span class="text-error-500">*</span>
-                                    </label>
-                                    <input type="password" name="user_password_confirmation"
-                                        placeholder="Re-enter your password"
-                                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
+
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        Click "Generate Password" to create a secure password automatically.
+                                    </p>
+
+                                    <div class="mt-4">
+                                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                                            Confirm Password<span class="text-error-500">*</span>
+                                        </label>
+                                        <input :type="showPassword ? 'text' : 'password'" name="user_password_confirmation"
+                                            x-model="userPasswordConfirmation" placeholder="Re-enter your password"
+                                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
+                                    </div>
                                 </div>
                                 <!-- Checkbox -->
                                 <div>
@@ -177,3 +191,45 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+    <script>
+        window.signupPasswordTools = () => ({
+            showPassword: false,
+            userPassword: '',
+            userPasswordConfirmation: '',
+
+            generatePassword(length = 14) {
+                const lower = 'abcdefghjkmnpqrstuvwxyz';
+                const upper = 'ABCDEFGHJKMNPQRSTUVWXYZ';
+                const numbers = '23456789';
+                const symbols = '!@#$%&*?-_+=';
+
+                const all = `${lower}${upper}${numbers}${symbols}`;
+                const required = [
+                    lower[Math.floor(Math.random() * lower.length)],
+                    upper[Math.floor(Math.random() * upper.length)],
+                    numbers[Math.floor(Math.random() * numbers.length)],
+                    symbols[Math.floor(Math.random() * symbols.length)],
+                ];
+
+                const generated = [...required];
+
+                for (let i = generated.length; i < length; i += 1) {
+                    generated.push(all[Math.floor(Math.random() * all.length)]);
+                }
+
+                for (let i = generated.length - 1; i > 0; i -= 1) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [generated[i], generated[j]] = [generated[j], generated[i]];
+                }
+
+                const password = generated.join('');
+
+                this.userPassword = password;
+                this.userPasswordConfirmation = password;
+                this.showPassword = true;
+            },
+        });
+    </script>
+@endpush

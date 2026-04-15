@@ -1,0 +1,107 @@
+{
+  "generated_at": "2026-04-14T12:00:00+00:00",
+  "profiles": [
+    { "profile_id": 3001, "first_name": "Ava", "middle_name": "Mae", "last_name": "Tan", "occupation": "Student" },
+    { "profile_id": 3002, "first_name": "Liam", "middle_name": "Jose", "last_name": "Cruz", "occupation": "Student" },
+    { "profile_id": 3003, "first_name": "Noah", "middle_name": "Luis", "last_name": "Reyes", "occupation": "Faculty" },
+    { "profile_id": 3004, "first_name": "Emma", "middle_name": "Rose", "last_name": "Santos", "occupation": "Student" },
+    { "profile_id": 3005, "first_name": "Olivia", "middle_name": "Grace", "last_name": "Dela Cruz", "occupation": "Other" },
+    { "profile_id": 3006, "first_name": "Elijah", "middle_name": "Paul", "last_name": "Garcia", "occupation": "Other" },
+    { "profile_id": 3007, "first_name": "Sophia", "middle_name": "Anne", "last_name": "Ramos", "occupation": "Student" },
+    { "profile_id": 3008, "first_name": "Mason", "middle_name": "John", "last_name": "Villanueva", "occupation": "Faculty" },
+    { "profile_id": 3009, "first_name": "Isabella", "middle_name": "Claire", "last_name": "Flores", "occupation": "Student" },
+    { "profile_id": 3010, "first_name": "Lucas", "middle_name": "Miguel", "last_name": "Mendoza", "occupation": "Student" }
+  ],
+  "users": [
+    {
+      "user_id": 7001,
+      "user_email": "superadmin.one@example.test",
+      "user_password": "SamplePass!2026A",
+      "user_type": 1,
+      "profile_id": 3001,
+      "profile": { "first_name": "Ava", "middle_name": "Mae", "last_name": "Tan", "occupation": "Student" },
+      "user_created_at": "2026-04-14 08:00:00"
+    },
+    {
+      "user_id": 7002,
+      "user_email": "superadmin.two@example.test",
+      "user_password": "SamplePass!2026B",
+      "user_type": 1,
+      "profile_id": 3002,
+      "profile": { "first_name": "Liam", "middle_name": "Jose", "last_name": "Cruz", "occupation": "Student" },
+      "user_created_at": "2026-04-14 08:05:00"
+    },
+    {
+      "user_id": 7003,
+      "user_email": "admin.one@example.test",
+      "user_password": "SamplePass!2026C",
+      "user_type": 2,
+      "profile_id": 3003,
+      "profile": { "first_name": "Noah", "middle_name": "Luis", "last_name": "Reyes", "occupation": "Faculty" },
+      "user_created_at": "2026-04-14 08:10:00"
+    },
+    {
+      "user_id": 7004,
+      "user_email": "admin.two@example.test",
+      "user_password": "SamplePass!2026D",
+      "user_type": 2,
+      "profile_id": 3004,
+      "profile": { "first_name": "Emma", "middle_name": "Rose", "last_name": "Santos", "occupation": "Student" },
+      "user_created_at": "2026-04-14 08:15:00"
+    },
+    {
+      "user_id": 7005,
+      "user_email": "admin.three@example.test",
+      "user_password": "SamplePass!2026E",
+      "user_type": 2,
+      "profile_id": 3005,
+      "profile": { "first_name": "Olivia", "middle_name": "Grace", "last_name": "Dela Cruz", "occupation": "Other" },
+      "user_created_at": "2026-04-14 08:20:00"
+    },
+    {
+      "user_id": 7006,
+      "user_email": "admin.four@example.test",
+      "user_password": "SamplePass!2026F",
+      "user_type": 2,
+      "profile_id": 3006,
+      "profile": { "first_name": "Elijah", "middle_name": "Paul", "last_name": "Garcia", "occupation": "Other" },
+      "user_created_at": "2026-04-14 08:25:00"
+    },
+    {
+      "user_id": 7007,
+      "user_email": "member.one@example.test",
+      "user_password": "SamplePass!2026G",
+      "user_type": 3,
+      "profile_id": 3007,
+      "profile": { "first_name": "Sophia", "middle_name": "Anne", "last_name": "Ramos", "occupation": "Student" },
+      "user_created_at": "2026-04-14 08:30:00"
+    },
+    {
+      "user_id": 7008,
+      "user_email": "member.two@example.test",
+      "user_password": "SamplePass!2026H",
+      "user_type": 3,
+      "profile_id": 3008,
+      "profile": { "first_name": "Mason", "middle_name": "John", "last_name": "Villanueva", "occupation": "Faculty" },
+      "user_created_at": "2026-04-14 08:35:00"
+    },
+    {
+      "user_id": 7009,
+      "user_email": "member.three@example.test",
+      "user_password": "SamplePass!2026I",
+      "user_type": 3,
+      "profile_id": 3009,
+      "profile": { "first_name": "Isabella", "middle_name": "Claire", "last_name": "Flores", "occupation": "Student" },
+      "user_created_at": "2026-04-14 08:40:00"
+    },
+    {
+      "user_id": 7010,
+      "user_email": "member.four@example.test",
+      "user_password": "SamplePass!2026J",
+      "user_type": 3,
+      "profile_id": 3010,
+      "profile": { "first_name": "Lucas", "middle_name": "Miguel", "last_name": "Mendoza", "occupation": "Student" },
+      "user_created_at": "2026-04-14 08:45:00"
+    }
+  ]
+}
