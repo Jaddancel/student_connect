@@ -20,8 +20,9 @@ class NotificationBellHelper
         $requestNotifications = self::recentRequestNotifications($user, $hours);
         $eventNotifications = self::upcomingEventNotifications($user, $hours);
 
-        return $requestNotifications
-            ->merge($eventNotifications)
+        return collect()
+            ->merge($requestNotifications->all())
+            ->merge($eventNotifications->all())
             ->sortByDesc('created_at')
             ->values();
     }
