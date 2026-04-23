@@ -70,7 +70,7 @@
                             <option value="">Select member</option>
                             @foreach ($members as $member)
                                 @php
-                                    $nextRole = $member->current_role === 'member' ? 'officer' : ($member->current_role === 'officer' ? 'president' : 'president');
+                                    $nextRole = $member->member_role === 'member' ? 'officer' : ($member->member_role === 'officer' ? 'president' : 'president');
                                     $fullName = trim(
                                         implode(
                                             ' ',
@@ -83,10 +83,10 @@
                                     );
                                 @endphp
 
-                                @if ($member->current_role !== 'president')
+                                @if ($member->member_role !== 'president')
                                     <option value="{{ $member->user_id }}" @selected((int) old('target_user_id') === (int) $member->user_id)>
                                         {{ $fullName !== '' ? $fullName : $member->user_email }}
-                                        ({{ ucfirst($member->current_role) }} -> {{ ucfirst($nextRole) }})
+                                        ({{ ucfirst($member->member_role) }} -> {{ ucfirst($nextRole) }})
                                     </option>
                                 @endif
                             @endforeach

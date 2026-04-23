@@ -429,7 +429,7 @@ class SidebarMenuController extends Controller
                         'p.first_name',
                         'p.middle_name',
                         'p.last_name',
-                        DB::raw("COALESCE(oo.role, 'member') as current_role"),
+                        DB::raw("COALESCE(oo.`role`, 'member') as member_role"),
                     ])
                     ->orderBy('p.first_name')
                     ->orderBy('p.last_name')
@@ -500,7 +500,7 @@ class SidebarMenuController extends Controller
             ->where('m.user', $targetUserId)
             ->select([
                 'm.member_id',
-                DB::raw("COALESCE(oo.role, 'member') as current_role"),
+                DB::raw("COALESCE(oo.`role`, 'member') as member_role"),
             ])
             ->first();
 
@@ -508,8 +508,8 @@ class SidebarMenuController extends Controller
             return back()->with('status', 'Selected user is not a member of the selected organization.');
         }
 
-        $currentRole = in_array($memberRow->current_role, ['member', 'officer', 'president'], true)
-            ? $memberRow->current_role
+        $currentRole = in_array($memberRow->member_role, ['member', 'officer', 'president'], true)
+            ? $memberRow->member_role
             : 'member';
 
         if ($currentRole === 'president') {
