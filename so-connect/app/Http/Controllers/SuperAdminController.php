@@ -21,7 +21,7 @@ class SuperAdminController extends Controller
     public function profileRequests()
     {
         $requests = ActionRequest::query()
-            ->where('action_type', 8)
+            ->where('action_type', 9)
             ->orderByDesc('requested_at')
             ->limit(300)
             ->get(['request_id', 'action', 'user', 'requested_at']);
@@ -145,7 +145,7 @@ class SuperAdminController extends Controller
         $excludeAssociated = (bool) ($validated['exclude_associated'] ?? false);
 
         $pendingRequests = ActionRequest::query()
-            ->where('action_type', 8)
+            ->where('action_type', 9)
             ->whereNotIn('request_id', Approval::query()->select('request')->whereNotNull('request'))
             ->orderBy('request_id')
             ->get(['request_id', 'action', 'user']);
@@ -266,7 +266,7 @@ class SuperAdminController extends Controller
         ]);
 
         $actionRequest = ActionRequest::query()
-            ->where('action_type', 8)
+            ->where('action_type', 9)
             ->findOrFail($requestId);
 
         [$targetUserId, , , , $suggestedProfileId] = $this->parseProfileRequestAction($actionRequest->action);

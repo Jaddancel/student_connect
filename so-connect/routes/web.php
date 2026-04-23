@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\Register;
 use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\FormWorkflowController;
 use App\Http\Controllers\LandingPage;
 use App\Http\Controllers\MembershipRegistrationController;
 use App\Http\Controllers\OrganizationController;
@@ -140,6 +141,31 @@ Route::get('/upload-forms', [SidebarMenuController::class, 'uploadForms'])
 Route::post('/upload-forms', [SidebarMenuController::class, 'storeUploadedForm'])
     ->middleware('auth')
     ->name('upload-forms.store');
+
+Route::get('/forms/manage', [FormWorkflowController::class, 'manageForms'])
+    ->middleware('auth')
+    ->name('forms.manage');
+
+Route::post('/forms/manage', [FormWorkflowController::class, 'storeTemplate'])
+    ->middleware('auth')
+    ->name('forms.manage.store');
+
+Route::get('/forms/request-generation', [FormWorkflowController::class, 'requestGenerationPage'])
+    ->middleware('auth')
+    ->name('forms.request-generation');
+
+Route::post('/forms/request-generation', [FormWorkflowController::class, 'storeGenerationRequest'])
+    ->middleware('auth')
+    ->name('forms.request-generation.store');
+
+Route::get('/generated-documents', [FormWorkflowController::class, 'generatedDocuments'])
+    ->middleware('auth')
+    ->name('generated-documents');
+
+Route::get('/generated-documents/{generatedDocumentId}/download', [FormWorkflowController::class, 'downloadGenerated'])
+    ->whereNumber('generatedDocumentId')
+    ->middleware('auth')
+    ->name('generated-documents.download');
 
 Route::get('/superadmin/profile-requests', [SuperAdminController::class, 'profileRequests'])
     ->middleware(['auth', 'superadmin'])
@@ -278,7 +304,7 @@ Route::get('/api/requests/{actionType}', function (int $actionType) use ($applyA
         abort(401);
     }
 
-    $authorizedOrganizationIds = $actionType === 2
+    $authorizedOrganizationIds = in_array($actionType, [2, 3, 4, 8], true)
         ? OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey())
         : OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
 
@@ -355,7 +381,7 @@ Route::get('/api/approvals/{actionType}', function (int $actionType) use ($apply
         abort(401);
     }
 
-    $authorizedOrganizationIds = $actionType === 2
+    $authorizedOrganizationIds = in_array($actionType, [2, 3, 4, 8], true)
         ? OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey())
         : OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
 
@@ -389,7 +415,7 @@ Route::get('/api/approvals/{status}/{actionType}', function (string $status, int
         abort(401);
     }
 
-    $authorizedOrganizationIds = $actionType === 2
+    $authorizedOrganizationIds = in_array($actionType, [2, 3, 4, 8], true)
         ? OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey())
         : OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
 

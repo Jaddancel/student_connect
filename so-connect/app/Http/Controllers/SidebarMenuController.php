@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\FormTemplateHelper;
 use App\Models\Approval;
 use App\Models\Document;
+use App\Models\Form;
 use App\Models\Request as ActionRequest;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\Request;
@@ -130,13 +132,32 @@ class SidebarMenuController extends Controller
         }
 
         $candidateRequests = ActionRequest::query()
-            ->whereIn('action_type', [1, 2, 7])
+            ->whereIn('action_type', [1, 2, 3, 4, 7])
             ->orderByDesc('requested_at')
             ->limit(300)
             ->get(['request_id', 'action', 'action_type', 'requested_at', 'user']);
 
+        $formIds = $candidateRequests
+            ->map(function (ActionRequest $actionRequest) {
+                if ((int) $actionRequest->action_type !== FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION) {
+                    return 0;
+                }
+
+                [, , $formId] = FormTemplateHelper::decodeDocumentGenerationAction($actionRequest->action);
+
+                return $formId;
+            })
+            ->filter(fn (int $formId) => $formId > 0)
+            ->unique()
+            ->values();
+
+        $formNameMap = Form::query()
+            ->whereIn('id', $formIds->all())
+            ->pluck('name', 'id')
+            ->all();
+
         $rows = $candidateRequests
-            ->map(function ($actionRequest) use ($officerOrganizationIds, $presidentOrganizationIds) {
+            ->map(function ($actionRequest) use ($officerOrganizationIds, $presidentOrganizationIds, $formNameMap) {
                 $actionType = (int) $actionRequest->action_type;
 
                 if ($actionType === 1) {
@@ -171,6 +192,44 @@ class SidebarMenuController extends Controller
                         'organization_id' => $organizationId,
                         'requester_user_id' => $requesterUserId > 0 ? $requesterUserId : (int) $actionRequest->user,
                         'summary' => $eventName !== '' ? $eventName : 'Event Approval',
+                        'requested_at' => $actionRequest->requested_at,
+                    ];
+                }
+
+                if ($actionType === FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION) {
+                    [$organizationId, $submissionId, $formId, $requesterUserId] = FormTemplateHelper::decodeDocumentGenerationAction($actionRequest->action);
+
+                    if ($organizationId <= 0 || ! in_array($organizationId, $presidentOrganizationIds, true)) {
+                        return null;
+                    }
+
+                    $formName = (string) ($formNameMap[$formId] ?? ('Form #'.$formId));
+
+                    return [
+                        'request_id' => (int) $actionRequest->request_id,
+                        'action_type' => $actionType,
+                        'type_label' => 'Document Generation Request',
+                        'organization_id' => $organizationId,
+                        'requester_user_id' => $requesterUserId > 0 ? $requesterUserId : (int) $actionRequest->user,
+                        'summary' => $formName.' · Submission #'.$submissionId,
+                        'requested_at' => $actionRequest->requested_at,
+                    ];
+                }
+
+                if ($actionType === FormTemplateHelper::ACTION_TYPE_DOCUMENT_ACCESS) {
+                    [$organizationId, $generatedDocumentId, $requesterUserId] = FormTemplateHelper::decodeDocumentAccessAction($actionRequest->action);
+
+                    if ($organizationId <= 0 || ! in_array($organizationId, $presidentOrganizationIds, true)) {
+                        return null;
+                    }
+
+                    return [
+                        'request_id' => (int) $actionRequest->request_id,
+                        'action_type' => $actionType,
+                        'type_label' => 'Document Access Request',
+                        'organization_id' => $organizationId,
+                        'requester_user_id' => $requesterUserId > 0 ? $requesterUserId : (int) $actionRequest->user,
+                        'summary' => 'Generated Document #'.$generatedDocumentId,
                         'requested_at' => $actionRequest->requested_at,
                     ];
                 }

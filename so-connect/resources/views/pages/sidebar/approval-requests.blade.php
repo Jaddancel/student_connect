@@ -11,7 +11,7 @@
                 <div>
                     <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Requests Requiring Review</h3>
                     <p class="text-sm text-gray-500 dark:text-gray-400">
-                        Membership, event, and role-change requests scoped to your assigned organizations.
+                        Membership, event, document, access, and role-change requests scoped to your assigned organizations.
                     </p>
                 </div>
                 <span

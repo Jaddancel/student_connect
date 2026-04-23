@@ -15,11 +15,15 @@ class ActionRequestResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $requester = $this->requester;
+        $profileId = (int) ($requester?->profile ?? 0);
+        $profile = $profileId > 0 ? Profile::query()->find($profileId) : null;
+
         return [
             'request_id' => $this->request_id,
             'action' => $this->action,
             'user' => $this->user,
-            'profile' => Profile::findOrFail($this->requester->profile)->toResource(),
+            'profile' => $profile?->toResource(),
             'action_type' => $this->action_type,
             'requested_at' => $this->requested_at,
         ];

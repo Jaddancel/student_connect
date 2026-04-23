@@ -48,6 +48,7 @@ class MenuHelper
         if ($userType === 1) {
             return [
                 ['icon' => 'task', 'name' => 'Profile Match Requests', 'path' => '/superadmin/profile-requests'],
+                ['icon' => 'forms', 'name' => 'Manage Document Forms', 'path' => '/forms/manage'],
                 ['icon' => 'tables', 'name' => 'Data Sync', 'path' => '/superadmin/data-sync'],
                 ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
             ];
@@ -72,6 +73,8 @@ class MenuHelper
                 ['icon' => 'forms', 'name' => 'Register', 'path' => '/register'],
                 ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
                 ['icon' => 'task', 'name' => 'Recent Event Request', 'path' => '/recent-event-requests'],
+                ['icon' => 'forms', 'name' => 'Request Document Generation', 'path' => '/forms/request-generation'],
+                ['icon' => 'pages', 'name' => 'Generated Documents', 'path' => '/generated-documents'],
                 ['icon' => 'user-profile', 'name' => 'Manage Organization', 'path' => '/manage-organization'],
                 ['icon' => 'forms', 'name' => 'Upload Forms', 'path' => '/upload-forms'],
                 ['icon' => 'task', 'name' => 'Approval of Request', 'path' => '/approval-requests'],
@@ -85,6 +88,7 @@ class MenuHelper
 
             if ($isPresident) {
                 $items[] = ['icon' => 'forms', 'name' => 'Request Forms', 'path' => '/request-forms'];
+                $items[] = ['icon' => 'forms', 'name' => 'Manage Document Forms', 'path' => '/forms/manage'];
             }
 
             return $items;

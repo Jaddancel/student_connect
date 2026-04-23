@@ -94,4 +94,24 @@ class User extends Authenticatable
     {
         return $this->hasMany(Report::class, 'generated_for', 'user_id');
     }
+
+    public function managedForms()
+    {
+        return $this->hasMany(Form::class, 'created_by', 'user_id');
+    }
+
+    public function uploadedTemplates()
+    {
+        return $this->hasMany(Template::class, 'uploaded_by', 'user_id');
+    }
+
+    public function formSubmissions()
+    {
+        return $this->hasMany(FormSubmission::class, 'submitted_by', 'user_id');
+    }
+
+    public function generatedDocuments()
+    {
+        return $this->hasMany(GeneratedDocument::class, 'generated_by', 'user_id');
+    }
 }

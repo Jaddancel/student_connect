@@ -34,7 +34,7 @@ it('creates a pending type 8 profile request from profile setup', function () {
 
     $createdRequest = ActionRequest::query()
         ->where('user', (int) $member->getKey())
-        ->where('action_type', 8)
+        ->where('action_type', 9)
         ->latest('request_id')
         ->first();
 
@@ -86,7 +86,7 @@ it('allows superadmin to approve a profile request and attach a profile', functi
             'Q',
             (int) $profileToAttach->getKey(),
         ]),
-        'action_type' => 8,
+        'action_type' => 9,
         'user' => (int) $targetUser->getKey(),
     ]);
 

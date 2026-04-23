@@ -3,34 +3,34 @@
 namespace App\Models;
 
 use App\Models\GeneratedDocument;
-use App\Models\Template\TemplateDescription;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Template extends Model
+class FormSubmission extends Model
 {
-    /** @use HasFactory<\Database\Factories\TemplateFactory> */
     use HasFactory;
 
-    protected $table = 'templates';
+    protected $table = 'form_submissions';
+
+    protected $primaryKey = 'form_submission_id';
 
     protected $fillable = [
         'form_id',
         'organization_id',
-        'uploaded_by',
-        'template_name',
-        'docx_path',
-        'version',
-        'is_active',
+        'submitted_by',
+        'payload',
+        'submitted_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'is_active' => 'boolean',
-            'version' => 'integer',
+            'payload' => 'array',
+            'submitted_at' => 'datetime',
+            self::CREATED_AT => 'datetime',
+            self::UPDATED_AT => 'datetime',
         ];
     }
 
@@ -44,18 +44,13 @@ class Template extends Model
         return $this->belongsTo(Organization::class, 'organization_id', 'organization_id');
     }
 
-    public function uploader(): BelongsTo
+    public function submitter(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'uploaded_by', 'user_id');
-    }
-
-    public function mappings(): HasMany
-    {
-        return $this->hasMany(TemplateDescription::class, 'template_id', 'id');
+        return $this->belongsTo(User::class, 'submitted_by', 'user_id');
     }
 
     public function generatedDocuments(): HasMany
     {
-        return $this->hasMany(GeneratedDocument::class, 'template_id', 'id');
+        return $this->hasMany(GeneratedDocument::class, 'form_submission_id', 'form_submission_id');
     }
 }

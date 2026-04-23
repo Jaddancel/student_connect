@@ -33,7 +33,7 @@ class ProfileController extends Controller
         }
 
         $hasPendingProfileRequest = ActionRequest::query()
-            ->where('action_type', 8)
+            ->where('action_type', 9)
             ->where('user', (int) $user->getKey())
             ->whereNotIn('request_id', Approval::query()->select('request')->whereNotNull('request'))
             ->exists();
@@ -58,7 +58,7 @@ class ProfileController extends Controller
 
         ActionRequest::query()->create([
             'action' => $action,
-            'action_type' => 8,
+            'action_type' => 9,
             'user' => (int) $user->getKey(),
         ]);
 

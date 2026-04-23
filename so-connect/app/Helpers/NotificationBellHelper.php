@@ -46,7 +46,7 @@ class NotificationBellHelper
 
         $requests = ActionRequest::query()
             ->where('requested_at', '>=', $since)
-            ->whereIn('action_type', [1, 2, 7, 8])
+            ->whereIn('action_type', [1, 2, 3, 4, 7, 8, 9])
             ->orderByDesc('requested_at')
             ->limit(300)
             ->get(['request_id', 'action', 'action_type', 'requested_at', 'user']);
@@ -164,8 +164,11 @@ class NotificationBellHelper
         return match ($actionType) {
             1 => 'Membership Request',
             2 => 'Event Request',
+            3 => 'Document Generation Request',
+            4 => 'Document Access Request',
             7 => 'Role Change Request',
-            8 => 'Profile Match Request',
+            8 => 'Form Upload Request',
+            9 => 'Profile Match Request',
             default => 'Request',
         };
     }
@@ -184,10 +187,10 @@ class NotificationBellHelper
         $actionType = (int) $actionRequest->action_type;
 
         if ($isSuperAdmin) {
-            return $actionType === 8;
+            return $actionType === 9;
         }
 
-        if ($actionType === 8) {
+        if ($actionType === 9) {
             return false;
         }
 
@@ -216,10 +219,10 @@ class NotificationBellHelper
         $actionType = (int) $actionRequest->action_type;
 
         if ($isSuperAdmin) {
-            return $actionType === 8;
+            return $actionType === 9;
         }
 
-        if (in_array($actionType, [1, 2], true)) {
+        if (in_array($actionType, [1, 2, FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION, FormTemplateHelper::ACTION_TYPE_DOCUMENT_ACCESS, FormTemplateHelper::ACTION_TYPE_FORM_UPLOAD], true)) {
             $organizationId = self::parseLeadingOrganizationId($actionRequest->action);
 
             if ($organizationId <= 0) {

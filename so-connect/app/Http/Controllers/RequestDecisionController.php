@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\FormTemplateHelper;
 use App\Http\Resources\ApprovalResource;
 use App\Models\Approval;
 use App\Models\Event;
 use App\Models\Event\EventDetail;
 use App\Models\Member;
 use App\Models\Request as ActionRequest;
+use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +19,7 @@ use Illuminate\Validation\Rule;
 
 class RequestDecisionController extends Controller
 {
-    public function store(Request $request, int $requestId): JsonResponse
+    public function store(Request $request, int $requestId, DocumentGenerationService $documentGenerationService): JsonResponse
     {
         $validated = $request->validate([
             'decision' => ['required', 'string', Rule::in(['approve', 'reject'])],
@@ -30,7 +32,7 @@ class RequestDecisionController extends Controller
             abort(401);
         }
 
-        $isPresidentOnlyAction = in_array((int) $actionRequest->action_type, [2, 7], true);
+        $isPresidentOnlyAction = in_array((int) $actionRequest->action_type, [2, 3, 4, 7], true);
         $requiredDashboard = $isPresidentOnlyAction ? 'president' : 'admin';
 
         if (! Gate::forUser($user)->allows('access-dashboard', $requiredDashboard)) {
@@ -51,7 +53,7 @@ class RequestDecisionController extends Controller
         } else {
             $organizationId = OrganizationAuthorizationService::extractOrganizationIdFromAction($actionRequest->action);
 
-            $authorizedOrganizationIds = (int) $actionRequest->action_type === 2
+            $authorizedOrganizationIds = in_array((int) $actionRequest->action_type, [2, 3, 4], true)
                 ? OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey())
                 : OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
 
@@ -61,6 +63,24 @@ class RequestDecisionController extends Controller
                         'message' => 'You are not authorized to decide this request.',
                     ], 403);
                 }
+            }
+        }
+
+        $generatedDocumentId = null;
+
+        if ((int) $actionRequest->action_type === FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION
+            && $validated['decision'] === 'approve') {
+            try {
+                $generatedDocument = $documentGenerationService->generateFromApprovedRequest(
+                    $actionRequest,
+                    (int) $user->getKey(),
+                );
+
+                $generatedDocumentId = (int) $generatedDocument->getKey();
+            } catch (\Throwable $throwable) {
+                return response()->json([
+                    'message' => $throwable->getMessage(),
+                ], 422);
             }
         }
 
@@ -181,6 +201,7 @@ class RequestDecisionController extends Controller
             'message' => $validated['decision'] === 'approve'
                 ? 'Request approved successfully.'
                 : 'Request rejected successfully.',
+            'generated_document_id' => $generatedDocumentId,
             'data' => ApprovalResource::make($approval->fresh()),
         ]);
     }
