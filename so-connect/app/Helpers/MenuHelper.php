@@ -8,7 +8,9 @@ class MenuHelper
 {
     public static function getMainNavItems()
     {
-        return self::buildRoleBasedMainNav(auth()->user());
+        $menuGroups = self::buildRoleBasedMenuGroups(auth()->user());
+
+        return $menuGroups[0]['items'] ?? [];
     }
 
     public static function getOthersItems()
@@ -18,93 +20,137 @@ class MenuHelper
 
     public static function getMenuGroups()
     {
-        $groups = [
+        return self::buildRoleBasedMenuGroups(auth()->user());
+    }
+
+    private static function buildRoleBasedMenuGroups(?User $user): array
+    {
+        if (! $user) {
+            return [
+                [
+                    'title' => 'General',
+                    'items' => [
+                        ['icon' => 'authentication', 'name' => 'Sign In', 'path' => '/signin'],
+                        ['icon' => 'authentication', 'name' => 'Sign Up', 'path' => '/signup'],
+                    ],
+                ],
+            ];
+        }
+
+        $flags = self::resolveRoleFlags($user);
+        $menuGroups = [
             [
-                'title' => 'Menu',
-                'items' => self::getMainNavItems(),
-            ],
-            [
-                'title' => 'Others',
-                'items' => self::getOthersItems(),
+                'title' => 'General',
+                'items' => [
+                    ['icon' => 'dashboard', 'name' => 'Dashboard', 'path' => '/dashboard'],
+                    ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
+                ],
             ],
         ];
 
-        return array_values(array_filter($groups, function ($group) {
+        if ($flags['is_member_only']) {
+            $menuGroups[] = [
+                'title' => 'Member',
+                'items' => [
+                    [
+                        'icon' => 'user-profile',
+                        'name' => 'Organization Services',
+                        'subItems' => [
+                            ['name' => 'Membership Registration', 'path' => '/register'],
+                            ['name' => 'My Organization', 'path' => '/my-organization'],
+                        ],
+                    ],
+                    [
+                        'icon' => 'forms',
+                        'name' => 'Document Services',
+                        'subItems' => [
+                            ['name' => 'My Documents', 'path' => '/generated-documents'],
+                            ['name' => 'Upload Documents', 'path' => '/upload-forms'],
+                            ['name' => 'Download Forms', 'path' => '/download-forms'],
+                        ],
+                    ],
+                ],
+            ];
+        }
+
+        if ($flags['is_admin']) {
+            $menuGroups[] = [
+                'title' => 'Administrator',
+                'items' => [
+                    [
+                        'icon' => 'task',
+                        'name' => 'Organization Management',
+                        'subItems' => [
+                            ['name' => 'Member List', 'path' => '/manage-organization'],
+                            ['name' => 'Membership Requests', 'path' => '/membership-requests'],
+                        ],
+                    ],
+                ],
+            ];
+        }
+
+        if ($flags['is_president']) {
+            $menuGroups[] = [
+                'title' => 'President',
+                'items' => [
+                    [
+                        'icon' => 'forms',
+                        'name' => 'Role Management',
+                        'subItems' => [
+                            ['name' => 'Request Role Change', 'path' => '/request-forms'],
+                            ['name' => 'Event Registration', 'path' => '/calendar'],
+                        ],
+                    ],
+                ],
+            ];
+        }
+
+        if ($flags['is_superadmin']) {
+            $menuGroups[] = [
+                'title' => 'Superadmin',
+                'items' => [
+                    ['icon' => 'task', 'name' => 'Profile Match Requests', 'path' => '/superadmin/profile-requests'],
+                    ['icon' => 'calendar', 'name' => 'Event Requests', 'path' => '/superadmin/event-requests'],
+                    ['icon' => 'forms', 'name' => 'Manage Document Forms', 'path' => '/forms/manage'],
+                    ['icon' => 'tables', 'name' => 'Data Sync', 'path' => '/superadmin/data-sync'],
+                ],
+            ];
+        }
+
+        return array_values(array_filter($menuGroups, function (array $group): bool {
             return ! empty($group['items']);
         }));
     }
 
-    private static function buildRoleBasedMainNav(?User $user): array
+    /**
+     * @return array{is_superadmin:bool,is_officer:bool,is_president:bool,is_admin:bool,is_member_only:bool}
+     */
+    private static function resolveRoleFlags(User $user): array
     {
-        if (! $user) {
-            return [
-                ['icon' => 'authentication', 'name' => 'Sign In', 'path' => '/signin'],
-                ['icon' => 'authentication', 'name' => 'Sign Up', 'path' => '/signup'],
-            ];
-        }
+        $isSuperAdmin = (int) $user->user_type === 1;
 
-        $userType = (int) $user->user_type;
+        $isPresident = $user
+            ->memberships()
+            ->whereHas('officers', function ($query) {
+                $query->where('role', 'president');
+            })
+            ->exists();
 
-        if ($userType === 1) {
-            return [
-                ['icon' => 'task', 'name' => 'Profile Match Requests', 'path' => '/superadmin/profile-requests'],
-                ['icon' => 'forms', 'name' => 'Manage Document Forms', 'path' => '/forms/manage'],
-                ['icon' => 'tables', 'name' => 'Data Sync', 'path' => '/superadmin/data-sync'],
-                ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
-            ];
-        }
+        $isOfficer = $user
+            ->memberships()
+            ->whereHas('officers', function ($query) {
+                $query->where('role', 'officer');
+            })
+            ->exists();
 
-        if ($userType === 2) {
-            $isPresident = $user
-                ->memberships()
-                ->whereHas('officers', function ($query) {
-                    $query->where('role', 'president');
-                })
-                ->exists();
-
-            $isOfficer = $user
-                ->memberships()
-                ->whereHas('officers', function ($query) {
-                    $query->where('role', 'officer');
-                })
-                ->exists();
-
-            $items = [
-                ['icon' => 'forms', 'name' => 'Register', 'path' => '/register'],
-                ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
-                ['icon' => 'task', 'name' => 'Recent Event Request', 'path' => '/recent-event-requests'],
-                ['icon' => 'forms', 'name' => 'Request Document Generation', 'path' => '/forms/request-generation'],
-                ['icon' => 'pages', 'name' => 'Generated Documents', 'path' => '/generated-documents'],
-                ['icon' => 'user-profile', 'name' => 'Manage Organization', 'path' => '/manage-organization'],
-                ['icon' => 'forms', 'name' => 'Upload Forms', 'path' => '/upload-forms'],
-                ['icon' => 'task', 'name' => 'Approval of Request', 'path' => '/approval-requests'],
-            ];
-
-            // user_type 2 menu applies to both officers and presidents, with role-specific extras.
-            if ($isOfficer || $isPresident) {
-                $items[] = ['icon' => 'pages', 'name' => 'Download Files', 'path' => '/download-files'];
-                $items[] = ['icon' => 'calendar', 'name' => 'View Upcoming Events', 'path' => '/upcoming-events'];
-            }
-
-            if ($isPresident) {
-                $items[] = ['icon' => 'forms', 'name' => 'Request Forms', 'path' => '/request-forms'];
-                $items[] = ['icon' => 'forms', 'name' => 'Manage Document Forms', 'path' => '/forms/manage'];
-            }
-
-            return $items;
-        }
-
-        if ($userType === 3) {
-            return [
-                ['icon' => 'calendar', 'name' => 'View Upcoming Event', 'path' => '/upcoming-events'],
-                ['icon' => 'forms', 'name' => 'Register', 'path' => '/register'],
-                ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
-            ];
-        }
+        $isAdmin = $isOfficer || $isPresident;
 
         return [
-            ['icon' => 'forms', 'name' => 'Register', 'path' => '/register'],
-            ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
+            'is_superadmin' => $isSuperAdmin,
+            'is_officer' => $isOfficer,
+            'is_president' => $isPresident,
+            'is_admin' => $isAdmin,
+            'is_member_only' => (int) $user->user_type === 3 && ! $isAdmin,
         ];
     }
 

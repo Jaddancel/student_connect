@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'dashboard.access' => \App\Http\Middleware\EnsureDashboardAccess::class,
             'superadmin' => \App\Http\Middleware\EnsureSuperAdmin::class,
+            'role.member' => \App\Http\Middleware\EnsureMemberRole::class,
+            'role.admin' => \App\Http\Middleware\EnsureOrganizationAdminRole::class,
+            'role.president' => \App\Http\Middleware\EnsurePresidentRole::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
