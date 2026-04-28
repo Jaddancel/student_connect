@@ -2,16 +2,13 @@
 
 namespace App\Models\Profile;
 
-use App\Http\Resources\ProfileAddressResource;
 use App\Models\Profile;
-use Illuminate\Database\Eloquent\Attributes\UseResource;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-#[UseResource(ProfileAddressResource::class)]
-class profileAddress extends Model
+class ProfileAddress extends Model // <-- Capital P here!
 {
-    /** @use HasFactory<profileAddressFactory> */
+    /** @use HasFactory<ProfileAddressFactory> */
     use HasFactory;
 
     protected $table = 'profile_addresses';
@@ -27,7 +24,8 @@ class profileAddress extends Model
 
     public $timestamps = false;
 
-    public function user()
+    // Pro-tip: Since this links to the Profile model, it's best practice to name the method 'profile' instead of 'user'
+    public function profile()
     {
         return $this->belongsTo(Profile::class, 'address', 'profile_address_id');
     }

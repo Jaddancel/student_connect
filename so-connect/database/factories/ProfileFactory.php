@@ -3,7 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Profile;
-use App\Models\Profile\profileAddress;
+use App\Models\Profile\ProfileAddress;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -23,7 +23,7 @@ class ProfileFactory extends Factory
             'middle_name' => fake()->firstName(),
             'last_name' => fake()->lastName(),
             'occupation' => fake()->randomElement(['Other', 'Student', 'Faculty']),
-            'address' => profileAddress::factory()->create()->getKey(),
+            'address' => ProfileAddress::factory()->create()->getKey(),
         ];
     }
 }

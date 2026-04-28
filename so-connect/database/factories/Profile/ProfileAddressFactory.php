@@ -2,13 +2,13 @@
 
 namespace Database\Factories\Profile;
 
-use App\Models\Profile\profileAddress;
+use App\Models\Profile\ProfileAddress;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<profileAddress>
+ * @extends Factory<ProfileAddress>
  */
-class profileAddressFactory extends Factory
+class ProfileAddressFactory extends Factory
 {
     /**
      * Define the model's default state.

@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Models\Profile\profileAddress;
+use App\Models\Profile\ProfileAddress;
 use Database\Factories\ProfileFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -31,6 +31,6 @@ class Profile extends Model
 
     public function addressOfUser()
     {
-        return $this->hasOne(profileAddress::class, 'address', 'profile_address_id');
+        return $this->hasOne(ProfileAddress::class, 'address', 'profile_address_id');
     }
 }
