@@ -7,6 +7,7 @@ use App\Models\Member;
 use App\Models\Officer;
 use App\Models\Organization;
 use App\Models\Organization\OrganizationDetail;
+use App\Models\Post;
 use App\Models\Request;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -61,6 +62,9 @@ class OrganizationFactory extends Factory
                 $organization->update([
                     'detail' => $detailId,
                 ]);
+
+                Post::factory()->count(6)->forOrganization($organizationId)->create();
+                Post::factory()->count(2)->featured()->forOrganization($organizationId)->create();
 
                 // Create Events
                 // Event::factory()->count(20)->create([

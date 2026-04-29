@@ -40,4 +40,9 @@ class Organization extends Model
     {
         return $this->hasMany(Event::class, 'organization', 'organization_id');
     }
+
+    public function posts()
+    {
+        return $this->hasMany(Post::class, 'organization', 'organization_id');
+    }
 }
