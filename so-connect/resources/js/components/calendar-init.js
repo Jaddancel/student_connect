@@ -246,7 +246,7 @@ export function calendarInit() {
   const calendarHeaderToolbar = {
     left: "prev,next",
     center: "title",
-    right: "dayGridMonth,timeGridWeek,timeGridDay",
+    right: "dayGridMonth,listWeek,timeGridDay",
   };
 
   const calendar = new Calendar(calendarWrapper, {

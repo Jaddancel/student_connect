@@ -44,10 +44,17 @@
                     <select id="organization_id" name="organization_id" required
                         class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                         <option value="">Select an organization</option>
-                        @foreach ($organizations as $organization)
-                            <option value="{{ $organization->organization_id }}" @selected((int) old('organization_id') === (int) $organization->organization_id)>
-                                {{ $organization->organization_name ?? 'Unknown Organization' }}
-                            </option>
+                        @foreach ($organizations as $typeId => $orgsInType)
+                            @php $typeId = (int) $typeId; @endphp
+                            @if ($orgsInType->isNotEmpty())
+                                <optgroup label="{{ \App\Enums\OrganizationType::label($typeId) }}">
+                                    @foreach ($orgsInType as $organization)
+                                        <option value="{{ $organization->organization_id }}" @selected((int) old('organization_id') === (int) $organization->organization_id)>
+                                            {{ $organization->organization_name ?? 'Unknown Organization' }}
+                                        </option>
+                                    @endforeach
+                                </optgroup>
+                            @endif
                         @endforeach
                     </select>
                 </div>

@@ -16,11 +16,14 @@ class MembershipRegistrationController extends Controller
         $organizations = Organization::query()
             ->leftJoin('organization_details as details', 'details.organization_detail_id', '=', 'organizations.detail')
             ->where('organizations.organization_type', '!=', 6)
+            ->orderBy('organizations.organization_type')
             ->orderBy('details.name')
             ->get([
                 'organizations.organization_id',
+                'organizations.organization_type',
                 'details.name as organization_name',
-            ]);
+            ])
+            ->groupBy('organization_type');
 
         return view('pages.organizations.register', [
             'title' => 'Membership Registration',

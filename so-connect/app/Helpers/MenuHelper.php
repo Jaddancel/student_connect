@@ -66,7 +66,6 @@ class MenuHelper
                         'subItems' => [
                             ['name' => 'My Documents', 'path' => '/generated-documents'],
                             ['name' => 'Upload Documents', 'path' => '/upload-forms'],
-                            ['name' => 'Download Forms', 'path' => '/download-forms'],
                         ],
                     ],
                 ],
@@ -75,7 +74,7 @@ class MenuHelper
 
         if ($flags['is_admin']) {
             $menuGroups[] = [
-                'title' => 'Administrator',
+                'title' => 'Officer',
                 'items' => [
                     [
                         'icon' => 'task',
@@ -83,6 +82,14 @@ class MenuHelper
                         'subItems' => [
                             ['name' => 'Member List', 'path' => '/manage-organization'],
                             ['name' => 'Membership Requests', 'path' => '/membership-requests'],
+                        ],
+                    ],
+                    [
+                        'icon' => 'forms',
+                        'name' => 'Document Services',
+                        'subItems' => [
+                            ['name' => 'My Documents', 'path' => '/generated-documents'],
+                            ['name' => 'Upload Documents', 'path' => '/upload-forms'],
                         ],
                     ],
                 ],
