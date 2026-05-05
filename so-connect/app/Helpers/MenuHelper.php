@@ -134,10 +134,10 @@ class MenuHelper
                     'title' => 'Administrator Section',
                     'items' => self::getAdminItems(),
                 ],
-                [
-                    'title' => 'Others',
-                    'items' => self::getOthersItems(),
-                ],
+                // [
+                //     'title' => 'Others',
+                //     'items' => self::getOthersItems(),
+                // ],
             ];
         } else {
             return [
@@ -145,10 +145,10 @@ class MenuHelper
                     'title' => 'Menu',
                     'items' => self::getMainNavItems(),
                 ],
-                [
-                    'title' => 'Others',
-                    'items' => self::getOthersItems(),
-                ],
+                // [
+                //     'title' => 'Others',
+                //     'items' => self::getOthersItems(),
+                // ],
             ];
         }
     }

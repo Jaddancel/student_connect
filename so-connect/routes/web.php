@@ -74,9 +74,15 @@ Route::get('/form/membership_registration', function (MemberController $controll
 Route::post('/register/member', [MemberController::class, 'post'])->middleware('auth');
 
 // tables pages
-Route::get('/basic-tables', function () {
-    return view('pages.tables.basic-tables', ['title' => 'Basic Tables']);
-})->name('basic-tables');
+// Route::get('/basic-tables', function () {
+// return view('pages.tables.basic-tables', ['title' => 'Basic Tables']);
+// })->name('basic-tables');
+
+// document pages
+
+Route::get('/documents/upload', function () {
+    return view('pages.documents.upload-page');
+});
 
 // pages
 
@@ -90,13 +96,13 @@ Route::get('/error-404', function () {
 })->name('error-404');
 
 // chart pages
-Route::get('/line-chart', function () {
-    return view('pages.chart.line-chart', ['title' => 'Line Chart']);
-})->name('line-chart');
+// Route::get('/line-chart', function () {
+// return view('pages.chart.line-chart', ['title' => 'Line Chart']);
+// })->name('line-chart');
 
-Route::get('/bar-chart', function () {
-    return view('pages.chart.bar-chart', ['title' => 'Bar Chart']);
-})->name('bar-chart');
+// Route::get('/bar-chart', function () {
+// return view('pages.chart.bar-chart', ['title' => 'Bar Chart']);
+// })->name('bar-chart');
 
 // authentication pages
 Route::get('/signin', function () {
