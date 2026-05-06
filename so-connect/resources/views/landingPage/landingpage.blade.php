@@ -2,738 +2,405 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EduPlay — TAU Organizations</title>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap"
-        rel="stylesheet">
-    <style>
-        :root {
-            --mint: #C8F7C5;
-            --sage: #88C98A;
-            --forest: #526B52;
-            --bg: #F2FBF2;
-            --dark: #2B3D2B;
-            --text: #3E5240;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-        }
-
-        /* ===== UPDATED NAVIGATION ===== */
-        nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 30px;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            background: rgba(242, 251, 242, 0.95);
-            backdrop-filter: blur(12px);
-            border-bottom: 3px solid var(--sage);
-            height: 85px;
-        }
-
-        .logo {
-            font-family: 'Montserrat', sans-serif;
-            font-size: 1.7rem;
-            /* Increased slightly to maintain hierarchy */
-            color: var(--forest);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-weight: 900;
-            text-decoration: none;
-            min-width: fit-content;
-            margin-right: 10px;
-            letter-spacing: -0.5px;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 10px;
-            list-style: none;
-            flex: 1;
-            justify-content: flex-end;
-            margin-left: auto;
-            margin-right: 25px;
-            align-items: center;
-        }
-
-        .dropdown {
-            position: relative;
-        }
-
-        .drop-btn {
-            text-decoration: none;
-            color: var(--text);
-            /* ADJUSTED: Slightly lighter weight and larger size for better legibility */
-            font-weight: 800;
-            font-size: 0.8rem;
-            padding: 10px 12px;
-            border-radius: 8px;
-            transition: all 0.2s;
-            cursor: pointer;
-            /* Changed from default to pointer for better UX */
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            /* Adds space between letters to make them feel "bigger" */
-            gap: 4px;
-            white-space: nowrap;
-            /* Prevents text from breaking into multiple lines */
-        }
-
-
-        .dropdown:hover .drop-btn {
-            background: var(--mint);
-            color: var(--forest);
-        }
-
-        .dropdown-content {
-            display: none;
-            position: absolute;
-            top: 100%;
-            right: 0;
-            background: white;
-            min-width: 240px;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-            border: 2px solid var(--forest);
-            border-radius: 12px;
-            max-height: 400px;
-            overflow-y: auto;
-            padding: 10px 0;
-        }
-
-        .dropdown:hover .dropdown-content {
-            display: block;
-        }
-
-        .dropdown-content a {
-            color: var(--text);
-            padding: 8px 16px;
-            text-decoration: none;
-            display: block;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-
-        .nav-register-btn {
-            background: var(--forest);
-            color: #fff;
-            text-decoration: none;
-            padding: 12px 24px;
-            /* Increased horizontal padding */
-            border-radius: 30px;
-            font-weight: 900;
-            /* INCREASED: Matching the scale of the new nav links */
-            font-size: 1.0rem;
-            border: 3px solid var(--dark);
-            box-shadow: 4px 4px 0 var(--dark);
-            transition: all 0.15s;
-            margin-left: 20px;
-            text-transform: uppercase;
-        }
-
-        .nav-register-btn:hover {
-            transform: translate(-2px, -2px);
-            box-shadow: 6px 6px 0 var(--dark);
-        }
-
-        .nav-register-btn:active {
-            transform: translate(2px, 2px);
-            box-shadow: 2px 2px 0 var(--dark);
-        }
-
-        .dropdown-content a:hover {
-            background: var(--mint);
-        }
-
-        /* Scrollbar for long lists */
-        .dropdown-content::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .dropdown-content::-webkit-scrollbar-thumb {
-            background: var(--sage);
-            border-radius: 10px;
-        }
-
-        /* Original Hero Styling */
-        .hero {
-            padding: 80px 60px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 60px;
-            align-items: center;
-            min-height: 80vh;
-        }
-
-        .hero h1 {
-            font-family: 'Montserrat', sans-serif;
-            font-size: 4rem;
-            font-weight: 900;
-            text-transform: uppercase;
-            color: var(--dark);
-            line-height: 1.1;
-        }
-
-        .highlight {
-            color: var(--forest);
-            position: relative;
-            z-index: 1;
-        }
-
-        .highlight::after {
-            content: '';
-            position: absolute;
-            bottom: 5px;
-            left: 0;
-            width: 100%;
-            height: 15px;
-            background: var(--mint);
-            z-index: -1;
-        }
-
-        /* Stats Section */
-        .stats-ribbon {
-            background: var(--forest);
-            color: white;
-            padding: 40px;
-            display: flex;
-            justify-content: space-around;
-            text-align: center;
-            border-top: 4px solid var(--dark);
-            border-bottom: 4px solid var(--dark);
-        }
-
-        .stat-item h2 {
-            font-family: 'Montserrat', sans-serif;
-            text-transform: uppercase;
-            font-size: 2.5rem;
-        }
-
-        .stat-item p {
-            font-weight: 700;
-            opacity: 0.9;
-        }
-
-        /* Search Bar */
-        .search-container {
-            max-width: 600px;
-            margin: -30px auto 50px;
-            position: relative;
-            z-index: 10;
-        }
-
-        .search-bar {
-            width: 100%;
-            padding: 20px 30px;
-            border-radius: 50px;
-            border: 3px solid var(--dark);
-            font-family: 'Montserrat', sans-serif;
-            font-size: 1.1rem;
-            font-weight: 700;
-            box-shadow: 6px 6px 0 var(--sage);
-        }
-
-        /* Category Grid */
-        .section-title {
-            text-align: center;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 2.5rem;
-            margin-bottom: 40px;
-            color: var(--dark);
-        }
-
-        .category-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
-            padding: 0 60px 80px;
-        }
-
-        .cat-card {
-            background: white;
-            padding: 30px;
-            border-radius: 20px;
-            border: 3px solid var(--dark);
-            box-shadow: 6px 6px 0 var(--mint);
-            transition: transform 0.2s;
-        }
-
-        .cat-card:hover {
-            transform: translateY(-5px);
-        }
-
-        .cat-card h3 {
-            font-family: 'Montserrat', sans-serif;
-            text-transform: uppercase;
-            color: var(--forest);
-            margin-bottom: 10px;
-        }
-
-        .cat-card p {
-            font-size: 0.9rem;
-            margin-bottom: 15px;
-        }
-
-        .cat-tag {
-            display: inline-block;
-            padding: 5px 12px;
-            background: var(--mint);
-            border-radius: 5px;
-            font-size: 0.75rem;
-            font-weight: 800;
-            margin-right: 5px;
-        }
-
-        .featured-posts {
-            padding: 80px 60px 0;
-        }
-
-        .featured-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 24px;
-            margin-top: 30px;
-        }
-
-        .featured-card {
-            background: #fff;
-            padding: 24px;
-            border-radius: 18px;
-            border: 3px solid var(--dark);
-            box-shadow: 6px 6px 0 var(--mint);
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .featured-meta {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 0.75rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--forest);
-        }
-
-        .featured-card h3 {
-            font-family: 'Montserrat', sans-serif;
-            font-size: 1.15rem;
-            color: var(--dark);
-        }
-
-        .featured-card p {
-            font-size: 0.9rem;
-        }
-
-        .featured-footer {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-weight: 800;
-            font-size: 0.85rem;
-        }
-
-        .featured-link {
-            color: var(--forest);
-            text-decoration: none;
-        }
-
-        .featured-empty {
-            grid-column: 1 / -1;
-            background: #fff;
-            padding: 24px;
-            border-radius: 18px;
-            border: 3px dashed var(--sage);
-            text-align: center;
-            font-weight: 800;
-        }
-
-        @media (max-width: 1100px) {
-            .nav-links {
-                gap: 5px;
-            }
-
-            .drop-btn {
-                font-size: 0.8rem;
-                padding: 5px;
-            }
-        }
-
-        /* ===== MODAL STYLES (new — does not affect anything above) ===== */
-        .org-modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(43, 61, 43, 0.55);
-            backdrop-filter: blur(4px);
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .org-modal-overlay.open {
-            display: flex;
-        }
-
-        .org-modal {
-            background: #fff;
-            border: 3px solid var(--dark);
-            border-radius: 20px;
-            box-shadow: 8px 8px 0 var(--dark);
-            width: 100%;
-            max-width: 420px;
-            padding: 40px 36px 32px;
-            text-align: center;
-            position: relative;
-            animation: orgModalIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        @keyframes orgModalIn {
-            from {
-                transform: scale(0.8) translateY(20px);
-                opacity: 0;
-            }
-
-            to {
-                transform: scale(1) translateY(0);
-                opacity: 1;
-            }
-        }
-
-        .org-modal-close {
-            position: absolute;
-            top: 14px;
-            right: 14px;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            border: 2px solid var(--dark);
-            background: var(--mint);
-            font-size: 1rem;
-            line-height: 1;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.15s;
-        }
-
-        .org-modal-close:hover {
-            background: var(--sage);
-        }
-
-        .org-modal-logo {
-            width: 96px;
-            height: 96px;
-            border-radius: 50%;
-            border: 3px solid var(--dark);
-            box-shadow: 4px 4px 0 var(--sage);
-            background: var(--mint);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.6rem;
-            margin: 0 auto 20px;
-            overflow: hidden;
-        }
-
-        .org-modal-logo img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-
-        .org-modal-name {
-            font-family: 'Montserrat', sans-serif;
-            font-size: 1.25rem;
-            font-weight: 900;
-            color: var(--dark);
-            margin-bottom: 8px;
-            line-height: 1.3;
-        }
-
-        .org-modal-category {
-            display: inline-block;
-            padding: 4px 14px;
-            background: var(--mint);
-            border: 2px solid var(--forest);
-            border-radius: 50px;
-            font-size: 0.75rem;
-            font-weight: 800;
-            color: var(--forest);
-            margin-bottom: 24px;
-        }
-
-        .org-modal-divider {
-            border: none;
-            border-top: 2px solid var(--mint);
-            margin: 0 0 20px;
-        }
-
-        .org-modal-join {
-            display: inline-block;
-            background: var(--forest);
-            color: #fff;
-            padding: 12px 32px;
-            border-radius: 50px;
-            border: 3px solid var(--dark);
-            box-shadow: 4px 4px 0 var(--dark);
-            font-weight: 900;
-            font-size: 0.95rem;
-            cursor: pointer;
-            text-decoration: none;
-            transition: all 0.15s;
-            font-family: 'Montserrat', sans-serif;
-        }
-
-        .org-modal-join:hover {
-            transform: translate(-2px, -2px);
-            box-shadow: 6px 6px 0 var(--dark);
-        }
-    </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description" content="" />
+    <meta name="author" content="" />
+    <title>Agency - Start Bootstrap Theme</title>
+    <!-- Favicon-->
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+    <!-- Font Awesome icons (free version)-->
+    <script src="https://use.fontawesome.com/releases/v5.15.3/js/all.js" crossorigin="anonymous"></script>
+    <!-- Google fonts-->
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700" rel="stylesheet" type="text/css" />
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:400,100,300,700" rel="stylesheet" type="text/css" />
+    <!-- Core theme CSS (includes Bootstrap)-->
+    <link href="css/styles.css" rel="stylesheet" />
 </head>
 
-<body>
-
-    <nav>
-        <a href="{{ route('home') }}" class="logo">SO<span style="color:var(--sage)">Connect</span></a>
-
-        <ul class="nav-links">
-            @foreach ($organizationTypes as $typeKey => $typeName)
-                @if (!empty($organizationsByType[$typeKey]))
-                    <li class="dropdown">
-                        <a href="#" class="drop-btn">{{ $typeName }} ▾</a>
-                        <div class="dropdown-content">
-                            @foreach ($organizationsByType[$typeKey] as $organization)
-                                <a href="#" data-org-name="{{ $organization['name'] }}"
-                                    data-org-category="{{ $typeName }}"
-                                    data-logo-url="{{ $organization['logo_url'] ?? '' }}"
-                                    data-feed-url="{{ route('organization-feed', ['organizationId' => $organization['id'], 'slug' => $organization['slug']]) }}"
-                                    onclick="openOrgModal(this); return false;">
-                                    {{ $organization['name'] }}
-                                </a>
-                            @endforeach
-                        </div>
+<body id="page-top">
+    <!-- Navigation-->
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top" id="mainNav">
+        <div class="container">
+            <a class="navbar-brand" href="#page-top" style="font-family: 'Roboto Slab', serif; font-weight: 700;"> SO
+                Connect </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarResponsive"
+                aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
+                Menu
+                <i class="fas fa-bars ms-1"></i>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarResponsive">
+                <ul class="navbar-nav text-uppercase py-4 py-lg-0">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#academic" data-bs-toggle="dropdown">Academic</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#!">Association of Future Psychologists</a></li>
+                            <li><a class="dropdown-item" href="#!">Association of Geodetic Engineering Students</a></li>
+                            <li><a class="dropdown-item" href="#!">Agribusiness Society</a></li>
+                            <li><a class="dropdown-item" href="#!">Communicators Bridging Opportunities Through
+                                    Leadership</a></li>
+                            <li><a class="dropdown-item" href="#!">Crop Science Society Organization</a></li>
+                            <li><a class="dropdown-item" href="#!">Clinicians Club</a></li>
+                            <li><a class="dropdown-item" href="#!">Tau-Economics Society</a></li>
+                            <li><a class="dropdown-item" href="#!">Forestry Student Organization</a></li>
+                            <li><a class="dropdown-item" href="#!">Junior Marketing Society</a></li>
+                            <li><a class="dropdown-item" href="#!">League of Animal Science Students</a></li>
+                            <li><a class="dropdown-item" href="#!">Pre-Service Teacher's Organization</a></li>
+                            <li><a class="dropdown-item" href="#!">Philippine Society of Agricultural and Biosystems
+                                    Engineers</a></li>
+                            <li><a class="dropdown-item" href="#!">Philippine Association of Food Technologists – Tau
+                                    Chapter</a></li>
+                            <li><a class="dropdown-item" href="#!">Society of Early Childhood Educators</a></li>
+                            <li><a class="dropdown-item" href="#!">Society of Human Resource Management Students</a>
+                            </li>
+                            <li><a class="dropdown-item" href="#!">Student's Society on Information Technology
+                                    Education</a></li>
+                            <li><a class="dropdown-item" href="#!">The Executives</a></li>
+                            <li><a class="dropdown-item" href="#!">Tomorrow's Elementary Educators Association for
+                                    Change</a></li>
+                            <li><a class="dropdown-item" href="#!">Tourism Society</a></li>
+                            <li><a class="dropdown-item" href="#!">Tau Mathematical Society</a></li>
+                            <li><a class="dropdown-item" href="#!">Young Entrepreneurs Society</a></li>
+                            <li><a class="dropdown-item" href="#!">Federation of Future Secondary Educators</a></li>
+                        </ul>
                     </li>
-                @endif
-            @endforeach
-        </ul>
-        <!-- <a href="#" class="nav-register-btn">Register Now </a> -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#socio-civic"
+                            data-bs-toggle="dropdown">Socio-Civic</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#!">Buklod-Lahi</a></li>
+                            <li><a class="dropdown-item" href="#!">Ecological and Solid Waste Management Society</a>
+                            </li>
+                            <li><a class="dropdown-item" href="#!">3D Sighters</a></li>
+                            <li><a class="dropdown-item" href="#!">Tau Bulalayaw</a></li>
+                            <li><a class="dropdown-item" href="#!">Tau – Red Cross Youth Council</a></li>
+                            <li><a class="dropdown-item" href="#!">Ladies' Dormitory Organization</a></li>
+                            <li><a class="dropdown-item" href="#!">Men's Dormitory Organization</a></li>
+                            <li><a class="dropdown-item" href="#!">Mulat Tau Debate Society</a></li>
+                            <li><a class="dropdown-item" href="#!">Ranchers' Club Philippines – Tau Chapter</a></li>
+                            <li><a class="dropdown-item" href="#!">Rodeo Club</a></li>
+                            <li><a class="dropdown-item" href="#!">Tau Peer Ambassadors</a></li>
+                            <li><a class="dropdown-item" href="#!">Veterinary Student Achiever's Society</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#religious" data-bs-toggle="dropdown">Religious</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#!">Campus Movers for Christ</a></li>
+                            <li><a class="dropdown-item" href="#!">Christian Brotherhood International – Tau Chapter</a>
+                            </li>
+                            <li><a class="dropdown-item" href="#!">Latter-Day Saint Student Association</a></li>
+                            <li><a class="dropdown-item" href="#!">Student Catholic Action of the Philippines Tau
+                                    Unit</a></li>
+                            <li><a class="dropdown-item" href="#!">Daniel Generation</a></li>
+                            <li><a class="dropdown-item" href="#!">Tau – Lakas Angkan – Youth Fellowship (LAYF)</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#frats" data-bs-toggle="dropdown">Frats &amp;
+                            Sororities</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#!">Alpha Phi Omega</a></li>
+                            <li><a class="dropdown-item" href="#!">Alpha Kappa Rho</a></li>
+                            <li><a class="dropdown-item" href="#!">Tau Gamma Phi/Sigma</a></li>
+                            <li><a class="dropdown-item" href="#!">Gamma Sigma Scorpions (Vermillion Chapter)</a></li>
+                            <li><a class="dropdown-item" href="#!">United Ilocandia</a></li>
+                            <li><a class="dropdown-item" href="#!">Confederation of Samahang Ilocano</a></li>
+                            <li><a class="dropdown-item" href="#!">Genuine Ilocano Brotherhood and Auxiliary
+                                    Sorority</a></li>
+                            <li><a class="dropdown-item" href="#!">Venerable Knight Veterinarians/Venerable Lady
+                                    Veterinarians</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#special-interest" data-bs-toggle="dropdown">Special
+                            Interest</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#!">LS – Agriculture and Homemaking Club</a></li>
+                            <li><a class="dropdown-item" href="#!">LS – Arts Club</a></li>
+                            <li><a class="dropdown-item" href="#!">LS – Boy Scout of the Philippines</a></li>
+                            <li><a class="dropdown-item" href="#!">LS – Drum and Lyre Corps</a></li>
+                            <li><a class="dropdown-item" href="#!">LS – Filipino Club</a></li>
+                            <li><a class="dropdown-item" href="#!">LS – Glee Club</a></li>
+                            <li><a class="dropdown-item" href="#!">LS – Girl Scout of the Philippines</a></li>
+                            <li><a class="dropdown-item" href="#!">LS – Math Club</a></li>
+                            <li><a class="dropdown-item" href="#!">LS – Rondalla Club</a></li>
+                            <li><a class="dropdown-item" href="#!">LS – Science Club</a></li>
+                            <li><a class="dropdown-item" href="#!">LS – Social Science Club</a></li>
+                            <li><a class="dropdown-item" href="#!">LS – Speech and Debate Society</a></li>
+                            <li><a class="dropdown-item" href="#!">LS – Sports Club</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#student-gov" data-bs-toggle="dropdown">Student
+                            Gov</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#!">College of Agriculture and Forestry – Student
+                                    Council</a></li>
+                            <li><a class="dropdown-item" href="#!">College of Arts and Sciences – Student Council</a>
+                            </li>
+                            <li><a class="dropdown-item" href="#!">College of Business and Management – Student
+                                    Council</a></li>
+                            <li><a class="dropdown-item" href="#!">College of Education – Student Council</a></li>
+                            <li><a class="dropdown-item" href="#!">College of Engineering and Technology – Student
+                                    Council</a></li>
+                            <li><a class="dropdown-item" href="#!">College of Veterinary Medicine – Student Council</a>
+                            </li>
+                            <li><a class="dropdown-item" href="#!">Laboratory School – Student Council</a></li>
+                            <li><a class="dropdown-item" href="#!">Supreme Student Council</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#sanctioned" data-bs-toggle="dropdown">Sanctioned</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#!">Golden Harvest</a></li>
+                            <li><a class="dropdown-item" href="#!">Reserved Officers Training Corps</a></li>
+                            <li><a class="dropdown-item" href="#!">Performing Guild</a></li>
+                            <li><a class="dropdown-item" href="#!">Chorale</a></li>
+                            <li><a class="dropdown-item" href="#!">A.K.D.A.</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
     </nav>
-
-    @php
-        $spotlightPost = $featuredPosts->first();
-        $spotlightOrg = $spotlightPost
-            ? $organizationNameMap[$spotlightPost->organization] ?? 'Unknown Organization'
-            : null;
-    @endphp
-
-    <section class="hero">
-        <div class="hero-content">
-            <h1>Campus Life <br><span class="highlight">Redefined.</span></h1>
-            <p style="margin-top: 20px; font-size: 1.2rem; opacity: 0.8;">Explore the diverse range of student
-                organizations. From socio-civic outreach to student government, find your community here.</p>
-            <div style="margin-top: 30px;">
-                <a href="#explore-categories"
-                    style="background: var(--forest); color: white; padding: 15px 35px; border-radius: 50px; text-decoration: none; font-weight: 900; border: 3px solid var(--dark); box-shadow: 4px 4px 0 var(--dark);">Explore
-                    All Orgs</a>
+    <!-- Masthead-->
+    <header class="masthead">
+        <div class="container">
+            <div class="masthead-subheading">Welcome to SO Connect!</div>
+            <div class="masthead-heading text-uppercase">Find Your Community</div>
+            <a class="btn btn-primary btn-xl text-uppercase" href="#clusters">Explore Organizations</a>
+        </div>
+    </header>
+    <!-- Organization Clusters-->
+    <section class="page-section" id="clusters">
+        <div class="container">
+            <div class="text-center">
+                <h2 class="section-heading text-uppercase">Organization Clusters</h2>
+                <h3 class="section-subheading text-muted">Discover the different avenues for student involvement on
+                    campus.</h3>
             </div>
-        </div>
-        <div class="hero-visual">
-            <div
-                style="background: white; padding: 40px; border-radius: 30px; border: 3px solid var(--dark); box-shadow: 10px 10px 0 var(--sage);">
-                <h3 style="font-family: 'Montserrat', sans-serif; color: var(--forest);">Organization Spotlight</h3>
-                @if ($spotlightPost)
-                    <p style="margin: 15px 0;"><strong>{{ $spotlightPost->title }}</strong></p>
-                    <p style="margin: 10px 0; font-size: 0.9rem;">{{ $spotlightPost->excerpt }}</p>
-                    <div
-                        style="height: 12px; background: var(--mint); border-radius: 10px; border: 2px solid var(--dark);">
-                        <div style="width: 85%; height: 100%; background: var(--forest); border-radius: 8px;"></div>
-                    </div>
-                    <p style="font-size: 0.8rem; margin-top: 5px; font-weight: 800;">
-                        {{ $spotlightOrg }} •
-                        {{ $spotlightPost->published_at?->diffForHumans() ?? $spotlightPost->created_at?->diffForHumans() }}
-                    </p>
-                @else
-                    <p style="margin: 15px 0;">Join a student organization and discover upcoming activities.</p>
-                    <div
-                        style="height: 12px; background: var(--mint); border-radius: 10px; border: 2px solid var(--dark);">
-                        <div style="width: 35%; height: 100%; background: var(--forest); border-radius: 8px;"></div>
-                    </div>
-                    <p style="font-size: 0.8rem; margin-top: 5px; font-weight: 800;">Featured posts coming soon</p>
-                @endif
-            </div>
-        </div>
-    </section>
-
-    <div class="search-container">
-        <input type="text" class="search-bar" placeholder="🔍 Search for an organization (e.g. 'Math' or 'Arts')...">
-    </div>
-
-    <section class="stats-ribbon">
-        <div class="stat-item">
-            <h2>60+</h2>
-            <p>Active Organizations</p>
-        </div>
-        <div class="stat-item">
-            <h2>5,000+</h2>
-            <p>Student Members</p>
-        </div>
-        <div class="stat-item">
-            <h2>12</h2>
-            <p>Annual Major Events</p>
-        </div>
-    </section>
-
-    <section class="featured-posts" id="featured-posts">
-        <h2 class="section-title">Featured <span class="highlight">Posts</span></h2>
-        <div class="featured-grid">
-            @forelse ($featuredPosts as $post)
-                @php
-                    $postOrgName = $organizationNameMap[$post->organization] ?? 'Unknown Organization';
-                @endphp
-                <article class="featured-card">
-                    <div class="featured-meta">
-                        <span>{{ $post->tag ?? 'Update' }}</span>
-                        <span>
-                            {{ $post->published_at?->diffForHumans() ?? $post->created_at?->diffForHumans() }}
-                        </span>
-                    </div>
-                    <h3>{{ $post->title }}</h3>
-                    <p>{{ $post->excerpt }}</p>
-                    <div class="featured-footer">
-                        <span>{{ $postOrgName }}</span>
-                        @if ($post->organization)
-                            <a class="featured-link"
-                                href="{{ route('organization-feed', ['organizationId' => $post->organization]) }}">View
-                                organization</a>
-                        @endif
-                    </div>
-                </article>
-            @empty
-                <div class="featured-empty">
-                    <p>No featured posts yet. Check back soon.</p>
+            <div class="row text-center">
+                <!-- Academic Cluster -->
+                <div class="col-md-4 mb-4">
+                    <span class="fa-stack fa-4x">
+                        <i class="fas fa-circle fa-stack-2x text-primary"></i>
+                        <!-- Changed to a book icon -->
+                        <i class="fas fa-book-open fa-stack-1x fa-inverse"></i>
+                    </span>
+                    <h4 class="my-3">Academic</h4>
+                    <p class="text-muted">Enhance your degree with course-related organizations, seminars, and peer
+                        networking tailored to your major.</p>
                 </div>
-            @endforelse
+                <!-- Socio-Civic Cluster -->
+                <div class="col-md-4 mb-4">
+                    <span class="fa-stack fa-4x">
+                        <i class="fas fa-circle fa-stack-2x text-primary"></i>
+                        <!-- Changed to a helping hands icon -->
+                        <i class="fas fa-hands-helping fa-stack-1x fa-inverse"></i>
+                    </span>
+                    <h4 class="my-3">Socio-Civic</h4>
+                    <p class="text-muted">Engage in community service, environmental advocacy, and social awareness
+                        campaigns to make a real-world impact.</p>
+                </div>
+                <!-- Student Gov Cluster -->
+                <div class="col-md-4 mb-4">
+                    <span class="fa-stack fa-4x">
+                        <i class="fas fa-circle fa-stack-2x text-primary"></i>
+                        <!-- Changed to a landmark icon -->
+                        <i class="fas fa-landmark fa-stack-1x fa-inverse"></i>
+                    </span>
+                    <h4 class="my-3">Student Gov</h4>
+                    <p class="text-muted">Develop leadership skills and represent the student body across different
+                        colleges and university councils.</p>
+                </div>
+            </div>
         </div>
     </section>
-
-    <section style="padding-top: 80px;" id="explore-categories">
-        <h2 class="section-title">Explore by <span class="highlight">Category</span></h2>
-        <div class="category-grid">
-            @foreach ($organizationTypes as $typeKey => $typeName)
-                @php
-                    $categoryOrganizations = $organizationsByType[$typeKey] ?? [];
-                @endphp
-                @if (!empty($categoryOrganizations))
-                    <div class="cat-card">
-                        <h3>{{ $typeName }}</h3>
-                        <p>Join specialized groups focused on {{ strtolower($typeName) }} community building.</p>
-                        <div style="margin-bottom: 15px;">
-                            @foreach (collect($categoryOrganizations)->take(3) as $organization)
-                                <span class="cat-tag">{{ $organization['name'] }}</span>
-                            @endforeach
+    <!-- Featured Organizations Grid-->
+    <section class="page-section bg-light" id="portfolio">
+        <div class="container">
+            <div class="text-center">
+                <h2 class="section-heading text-uppercase">Featured Organizations</h2>
+                <h3 class="section-subheading text-muted">Get a glimpse of our vibrant student life.</h3>
+            </div>
+            <div class="row">
+                <!-- Org item 1-->
+                <div class="col-lg-4 col-sm-6 mb-4">
+                    <div class="portfolio-item">
+                        <a class="portfolio-link" data-bs-toggle="modal" href="#portfolioModal1">
+                            <div class="portfolio-hover">
+                                <div class="portfolio-hover-content"><i class="fas fa-plus fa-3x"></i></div>
+                            </div>
+                            <!-- Replace with an actual image of the org -->
+                            <img class="img-fluid" src="assets/img/portfolio/1.jpg" alt="AFP Members" />
+                        </a>
+                        <div class="portfolio-caption">
+                            <div class="portfolio-caption-heading">Assoc. of Future Psychologists</div>
+                            <div class="portfolio-caption-subheading text-muted">Academic</div>
                         </div>
-                        <span style="color: var(--forest); font-weight: 900; text-decoration: none;">View All
-                            {{ count($categoryOrganizations) }} Orgs →</span>
                     </div>
-                @endif
-            @endforeach
+                </div>
+                <!-- Org item 2-->
+                <div class="col-lg-4 col-sm-6 mb-4">
+                    <div class="portfolio-item">
+                        <a class="portfolio-link" data-bs-toggle="modal" href="#portfolioModal2">
+                            <div class="portfolio-hover">
+                                <div class="portfolio-hover-content"><i class="fas fa-plus fa-3x"></i></div>
+                            </div>
+                            <img class="img-fluid" src="assets/img/portfolio/2.jpg" alt="Buklod-Lahi" />
+                        </a>
+                        <div class="portfolio-caption">
+                            <div class="portfolio-caption-heading">Buklod-Lahi</div>
+                            <div class="portfolio-caption-subheading text-muted">Socio-Civic</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Org item 3-->
+                <div class="col-lg-4 col-sm-6 mb-4">
+                    <div class="portfolio-item">
+                        <a class="portfolio-link" data-bs-toggle="modal" href="#portfolioModal3">
+                            <div class="portfolio-hover">
+                                <div class="portfolio-hover-content"><i class="fas fa-plus fa-3x"></i></div>
+                            </div>
+                            <img class="img-fluid" src="assets/img/portfolio/3.jpg" alt="Chorale" />
+                        </a>
+                        <div class="portfolio-caption">
+                            <div class="portfolio-caption-heading">University Chorale</div>
+                            <div class="portfolio-caption-subheading text-muted">Sanctioned</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
-
-    <footer style="background: var(--dark); color: white; padding: 60px; text-align: center;">
-        <h2 style="font-family: 'Montserrat', sans-serif; margin-bottom: 20px;">Ready to find your place?</h2>
-        <a href="#" class="nav-register-btn" style="box-shadow: none;">Create Your Account Now</a>
-        <p style="margin-top: 40px; opacity: 0.6; font-size: 0.8rem;">&copy; 2026 SOConnect — Tarlac Agricultural
-            University</p>
-    </footer>
-
-    <!-- ===== MODAL (appended — nothing above changed) ===== -->
-    <div class="org-modal-overlay" id="orgModalOverlay" onclick="handleOrgOverlayClick(event)">
-        <div class="org-modal" id="orgModal">
-            <button class="org-modal-close" onclick="closeOrgModal()" title="Close">✕</button>
-
-            <!-- Logo circle: shows uploaded image if provided, otherwise initials -->
-            <div class="org-modal-logo" id="orgModalLogo"></div>
-
-            <div class="org-modal-name" id="orgModalName"></div>
-            <div class="org-modal-category" id="orgModalCat"></div>
-
-            <hr class="org-modal-divider">
-
-            <a href="#" class="org-modal-join">Join Organization</a>
+    <!-- Upcoming Events (NEW) -->
+    <section class="page-section" id="events">
+        <div class="container">
+            <div class="text-center">
+                <div>
+                    <i class="fas fa-calendar-alt fa-2x events-icon"></i>
+                </div>
+                <h2 class="section-heading text-uppercase events-heading">Upcoming Events</h2>
+                <h3 class="section-subheading text-muted">Don't miss out on what's happening around the university.</h3>
+            </div>
+            <div class="row text-center">
+                <!-- Event 1 -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 shadow-lg border-0 event-card event-gold">
+                        <div class="event-header gold-gradient">
+                            <i class="fas fa-users fa-3x"></i>
+                        </div>
+                        <div class="card-body">
+                            <h4 class="card-title my-3 event-title">Annual Org Fair</h4>
+                            <div class="event-details">
+                                <i class="fas fa-calendar"></i>
+                                <h6 class="card-subtitle mb-0 event-date gold">August 15 - University Quadrangle</h6>
+                            </div>
+                            <p class="card-text text-muted event-description">Explore all recognized student
+                                organizations, sign up for memberships, and watch live performances.</p>
+                            <a href="#" class="event-link gold">Learn More <i class="fas fa-arrow-right"
+                                    style="margin-left: 5px;"></i></a>
+                        </div>
+                    </div>
+                </div>
+                <!-- Event 2 -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 shadow-lg border-0 event-card event-emerald">
+                        <div class="event-header emerald-gradient">
+                            <i class="fas fa-graduation-cap fa-3x"></i>
+                        </div>
+                        <div class="card-body">
+                            <h4 class="card-title my-3 event-title">Leadership Training Seminar</h4>
+                            <div class="event-details">
+                                <i class="fas fa-calendar"></i>
+                                <h6 class="card-subtitle mb-0 event-date emerald">September 10 - Main Auditorium</h6>
+                            </div>
+                            <p class="card-text text-muted event-description">A mandatory seminar for all newly elected
+                                organization officers to learn project management and communication.</p>
+                            <a href="#" class="event-link emerald">Learn More <i class="fas fa-arrow-right"
+                                    style="margin-left: 5px;"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
+    </section>
+    <!-- About-->
 
-    <script>
-        // Generates initials from org name (e.g. "TAU Math Society" -> "TM")
-        function getInitials(name) {
-            return name
-                .split(' ')
-                .filter(w => w.length > 2) // skip short words like "of", "the"
-                .slice(0, 2)
-                .map(w => w[0].toUpperCase())
-                .join('');
-        }
+    <!-- Team-->
 
-        function openOrgModal(trigger) {
-            const orgName = trigger.getAttribute('data-org-name') || '';
-            const category = trigger.getAttribute('data-org-category') || '';
-            const logoUrl = trigger.getAttribute('data-logo-url') || '';
-            const feedUrl = trigger.getAttribute('data-feed-url') || '#';
-            const logoEl = document.getElementById('orgModalLogo');
+    <!-- Clients-->
 
-            // Show logo image if mapped, otherwise show initials
-            if (logoUrl) {
-                logoEl.innerHTML = '<img src="' + logoUrl + '" alt="' + orgName + ' logo">';
-            } else {
-                logoEl.textContent = getInitials(orgName);
-            }
+    <!-- Contact-->
+    <section class="page-section" id="contact"
+        style="background: linear-gradient(135deg, #1A3C2E 0%, #2D6A4F 100%); position: relative; overflow: hidden;">
+        <!-- Decorative background elements -->
+        <div
+            style="position: absolute; top: -50px; right: -50px; width: 300px; height: 300px; background: rgba(255,255,255,0.05); border-radius: 50%;">
+        </div>
+        <div
+            style="position: absolute; bottom: -80px; left: -80px; width: 400px; height: 400px; background: rgba(255,255,255,0.03); border-radius: 50%;">
+        </div>
 
-            document.getElementById('orgModalName').textContent = orgName;
-            document.getElementById('orgModalCat').textContent = category;
+        <div class="container" style="position: relative; z-index: 1;">
+            <div class="text-center">
+                <!-- Decorative icon -->
+                <div style="margin-bottom: 30px;">
+                    <i class="fas fa-handshake fa-3x" style="color: #C9A84C; margin-bottom: 20px;"></i>
+                </div>
 
-            const joinLink = document.querySelector('.org-modal-join');
-            if (joinLink) {
-                joinLink.setAttribute('href', feedUrl);
-            }
+                <h2 class="section-heading text-uppercase"
+                    style="color: white; margin-bottom: 15px; font-weight: 700; font-size: 2.5rem;">Ready to find your
+                    place?</h2>
+                <p
+                    style="color: rgba(255,255,255,0.9); font-size: 1.1rem; margin-bottom: 40px; max-width: 600px; margin-left: auto; margin-right: auto; font-style: italic;">
+                    Join thousands of students who have already discovered their community at TAU. Start your journey
+                    today!</p>
 
-            document.getElementById('orgModalOverlay').classList.add('open');
-            document.body.style.overflow = 'hidden';
-        }
+                <!-- Enhanced CTA Button -->
+                <a href="#" class="btn btn-light btn-xl text-uppercase"
+                    style="padding: 18px 50px; font-weight: 700; box-shadow: 0 8px 25px rgba(0,0,0,0.2); transition: all 0.3s ease; border-radius: 50px; color: #1A3C2E;">
+                    <i class="fas fa-user-plus" style="margin-right: 10px;"></i> Create Your Account Now
+                </a>
 
-        function closeOrgModal() {
-            document.getElementById('orgModalOverlay').classList.remove('open');
-            document.body.style.overflow = '';
-        }
+                <!-- Contact Info
+                    <div style="margin-top: 60px; padding-top: 40px; border-top: 2px solid rgba(255,255,255,0.2);">
+                        <div style="display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; margin-bottom: 30px;">
+                            <div style="color: rgba(255,255,255,0.9);">
+                                <i class="fas fa-envelope fa-lg" style="margin-right: 10px; color: #C9A84C;"></i>
+                                <span>soconnect@tau.edu.ph</span>
+                            </div>
+                            <div style="color: rgba(255,255,255,0.9);">
+                                <i class="fas fa-phone fa-lg" style="margin-right: 10px; color: #C9A84C;"></i>
+                                <span>(+63) 456-7890</span>
+                            </div>
+                            <div style="color: rgba(255,255,255,0.9);">
+                                <i class="fas fa-map-marker-alt fa-lg" style="margin-right: 10px; color: #C9A84C;"></i>
+                                <span>Tarlac Agricultural University</span>
+                            </div>
+                        </div>
+                        <p style="margin-top: 20px; opacity: 0.7; font-size: 0.85rem;">&copy; 2026 SOConnect — Tarlac Agricultural University. All rights reserved.</p>
+                    </div> -->
+            </div>
+            <!-- Footer-->
 
-        function handleOrgOverlayClick(e) {
-            if (e.target === document.getElementById('orgModalOverlay')) closeOrgModal();
-        }
+            <!-- <footer  class="page-section" id="contact" class="container"
+            style="background: var(--dark); color: white; padding: 60px; text-align: center;">
+            <h2 style="font-family: 'Montserrat', sans-serif; margin-bottom: 20px;">Ready to find your place?</h2>
+            <a href="#" class="nav-register-btn" style="box-shadow: none;">Create Your Account Now</a>
+            <p style="margin-top: 40px; opacity: 0.6; font-size: 0.8rem;">&copy; 2026 SOConnect — Tarlac Agricultural University</p>
+        </footer> -->
 
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') closeOrgModal();
-        });
-    </script>
-
+            <!-- Bootstrap core JS-->
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js"></script>
+            <!-- Core theme JS-->
+            <script src="js/scripts.js"></script>
+            <!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *-->
+            <!-- * *                               SB Forms JS                               * *-->
+            <!-- * * Activate your form at https://startbootstrap.com/solution/contact-forms * *-->
+            <!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *-->
+            <script src="https://cdn.startbootstrap.com/sb-forms-latest.js"></script>
 </body>
 
 </html>
