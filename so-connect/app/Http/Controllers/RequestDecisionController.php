@@ -32,7 +32,7 @@ class RequestDecisionController extends Controller
             abort(401);
         }
 
-        $isPresidentOnlyAction = in_array((int) $actionRequest->action_type, [2, 3, 4, 7], true);
+        $isPresidentOnlyAction = in_array((int) $actionRequest->action_type, [2, 3, 4, 7, 8], true);
         $requiredDashboard = $isPresidentOnlyAction ? 'president' : 'admin';
 
         if (! Gate::forUser($user)->allows('access-dashboard', $requiredDashboard)) {
@@ -53,7 +53,7 @@ class RequestDecisionController extends Controller
         } else {
             $organizationId = OrganizationAuthorizationService::extractOrganizationIdFromAction($actionRequest->action);
 
-            $authorizedOrganizationIds = in_array((int) $actionRequest->action_type, [2, 3, 4], true)
+            $authorizedOrganizationIds = in_array((int) $actionRequest->action_type, [2, 3, 4, 8], true)
                 ? OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey())
                 : OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
 

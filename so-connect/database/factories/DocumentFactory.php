@@ -2,10 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Models\Document;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Document>
+ * @extends Factory<Document>
  */
 class DocumentFactory extends Factory
 {
@@ -17,7 +18,9 @@ class DocumentFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'link' => 'documents/'.fake()->uuid().'.pdf',
+            'description_text' => fake()->sentence(),
+            'author' => null,
         ];
     }
 }

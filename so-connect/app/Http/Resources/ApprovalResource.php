@@ -5,6 +5,8 @@ namespace App\Http\Resources;
 use App\Models\Member;
 use App\Models\Request as RequestModel;
 use App\Models\User;
+use App\Http\Resources\ActionRequestResource;
+use App\Http\Resources\UserResource;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -24,9 +26,9 @@ class ApprovalResource extends JsonResource
         return [
             'id' => $this->approval_id,
             'approved_at' => $this->approved_at,
-            'admin' => $approvingUser?->toResource(),
+            'admin' => UserResource::make($approvingUser),
             'status' => $this->is_rejected,
-            'request' => RequestModel::query()->find($this->request)?->toResource(),
+            'request' => ActionRequestResource::make(RequestModel::query()->find($this->request)),
         ];
     }
 }

@@ -2,10 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Models\Form;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Form>
+ * @extends Factory<Form>
  */
 class FormFactory extends Factory
 {
@@ -17,7 +18,12 @@ class FormFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'name' => fake()->words(3, true),
+            'description_text' => fake()->sentence(),
+            'organization_id' => null,
+            'created_by' => null,
+            'is_active' => true,
+            'is_published' => false,
         ];
     }
 }

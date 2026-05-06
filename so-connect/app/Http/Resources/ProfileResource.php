@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources;
 
-use App\Models\Profile\profileAddress;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -20,7 +19,7 @@ class ProfileResource extends JsonResource
             'last_name' => $this->last_name,
             'middle_name' => $this->middle_name,
             'occupation' => $this->occupation,
-            'address' => profileAddress::findOrFail($this->address)->toResource(),
+            'address' => ProfileAddressResource::make(\App\Models\Profile\profileAddress::findOrFail($this->address)),
         ];
 
     }

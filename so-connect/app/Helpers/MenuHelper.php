@@ -88,6 +88,7 @@ class MenuHelper
                         'icon' => 'forms',
                         'name' => 'Document Services',
                         'subItems' => [
+                            ['name' => 'Request Documents', 'path' => '/forms/request-generation'],
                             ['name' => 'My Documents', 'path' => '/generated-documents'],
                             ['name' => 'Upload Documents', 'path' => '/upload-forms'],
                         ],
@@ -106,6 +107,15 @@ class MenuHelper
                         'subItems' => [
                             ['name' => 'Request Role Change', 'path' => '/request-forms'],
                             ['name' => 'Event Registration', 'path' => '/calendar'],
+                        ],
+                    ],
+                    [
+                        'icon' => 'task',
+                        'name' => 'Document Administration',
+                        'subItems' => [
+                            ['name' => 'Approval Requests', 'path' => '/approval-requests'],
+                            ['name' => 'Manage Document Forms', 'path' => '/forms/manage'],
+                            ['name' => 'Generated Documents', 'path' => '/generated-documents'],
                         ],
                     ],
                 ],

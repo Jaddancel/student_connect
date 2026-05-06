@@ -11,7 +11,8 @@
                 <div>
                     <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Requests Requiring Review</h3>
                     <p class="text-sm text-gray-500 dark:text-gray-400">
-                        Membership, event, document, access, and role-change requests scoped to your assigned organizations.
+                        Membership, event, document generation, form upload, access, and role-change requests scoped to your
+                        assigned organizations.
                     </p>
                 </div>
                 <span
@@ -77,12 +78,14 @@
                                             <div class="flex items-center gap-2">
                                                 <button type="button"
                                                     class="inline-flex items-center rounded-lg bg-success-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-success-700"
-                                                    data-approval-action="approve" data-request-id="{{ $row['request_id'] }}">
+                                                    data-approval-action="approve"
+                                                    data-request-id="{{ $row['request_id'] }}">
                                                     Approve
                                                 </button>
                                                 <button type="button"
                                                     class="inline-flex items-center rounded-lg bg-error-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-error-700"
-                                                    data-approval-action="reject" data-request-id="{{ $row['request_id'] }}">
+                                                    data-approval-action="reject"
+                                                    data-request-id="{{ $row['request_id'] }}">
                                                     Reject
                                                 </button>
                                             </div>
@@ -140,7 +143,9 @@
                                 'Accept': 'application/json',
                                 'X-CSRF-TOKEN': csrfToken,
                             },
-                            body: JSON.stringify({ decision }),
+                            body: JSON.stringify({
+                                decision
+                            }),
                         });
 
                         const payload = await response.json().catch(() => ({}));
@@ -152,7 +157,8 @@
                         setFeedback(payload?.message || 'Decision submitted successfully.');
                         window.location.reload();
                     } catch (error) {
-                        setFeedback(error instanceof Error ? error.message : 'Unable to submit decision.', 'error');
+                        setFeedback(error instanceof Error ? error.message :
+                            'Unable to submit decision.', 'error');
                         button.disabled = false;
                         row?.classList.remove('opacity-60');
                     }

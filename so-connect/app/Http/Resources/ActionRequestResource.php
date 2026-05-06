@@ -23,7 +23,7 @@ class ActionRequestResource extends JsonResource
             'request_id' => $this->request_id,
             'action' => $this->action,
             'user' => $this->user,
-            'profile' => $profile?->toResource(),
+            'profile' => ProfileResource::make($profile),
             'action_type' => $this->action_type,
             'requested_at' => $this->requested_at,
         ];

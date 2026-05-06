@@ -6,6 +6,7 @@ use App\Helpers\FormTemplateHelper;
 use App\Models\Approval;
 use App\Models\Document;
 use App\Models\Form;
+use App\Models\Template;
 use App\Models\Request as ActionRequest;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\Request;
@@ -132,22 +133,34 @@ class SidebarMenuController extends Controller
         }
 
         $candidateRequests = ActionRequest::query()
-            ->whereIn('action_type', [1, 2, 3, 4, 7])
+            ->whereIn('action_type', [1, 2, 3, 4, 7, 8])
             ->orderByDesc('requested_at')
             ->limit(300)
             ->get(['request_id', 'action', 'action_type', 'requested_at', 'user']);
 
         $formIds = $candidateRequests
             ->map(function (ActionRequest $actionRequest) {
-                if ((int) $actionRequest->action_type !== FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION) {
+                return match ((int) $actionRequest->action_type) {
+                    FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION => FormTemplateHelper::decodeDocumentGenerationAction($actionRequest->action)[2],
+                    FormTemplateHelper::ACTION_TYPE_FORM_UPLOAD => FormTemplateHelper::decodeFormUploadAction($actionRequest->action)[1],
+                    default => 0,
+                };
+            })
+            ->filter(fn (int $formId) => $formId > 0)
+            ->unique()
+            ->values();
+
+        $templateIds = $candidateRequests
+            ->map(function (ActionRequest $actionRequest) {
+                if ((int) $actionRequest->action_type !== FormTemplateHelper::ACTION_TYPE_FORM_UPLOAD) {
                     return 0;
                 }
 
-                [, , $formId] = FormTemplateHelper::decodeDocumentGenerationAction($actionRequest->action);
+                [, , $templateId] = FormTemplateHelper::decodeFormUploadAction($actionRequest->action);
 
-                return $formId;
+                return $templateId;
             })
-            ->filter(fn (int $formId) => $formId > 0)
+            ->filter(fn (int $templateId) => $templateId > 0)
             ->unique()
             ->values();
 
@@ -156,8 +169,13 @@ class SidebarMenuController extends Controller
             ->pluck('name', 'id')
             ->all();
 
+        $templateNameMap = Template::query()
+            ->whereIn('id', $templateIds->all())
+            ->pluck('template_name', 'id')
+            ->all();
+
         $rows = $candidateRequests
-            ->map(function ($actionRequest) use ($officerOrganizationIds, $presidentOrganizationIds, $formNameMap) {
+            ->map(function (ActionRequest $actionRequest) use ($officerOrganizationIds, $presidentOrganizationIds, $formNameMap, $templateNameMap) {
                 $actionType = (int) $actionRequest->action_type;
 
                 if ($actionType === 1) {
@@ -230,6 +248,27 @@ class SidebarMenuController extends Controller
                         'organization_id' => $organizationId,
                         'requester_user_id' => $requesterUserId > 0 ? $requesterUserId : (int) $actionRequest->user,
                         'summary' => 'Generated Document #'.$generatedDocumentId,
+                        'requested_at' => $actionRequest->requested_at,
+                    ];
+                }
+
+                if ($actionType === FormTemplateHelper::ACTION_TYPE_FORM_UPLOAD) {
+                    [$organizationId, $formId, $templateId, $requesterUserId] = FormTemplateHelper::decodeFormUploadAction($actionRequest->action);
+
+                    if ($organizationId <= 0 || ! in_array($organizationId, $presidentOrganizationIds, true)) {
+                        return null;
+                    }
+
+                    $formName = (string) ($formNameMap[$formId] ?? ('Form #'.$formId));
+                    $templateName = (string) ($templateNameMap[$templateId] ?? ('Template #'.$templateId));
+
+                    return [
+                        'request_id' => (int) $actionRequest->request_id,
+                        'action_type' => $actionType,
+                        'type_label' => 'Form Upload Request',
+                        'organization_id' => $organizationId,
+                        'requester_user_id' => $requesterUserId > 0 ? $requesterUserId : (int) $actionRequest->user,
+                        'summary' => $formName.' · '.$templateName,
                         'requested_at' => $actionRequest->requested_at,
                     ];
                 }

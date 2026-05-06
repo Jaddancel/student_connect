@@ -272,6 +272,7 @@ class FormWorkflowController extends Controller
 
             if ((bool) $field->is_required && $normalizedValue === '') {
                 $fieldErrors['fields.'.$fieldKey] = ($field->field_label ?: $fieldKey).' is required.';
+
                 continue;
             }
 

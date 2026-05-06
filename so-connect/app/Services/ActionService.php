@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\FormTemplateHelper;
 use App\Models\Request;
 
 class ActionService
@@ -88,8 +89,14 @@ class ActionService
     protected function createFormUploadRequest($command, $code)
     {
         Request::create([
-            // TODO: Create action for form uploads.
+            'action' => FormTemplateHelper::encodeFormUploadAction(
+                (int) ($command['organization_id'] ?? 0),
+                (int) ($command['form_id'] ?? 0),
+                (int) ($command['template_id'] ?? 0),
+                (int) ($command['user_id'] ?? 0),
+            ),
             'action_type' => $code,
+            'user' => $command['user_id'] ?? null,
         ]);
     }
 
