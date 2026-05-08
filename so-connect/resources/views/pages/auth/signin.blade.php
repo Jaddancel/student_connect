@@ -7,6 +7,11 @@
             <div class="flex w-full flex-1 flex-col lg:w-1/2">
                 <div class="mx-auto flex w-full max-w-md flex-1 flex-col justify-center">
                     <div>
+                        @if ($errors->any())
+                            <div class="mb-5">
+                                <x-ui.alert variant="error" title="Sign In Failed" message="{{ $errors->first() }}" />
+                            </div>
+                        @endif
                         <div class="mb-5 sm:mb-8">
                             <h1 class="text-title-sm sm:text-title-md mb-2 font-semibold text-gray-800 dark:text-white/90">
                                 Sign In

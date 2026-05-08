@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Dashboard;
+use App\Http\Controllers\DocumentTest;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return redirect()->route('dashboard');
 });
+
+Route::get('/test/doc', DocumentTest::class)->name('document');
 
 // dashboard pages
 Route::get('/sample_dashboard', function () {
@@ -71,6 +74,10 @@ Route::get('/form/membership_registration', function (MemberController $controll
     return $controller->registration_form(auth()->id());
 })->middleware('auth')->name('membership-registration');
 
+Route::get('/form/accomplishment_form', function () {
+    return view('pages.form.accomplishment-form');
+})->middleware('auth');
+
 Route::post('/register/member', [MemberController::class, 'post'])->middleware('auth');
 
 // tables pages
@@ -80,9 +87,9 @@ Route::post('/register/member', [MemberController::class, 'post'])->middleware('
 
 // document pages
 
-Route::get('/documents/upload', function () {
-    return view('pages.documents.upload-page');
-});
+// Route::get('/documents/upload', function () {
+//     return view('pages.documents.upload-page');
+// });
 
 // pages
 

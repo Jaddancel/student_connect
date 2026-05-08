@@ -29,7 +29,7 @@ class MenuHelper
                 'icon' => 'forms',
                 'name' => 'Document Services',
                 'subItems' => [
-                    ['name' => 'Forms', 'path' => '#'],
+                    ['name' => 'My Documents', 'path' => '#'],
                 ],
             ],
             // [
@@ -61,11 +61,17 @@ class MenuHelper
                     ['name' => 'Role Management', 'path' => '#'],
                 ],
             ],
-
+            [
+                'icon' => 'forms',
+                'name' => 'Forms',
+                'subItems' => [
+                    ['name' => 'Accomplishment Form', 'path' => '/form/accomplishment_form'],
+                ],
+            ],
         ];
     }
 
-    public static function roleManagement()
+    public static function formManagement()
     {
         return [
             [
@@ -73,7 +79,6 @@ class MenuHelper
                 'name' => 'Form Management',
                 'subItems' => [
                     ['name' => 'Form List', 'path' => '#'],
-                    ['name' => 'Upload Template', 'path' => '#'],
                 ],
             ],
 
@@ -84,7 +89,7 @@ class MenuHelper
     {
         return array_merge(
             self::organizationManagement(),
-            self::roleManagement()
+            // self::formManagement()
         );
     }
 
