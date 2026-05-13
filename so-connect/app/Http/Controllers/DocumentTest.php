@@ -12,7 +12,7 @@ class DocumentTest extends Controller
      */
     public function __invoke(Request $request)
     {
-        $templateProcessor = new TemplateProcessor('test.docx');
+        $templateProcessor = new TemplateProcessor('private/test.docx');
         $activities = [
             [
                 'title-of-act' => 'Field Trip to Museum',
@@ -37,6 +37,6 @@ class DocumentTest extends Controller
         $templateProcessor->setValue('name', 'John');
         $templateProcessor->setValue('year', 'Doe');
         $templateProcessor->cloneRowAndSetValues('title-of-act', $activities);
-        $templateProcessor->saveAs('result.docx');
+        $templateProcessor->saveAs('private/result.docx');
     }
 }
