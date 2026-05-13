@@ -1,5 +1,6 @@
 <?php
 
+use App\Helpers\MenuHelper;
 use App\Helpers\FormTemplateHelper;
 use App\Models\Form;
 use App\Models\FormSubmission;
@@ -49,7 +50,6 @@ function assignDocumentWorkflowOfficerRole(User $user, int $organizationId, stri
         'user' => (int) $user->getKey(),
         'member_since' => now(),
     ]);
-
     DB::table('organization_officers')->insert([
         'role' => $role,
         'organization' => $organizationId,
@@ -59,6 +59,82 @@ function assignDocumentWorkflowOfficerRole(User $user, int $organizationId, stri
         'reassigned_at' => now(),
     ]);
 }
+
+if (! function_exists('documentMenuGroupsContain')) {
+    function documentMenuGroupsContain(array $groups, string $itemName): bool
+    {
+        foreach ($groups as $group) {
+            foreach (($group['items'] ?? []) as $item) {
+                if (($item['name'] ?? null) === $itemName) {
+                    return true;
+                }
+
+                foreach (($item['subItems'] ?? []) as $subItem) {
+                    if (($subItem['name'] ?? null) === $itemName) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+}
+
+it('limits form management routes to superadmins', function () {
+    $member = createDocumentWorkflowUserWithProfile('doc-member-form-access@example.test');
+
+    $this->actingAs($member)
+        ->get('/forms/manage')
+        ->assertForbidden();
+
+    $this->actingAs($member)
+        ->get('/upload-forms')
+        ->assertForbidden();
+
+    $superAdmin = User::query()->create([
+        'user_email' => 'doc-superadmin-form-access@example.test',
+        'user_password' => 'password',
+        'user_type' => 1,
+        'profile' => null,
+    ]);
+
+    $this->actingAs($superAdmin)
+        ->get('/forms/manage')
+        ->assertOk()
+        ->assertSee('Manage Document Forms');
+
+    $this->actingAs($superAdmin)
+        ->get('/upload-forms')
+        ->assertOk()
+        ->assertSee('Upload Forms');
+});
+
+it('shows form management links only to superadmins in the menu', function () {
+    $member = createDocumentWorkflowUserWithProfile('doc-member-menu@example.test');
+
+    $this->actingAs($member);
+
+    $memberGroups = MenuHelper::getMenuGroups();
+
+    expect(documentMenuGroupsContain($memberGroups, 'Manage Document Forms'))->toBeFalse()
+        ->and(documentMenuGroupsContain($memberGroups, 'Upload Documents'))->toBeFalse()
+        ->and(documentMenuGroupsContain($memberGroups, 'My Documents'))->toBeTrue();
+
+    $superAdmin = User::query()->create([
+        'user_email' => 'doc-superadmin-menu@example.test',
+        'user_password' => 'password',
+        'user_type' => 1,
+        'profile' => null,
+    ]);
+
+    $this->actingAs($superAdmin);
+
+    $superAdminGroups = MenuHelper::getMenuGroups();
+
+    expect(documentMenuGroupsContain($superAdminGroups, 'Manage Document Forms'))->toBeTrue()
+        ->and(documentMenuGroupsContain($superAdminGroups, 'Upload Documents'))->toBeTrue();
+});
 
 it('shows form upload requests in the approval queue for presidents', function () {
     $president = createUserWithProfile('doc-president@example.test');

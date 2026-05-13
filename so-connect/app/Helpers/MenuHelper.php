@@ -66,7 +66,6 @@ class MenuHelper
                         'name' => 'Document Services',
                         'subItems' => [
                             ['name' => 'My Documents', 'path' => '/generated-documents'],
-                            ['name' => 'Upload Documents', 'path' => '/upload-forms'],
                         ],
                     ],
                 ],
@@ -90,7 +89,6 @@ class MenuHelper
                         'name' => 'Document Services',
                         'subItems' => [
                             ['name' => 'My Documents', 'path' => '/generated-documents'],
-                            ['name' => 'Upload Documents', 'path' => '/upload-forms'],
                         ],
                     ],
                 ],
@@ -114,7 +112,6 @@ class MenuHelper
                         'name' => 'Document Administration',
                         'subItems' => [
                             ['name' => 'Approval Requests', 'path' => '/approval-requests'],
-                            ['name' => 'Manage Document Forms', 'path' => '/forms/manage'],
                             ['name' => 'Generated Documents', 'path' => '/generated-documents'],
                         ],
                     ],
@@ -129,6 +126,14 @@ class MenuHelper
                     ['icon' => 'task', 'name' => 'Profile Match Requests', 'path' => '/superadmin/profile-requests'],
                     ['icon' => 'calendar', 'name' => 'Event Requests', 'path' => '/superadmin/event-requests'],
                     ['icon' => 'forms', 'name' => 'Manage Document Forms', 'path' => '/forms/manage'],
+                    [
+                        'icon' => 'forms',
+                        'name' => 'Document Services',
+                        'subItems' => [
+                            ['name' => 'My Documents', 'path' => '/generated-documents'],
+                            ['name' => 'Upload Documents', 'path' => '/upload-forms'],
+                        ],
+                    ],
                     ['icon' => 'tables', 'name' => 'Data Sync', 'path' => '/superadmin/data-sync'],
                 ],
             ];

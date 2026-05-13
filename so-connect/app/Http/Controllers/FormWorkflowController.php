@@ -32,13 +32,9 @@ class FormWorkflowController extends Controller
             abort(401);
         }
 
-        $userId = (int) $user->getKey();
         $isSuperAdmin = (int) $user->user_type === 1;
-        $presidentOrganizationIds = $isSuperAdmin
-            ? []
-            : OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
 
-        if (! $isSuperAdmin && empty($presidentOrganizationIds)) {
+        if (! $isSuperAdmin) {
             abort(403);
         }
 
@@ -50,10 +46,6 @@ class FormWorkflowController extends Controller
             ])
             ->orderBy('organization_name');
 
-        if (! $isSuperAdmin) {
-            $organizationQuery->whereIn('o.organization_id', $presidentOrganizationIds);
-        }
-
         $formsQuery = Form::query()
             ->with([
                 'fields',
@@ -61,10 +53,6 @@ class FormWorkflowController extends Controller
             ])
             ->orderByDesc('updated_at')
             ->limit(150);
-
-        if (! $isSuperAdmin) {
-            $formsQuery->whereIn('organization_id', $presidentOrganizationIds);
-        }
 
         return view('pages.sidebar.manage-document-forms', [
             'title' => 'Manage Document Forms',
@@ -83,6 +71,12 @@ class FormWorkflowController extends Controller
             abort(401);
         }
 
+        $isSuperAdmin = (int) $user->user_type === 1;
+
+        if (! $isSuperAdmin) {
+            abort(403);
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description_text' => ['nullable', 'string', 'max:2000'],
@@ -94,14 +88,6 @@ class FormWorkflowController extends Controller
 
         $organizationId = (int) $validated['organization_id'];
         $userId = (int) $user->getKey();
-
-        if ((int) $user->user_type !== 1) {
-            $authorizedOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
-
-            if (! in_array($organizationId, $authorizedOrganizationIds, true)) {
-                abort(403);
-            }
-        }
 
         $uploadedFile = $request->file('template_file');
 

@@ -135,19 +135,19 @@ Route::get('/manage-organization', [OrganizationController::class, 'manage'])
     ->name('manage-organization');
 
 Route::get('/upload-forms', [SidebarMenuController::class, 'uploadForms'])
-    ->middleware('auth')
+    ->middleware(['auth', 'superadmin'])
     ->name('upload-forms');
 
 Route::post('/upload-forms', [SidebarMenuController::class, 'storeUploadedForm'])
-    ->middleware('auth')
+    ->middleware(['auth', 'superadmin'])
     ->name('upload-forms.store');
 
 Route::get('/forms/manage', [FormWorkflowController::class, 'manageForms'])
-    ->middleware('auth')
+    ->middleware(['auth', 'superadmin'])
     ->name('forms.manage');
 
 Route::post('/forms/manage', [FormWorkflowController::class, 'storeTemplate'])
-    ->middleware('auth')
+    ->middleware(['auth', 'superadmin'])
     ->name('forms.manage.store');
 
 Route::get('/forms/{formId}', [FormWorkflowController::class, 'showFormPage'])

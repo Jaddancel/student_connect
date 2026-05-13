@@ -325,7 +325,17 @@ class SidebarMenuController extends Controller
 
     public function uploadForms(Request $request)
     {
-        $userId = (int) $request->user()->getKey();
+        $user = $request->user();
+
+        if (! $user) {
+            abort(401);
+        }
+
+        if ((int) $user->user_type !== 1) {
+            abort(403);
+        }
+
+        $userId = (int) $user->getKey();
 
         $documents = Document::query()
             ->where('author', $userId)
@@ -341,6 +351,16 @@ class SidebarMenuController extends Controller
 
     public function storeUploadedForm(Request $request)
     {
+        $user = $request->user();
+
+        if (! $user) {
+            abort(401);
+        }
+
+        if ((int) $user->user_type !== 1) {
+            abort(403);
+        }
+
         $validated = $request->validate([
             'description_text' => ['required', 'string', 'max:255'],
             'form_file' => ['required', 'file', 'max:10240'],
@@ -350,7 +370,7 @@ class SidebarMenuController extends Controller
 
         Document::query()->create([
             'description_text' => $validated['description_text'],
-            'author' => (int) $request->user()->getKey(),
+            'author' => (int) $user->getKey(),
             'link' => $path,
         ]);
 
