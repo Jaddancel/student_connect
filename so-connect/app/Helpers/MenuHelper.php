@@ -2,6 +2,7 @@
 
 namespace App\Helpers;
 
+use App\Models\Form;
 use App\Models\User;
 
 class MenuHelper
@@ -88,7 +89,6 @@ class MenuHelper
                         'icon' => 'forms',
                         'name' => 'Document Services',
                         'subItems' => [
-                            ['name' => 'Request Documents', 'path' => '/forms/request-generation'],
                             ['name' => 'My Documents', 'path' => '/generated-documents'],
                             ['name' => 'Upload Documents', 'path' => '/upload-forms'],
                         ],
@@ -134,6 +134,10 @@ class MenuHelper
             ];
         }
 
+        if ($flags['is_president']) {
+            $menuGroups = self::injectFormMenuItems($menuGroups, $user);
+        }
+
         return array_values(array_filter($menuGroups, function (array $group): bool {
             return ! empty($group['items']);
         }));
@@ -169,6 +173,54 @@ class MenuHelper
             'is_admin' => $isAdmin,
             'is_member_only' => (int) $user->user_type === 3 && ! $isAdmin,
         ];
+    }
+
+    private static function injectFormMenuItems(array $menuGroups, User $user): array
+    {
+        $organizationIds = \App\Services\OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
+
+        if (empty($organizationIds)) {
+            return $menuGroups;
+        }
+
+        $forms = Form::query()
+            ->whereIn('organization_id', $organizationIds)
+            ->where('is_active', true)
+            ->where('is_published', true)
+            ->orderBy('sidebar_group')
+            ->orderBy('name')
+            ->get();
+
+        if ($forms->isEmpty()) {
+            return $menuGroups;
+        }
+
+        $grouped = $forms->groupBy(function (Form $form) {
+            return $form->sidebar_group ?: Form::SIDEBAR_GROUP_PRESIDENT;
+        });
+
+        foreach ($menuGroups as $groupIndex => $group) {
+            $groupKey = strtolower((string) ($group['title'] ?? ''));
+
+            if (! $grouped->has($groupKey)) {
+                continue;
+            }
+
+            $formsInGroup = $grouped->get($groupKey, collect());
+
+            $menuGroups[$groupIndex]['items'][] = [
+                'icon' => 'forms',
+                'name' => 'Forms',
+                'subItems' => $formsInGroup->map(function (Form $form) {
+                    return [
+                        'name' => $form->name,
+                        'path' => route('forms.show', ['formId' => (int) $form->getKey()]),
+                    ];
+                })->values()->all(),
+            ];
+        }
+
+        return $menuGroups;
     }
 
     public static function isActive($path)

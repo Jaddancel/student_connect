@@ -12,6 +12,8 @@ class PostFactory extends Factory
 {
     protected $model = Post::class;
 
+    protected static ?array $sampleImages = null;
+
     /**
      * Define the model's default state.
      *
@@ -27,9 +29,32 @@ class PostFactory extends Factory
             'excerpt' => fake()->sentence(18),
             'body' => fake()->paragraphs(3, true),
             'tag' => fake()->randomElement(['Announcement', 'Event', 'Volunteer', 'Workshop', 'Spotlight']),
+            'image_path' => null,
             'is_featured' => false,
             'published_at' => fake()->dateTimeBetween('-2 months', 'now'),
         ];
+    }
+
+    public static function randomImagePath(): ?string
+    {
+        if (self::$sampleImages === null) {
+            $directory = public_path('images/sample-images');
+
+            if (! is_dir($directory)) {
+                self::$sampleImages = [];
+            } else {
+                $files = array_values(array_filter(scandir($directory), static function ($file) {
+                    return $file !== '.' && $file !== '..';
+                }));
+                self::$sampleImages = array_map('rawurlencode', $files);
+            }
+        }
+
+        if (self::$sampleImages === []) {
+            return null;
+        }
+
+        return 'images/sample-images/'.fake()->randomElement(self::$sampleImages);
     }
 
     public function forOrganization(int $organizationId): static

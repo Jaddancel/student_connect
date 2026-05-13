@@ -71,6 +71,7 @@ class FormWorkflowController extends Controller
             'organizations' => $organizationQuery->get(),
             'forms' => $formsQuery->get(),
             'isSuperAdmin' => $isSuperAdmin,
+            'sidebarGroups' => Form::sidebarGroupOptions(),
         ]);
     }
 
@@ -85,6 +86,7 @@ class FormWorkflowController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description_text' => ['nullable', 'string', 'max:2000'],
+            'sidebar_group' => ['required', 'string', Rule::in(Form::SIDEBAR_GROUP_OPTIONS)],
             'organization_id' => ['required', 'integer', Rule::exists('organizations', 'organization_id')],
             'template_file' => ['required', 'file', 'mimes:docx', 'max:10240'],
             'is_published' => ['nullable', 'boolean'],
@@ -132,6 +134,7 @@ class FormWorkflowController extends Controller
                 $form = Form::query()->create([
                     'name' => trim((string) $validated['name']),
                     'description_text' => trim((string) ($validated['description_text'] ?? '')) ?: null,
+                    'sidebar_group' => (string) $validated['sidebar_group'],
                     'organization_id' => $organizationId,
                     'created_by' => $userId,
                     'is_active' => true,
@@ -189,7 +192,7 @@ class FormWorkflowController extends Controller
         return back()->with('success', 'Document form template uploaded and mapped successfully.');
     }
 
-    public function requestGenerationPage(Request $request)
+    public function showFormPage(Request $request, int $formId)
     {
         $user = $request->user();
 
@@ -198,35 +201,21 @@ class FormWorkflowController extends Controller
         }
 
         $userId = (int) $user->getKey();
-        $officerOrganizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
 
-        $forms = Form::query()
-            ->with([
-                'fields',
-                'templates' => fn ($templateQuery) => $templateQuery->where('is_active', true)->orderByDesc('version'),
-            ])
-            ->where('is_active', true)
-            ->where('is_published', true)
-            ->when(! empty($officerOrganizationIds), function ($query) use ($officerOrganizationIds) {
-                $query->whereIn('organization_id', $officerOrganizationIds);
-            }, function ($query) {
-                $query->whereRaw('1 = 0');
-            })
-            ->orderBy('name')
-            ->get();
+        $form = $this->resolveAccessibleForm($request, $formId, $userId);
 
-        $selectedFormId = (int) ($request->query('form_id') ?? old('form_id') ?? ($forms->first()->id ?? 0));
+        if (! $form) {
+            abort(404);
+        }
 
-        return view('pages.sidebar.document-generation-request', [
-            'title' => 'Document Generation Requests',
-            'forms' => $forms,
-            'selectedFormId' => $selectedFormId,
-            'selectedForm' => $forms->firstWhere('id', $selectedFormId),
-            'requestRows' => $this->buildOwnDocumentRequestRows($userId),
+        return view('pages.sidebar.form-request-page', [
+            'title' => $form->name,
+            'form' => $form,
+            'requestRows' => $this->buildOwnDocumentRequestRows($userId, (int) $form->getKey()),
         ]);
     }
 
-    public function storeGenerationRequest(Request $request, DocumentGenerationService $generationService): RedirectResponse
+    public function submitFormPage(Request $request, int $formId, DocumentGenerationService $generationService): RedirectResponse
     {
         $user = $request->user();
 
@@ -234,31 +223,20 @@ class FormWorkflowController extends Controller
             abort(401);
         }
 
+        $userId = (int) $user->getKey();
+        $form = $this->resolveAccessibleForm($request, $formId, $userId);
+
+        if (! $form) {
+            abort(404);
+        }
+
         $validated = $request->validate([
-            'form_id' => ['required', 'integer', Rule::exists('forms', 'id')],
             'fields' => ['required', 'array'],
         ]);
 
-        $form = Form::query()
-            ->with(['fields', 'templates' => fn ($query) => $query->where('is_active', true)->orderByDesc('version')])
-            ->findOrFail((int) $validated['form_id']);
-
-        if (! (bool) $form->is_active || ! (bool) $form->is_published) {
-            return back()->withErrors([
-                'form_id' => 'This form is not currently available for requests.',
-            ])->withInput();
-        }
-
-        $userId = (int) $user->getKey();
-        $officerOrganizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
-
-        if (! in_array((int) $form->organization_id, $officerOrganizationIds, true)) {
-            abort(403);
-        }
-
         if ($form->templates->isEmpty()) {
             return back()->withErrors([
-                'form_id' => 'No active template is available for this form yet.',
+                'fields' => 'No active template is available for this form yet.',
             ])->withInput();
         }
 
@@ -299,8 +277,36 @@ class FormWorkflowController extends Controller
         );
 
         return redirect()
-            ->route('forms.request-generation', ['form_id' => (int) $form->getKey()])
+            ->route('forms.show', ['formId' => (int) $form->getKey()])
             ->with('success', 'Document generation request #'.(int) $actionRequest->getKey().' submitted.');
+    }
+
+    private function resolveAccessibleForm(Request $request, int $formId, int $userId): ?Form
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            return null;
+        }
+
+        $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
+
+        if (empty($presidentOrganizationIds)) {
+            abort(403);
+        }
+
+        $form = Form::query()
+            ->with([
+                'fields',
+                'templates' => fn ($templateQuery) => $templateQuery->where('is_active', true)->orderByDesc('version'),
+            ])
+            ->whereKey($formId)
+            ->where('is_active', true)
+            ->where('is_published', true)
+            ->whereIn('organization_id', $presidentOrganizationIds)
+            ->first();
+
+        return $form;
     }
 
     public function generatedDocuments(Request $request)
@@ -313,10 +319,11 @@ class FormWorkflowController extends Controller
 
         $userId = (int) $user->getKey();
         $officerOrganizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
+        $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
 
         $rows = GeneratedDocument::query()
             ->with(['submission.form', 'request'])
-            ->where(function ($query) use ($userId, $officerOrganizationIds) {
+            ->where(function ($query) use ($userId, $officerOrganizationIds, $presidentOrganizationIds) {
                 $query->whereHas('submission', function ($submissionQuery) use ($userId) {
                     $submissionQuery->where('submitted_by', $userId);
                 });
@@ -324,6 +331,12 @@ class FormWorkflowController extends Controller
                 if (! empty($officerOrganizationIds)) {
                     $query->orWhereHas('submission', function ($submissionQuery) use ($officerOrganizationIds) {
                         $submissionQuery->whereIn('organization_id', $officerOrganizationIds);
+                    });
+                }
+
+                if (! empty($presidentOrganizationIds)) {
+                    $query->orWhereHas('submission', function ($submissionQuery) use ($presidentOrganizationIds) {
+                        $submissionQuery->whereIn('organization_id', $presidentOrganizationIds);
                     });
                 }
             })
@@ -398,7 +411,7 @@ class FormWorkflowController extends Controller
     /**
      * @return Collection<int, array<string, mixed>>
      */
-    private function buildOwnDocumentRequestRows(int $userId): Collection
+    private function buildOwnDocumentRequestRows(int $userId, ?int $formId = null): Collection
     {
         $requests = ActionRequest::query()
             ->where('action_type', FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION)
@@ -406,6 +419,14 @@ class FormWorkflowController extends Controller
             ->orderByDesc('requested_at')
             ->limit(100)
             ->get(['request_id', 'action', 'requested_at']);
+
+        if ($formId !== null) {
+            $requests = $requests->filter(function (ActionRequest $actionRequest) use ($formId) {
+                [, , $decodedFormId] = FormTemplateHelper::decodeDocumentGenerationAction($actionRequest->action);
+
+                return (int) $decodedFormId === $formId;
+            })->values();
+        }
 
         if ($requests->isEmpty()) {
             return collect();

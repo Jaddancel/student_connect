@@ -19,6 +19,7 @@ class Post extends Model
         'excerpt',
         'body',
         'tag',
+        'image_path',
         'is_featured',
         'published_at',
     ];

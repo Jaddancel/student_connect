@@ -43,8 +43,7 @@
                     </div>
 
                     <div>
-                        <label for="organization_id"
-                            class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        <label for="organization_id" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Organization <span class="text-error-500">*</span>
                         </label>
                         <select id="organization_id" name="organization_id"
@@ -58,9 +57,22 @@
                         </select>
                     </div>
 
+                    <div>
+                        <label for="sidebar_group" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Sidebar Category <span class="text-error-500">*</span>
+                        </label>
+                        <select id="sidebar_group" name="sidebar_group"
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                            @foreach ($sidebarGroups as $groupValue => $groupLabel)
+                                <option value="{{ $groupValue }}" @selected(old('sidebar_group', 'president') === $groupValue)>
+                                    {{ ucfirst($groupLabel) }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
                     <div class="md:col-span-2">
-                        <label for="description_text"
-                            class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        <label for="description_text" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Description
                         </label>
                         <textarea id="description_text" name="description_text" rows="3"
@@ -69,8 +81,7 @@
                     </div>
 
                     <div class="md:col-span-2">
-                        <label for="template_file"
-                            class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        <label for="template_file" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             DOCX Template <span class="text-error-500">*</span>
                         </label>
                         <input type="file" id="template_file" name="template_file" accept=".docx"
@@ -117,7 +128,7 @@
                                 </th>
                                 <th
                                     class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                    Organization
+                                    Organization / Sidebar
                                 </th>
                                 <th
                                     class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -139,7 +150,10 @@
                                         </p>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                        #{{ (int) ($form->organization_id ?? 0) }}
+                                        <p>#{{ (int) ($form->organization_id ?? 0) }}</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                                            {{ ucfirst((string) ($form->sidebar_group ?? 'president')) }}
+                                        </p>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                                         {{ $form->fields->count() }} fields / {{ $form->templates->count() }} templates

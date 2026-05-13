@@ -10,6 +10,7 @@ use App\Models\Organization\OrganizationDetail;
 use App\Models\Post;
 use App\Models\Request;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\Sequence;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -63,8 +64,22 @@ class OrganizationFactory extends Factory
                     'detail' => $detailId,
                 ]);
 
-                Post::factory()->count(6)->forOrganization($organizationId)->create();
-                Post::factory()->count(2)->featured()->forOrganization($organizationId)->create();
+                Post::factory()
+                    ->count(10)
+                    ->forOrganization($organizationId)
+                    ->state(new Sequence(function (Sequence $sequence) {
+                        $isFeatured = in_array($sequence->index, [1, 6], true);
+                        $hasImage = ($sequence->index + 1) % 4 === 0;
+
+                        return [
+                            'is_featured' => $isFeatured,
+                            'published_at' => $isFeatured
+                                ? fake()->dateTimeBetween('-14 days', 'now')
+                                : fake()->dateTimeBetween('-2 months', 'now'),
+                            'image_path' => $hasImage ? PostFactory::randomImagePath() : null,
+                        ];
+                    }))
+                    ->create();
 
                 // Create Events
                 // Event::factory()->count(20)->create([

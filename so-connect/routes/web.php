@@ -150,13 +150,15 @@ Route::post('/forms/manage', [FormWorkflowController::class, 'storeTemplate'])
     ->middleware('auth')
     ->name('forms.manage.store');
 
-Route::get('/forms/request-generation', [FormWorkflowController::class, 'requestGenerationPage'])
+Route::get('/forms/{formId}', [FormWorkflowController::class, 'showFormPage'])
+    ->whereNumber('formId')
     ->middleware('auth')
-    ->name('forms.request-generation');
+    ->name('forms.show');
 
-Route::post('/forms/request-generation', [FormWorkflowController::class, 'storeGenerationRequest'])
+Route::post('/forms/{formId}', [FormWorkflowController::class, 'submitFormPage'])
+    ->whereNumber('formId')
     ->middleware('auth')
-    ->name('forms.request-generation.store');
+    ->name('forms.submit');
 
 Route::get('/generated-documents', [FormWorkflowController::class, 'generatedDocuments'])
     ->middleware('auth')

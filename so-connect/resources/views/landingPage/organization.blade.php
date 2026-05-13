@@ -98,7 +98,8 @@
                                     <div>
                                         <p
                                             class="mb-2 border-b border-slate-200 pb-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
-                                            {{ $typeName }}</p>
+                                            {{ $typeName }}
+                                        </p>
                                         <ul class="space-y-1 text-sm">
                                             @foreach ($organizationsByType[$typeKey] as $menuOrganization)
                                                 <li>
@@ -152,6 +153,12 @@
         <section class="mt-8 space-y-4">
             @forelse ($posts as $post)
                 <article class="rounded-2xl border border-slate-200 bg-[color:var(--card-bg)] p-5 shadow-sm">
+                    @if (!empty($post->image_path))
+                        <div class="mb-4 overflow-hidden rounded-xl border border-emerald-100 bg-white shadow-sm">
+                            <img src="{{ asset($post->image_path) }}" alt="{{ $post->title }}" class="h-48 w-full object-cover"
+                                loading="lazy">
+                        </div>
+                    @endif
                     <div class="flex items-center justify-between gap-3">
                         <span
                             class="text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--brand-ocean)]">{{ $post->tag ?? 'Update' }}</span>

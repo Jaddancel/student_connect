@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta name="description" content="" />
     <meta name="author" content="" />
-    <title>Agency - Start Bootstrap Theme</title>
+    <title>SoConnect</title>
     <!-- Favicon-->
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
     <!-- Font Awesome icons (free version)-->
@@ -15,10 +15,20 @@
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700" rel="stylesheet" type="text/css" />
     <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:400,100,300,700" rel="stylesheet" type="text/css" />
     <!-- Core theme CSS (includes Bootstrap)-->
-    <link href="css/styles.css" rel="stylesheet" />
+    @vite(['resources/css/landingPage.css'])
 </head>
 
-<body id="page-top">
+<body id="page-top" class="landing-page">
+    @php
+        $organizationSlugMap = collect($organizationsByType)
+            ->flatten(1)
+            ->mapWithKeys(fn($organization) => [$organization['id'] => $organization['slug']])
+            ->all();
+
+        // Step 1: Define the hero image URL with safe encoding for the space
+        $heroImageUrl = asset('images/sample-images/' . rawurlencode('autumn aspen.jpg'));
+    @endphp
+
     <!-- Navigation-->
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top" id="mainNav">
         <div class="container">
@@ -31,141 +41,31 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarResponsive">
                 <ul class="navbar-nav text-uppercase py-4 py-lg-0">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#academic" data-bs-toggle="dropdown">Academic</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#!">Association of Future Psychologists</a></li>
-                            <li><a class="dropdown-item" href="#!">Association of Geodetic Engineering Students</a></li>
-                            <li><a class="dropdown-item" href="#!">Agribusiness Society</a></li>
-                            <li><a class="dropdown-item" href="#!">Communicators Bridging Opportunities Through
-                                    Leadership</a></li>
-                            <li><a class="dropdown-item" href="#!">Crop Science Society Organization</a></li>
-                            <li><a class="dropdown-item" href="#!">Clinicians Club</a></li>
-                            <li><a class="dropdown-item" href="#!">Tau-Economics Society</a></li>
-                            <li><a class="dropdown-item" href="#!">Forestry Student Organization</a></li>
-                            <li><a class="dropdown-item" href="#!">Junior Marketing Society</a></li>
-                            <li><a class="dropdown-item" href="#!">League of Animal Science Students</a></li>
-                            <li><a class="dropdown-item" href="#!">Pre-Service Teacher's Organization</a></li>
-                            <li><a class="dropdown-item" href="#!">Philippine Society of Agricultural and Biosystems
-                                    Engineers</a></li>
-                            <li><a class="dropdown-item" href="#!">Philippine Association of Food Technologists – Tau
-                                    Chapter</a></li>
-                            <li><a class="dropdown-item" href="#!">Society of Early Childhood Educators</a></li>
-                            <li><a class="dropdown-item" href="#!">Society of Human Resource Management Students</a>
+                    @foreach ($organizationTypes as $typeKey => $typeName)
+                        @if (!empty($organizationsByType[$typeKey]))
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" role="button"
+                                    aria-expanded="false">{{ $typeName }}</a>
+                                <ul class="dropdown-menu">
+                                    @foreach ($organizationsByType[$typeKey] as $menuOrganization)
+                                        <li>
+                                            <a class="dropdown-item"
+                                                href="{{ route('organization-feed', ['organizationId' => $menuOrganization['id'], 'slug' => $menuOrganization['slug']]) }}">
+                                                {{ $menuOrganization['name'] }}
+                                            </a>
+                                        </li>
+                                    @endforeach
+                                </ul>
                             </li>
-                            <li><a class="dropdown-item" href="#!">Student's Society on Information Technology
-                                    Education</a></li>
-                            <li><a class="dropdown-item" href="#!">The Executives</a></li>
-                            <li><a class="dropdown-item" href="#!">Tomorrow's Elementary Educators Association for
-                                    Change</a></li>
-                            <li><a class="dropdown-item" href="#!">Tourism Society</a></li>
-                            <li><a class="dropdown-item" href="#!">Tau Mathematical Society</a></li>
-                            <li><a class="dropdown-item" href="#!">Young Entrepreneurs Society</a></li>
-                            <li><a class="dropdown-item" href="#!">Federation of Future Secondary Educators</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#socio-civic"
-                            data-bs-toggle="dropdown">Socio-Civic</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#!">Buklod-Lahi</a></li>
-                            <li><a class="dropdown-item" href="#!">Ecological and Solid Waste Management Society</a>
-                            </li>
-                            <li><a class="dropdown-item" href="#!">3D Sighters</a></li>
-                            <li><a class="dropdown-item" href="#!">Tau Bulalayaw</a></li>
-                            <li><a class="dropdown-item" href="#!">Tau – Red Cross Youth Council</a></li>
-                            <li><a class="dropdown-item" href="#!">Ladies' Dormitory Organization</a></li>
-                            <li><a class="dropdown-item" href="#!">Men's Dormitory Organization</a></li>
-                            <li><a class="dropdown-item" href="#!">Mulat Tau Debate Society</a></li>
-                            <li><a class="dropdown-item" href="#!">Ranchers' Club Philippines – Tau Chapter</a></li>
-                            <li><a class="dropdown-item" href="#!">Rodeo Club</a></li>
-                            <li><a class="dropdown-item" href="#!">Tau Peer Ambassadors</a></li>
-                            <li><a class="dropdown-item" href="#!">Veterinary Student Achiever's Society</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#religious" data-bs-toggle="dropdown">Religious</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#!">Campus Movers for Christ</a></li>
-                            <li><a class="dropdown-item" href="#!">Christian Brotherhood International – Tau Chapter</a>
-                            </li>
-                            <li><a class="dropdown-item" href="#!">Latter-Day Saint Student Association</a></li>
-                            <li><a class="dropdown-item" href="#!">Student Catholic Action of the Philippines Tau
-                                    Unit</a></li>
-                            <li><a class="dropdown-item" href="#!">Daniel Generation</a></li>
-                            <li><a class="dropdown-item" href="#!">Tau – Lakas Angkan – Youth Fellowship (LAYF)</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#frats" data-bs-toggle="dropdown">Frats &amp;
-                            Sororities</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#!">Alpha Phi Omega</a></li>
-                            <li><a class="dropdown-item" href="#!">Alpha Kappa Rho</a></li>
-                            <li><a class="dropdown-item" href="#!">Tau Gamma Phi/Sigma</a></li>
-                            <li><a class="dropdown-item" href="#!">Gamma Sigma Scorpions (Vermillion Chapter)</a></li>
-                            <li><a class="dropdown-item" href="#!">United Ilocandia</a></li>
-                            <li><a class="dropdown-item" href="#!">Confederation of Samahang Ilocano</a></li>
-                            <li><a class="dropdown-item" href="#!">Genuine Ilocano Brotherhood and Auxiliary
-                                    Sorority</a></li>
-                            <li><a class="dropdown-item" href="#!">Venerable Knight Veterinarians/Venerable Lady
-                                    Veterinarians</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#special-interest" data-bs-toggle="dropdown">Special
-                            Interest</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#!">LS – Agriculture and Homemaking Club</a></li>
-                            <li><a class="dropdown-item" href="#!">LS – Arts Club</a></li>
-                            <li><a class="dropdown-item" href="#!">LS – Boy Scout of the Philippines</a></li>
-                            <li><a class="dropdown-item" href="#!">LS – Drum and Lyre Corps</a></li>
-                            <li><a class="dropdown-item" href="#!">LS – Filipino Club</a></li>
-                            <li><a class="dropdown-item" href="#!">LS – Glee Club</a></li>
-                            <li><a class="dropdown-item" href="#!">LS – Girl Scout of the Philippines</a></li>
-                            <li><a class="dropdown-item" href="#!">LS – Math Club</a></li>
-                            <li><a class="dropdown-item" href="#!">LS – Rondalla Club</a></li>
-                            <li><a class="dropdown-item" href="#!">LS – Science Club</a></li>
-                            <li><a class="dropdown-item" href="#!">LS – Social Science Club</a></li>
-                            <li><a class="dropdown-item" href="#!">LS – Speech and Debate Society</a></li>
-                            <li><a class="dropdown-item" href="#!">LS – Sports Club</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#student-gov" data-bs-toggle="dropdown">Student
-                            Gov</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#!">College of Agriculture and Forestry – Student
-                                    Council</a></li>
-                            <li><a class="dropdown-item" href="#!">College of Arts and Sciences – Student Council</a>
-                            </li>
-                            <li><a class="dropdown-item" href="#!">College of Business and Management – Student
-                                    Council</a></li>
-                            <li><a class="dropdown-item" href="#!">College of Education – Student Council</a></li>
-                            <li><a class="dropdown-item" href="#!">College of Engineering and Technology – Student
-                                    Council</a></li>
-                            <li><a class="dropdown-item" href="#!">College of Veterinary Medicine – Student Council</a>
-                            </li>
-                            <li><a class="dropdown-item" href="#!">Laboratory School – Student Council</a></li>
-                            <li><a class="dropdown-item" href="#!">Supreme Student Council</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#sanctioned" data-bs-toggle="dropdown">Sanctioned</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#!">Golden Harvest</a></li>
-                            <li><a class="dropdown-item" href="#!">Reserved Officers Training Corps</a></li>
-                            <li><a class="dropdown-item" href="#!">Performing Guild</a></li>
-                            <li><a class="dropdown-item" href="#!">Chorale</a></li>
-                            <li><a class="dropdown-item" href="#!">A.K.D.A.</a></li>
-                        </ul>
-                    </li>
+                        @endif
+                    @endforeach
                 </ul>
             </div>
         </div>
     </nav>
     <!-- Masthead-->
-    <header class="masthead">
+    <header class="masthead"
+        style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('{{ $heroImageUrl }}');">
         <div class="container">
             <div class="masthead-subheading">Welcome to SO Connect!</div>
             <div class="masthead-heading text-uppercase">Find Your Community</div>
@@ -180,40 +80,57 @@
                 <h3 class="section-subheading text-muted">Discover the different avenues for student involvement on
                     campus.</h3>
             </div>
+            @php
+                $clusterMeta = [
+                    1 => [
+                        'icon' => 'hands-helping',
+                        'description' => 'Engage in community service, environmental advocacy, and social awareness campaigns.',
+                    ],
+                    2 => [
+                        'icon' => 'praying-hands',
+                        'description' => 'Connect with faith-centered communities and events that nurture shared values.',
+                    ],
+                    3 => [
+                        'icon' => 'user-friends',
+                        'description' => 'Build lifelong bonds through brotherhood, sisterhood, and shared traditions.',
+                    ],
+                    4 => [
+                        'icon' => 'palette',
+                        'description' => 'Explore creativity, hobbies, and special interests beyond the classroom.',
+                    ],
+                    5 => [
+                        'icon' => 'university',
+                        'description' => 'Join university-backed groups that represent campus pride and tradition.',
+                    ],
+                    6 => [
+                        'icon' => 'landmark',
+                        'description' => 'Lead student initiatives and represent your peers across university councils.',
+                    ],
+                ];
+            @endphp
             <div class="row text-center">
-                <!-- Academic Cluster -->
-                <div class="col-md-4 mb-4">
-                    <span class="fa-stack fa-4x">
-                        <i class="fas fa-circle fa-stack-2x text-primary"></i>
-                        <!-- Changed to a book icon -->
-                        <i class="fas fa-book-open fa-stack-1x fa-inverse"></i>
-                    </span>
-                    <h4 class="my-3">Academic</h4>
-                    <p class="text-muted">Enhance your degree with course-related organizations, seminars, and peer
-                        networking tailored to your major.</p>
-                </div>
-                <!-- Socio-Civic Cluster -->
-                <div class="col-md-4 mb-4">
-                    <span class="fa-stack fa-4x">
-                        <i class="fas fa-circle fa-stack-2x text-primary"></i>
-                        <!-- Changed to a helping hands icon -->
-                        <i class="fas fa-hands-helping fa-stack-1x fa-inverse"></i>
-                    </span>
-                    <h4 class="my-3">Socio-Civic</h4>
-                    <p class="text-muted">Engage in community service, environmental advocacy, and social awareness
-                        campaigns to make a real-world impact.</p>
-                </div>
-                <!-- Student Gov Cluster -->
-                <div class="col-md-4 mb-4">
-                    <span class="fa-stack fa-4x">
-                        <i class="fas fa-circle fa-stack-2x text-primary"></i>
-                        <!-- Changed to a landmark icon -->
-                        <i class="fas fa-landmark fa-stack-1x fa-inverse"></i>
-                    </span>
-                    <h4 class="my-3">Student Gov</h4>
-                    <p class="text-muted">Develop leadership skills and represent the student body across different
-                        colleges and university councils.</p>
-                </div>
+                @foreach ($organizationTypes as $typeKey => $typeName)
+                    @if (!empty($organizationsByType[$typeKey]))
+                        @php
+                            $meta = $clusterMeta[$typeKey] ?? [
+                                'icon' => 'users',
+                                'description' => 'Connect with student leaders, mentors, and campus-wide opportunities.',
+                            ];
+                        @endphp
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="cluster-card text-center">
+                                <div class="cluster-icon-wrap">
+                                    <span class="fa-stack fa-4x">
+                                        <i class="fas fa-circle fa-stack-2x text-primary"></i>
+                                        <i class="fas fa-{{ $meta['icon'] }} fa-stack-1x fa-inverse"></i>
+                                    </span>
+                                </div>
+                                <h4 class="my-3">{{ $typeName }}</h4>
+                                <p class="text-muted">{{ $meta['description'] }}</p>
+                            </div>
+                        </div>
+                    @endif
+                @endforeach
             </div>
         </div>
     </section>
@@ -224,54 +141,89 @@
                 <h2 class="section-heading text-uppercase">Featured Organizations</h2>
                 <h3 class="section-subheading text-muted">Get a glimpse of our vibrant student life.</h3>
             </div>
-            <div class="row">
-                <!-- Org item 1-->
-                <div class="col-lg-4 col-sm-6 mb-4">
-                    <div class="portfolio-item">
-                        <a class="portfolio-link" data-bs-toggle="modal" href="#portfolioModal1">
-                            <div class="portfolio-hover">
-                                <div class="portfolio-hover-content"><i class="fas fa-plus fa-3x"></i></div>
-                            </div>
-                            <!-- Replace with an actual image of the org -->
-                            <img class="img-fluid" src="assets/img/portfolio/1.jpg" alt="AFP Members" />
-                        </a>
-                        <div class="portfolio-caption">
-                            <div class="portfolio-caption-heading">Assoc. of Future Psychologists</div>
-                            <div class="portfolio-caption-subheading text-muted">Academic</div>
+            @if ($topFeed->isEmpty())
+                <div class="empty-state">No featured organizations yet. Check back soon for updates.</div>
+            @else
+                <div class="row g-4">
+                    @foreach ($topFeed as $organization)
+                        @php
+                            $orgInitials = collect(preg_split('/\s+/', $organization['name']))
+                                ->filter(fn($word) => strlen($word) > 2)
+                                ->take(2)
+                                ->map(fn($word) => strtoupper($word[0]))
+                                ->implode('');
+                        @endphp
+                        <div class="col-md-6 col-lg-4">
+                            <article class="feature-card">
+                                <a class="feature-card-link"
+                                    href="{{ route('organization-feed', ['organizationId' => $organization['id'], 'slug' => $organization['slug']]) }}">
+                                    <div class="feature-card-media">
+                                        @if (!empty($organization['logo_url']))
+                                            <img class="feature-card-image" src="{{ $organization['logo_url'] }}"
+                                                alt="{{ $organization['name'] }} logo" loading="lazy" />
+                                        @else
+                                            <div class="feature-card-initials">{{ $orgInitials }}</div>
+                                        @endif
+                                    </div>
+                                    <span class="feature-card-tag">{{ $organization['announcement_tag'] }}</span>
+                                    <h4 class="feature-card-title">{{ $organization['announcement_title'] }}</h4>
+                                    <p class="feature-card-text">{{ $organization['announcement_excerpt'] }}</p>
+                                    <div class="feature-card-footer">
+                                        <span>{{ $organization['name'] }}</span>
+                                        <span>{{ $organization['announcement_time'] }}</span>
+                                    </div>
+                                </a>
+                            </article>
                         </div>
-                    </div>
+                    @endforeach
                 </div>
-                <!-- Org item 2-->
-                <div class="col-lg-4 col-sm-6 mb-4">
-                    <div class="portfolio-item">
-                        <a class="portfolio-link" data-bs-toggle="modal" href="#portfolioModal2">
-                            <div class="portfolio-hover">
-                                <div class="portfolio-hover-content"><i class="fas fa-plus fa-3x"></i></div>
-                            </div>
-                            <img class="img-fluid" src="assets/img/portfolio/2.jpg" alt="Buklod-Lahi" />
-                        </a>
-                        <div class="portfolio-caption">
-                            <div class="portfolio-caption-heading">Buklod-Lahi</div>
-                            <div class="portfolio-caption-subheading text-muted">Socio-Civic</div>
-                        </div>
-                    </div>
-                </div>
-                <!-- Org item 3-->
-                <div class="col-lg-4 col-sm-6 mb-4">
-                    <div class="portfolio-item">
-                        <a class="portfolio-link" data-bs-toggle="modal" href="#portfolioModal3">
-                            <div class="portfolio-hover">
-                                <div class="portfolio-hover-content"><i class="fas fa-plus fa-3x"></i></div>
-                            </div>
-                            <img class="img-fluid" src="assets/img/portfolio/3.jpg" alt="Chorale" />
-                        </a>
-                        <div class="portfolio-caption">
-                            <div class="portfolio-caption-heading">University Chorale</div>
-                            <div class="portfolio-caption-subheading text-muted">Sanctioned</div>
-                        </div>
-                    </div>
-                </div>
+            @endif
+        </div>
+    </section>
+    <!-- Featured Posts -->
+    <section class="page-section" id="featured-posts">
+        <div class="container">
+            <div class="text-center">
+                <h2 class="section-heading text-uppercase">Featured Posts</h2>
+                <h3 class="section-subheading text-muted">Highlights from student organization announcements.</h3>
             </div>
+            @if ($featuredPosts->isEmpty())
+                <div class="empty-state">No featured posts yet. New updates will appear here soon.</div>
+            @else
+                <div class="row g-4">
+                    @foreach ($featuredPosts as $post)
+                        @php
+                            $organizationName = $organizationNameMap[$post->organization] ?? 'Unknown Organization';
+                            $organizationSlug = $organizationSlugMap[$post->organization] ?? null;
+                        @endphp
+                        <div class="col-md-6 col-lg-4">
+                            <article class="post-card">
+                                @if (!empty($post->image_path))
+                                    <div class="post-card-media">
+                                        <img src="{{ asset($post->image_path) }}" alt="{{ $post->title }}" loading="lazy" />
+                                    </div>
+                                @endif
+                                <div class="post-card-body">
+                                    <div class="post-card-meta">
+                                        <span>{{ $post->tag ?? 'Update' }}</span>
+                                        <span>
+                                            {{ $post->published_at?->format('M d, Y') ?? $post->created_at?->format('M d, Y') }}
+                                        </span>
+                                    </div>
+                                    <h4 class="post-card-title">{{ $post->title }}</h4>
+                                    <p class="post-card-text">{{ $post->excerpt }}</p>
+                                    <div class="post-card-footer">
+                                        <span>{{ $organizationName }}</span>
+                                        <a
+                                            href="{{ route('organization-feed', ['organizationId' => $post->organization, 'slug' => $organizationSlug]) }}">View
+                                            feed</a>
+                                    </div>
+                                </div>
+                            </article>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </div>
     </section>
     <!-- Upcoming Events (NEW) -->
@@ -395,7 +347,7 @@
             <!-- Bootstrap core JS-->
             <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js"></script>
             <!-- Core theme JS-->
-            <script src="js/scripts.js"></script>
+            @vite(['resources/js/scripts.js'])
             <!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *-->
             <!-- * *                               SB Forms JS                               * *-->
             <!-- * * Activate your form at https://startbootstrap.com/solution/contact-forms * *-->
