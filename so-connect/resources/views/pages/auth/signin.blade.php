@@ -58,13 +58,26 @@
                             <form action="/login" method="post">
                                 @csrf
                                 <div class="space-y-5">
+
+                                    @if ($errors->has('user_email'))
+                                        <div class="flex items-start gap-3 rounded-lg border border-error-300 bg-error-50 px-4 py-3 dark:border-error-500/40 dark:bg-error-500/10">
+                                            <svg class="mt-0.5 h-4 w-4 shrink-0 text-error-500 dark:text-error-400" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" clip-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-11.25a.75.75 0 011.5 0v4a.75.75 0 01-1.5 0v-4zm.75 7a1 1 0 100-2 1 1 0 000 2z" />
+                                            </svg>
+                                            <p class="text-sm text-error-700 dark:text-error-400">
+                                                {{ $errors->first('user_email') }}
+                                            </p>
+                                        </div>
+                                    @endif
+
                                     <!-- Email -->
                                     <div>
                                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                             Email<span class="text-error-500">*</span>
                                         </label>
                                         <input type="email" id="email" name="user_email" placeholder="info@gmail.com"
-                                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
+                                            value="{{ old('user_email') }}"
+                                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 {{ $errors->has('user_email') ? 'border-error-400 dark:border-error-500' : 'border-gray-300 dark:border-gray-700' }}" />
                                     </div>
                                     <!-- Password -->
                                     <div>

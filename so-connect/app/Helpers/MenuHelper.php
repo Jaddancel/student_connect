@@ -66,6 +66,14 @@ class MenuHelper
             $menuGroups[2]['items'][] = ['icon' => 'forms', 'name' => 'Manage Document Forms', 'path' => '/forms/manage'];
         }
 
+        $isPresident = $user->memberships()
+            ->whereHas('officers', fn ($q) => $q->where('role', 'president'))
+            ->exists();
+
+        if ($isPresident) {
+            $menuGroups[2]['items'][] = ['icon' => 'forms', 'name' => 'Student Leader Directory', 'path' => '/forms/student-leader-directory'];
+        }
+
         if ((int) $user->user_type === 1) {
             $menuGroups[2]['items'][] = ['icon' => 'charts', 'name' => 'Dashboard Builder', 'path' => '/superadmin/dashboard-builder'];
             $menuGroups[2]['items'][] = ['icon' => 'forms', 'name' => 'Request Types', 'path' => '/superadmin/request-types'];

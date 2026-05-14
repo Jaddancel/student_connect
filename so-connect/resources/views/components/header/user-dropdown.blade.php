@@ -5,6 +5,39 @@
     $l_name = $profile?->last_name ?? '';
     $displayName = trim($f_name . ' ' . $l_name);
     $userEmail = $authUser?->user_email ?? '';
+
+    $roleLabel = 'Member';
+    $roleBadgeClass = 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
+
+    if ($authUser) {
+        $userType = (int) $authUser->user_type;
+
+        if ($userType === 1) {
+            $roleLabel = 'Superadmin';
+            $roleBadgeClass = 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400';
+        } elseif ($userType === 2) {
+            $roleLabel = 'Admin';
+            $roleBadgeClass = 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400';
+        } else {
+            $isPresident = $authUser->memberships()
+                ->whereHas('officers', fn ($q) => $q->where('role', 'president'))
+                ->exists();
+
+            if ($isPresident) {
+                $roleLabel = 'President';
+                $roleBadgeClass = 'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-400';
+            } else {
+                $isOfficer = $authUser->memberships()
+                    ->whereHas('officers', fn ($q) => $q->where('role', 'officer'))
+                    ->exists();
+
+                if ($isOfficer) {
+                    $roleLabel = 'Officer';
+                    $roleBadgeClass = 'bg-warning-100 text-warning-700 dark:bg-warning-500/20 dark:text-warning-400';
+                }
+            }
+        }
+    }
 @endphp
 
 <div class="relative" x-data="{
@@ -22,6 +55,10 @@
             class="mr-3" />
 
         <span class="block mr-1 font-medium text-theme-sm">{{ $f_name }}</span>
+
+        <span class="mr-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {{ $roleBadgeClass }}">
+            {{ $roleLabel }}
+        </span>
 
         <!-- Chevron Icon -->
         <svg class="w-5 h-5 transition-transform duration-200" :class="{ 'rotate-180': dropdownOpen }" fill="none"

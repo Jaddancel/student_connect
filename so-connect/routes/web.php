@@ -137,6 +137,10 @@ Route::get('/manage-organization', [OrganizationController::class, 'manage'])
     ->middleware('auth')
     ->name('manage-organization');
 
+Route::get('/forms/student-leader-directory', function () {
+    return view('pages.form.student-leader-directory', ['title' => 'Directory of Student Leader']);
+})->middleware(['auth', 'role.president'])->name('student-leader-directory');
+
 Route::get('/forms/manage', [FormWorkflowController::class, 'manageForms'])
     ->middleware(['auth', 'admin'])
     ->name('forms.manage');
