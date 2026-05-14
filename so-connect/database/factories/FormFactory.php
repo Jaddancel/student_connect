@@ -20,6 +20,7 @@ class FormFactory extends Factory
         return [
             'name' => fake()->words(3, true),
             'description_text' => fake()->sentence(),
+            'request_type_id' => null,
             'organization_id' => null,
             'created_by' => null,
             'is_active' => true,

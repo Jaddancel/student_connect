@@ -2,18 +2,22 @@
 
 use App\Helpers\MenuHelper;
 use App\Helpers\FormTemplateHelper;
+use App\Models\Form\FormDescription;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\GeneratedDocument;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Request as ActionRequest;
+use App\Models\RequestType;
 use App\Models\Template;
+use App\Models\Template\TemplateDescription;
 use App\Models\User;
 use App\Services\DocumentGenerationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
 
 uses(RefreshDatabase::class);
 
@@ -60,10 +64,38 @@ function assignDocumentWorkflowOfficerRole(User $user, int $organizationId, stri
     ]);
 }
 
+function createTempDocx(array $placeholders): string
+{
+    $docxPath = tempnam(sys_get_temp_dir(), 'docx_');
+
+    if ($docxPath === false) {
+        throw new RuntimeException('Unable to create a temporary DOCX path.');
+    }
+
+    unlink($docxPath);
+
+    $zip = new ZipArchive();
+    expect($zip->open($docxPath, ZipArchive::CREATE | ZipArchive::OVERWRITE))->toBeTrue();
+
+    $placeholderXml = collect($placeholders)
+        ->map(fn (string $placeholder) => '{{'.$placeholder.'}}')
+        ->map(fn (string $placeholder) => '<w:r><w:t>'.$placeholder.'</w:t></w:r>')
+        ->implode('');
+
+    $zip->addFromString('word/document.xml', '<?xml version="1.0" encoding="UTF-8"?><w:document><w:body><w:p>'.$placeholderXml.'</w:p></w:body></w:document>');
+    $zip->close();
+
+    return $docxPath;
+}
+
 if (! function_exists('documentMenuGroupsContain')) {
     function documentMenuGroupsContain(array $groups, string $itemName): bool
     {
         foreach ($groups as $group) {
+            if (($group['title'] ?? null) === $itemName) {
+                return true;
+            }
+
             foreach (($group['items'] ?? []) as $item) {
                 if (($item['name'] ?? null) === $itemName) {
                     return true;
@@ -88,10 +120,6 @@ it('limits form management routes to superadmins', function () {
         ->get('/forms/manage')
         ->assertForbidden();
 
-    $this->actingAs($member)
-        ->get('/upload-forms')
-        ->assertForbidden();
-
     $superAdmin = User::query()->create([
         'user_email' => 'doc-superadmin-form-access@example.test',
         'user_password' => 'password',
@@ -102,12 +130,9 @@ it('limits form management routes to superadmins', function () {
     $this->actingAs($superAdmin)
         ->get('/forms/manage')
         ->assertOk()
-        ->assertSee('Manage Document Forms');
-
-    $this->actingAs($superAdmin)
-        ->get('/upload-forms')
-        ->assertOk()
-        ->assertSee('Upload Forms');
+        ->assertSee('Manage Document Forms')
+            ->assertSee('value="president"', false)
+            ->assertSee('Role Level');
 });
 
 it('shows form management links only to superadmins in the menu', function () {
@@ -118,7 +143,6 @@ it('shows form management links only to superadmins in the menu', function () {
     $memberGroups = MenuHelper::getMenuGroups();
 
     expect(documentMenuGroupsContain($memberGroups, 'Manage Document Forms'))->toBeFalse()
-        ->and(documentMenuGroupsContain($memberGroups, 'Upload Documents'))->toBeFalse()
         ->and(documentMenuGroupsContain($memberGroups, 'My Documents'))->toBeTrue();
 
     $superAdmin = User::query()->create([
@@ -133,7 +157,122 @@ it('shows form management links only to superadmins in the menu', function () {
     $superAdminGroups = MenuHelper::getMenuGroups();
 
     expect(documentMenuGroupsContain($superAdminGroups, 'Manage Document Forms'))->toBeTrue()
-        ->and(documentMenuGroupsContain($superAdminGroups, 'Upload Documents'))->toBeTrue();
+        ->and(documentMenuGroupsContain($superAdminGroups, 'Upload Documents'))->toBeFalse();
+});
+
+it('allows creating a form for all organizations', function () {
+    Storage::fake('public');
+
+    $superAdmin = User::query()->create([
+        'user_email' => 'doc-superadmin-global-form@example.test',
+        'user_password' => 'password',
+        'user_type' => 1,
+        'profile' => null,
+    ]);
+
+    $requestType = app(App\Services\RequestTypeService::class)->resolveSystemType(
+        App\Models\RequestType::SYSTEM_KEY_FORM_GENERATION,
+        'Global Form Request',
+        App\Models\RequestType::CATEGORY_ORGANIZATION,
+        (int) $superAdmin->getKey(),
+    );
+
+    $docxPath = createTempDocx(['all_members']);
+
+    try {
+        $this->actingAs($superAdmin)
+            ->get('/forms/manage')
+            ->assertOk()
+            ->assertSee('All organizations');
+
+        $this->actingAs($superAdmin)
+            ->post('/forms/manage', [
+                'name' => 'Global Form',
+                'description_text' => 'Available across all organizations',
+                'sidebar_group' => 'president',
+                'request_type_id' => (int) $requestType->getKey(),
+                'organization_id' => '',
+                'is_published' => 1,
+                'template_file' => new UploadedFile($docxPath, 'global-form.docx', null, null, true),
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('forms', [
+            'name' => 'Global Form',
+            'organization_id' => null,
+            'sidebar_group' => 'president',
+        ]);
+
+        $this->actingAs($superAdmin);
+
+        $menuGroups = MenuHelper::getMenuGroups();
+
+        expect(documentMenuGroupsContain($menuGroups, RequestType::categoryLabelForContext(RequestType::CATEGORY_ORGANIZATION, 'forms')))->toBeTrue()
+            ->and(documentMenuGroupsContain($menuGroups, 'Available Forms'))->toBeFalse()
+            ->and(documentMenuGroupsContain($menuGroups, 'Global Form'))->toBeTrue();
+    } finally {
+        @unlink($docxPath);
+    }
+});
+
+it('maps request type categories to matching sidebar buckets', function () {
+    Storage::fake('public');
+
+    $superAdmin = User::query()->create([
+        'user_email' => 'doc-superadmin-sidebar-mapping@example.test',
+        'user_password' => 'password',
+        'user_type' => 1,
+        'profile' => null,
+    ]);
+
+    $cases = [
+        [RequestType::CATEGORY_ORGANIZATION, 'Organization Request Form', 'mapping_organization_request'],
+        [RequestType::CATEGORY_EVENT, 'Event Request Form', 'mapping_event_request'],
+        [RequestType::CATEGORY_ROLE_SECURITY, 'Role Security Request Form', 'mapping_role_security_request'],
+    ];
+
+    foreach ($cases as [$category, $requestTypeName, $systemKey]) {
+        $docxPath = createTempDocx(['all_members']);
+
+        $requestType = RequestType::query()->create([
+            'system_key' => $systemKey,
+            'name' => $requestTypeName,
+            'category' => $category,
+            'created_by' => (int) $superAdmin->getKey(),
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->post('/forms/manage', [
+                'name' => $requestTypeName,
+                'description_text' => 'Category bucket mapping test',
+                'sidebar_group' => 'president',
+                'request_type_id' => (int) $requestType->getKey(),
+                'organization_id' => '',
+                'is_published' => 1,
+                'template_file' => new UploadedFile($docxPath, 'sidebar-bucket.docx', null, null, true),
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('forms', [
+            'name' => $requestTypeName,
+            'organization_id' => null,
+            'sidebar_group' => 'president',
+        ]);
+
+        @unlink($docxPath);
+    }
+
+    $this->actingAs($superAdmin);
+
+    $menuGroups = MenuHelper::getMenuGroups();
+
+    expect(documentMenuGroupsContain($menuGroups, RequestType::categoryLabelForContext(RequestType::CATEGORY_ORGANIZATION, 'forms')))->toBeTrue()
+        ->and(documentMenuGroupsContain($menuGroups, RequestType::categoryLabelForContext(RequestType::CATEGORY_EVENT, 'forms')))->toBeTrue()
+        ->and(documentMenuGroupsContain($menuGroups, RequestType::categoryLabelForContext(RequestType::CATEGORY_ROLE_SECURITY, 'forms')))->toBeTrue()
+        ->and(documentMenuGroupsContain($menuGroups, 'Available Forms'))->toBeFalse();
 });
 
 it('shows form upload requests in the approval queue for presidents', function () {
@@ -525,4 +664,88 @@ it('creates a document access request when another user tries to download a gene
         ),
         'user' => (int) $requester->getKey(),
     ]);
+});
+
+it('renders and submits numbered multiple input fields as arrays', function () {
+    $president = createDocumentWorkflowUserWithProfile('doc-multiple-input-president@example.test');
+
+    $organization = Organization::query()->create([
+        'organization_type' => 1,
+        'detail' => null,
+    ]);
+
+    assignDocumentWorkflowOfficerRole($president, (int) $organization->getKey(), 'president');
+
+    $requestType = app(App\Services\RequestTypeService::class)->resolveSystemType(
+        RequestType::SYSTEM_KEY_FORM_GENERATION,
+        'Multi Input Form Request',
+        RequestType::CATEGORY_ORGANIZATION,
+        (int) $president->getKey(),
+    );
+
+    $form = Form::query()->create([
+        'name' => 'Team Roster Form',
+        'description_text' => 'Roster request form',
+        'request_type_id' => (int) $requestType->getKey(),
+        'organization_id' => (int) $organization->getKey(),
+        'created_by' => (int) $president->getKey(),
+        'is_active' => true,
+        'is_published' => true,
+    ]);
+
+    $field = FormDescription::query()->create([
+        'form_id' => (int) $form->getKey(),
+        'field_key' => 'team_member',
+        'field_label' => 'Team Member',
+        'field_type' => 'multipleInputs',
+        'is_required' => true,
+        'field_order' => 0,
+        'placeholder_hint' => '{{team_member#}}',
+        'field_options' => null,
+    ]);
+
+    $template = Template::query()->create([
+        'form_id' => (int) $form->getKey(),
+        'organization_id' => (int) $organization->getKey(),
+        'uploaded_by' => (int) $president->getKey(),
+        'template_name' => 'Team Roster Template',
+        'docx_path' => 'form-templates/team-roster-template.docx',
+        'version' => 1,
+        'is_active' => true,
+    ]);
+
+    TemplateDescription::query()->create([
+        'template_id' => (int) $template->getKey(),
+        'form_description_id' => (int) $field->getKey(),
+        'placeholder_key' => 'team_member1',
+        'field_key' => 'team_member',
+        'is_required' => true,
+    ]);
+
+    TemplateDescription::query()->create([
+        'template_id' => (int) $template->getKey(),
+        'form_description_id' => (int) $field->getKey(),
+        'placeholder_key' => 'team_member2',
+        'field_key' => 'team_member',
+        'is_required' => true,
+    ]);
+
+    $this->actingAs($president)
+        ->get(route('forms.show', ['formId' => $form->getKey()]))
+        ->assertOk()
+        ->assertSee('Add Row')
+        ->assertSee('Use one row per Team Member# placeholder.');
+
+    $this->actingAs($president)
+        ->post(route('forms.submit', ['formId' => $form->getKey()]), [
+            'fields' => [
+                'team_member' => ['Alice', 'Bob'],
+            ],
+        ])
+        ->assertRedirect(route('forms.show', ['formId' => $form->getKey()]))
+        ->assertSessionHas('success');
+
+    $submission = FormSubmission::query()->latest('form_submission_id')->firstOrFail();
+
+    expect($submission->payload['team_member'] ?? null)->toBe(['Alice', 'Bob']);
 });

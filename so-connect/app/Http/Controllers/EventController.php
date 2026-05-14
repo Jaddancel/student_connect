@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Approval;
 use App\Models\Request as ActionRequest;
-use App\Services\ActionService;
+use App\Models\RequestType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -68,7 +68,7 @@ class EventController extends Controller
         return response()->json($events);
     }
 
-    public function storeEventRequest(Request $request, ActionService $actionService): JsonResponse
+    public function storeEventRequest(Request $request, \App\Services\RequestTypeService $requestTypeService): JsonResponse
     {
         $user = $request->user();
 
@@ -145,21 +145,39 @@ class EventController extends Controller
             ], 422);
         }
 
-        $actionRequest = $actionService->passAction([
-            'organization_id' => $organizationId,
-            'user_id' => $userId,
-            'event_name' => $validated['name'],
-            'event_start_time' => $validated['start_time'],
-            'event_end_time' => $validated['end_time'],
-            'event_desc_text' => $validated['desc_text'],
-            'event_location' => $validated['location'],
-        ], 2);
+        $requestType = $requestTypeService->resolveSystemType(
+            RequestType::SYSTEM_KEY_EVENT,
+            'Event Request',
+            RequestType::CATEGORY_EVENT,
+            $userId,
+        );
 
-        if (! $actionRequest) {
-            return response()->json([
-                'message' => 'Unable to submit event request.',
-            ], 500);
-        }
+        $actionRequest = ActionRequest::query()->create([
+            'action' => implode('|', [
+                $organizationId,
+                $userId,
+                $validated['name'],
+                $validated['start_time'],
+                $validated['end_time'],
+                $validated['desc_text'],
+                $validated['location'],
+            ]),
+            'action_type' => 2,
+            'request_type_id' => (int) $requestType->getKey(),
+            'organization_id' => $organizationId,
+            'requested_by' => $userId,
+            'payload' => [
+                'organization_id' => $organizationId,
+                'user_id' => $userId,
+                'name' => $validated['name'],
+                'location' => $validated['location'],
+                'desc_text' => $validated['desc_text'],
+                'start_time' => $validated['start_time'],
+                'end_time' => $validated['end_time'],
+            ],
+            'user' => $userId,
+            'requested_at' => now(),
+        ]);
 
         return response()->json([
             'message' => 'Event request submitted successfully.',

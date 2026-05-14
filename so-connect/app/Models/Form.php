@@ -8,24 +8,23 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\RequestType;
 
 class Form extends Model
 {
     /** @use HasFactory<\Database\Factories\FormFactory> */
     use HasFactory;
 
-    public const SIDEBAR_GROUP_GENERAL = 'general';
-    public const SIDEBAR_GROUP_MEMBER = 'member';
-    public const SIDEBAR_GROUP_OFFICER = 'officer';
-    public const SIDEBAR_GROUP_PRESIDENT = 'president';
-    public const SIDEBAR_GROUP_SUPERADMIN = 'superadmin';
+    public const ROLE_LEVEL_MEMBER = 'member';
+    public const ROLE_LEVEL_OFFICER = 'officer';
+    public const ROLE_LEVEL_PRESIDENT = 'president';
+    public const ROLE_LEVEL_SUPERADMIN = 'superadmin';
 
     public const SIDEBAR_GROUP_OPTIONS = [
-        self::SIDEBAR_GROUP_GENERAL,
-        self::SIDEBAR_GROUP_MEMBER,
-        self::SIDEBAR_GROUP_OFFICER,
-        self::SIDEBAR_GROUP_PRESIDENT,
-        self::SIDEBAR_GROUP_SUPERADMIN,
+        self::ROLE_LEVEL_MEMBER,
+        self::ROLE_LEVEL_OFFICER,
+        self::ROLE_LEVEL_PRESIDENT,
+        self::ROLE_LEVEL_SUPERADMIN,
     ];
 
     protected $table = 'forms';
@@ -33,6 +32,7 @@ class Form extends Model
     protected $fillable = [
         'name',
         'description_text',
+        'request_type_id',
         'sidebar_group',
         'organization_id',
         'created_by',
@@ -50,12 +50,37 @@ class Form extends Model
 
     public static function sidebarGroupOptions(): array
     {
-        return array_combine(self::SIDEBAR_GROUP_OPTIONS, self::SIDEBAR_GROUP_OPTIONS);
+        return [
+            self::ROLE_LEVEL_MEMBER => 'Member',
+            self::ROLE_LEVEL_OFFICER => 'Officer',
+            self::ROLE_LEVEL_PRESIDENT => 'President',
+            self::ROLE_LEVEL_SUPERADMIN => 'Super Admin',
+        ];
+    }
+
+    public static function sidebarGroupLabel(?string $sidebarGroup): string
+    {
+        return self::sidebarGroupOptions()[$sidebarGroup ?: ''] ?? ucfirst((string) ($sidebarGroup ?: self::ROLE_LEVEL_PRESIDENT));
+    }
+
+    public static function roleLevelOptions(): array
+    {
+        return self::sidebarGroupOptions();
+    }
+
+    public static function roleLevelLabel(?string $roleLevel): string
+    {
+        return self::sidebarGroupLabel($roleLevel);
     }
 
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class, 'organization_id', 'organization_id');
+    }
+
+    public function requestType(): BelongsTo
+    {
+        return $this->belongsTo(RequestType::class, 'request_type_id', 'request_type_id');
     }
 
     public function creator(): BelongsTo

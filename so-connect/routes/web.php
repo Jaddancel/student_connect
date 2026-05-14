@@ -134,14 +134,6 @@ Route::get('/manage-organization', [OrganizationController::class, 'manage'])
     ->middleware('auth')
     ->name('manage-organization');
 
-Route::get('/upload-forms', [SidebarMenuController::class, 'uploadForms'])
-    ->middleware(['auth', 'superadmin'])
-    ->name('upload-forms');
-
-Route::post('/upload-forms', [SidebarMenuController::class, 'storeUploadedForm'])
-    ->middleware(['auth', 'superadmin'])
-    ->name('upload-forms.store');
-
 Route::get('/forms/manage', [FormWorkflowController::class, 'manageForms'])
     ->middleware(['auth', 'superadmin'])
     ->name('forms.manage');
@@ -180,6 +172,27 @@ Route::get('/superadmin/profiles/search', [SuperAdminController::class, 'searchP
 Route::post('/superadmin/profile-requests/auto-accept-suggested', [SuperAdminController::class, 'autoAcceptSuggestedRequests'])
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.profile-requests.auto-accept-suggested');
+
+Route::get('/superadmin/request-types', [SuperAdminController::class, 'requestTypes'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.request-types');
+
+Route::post('/superadmin/request-types', [SuperAdminController::class, 'storeRequestType'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.request-types.store');
+
+Route::get('/superadmin/dashboard-builder', [SuperAdminController::class, 'dashboardBuilder'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.dashboard-builder');
+
+Route::post('/superadmin/dashboard-builder', [SuperAdminController::class, 'storeDashboardWidget'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.dashboard-builder.store');
+
+Route::patch('/superadmin/dashboard-builder/{widgetId}', [SuperAdminController::class, 'updateDashboardWidget'])
+    ->whereNumber('widgetId')
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.dashboard-builder.update');
 
 Route::post('/superadmin/profile-requests/{requestId}/decision', [SuperAdminController::class, 'decideProfileRequest'])
     ->whereNumber('requestId')

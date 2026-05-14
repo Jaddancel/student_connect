@@ -7,6 +7,7 @@ use App\Models\Document;
 use App\Models\FormSubmission;
 use App\Models\GeneratedDocument;
 use App\Models\Request as ActionRequest;
+use App\Models\RequestType;
 use App\Models\Template;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -18,39 +19,86 @@ use Symfony\Component\Process\Process;
 class DocumentGenerationService
 {
     public function createDocumentGenerationRequest(
-        int $organizationId,
+        ?int $organizationId,
         int $submissionId,
         int $formId,
         int $requesterUserId,
     ): ActionRequest {
+        $requestType = app(\App\Services\RequestTypeService::class)->resolveSystemType(
+            RequestType::SYSTEM_KEY_FORM_GENERATION,
+            'Form Generation Request',
+            RequestType::CATEGORY_ORGANIZATION,
+            $requesterUserId,
+        );
+
         return ActionRequest::query()->create([
             'action' => FormTemplateHelper::encodeDocumentGenerationAction(
-                $organizationId,
+                (int) ($organizationId ?? 0),
                 $submissionId,
                 $formId,
                 $requesterUserId,
             ),
             'action_type' => FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION,
+            'request_type_id' => (int) $requestType->getKey(),
+            'organization_id' => $organizationId ?: null,
+            'requested_by' => $requesterUserId,
+            'payload' => [
+                'organization_id' => $organizationId ?: null,
+                'submission_id' => $submissionId,
+                'form_id' => $formId,
+                'requester_user_id' => $requesterUserId,
+            ],
             'user' => $requesterUserId,
             'requested_at' => now(),
         ]);
     }
 
-    public function createDocumentAccessRequest(int $organizationId, int $generatedDocumentId, int $requesterUserId): ActionRequest
+    public function createDocumentAccessRequest(?int $organizationId, int $generatedDocumentId, int $requesterUserId): ActionRequest
     {
+        $requestType = app(\App\Services\RequestTypeService::class)->resolveSystemType(
+            RequestType::SYSTEM_KEY_FORM_ACCESS,
+            'Document Access Request',
+            RequestType::CATEGORY_ORGANIZATION,
+            $requesterUserId,
+        );
+
         return ActionRequest::query()->create([
-            'action' => FormTemplateHelper::encodeDocumentAccessAction($organizationId, $generatedDocumentId, $requesterUserId),
+            'action' => FormTemplateHelper::encodeDocumentAccessAction((int) ($organizationId ?? 0), $generatedDocumentId, $requesterUserId),
             'action_type' => FormTemplateHelper::ACTION_TYPE_DOCUMENT_ACCESS,
+            'request_type_id' => (int) $requestType->getKey(),
+            'organization_id' => $organizationId ?: null,
+            'requested_by' => $requesterUserId,
+            'payload' => [
+                'organization_id' => $organizationId ?: null,
+                'generated_document_id' => $generatedDocumentId,
+                'requester_user_id' => $requesterUserId,
+            ],
             'user' => $requesterUserId,
             'requested_at' => now(),
         ]);
     }
 
-    public function createFormUploadRequest(int $organizationId, int $formId, int $templateId, int $uploaderUserId): ActionRequest
+    public function createFormUploadRequest(?int $organizationId, int $formId, int $templateId, int $uploaderUserId): ActionRequest
     {
+        $requestType = app(\App\Services\RequestTypeService::class)->resolveSystemType(
+            RequestType::SYSTEM_KEY_FORM_UPLOAD,
+            'Form Upload Request',
+            RequestType::CATEGORY_ORGANIZATION,
+            $uploaderUserId,
+        );
+
         return ActionRequest::query()->create([
-            'action' => FormTemplateHelper::encodeFormUploadAction($organizationId, $formId, $templateId, $uploaderUserId),
+            'action' => FormTemplateHelper::encodeFormUploadAction((int) ($organizationId ?? 0), $formId, $templateId, $uploaderUserId),
             'action_type' => FormTemplateHelper::ACTION_TYPE_FORM_UPLOAD,
+            'request_type_id' => (int) $requestType->getKey(),
+            'organization_id' => $organizationId ?: null,
+            'requested_by' => $uploaderUserId,
+            'payload' => [
+                'organization_id' => $organizationId ?: null,
+                'form_id' => $formId,
+                'template_id' => $templateId,
+                'uploader_user_id' => $uploaderUserId,
+            ],
             'user' => $uploaderUserId,
             'requested_at' => now(),
         ]);
@@ -83,7 +131,7 @@ class DocumentGenerationService
             ->where('organization_id', $organizationId)
             ->where('is_active', true)
             ->orderByDesc('version')
-            ->with('mappings')
+            ->with(['mappings.field'])
             ->first();
 
         if (! $template) {
@@ -147,7 +195,7 @@ class DocumentGenerationService
             $pdfAbsolutePath = $this->convertDocxToPdf($generatedDocxAbsolutePath);
             $generatedPdfRelativePath = $this->relativePathFromDiskAbsolute($pdfAbsolutePath, $disk);
 
-            $formName = trim((string) ($submission->form?->name ?? 'Form')); 
+            $formName = trim((string) ($submission->form?->name ?? 'Form'));
             $document = Document::query()->create([
                 'description_text' => $formName.' submission #'.(int) $submission->getKey(),
                 'author' => (int) ($submission->submitted_by ?? 0) ?: null,

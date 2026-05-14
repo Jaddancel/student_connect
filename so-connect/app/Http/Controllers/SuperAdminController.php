@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ProfileMatchHelper;
+use App\Models\DashboardWidget;
 use App\Models\Approval;
 use App\Models\Profile;
 use App\Models\Request as ActionRequest;
+use App\Models\RequestType;
 use App\Models\User;
 use App\Services\UserProfileDataSyncService;
 use Illuminate\Http\JsonResponse;
@@ -20,8 +22,20 @@ class SuperAdminController extends Controller
 {
     public function profileRequests()
     {
+        $profileRequestTypeId = (int) app(\App\Services\RequestTypeService::class)
+            ->resolveSystemType(
+                RequestType::SYSTEM_KEY_PROFILE_MATCH,
+                'Profile Match Request',
+                RequestType::CATEGORY_ROLE_SECURITY,
+                null,
+            )
+            ->getKey();
+
         $requests = ActionRequest::query()
-            ->where('action_type', 9)
+            ->where(function ($query) use ($profileRequestTypeId) {
+                $query->where('action_type', 9)
+                    ->orWhere('request_type_id', $profileRequestTypeId);
+            })
             ->orderByDesc('requested_at')
             ->limit(300)
             ->get(['request_id', 'action', 'user', 'requested_at']);
@@ -104,6 +118,135 @@ class SuperAdminController extends Controller
         ]);
     }
 
+    public function requestTypes()
+    {
+        $requestTypes = RequestType::query()
+            ->withCount(['forms', 'requests'])
+            ->with('creator')
+            ->orderBy('category')
+            ->orderBy('name')
+            ->get();
+
+        return view('pages.sidebar.superadmin-request-types', [
+            'title' => 'Request Types',
+            'requestTypes' => $requestTypes,
+            'categoryOptions' => RequestType::categoryOptions(),
+        ]);
+    }
+
+    public function dashboardBuilder()
+    {
+        $widgets = DashboardWidget::query()
+            ->with('creator')
+            ->orderBy('role')
+            ->orderBy('sort_order')
+            ->get();
+
+        return view('pages.sidebar.superadmin-dashboard-builder', [
+            'title' => 'Dashboard Builder',
+            'widgets' => $widgets,
+            'roleOptions' => DashboardWidget::ROLE_OPTIONS,
+            'typeOptions' => DashboardWidget::TYPE_OPTIONS,
+        ]);
+    }
+
+    public function storeDashboardWidget(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'role' => ['required', 'string', Rule::in(DashboardWidget::ROLE_OPTIONS)],
+            'widget_type' => ['required', 'string', Rule::in(DashboardWidget::TYPE_OPTIONS)],
+            'title' => ['required', 'string', 'max:255'],
+            'config' => ['nullable', 'string', 'max:5000'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:1000'],
+            'column_span' => ['nullable', 'integer', 'min:1', 'max:12'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $config = null;
+
+        if (! empty($validated['config'])) {
+            $decoded = json_decode((string) $validated['config'], true);
+
+            if (! is_array($decoded)) {
+                return back()->withErrors([
+                    'config' => 'Widget config must be valid JSON.',
+                ])->withInput();
+            }
+
+            $config = $decoded;
+        }
+
+        DashboardWidget::query()->create([
+            'role' => (string) $validated['role'],
+            'widget_type' => (string) $validated['widget_type'],
+            'title' => trim((string) $validated['title']),
+            'config' => $config,
+            'sort_order' => (int) ($validated['sort_order'] ?? 0),
+            'column_span' => (int) ($validated['column_span'] ?? 12),
+            'is_active' => (bool) ($validated['is_active'] ?? true),
+            'created_by' => (int) $request->user()->getKey(),
+        ]);
+
+        return back()->with('success', 'Dashboard widget created successfully.');
+    }
+
+    public function updateDashboardWidget(Request $request, int $widgetId): RedirectResponse
+    {
+        $widget = DashboardWidget::query()->findOrFail($widgetId);
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'sort_order' => ['required', 'integer', 'min:0', 'max:1000'],
+            'column_span' => ['required', 'integer', 'min:1', 'max:12'],
+            'is_active' => ['nullable', 'boolean'],
+            'config' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $config = $widget->config;
+
+        if (array_key_exists('config', $validated) && trim((string) $validated['config']) !== '') {
+            $decoded = json_decode((string) $validated['config'], true);
+
+            if (! is_array($decoded)) {
+                return back()->withErrors([
+                    'config' => 'Widget config must be valid JSON.',
+                ]);
+            }
+
+            $config = $decoded;
+        }
+
+        $widget->update([
+            'title' => trim((string) $validated['title']),
+            'sort_order' => (int) $validated['sort_order'],
+            'column_span' => (int) $validated['column_span'],
+            'is_active' => (bool) ($validated['is_active'] ?? false),
+            'config' => $config,
+        ]);
+
+        return back()->with('success', 'Dashboard widget updated successfully.');
+    }
+
+    public function storeRequestType(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255', 'unique:request_types,name'],
+            'category' => ['required', 'string', Rule::in(RequestType::CATEGORY_OPTIONS)],
+            'system_key' => ['nullable', 'string', 'max:64', 'unique:request_types,system_key'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        RequestType::query()->create([
+            'name' => trim((string) $validated['name']),
+            'category' => (string) $validated['category'],
+            'system_key' => trim((string) ($validated['system_key'] ?? '')) ?: null,
+            'created_by' => (int) $request->user()->getKey(),
+            'is_active' => (bool) ($validated['is_active'] ?? false),
+        ]);
+
+        return back()->with('success', 'Request type created successfully.');
+    }
+
     public function searchProfiles(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -142,13 +285,25 @@ class SuperAdminController extends Controller
             'exclude_associated' => ['nullable', 'boolean'],
         ]);
 
+        $profileRequestTypeId = (int) app(\App\Services\RequestTypeService::class)
+            ->resolveSystemType(
+                RequestType::SYSTEM_KEY_PROFILE_MATCH,
+                'Profile Match Request',
+                RequestType::CATEGORY_ROLE_SECURITY,
+                null,
+            )
+            ->getKey();
+
         $excludeAssociated = (bool) ($validated['exclude_associated'] ?? false);
 
         $pendingRequests = ActionRequest::query()
-            ->where('action_type', 9)
+            ->where(function ($query) use ($profileRequestTypeId) {
+                $query->where('action_type', 9)
+                    ->orWhere('request_type_id', $profileRequestTypeId);
+            })
             ->whereNotIn('request_id', Approval::query()->select('request')->whereNotNull('request'))
             ->orderBy('request_id')
-            ->get(['request_id', 'action', 'user']);
+            ->get(['request_id', 'action', 'user', 'request_type_id']);
 
         if ($pendingRequests->isEmpty()) {
             return response()->json([
@@ -265,8 +420,20 @@ class SuperAdminController extends Controller
             'profile_id' => ['nullable', 'integer'],
         ]);
 
+        $profileRequestTypeId = (int) app(\App\Services\RequestTypeService::class)
+            ->resolveSystemType(
+                RequestType::SYSTEM_KEY_PROFILE_MATCH,
+                'Profile Match Request',
+                RequestType::CATEGORY_ROLE_SECURITY,
+                null,
+            )
+            ->getKey();
+
         $actionRequest = ActionRequest::query()
-            ->where('action_type', 9)
+            ->where(function ($query) use ($profileRequestTypeId) {
+                $query->where('action_type', 9)
+                    ->orWhere('request_type_id', $profileRequestTypeId);
+            })
             ->findOrFail($requestId);
 
         [$targetUserId, , , , $suggestedProfileId] = $this->parseProfileRequestAction($actionRequest->action);

@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use App\Models\Form;
+use App\Models\RequestType;
 use App\Models\User;
 
 class MenuHelper
@@ -38,7 +39,6 @@ class MenuHelper
             ];
         }
 
-        $flags = self::resolveRoleFlags($user);
         $menuGroups = [
             [
                 'title' => 'General',
@@ -47,105 +47,28 @@ class MenuHelper
                     ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
                 ],
             ],
+            [
+                'title' => 'Account',
+                'items' => [
+                    ['icon' => 'user-profile', 'name' => 'Profile', 'path' => '/profile'],
+                    ['icon' => 'user-profile', 'name' => 'Create Profile', 'path' => '/profile/create'],
+                ],
+            ],
+            [
+                'title' => 'Forms',
+                'items' => [
+                    ['icon' => 'forms', 'name' => 'My Documents', 'path' => '/generated-documents'],
+                ],
+            ],
         ];
 
-        if ($flags['is_member_only']) {
-            $menuGroups[] = [
-                'title' => 'Member',
-                'items' => [
-                    [
-                        'icon' => 'user-profile',
-                        'name' => 'Organization Services',
-                        'subItems' => [
-                            ['name' => 'Membership Registration', 'path' => '/register'],
-                            ['name' => 'My Organization', 'path' => '/my-organization'],
-                        ],
-                    ],
-                    [
-                        'icon' => 'forms',
-                        'name' => 'Document Services',
-                        'subItems' => [
-                            ['name' => 'My Documents', 'path' => '/generated-documents'],
-                        ],
-                    ],
-                ],
-            ];
+        if ((int) $user->user_type === 1) {
+            $menuGroups[2]['items'][] = ['icon' => 'forms', 'name' => 'Manage Document Forms', 'path' => '/forms/manage'];
+            $menuGroups[2]['items'][] = ['icon' => 'charts', 'name' => 'Dashboard Builder', 'path' => '/superadmin/dashboard-builder'];
+            $menuGroups[2]['items'][] = ['icon' => 'forms', 'name' => 'Request Types', 'path' => '/superadmin/request-types'];
         }
 
-        if ($flags['is_admin']) {
-            $menuGroups[] = [
-                'title' => 'Officer',
-                'items' => [
-                    [
-                        'icon' => 'task',
-                        'name' => 'Organization Management',
-                        'subItems' => [
-                            ['name' => 'Member List', 'path' => '/manage-organization'],
-                            ['name' => 'Membership Requests', 'path' => '/membership-requests'],
-                        ],
-                    ],
-                    [
-                        'icon' => 'forms',
-                        'name' => 'Document Services',
-                        'subItems' => [
-                            ['name' => 'My Documents', 'path' => '/generated-documents'],
-                        ],
-                    ],
-                ],
-            ];
-        }
-
-        if ($flags['is_president']) {
-            $menuGroups[] = [
-                'title' => 'President',
-                'items' => [
-                    [
-                        'icon' => 'forms',
-                        'name' => 'Role Management',
-                        'subItems' => [
-                            ['name' => 'Request Role Change', 'path' => '/request-forms'],
-                            ['name' => 'Event Registration', 'path' => '/calendar'],
-                        ],
-                    ],
-                    [
-                        'icon' => 'task',
-                        'name' => 'Document Administration',
-                        'subItems' => [
-                            ['name' => 'Approval Requests', 'path' => '/approval-requests'],
-                            ['name' => 'Generated Documents', 'path' => '/generated-documents'],
-                        ],
-                    ],
-                ],
-            ];
-        }
-
-        if ($flags['is_superadmin']) {
-            $menuGroups[] = [
-                'title' => 'Superadmin',
-                'items' => [
-                    ['icon' => 'task', 'name' => 'Profile Match Requests', 'path' => '/superadmin/profile-requests'],
-                    ['icon' => 'calendar', 'name' => 'Event Requests', 'path' => '/superadmin/event-requests'],
-                    ['icon' => 'forms', 'name' => 'Manage Document Forms', 'path' => '/forms/manage'],
-                    [
-                        'icon' => 'forms',
-                        'name' => 'Document Services',
-                        'subItems' => [
-                            ['name' => 'My Documents', 'path' => '/generated-documents'],
-                            ['name' => 'Upload Documents', 'path' => '/upload-forms'],
-                        ],
-                    ],
-                    ['icon' => 'tables', 'name' => 'Data Sync', 'path' => '/superadmin/data-sync'],
-                ],
-            ];
-        }
-
-        if ($flags['is_president']) {
-            $menuGroups = self::injectFormMenuItems($menuGroups, $user);
-        }
-
-        return array_values(array_filter($menuGroups, function (array $group): bool {
-            return ! empty($group['items']);
-        }));
+        return self::injectFormMenuItems($menuGroups, $user);
     }
 
     /**
@@ -182,17 +105,24 @@ class MenuHelper
 
     private static function injectFormMenuItems(array $menuGroups, User $user): array
     {
-        $organizationIds = \App\Services\OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
-
-        if (empty($organizationIds)) {
-            return $menuGroups;
-        }
-
-        $forms = Form::query()
-            ->whereIn('organization_id', $organizationIds)
+        $formsQuery = Form::query()
             ->where('is_active', true)
             ->where('is_published', true)
-            ->orderBy('sidebar_group')
+            ->with('requestType');
+
+        if ((int) $user->user_type !== 1) {
+            $organizationIds = \App\Services\OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
+
+            $formsQuery->where(function ($query) use ($organizationIds) {
+                $query->whereNull('organization_id');
+
+                if (! empty($organizationIds)) {
+                    $query->orWhereIn('organization_id', $organizationIds);
+                }
+            });
+        }
+
+        $forms = $formsQuery
             ->orderBy('name')
             ->get();
 
@@ -201,23 +131,21 @@ class MenuHelper
         }
 
         $grouped = $forms->groupBy(function (Form $form) {
-            return $form->sidebar_group ?: Form::SIDEBAR_GROUP_PRESIDENT;
+            return $form->requestType?->category ?: 'Other';
         });
 
-        foreach ($menuGroups as $groupIndex => $group) {
-            $groupKey = strtolower((string) ($group['title'] ?? ''));
+        $categoryGroups = [];
 
-            if (! $grouped->has($groupKey)) {
+        foreach (RequestType::CATEGORY_OPTIONS as $category) {
+            if (! $grouped->has($category)) {
                 continue;
             }
 
-            $formsInGroup = $grouped->get($groupKey, collect());
-
-            $menuGroups[$groupIndex]['items'][] = [
-                'icon' => 'forms',
-                'name' => 'Forms',
-                'subItems' => $formsInGroup->map(function (Form $form) {
+            $categoryGroups[] = [
+                'title' => RequestType::categoryLabelForContext($category, 'forms'),
+                'items' => $grouped[$category]->map(function (Form $form) {
                     return [
+                        'icon' => 'forms',
                         'name' => $form->name,
                         'path' => route('forms.show', ['formId' => (int) $form->getKey()]),
                     ];
@@ -225,7 +153,13 @@ class MenuHelper
             ];
         }
 
-        return $menuGroups;
+        foreach ($categoryGroups as $categoryGroup) {
+            $menuGroups[] = $categoryGroup;
+        }
+
+        return array_values(array_filter($menuGroups, function (array $group): bool {
+            return ! empty($group['items']);
+        }));
     }
 
     public static function isActive($path)

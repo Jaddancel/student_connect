@@ -9,6 +9,7 @@ use App\Models\Form\FormDescription;
 use App\Models\FormSubmission;
 use App\Models\GeneratedDocument;
 use App\Models\Request as ActionRequest;
+use App\Models\RequestType;
 use App\Models\Template;
 use App\Models\Template\TemplateDescription;
 use App\Services\DocumentGenerationService;
@@ -48,18 +49,26 @@ class FormWorkflowController extends Controller
 
         $formsQuery = Form::query()
             ->with([
-                'fields',
+                'requestType',
+                'fields.mappings',
                 'templates' => fn ($templateQuery) => $templateQuery->orderByDesc('version'),
             ])
             ->orderByDesc('updated_at')
             ->limit(150);
 
+        $requestTypes = RequestType::query()
+            ->where('is_active', true)
+            ->orderBy('category')
+            ->orderBy('name')
+            ->get();
+
         return view('pages.sidebar.manage-document-forms', [
             'title' => 'Manage Document Forms',
             'organizations' => $organizationQuery->get(),
             'forms' => $formsQuery->get(),
+            'requestTypesByCategory' => $requestTypes->groupBy('category'),
             'isSuperAdmin' => $isSuperAdmin,
-            'sidebarGroups' => Form::sidebarGroupOptions(),
+            'roleLevels' => Form::roleLevelOptions(),
         ]);
     }
 
@@ -81,13 +90,18 @@ class FormWorkflowController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'description_text' => ['nullable', 'string', 'max:2000'],
             'sidebar_group' => ['required', 'string', Rule::in(Form::SIDEBAR_GROUP_OPTIONS)],
-            'organization_id' => ['required', 'integer', Rule::exists('organizations', 'organization_id')],
+            'request_type_id' => ['required', 'integer', Rule::exists('request_types', 'request_type_id')->where('is_active', true)],
+            'organization_id' => ['nullable', 'integer', Rule::exists('organizations', 'organization_id')],
             'template_file' => ['required', 'file', 'mimes:docx', 'max:10240'],
             'is_published' => ['nullable', 'boolean'],
         ]);
 
-        $organizationId = (int) $validated['organization_id'];
+        $organizationId = array_key_exists('organization_id', $validated) && $validated['organization_id'] !== null
+            ? (int) $validated['organization_id']
+            : null;
         $userId = (int) $user->getKey();
+        $requestType = RequestType::query()->findOrFail((int) $validated['request_type_id']);
+        $sidebarGroup = (string) $validated['sidebar_group'];
 
         $uploadedFile = $request->file('template_file');
 
@@ -115,12 +129,15 @@ class FormWorkflowController extends Controller
             return back()->withErrors(['template_file' => 'Unable to store uploaded DOCX file.'])->withInput();
         }
 
+        $fieldDefinitions = $this->buildTemplateFieldDefinitions($placeholders);
+
         try {
-            DB::transaction(function () use ($validated, $organizationId, $userId, $storedPath, $placeholders, $generationService) {
+            DB::transaction(function () use ($validated, $organizationId, $userId, $storedPath, $fieldDefinitions, $generationService, $sidebarGroup) {
                 $form = Form::query()->create([
                     'name' => trim((string) $validated['name']),
                     'description_text' => trim((string) ($validated['description_text'] ?? '')) ?: null,
-                    'sidebar_group' => (string) $validated['sidebar_group'],
+                    'request_type_id' => (int) $validated['request_type_id'],
+                    'sidebar_group' => $sidebarGroup,
                     'organization_id' => $organizationId,
                     'created_by' => $userId,
                     'is_active' => true,
@@ -137,27 +154,28 @@ class FormWorkflowController extends Controller
                     'is_active' => true,
                 ]);
 
-                foreach ($placeholders as $index => $placeholder) {
-                    $fieldKey = FormTemplateHelper::normalizeFieldKey($placeholder);
+                foreach ($fieldDefinitions as $fieldDefinition) {
 
                     $field = FormDescription::query()->create([
                         'form_id' => (int) $form->getKey(),
-                        'field_key' => $fieldKey,
-                        'field_label' => (string) Str::of($fieldKey)->replace('_', ' ')->title(),
-                        'field_type' => 'text',
+                        'field_key' => (string) $fieldDefinition['field_key'],
+                        'field_label' => (string) $fieldDefinition['field_label'],
+                        'field_type' => (string) $fieldDefinition['field_type'],
                         'is_required' => true,
-                        'field_order' => $index,
-                        'placeholder_hint' => FormTemplateHelper::wrapPlaceholder($fieldKey),
+                        'field_order' => (int) $fieldDefinition['field_order'],
+                        'placeholder_hint' => (string) $fieldDefinition['placeholder_hint'],
                         'field_options' => null,
                     ]);
 
-                    TemplateDescription::query()->create([
-                        'template_id' => (int) $template->getKey(),
-                        'form_description_id' => (int) $field->getKey(),
-                        'placeholder_key' => $fieldKey,
-                        'field_key' => $fieldKey,
-                        'is_required' => true,
-                    ]);
+                    foreach ($fieldDefinition['placeholders'] as $placeholderKey) {
+                        TemplateDescription::query()->create([
+                            'template_id' => (int) $template->getKey(),
+                            'form_description_id' => (int) $field->getKey(),
+                            'placeholder_key' => (string) $placeholderKey,
+                            'field_key' => (string) $fieldDefinition['field_key'],
+                            'is_required' => true,
+                        ]);
+                    }
                 }
 
                 $generationService->createFormUploadRequest(
@@ -234,6 +252,27 @@ class FormWorkflowController extends Controller
             $fieldKey = (string) $field->field_key;
             $normalizedValue = $this->normalizeRequestValue($rawFields[$fieldKey] ?? null);
 
+            if ($field->field_type === 'multipleInputs') {
+                $expectedCount = max(1, $field->mappings->count());
+                $values = is_array($normalizedValue) ? array_values($normalizedValue) : [$normalizedValue];
+
+                while (count($values) < $expectedCount) {
+                    $values[] = '';
+                }
+
+                if ((bool) $field->is_required) {
+                    for ($index = 0; $index < $expectedCount; $index++) {
+                        if (trim((string) ($values[$index] ?? '')) === '') {
+                            $fieldErrors['fields.'.$fieldKey.'.'.($index + 1)] = ($field->field_label ?: $fieldKey).' entry #'.($index + 1).' is required.';
+                        }
+                    }
+                }
+
+                $payload[$fieldKey] = $values;
+
+                continue;
+            }
+
             if ((bool) $field->is_required && $normalizedValue === '') {
                 $fieldErrors['fields.'.$fieldKey] = ($field->field_label ?: $fieldKey).' is required.';
 
@@ -249,14 +288,14 @@ class FormWorkflowController extends Controller
 
         $submission = FormSubmission::query()->create([
             'form_id' => (int) $form->getKey(),
-            'organization_id' => (int) ($form->organization_id ?? 0) ?: null,
+            'organization_id' => $form->organization_id !== null ? (int) $form->organization_id : null,
             'submitted_by' => $userId,
             'payload' => $payload,
             'submitted_at' => now(),
         ]);
 
         $actionRequest = $generationService->createDocumentGenerationRequest(
-            (int) ($form->organization_id ?? 0),
+            $form->organization_id !== null ? (int) $form->organization_id : null,
             (int) $submission->getKey(),
             (int) $form->getKey(),
             $userId,
@@ -283,13 +322,16 @@ class FormWorkflowController extends Controller
 
         $form = Form::query()
             ->with([
-                'fields',
+                'fields.mappings',
                 'templates' => fn ($templateQuery) => $templateQuery->where('is_active', true)->orderByDesc('version'),
             ])
             ->whereKey($formId)
             ->where('is_active', true)
             ->where('is_published', true)
-            ->whereIn('organization_id', $presidentOrganizationIds)
+            ->where(function ($query) use ($presidentOrganizationIds) {
+                $query->whereNull('organization_id')
+                    ->orWhereIn('organization_id', $presidentOrganizationIds);
+            })
             ->first();
 
         return $form;
@@ -458,12 +500,80 @@ class FormWorkflowController extends Controller
     /**
      * @param  mixed  $value
      */
-    private function normalizeRequestValue($value): string
+    private function normalizeRequestValue($value): array|string
     {
         if (is_array($value)) {
-            return trim(implode(', ', array_map(fn ($item) => trim((string) $item), $value)));
+            return array_values(array_map(
+                fn ($item) => trim((string) $item),
+                $value,
+            ));
         }
 
         return trim((string) $value);
+    }
+
+    /**
+     * @param  array<int, string>  $placeholders
+     * @return array<int, array{field_key:string,field_label:string,field_type:string,field_order:int,placeholder_hint:string,placeholders:array<int, string>}>
+     */
+    private function buildTemplateFieldDefinitions(array $placeholders): array
+    {
+        $definitions = [];
+
+        foreach ($placeholders as $order => $placeholder) {
+            $normalized = FormTemplateHelper::normalizeFieldKey((string) $placeholder);
+            $baseKey = FormTemplateHelper::placeholderBaseKey($normalized);
+            $placeholderIndex = FormTemplateHelper::placeholderIndex($normalized);
+
+            if ($placeholderIndex !== null) {
+                if (! isset($definitions[$baseKey])) {
+                    $definitions[$baseKey] = [
+                        'field_key' => $baseKey,
+                        'field_label' => (string) Str::of($baseKey)->replace('_', ' ')->title(),
+                        'field_type' => 'multipleInputs',
+                        'field_order' => $order,
+                        'placeholder_hint' => FormTemplateHelper::wrapIndexedPlaceholder($baseKey),
+                        'placeholders' => [],
+                    ];
+                }
+
+                $definitions[$baseKey]['field_type'] = 'multipleInputs';
+                $definitions[$baseKey]['placeholder_hint'] = FormTemplateHelper::wrapIndexedPlaceholder($baseKey);
+                $definitions[$baseKey]['placeholders'][$placeholderIndex] = $normalized;
+
+                continue;
+            }
+
+            if (! isset($definitions[$normalized])) {
+                $definitions[$normalized] = [
+                    'field_key' => $normalized,
+                    'field_label' => (string) Str::of($normalized)->replace('_', ' ')->title(),
+                    'field_type' => 'text',
+                    'field_order' => $order,
+                    'placeholder_hint' => FormTemplateHelper::wrapPlaceholder($normalized),
+                    'placeholders' => [$normalized],
+                ];
+            }
+        }
+
+        foreach ($definitions as &$definition) {
+            if (($definition['field_type'] ?? 'text') === 'multipleInputs') {
+                ksort($definition['placeholders']);
+            }
+        }
+
+        unset($definition);
+
+        uasort($definitions, function (array $left, array $right): int {
+            $comparison = ($left['field_order'] ?? 0) <=> ($right['field_order'] ?? 0);
+
+            if ($comparison !== 0) {
+                return $comparison;
+            }
+
+            return strcmp($left['field_key'], $right['field_key']);
+        });
+
+        return array_values($definitions);
     }
 }

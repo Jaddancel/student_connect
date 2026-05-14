@@ -9,6 +9,7 @@ use App\Models\Event;
 use App\Models\Event\EventDetail;
 use App\Models\Member;
 use App\Models\Request as ActionRequest;
+use App\Models\RequestType;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\JsonResponse;
@@ -25,15 +26,18 @@ class RequestDecisionController extends Controller
             'decision' => ['required', 'string', Rule::in(['approve', 'reject'])],
         ]);
 
-        $actionRequest = ActionRequest::query()->findOrFail($requestId);
+        $actionRequest = ActionRequest::query()->with('requestType')->findOrFail($requestId);
         $user = $request->user();
 
         if (! $user) {
             abort(401);
         }
 
-        $isPresidentOnlyAction = in_array((int) $actionRequest->action_type, [2, 3, 4, 7, 8], true);
-        $requiredDashboard = $isPresidentOnlyAction ? 'president' : 'admin';
+        $actionType = (int) $actionRequest->action_type;
+        $requestType = $actionRequest->requestType;
+        $systemKey = (string) ($requestType?->system_key ?? '');
+
+        $requiredDashboard = $this->requiredDashboardForRequest($actionType, $systemKey);
 
         if (! Gate::forUser($user)->allows('access-dashboard', $requiredDashboard)) {
             return response()->json([
@@ -41,34 +45,21 @@ class RequestDecisionController extends Controller
             ], 403);
         }
 
-        if ((int) $actionRequest->action_type === 7) {
-            [, $organizationId] = $this->parseRoleChangeAction($actionRequest->action);
-            $authorizedOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
+        $authorizedOrganizationIds = $this->authorizedOrganizationIdsForRequest($actionType, $systemKey, (int) $user->getKey());
 
-            if ($organizationId <= 0 || ! in_array($organizationId, $authorizedOrganizationIds, true)) {
+        if ($authorizedOrganizationIds !== null) {
+            $organizationId = $this->requestOrganizationId($actionRequest, $actionType, $systemKey);
+
+            if ($organizationId !== null && ! in_array($organizationId, $authorizedOrganizationIds, true)) {
                 return response()->json([
                     'message' => 'You are not authorized to decide this request.',
                 ], 403);
-            }
-        } else {
-            $organizationId = OrganizationAuthorizationService::extractOrganizationIdFromAction($actionRequest->action);
-
-            $authorizedOrganizationIds = in_array((int) $actionRequest->action_type, [2, 3, 4, 8], true)
-                ? OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey())
-                : OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
-
-            if ($organizationId !== null) {
-                if (! in_array($organizationId, $authorizedOrganizationIds, true)) {
-                    return response()->json([
-                        'message' => 'You are not authorized to decide this request.',
-                    ], 403);
-                }
             }
         }
 
         $generatedDocumentId = null;
 
-        if ((int) $actionRequest->action_type === FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION
+        if ($this->isDocumentGenerationRequest($actionType, $systemKey)
             && $validated['decision'] === 'approve') {
             try {
                 $generatedDocument = $documentGenerationService->generateFromApprovedRequest(
@@ -93,8 +84,8 @@ class RequestDecisionController extends Controller
             ]
         );
 
-        if ((int) $actionRequest->action_type === 1 && $validated['decision'] === 'approve') {
-            [$targetOrganizationId, $targetUserId] = $this->parseMembershipAction($actionRequest->action);
+        if ($this->isMembershipRequest($actionType, $systemKey) && $validated['decision'] === 'approve') {
+            [$targetOrganizationId, $targetUserId] = $this->resolveMembershipDetails($actionRequest);
 
             if ($targetOrganizationId > 0 && $targetUserId > 0) {
                 $membership = Member::query()->firstOrCreate(
@@ -115,8 +106,8 @@ class RequestDecisionController extends Controller
             }
         }
 
-        if ((int) $actionRequest->action_type === 7 && $validated['decision'] === 'approve') {
-            [$targetUserId, $targetOrganizationId, $currentRole] = $this->parseRoleChangeAction($actionRequest->action);
+        if ($this->isRoleChangeRequest($actionType, $systemKey) && $validated['decision'] === 'approve') {
+            [$targetUserId, $targetOrganizationId, $currentRole] = $this->resolveRoleChangeDetails($actionRequest);
 
             if ($targetOrganizationId > 0 && $targetUserId > 0) {
                 $membership = Member::query()->firstOrCreate(
@@ -173,8 +164,8 @@ class RequestDecisionController extends Controller
             }
         }
 
-        if ((int) $actionRequest->action_type === 2 && $validated['decision'] === 'approve') {
-            [$targetOrganizationId, $requesterUserId, $eventName, $eventStartTime, $eventEndTime, $eventDescription, $eventLocation] = $this->parseEventAction($actionRequest->action);
+        if ($this->isEventRequest($actionType, $systemKey) && $validated['decision'] === 'approve') {
+            [$targetOrganizationId, $requesterUserId, $eventName, $eventStartTime, $eventEndTime, $eventDescription, $eventLocation] = $this->resolveEventDetails($actionRequest);
 
             if ($targetOrganizationId <= 0 || $eventName === '' || $eventStartTime === '' || $eventEndTime === '' || $eventLocation === '') {
                 return response()->json([
@@ -204,6 +195,163 @@ class RequestDecisionController extends Controller
             'generated_document_id' => $generatedDocumentId,
             'data' => ApprovalResource::make($approval->fresh()),
         ]);
+    }
+
+    private function requiredDashboardForRequest(int $actionType, string $systemKey): string
+    {
+        if ($systemKey === RequestType::SYSTEM_KEY_PROFILE_MATCH || $actionType === 9) {
+            return 'superadmin';
+        }
+
+        if ($this->isPresidentScopeRequest($actionType, $systemKey)) {
+            return 'president';
+        }
+
+        return 'admin';
+    }
+
+    private function authorizedOrganizationIdsForRequest(int $actionType, string $systemKey, int $userId): ?array
+    {
+        if ($systemKey === RequestType::SYSTEM_KEY_PROFILE_MATCH || $actionType === 9) {
+            return null;
+        }
+
+        if ($this->isPresidentScopeRequest($actionType, $systemKey)) {
+            return OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
+        }
+
+        return OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
+    }
+
+    private function isPresidentScopeRequest(int $actionType, string $systemKey): bool
+    {
+        return in_array($actionType, [2, 3, 4, 7, 8], true)
+            || in_array($systemKey, [
+                RequestType::SYSTEM_KEY_EVENT,
+                RequestType::SYSTEM_KEY_ROLE_CHANGE,
+                RequestType::SYSTEM_KEY_FORM_GENERATION,
+                RequestType::SYSTEM_KEY_FORM_ACCESS,
+                RequestType::SYSTEM_KEY_FORM_UPLOAD,
+            ], true);
+    }
+
+    private function isMembershipRequest(int $actionType, string $systemKey): bool
+    {
+        return $actionType === 1 || $systemKey === RequestType::SYSTEM_KEY_MEMBERSHIP;
+    }
+
+    private function isRoleChangeRequest(int $actionType, string $systemKey): bool
+    {
+        return $actionType === 7 || $systemKey === RequestType::SYSTEM_KEY_ROLE_CHANGE;
+    }
+
+    private function isEventRequest(int $actionType, string $systemKey): bool
+    {
+        return $actionType === 2 || $systemKey === RequestType::SYSTEM_KEY_EVENT;
+    }
+
+    private function isDocumentGenerationRequest(int $actionType, string $systemKey): bool
+    {
+        return $actionType === FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION
+            || $systemKey === RequestType::SYSTEM_KEY_FORM_GENERATION;
+    }
+
+    private function requestOrganizationId(ActionRequest $actionRequest, int $actionType, string $systemKey): ?int
+    {
+        $organizationId = (int) ($actionRequest->organization_id ?? 0);
+
+        if ($organizationId > 0) {
+            return $organizationId;
+        }
+
+        $payload = (array) ($actionRequest->payload ?? []);
+        $payloadOrganizationId = (int) ($payload['organization_id'] ?? 0);
+
+        if ($payloadOrganizationId > 0) {
+            return $payloadOrganizationId;
+        }
+
+        if ($this->isMembershipRequest($actionType, $systemKey)) {
+            return $this->parseMembershipAction($actionRequest->action)[0] ?: null;
+        }
+
+        if ($this->isRoleChangeRequest($actionType, $systemKey)) {
+            return $this->parseRoleChangeAction($actionRequest->action)[1] ?: null;
+        }
+
+        if ($this->isEventRequest($actionType, $systemKey)) {
+            return $this->parseEventAction($actionRequest->action)[0] ?: null;
+        }
+
+        if ($this->isDocumentGenerationRequest($actionType, $systemKey)
+            || $systemKey === RequestType::SYSTEM_KEY_FORM_ACCESS
+            || $actionType === FormTemplateHelper::ACTION_TYPE_DOCUMENT_ACCESS
+            || $actionType === FormTemplateHelper::ACTION_TYPE_FORM_UPLOAD) {
+            $organizationId = OrganizationAuthorizationService::extractOrganizationIdFromAction($actionRequest->action);
+
+            return $organizationId > 0 ? $organizationId : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{0:int,1:int}
+     */
+    private function resolveMembershipDetails(ActionRequest $actionRequest): array
+    {
+        $payload = (array) ($actionRequest->payload ?? []);
+
+        $organizationId = (int) ($payload['organization_id'] ?? 0);
+        $targetUserId = (int) ($payload['user_id'] ?? 0);
+
+        if ($organizationId > 0 && $targetUserId > 0) {
+            return [$organizationId, $targetUserId];
+        }
+
+        return $this->parseMembershipAction($actionRequest->action);
+    }
+
+    /**
+     * @return array{0:int,1:int,2:string}
+     */
+    private function resolveRoleChangeDetails(ActionRequest $actionRequest): array
+    {
+        $payload = (array) ($actionRequest->payload ?? []);
+
+        $targetUserId = (int) ($payload['target_user_id'] ?? 0);
+        $organizationId = (int) ($payload['organization_id'] ?? 0);
+        $currentRole = in_array((string) ($payload['current_role'] ?? ''), ['member', 'officer', 'president'], true)
+            ? (string) $payload['current_role']
+            : 'member';
+
+        if ($targetUserId > 0 && $organizationId > 0) {
+            return [$targetUserId, $organizationId, $currentRole];
+        }
+
+        return $this->parseRoleChangeAction($actionRequest->action);
+    }
+
+    /**
+     * @return array{0:int,1:int,2:string,3:string,4:string,5:string,6:string}
+     */
+    private function resolveEventDetails(ActionRequest $actionRequest): array
+    {
+        $payload = (array) ($actionRequest->payload ?? []);
+
+        $organizationId = (int) ($payload['organization_id'] ?? 0);
+        $requesterUserId = (int) ($payload['user_id'] ?? 0);
+        $eventName = trim((string) ($payload['name'] ?? ''));
+        $eventStartTime = trim((string) ($payload['start_time'] ?? ''));
+        $eventEndTime = trim((string) ($payload['end_time'] ?? ''));
+        $eventDescription = trim((string) ($payload['desc_text'] ?? ''));
+        $eventLocation = trim((string) ($payload['location'] ?? ''));
+
+        if ($organizationId > 0 && $requesterUserId > 0 && $eventName !== '' && $eventStartTime !== '' && $eventEndTime !== '' && $eventLocation !== '') {
+            return [$organizationId, $requesterUserId, $eventName, $eventStartTime, $eventEndTime, $eventDescription, $eventLocation];
+        }
+
+        return $this->parseEventAction($actionRequest->action);
     }
 
     protected function parseMembershipAction(?string $action): array

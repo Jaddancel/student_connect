@@ -13,13 +13,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('forms', function (Blueprint $table) {
-            $table->string('sidebar_group', 32)->default(Form::SIDEBAR_GROUP_PRESIDENT)->after('description_text');
+            $table->string('sidebar_group', 32)->default(Form::ROLE_LEVEL_PRESIDENT)->after('description_text');
             $table->index('sidebar_group', 'forms_sidebar_group_idx');
         });
 
         \DB::table('forms')
             ->whereNull('sidebar_group')
-            ->update(['sidebar_group' => Form::SIDEBAR_GROUP_PRESIDENT]);
+            ->update(['sidebar_group' => Form::ROLE_LEVEL_PRESIDENT]);
     }
 
     /**

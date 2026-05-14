@@ -8,6 +8,7 @@ use App\Models\Document;
 use App\Models\Form;
 use App\Models\Template;
 use App\Models\Request as ActionRequest;
+use App\Models\RequestType;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -323,60 +324,6 @@ class SidebarMenuController extends Controller
         ]);
     }
 
-    public function uploadForms(Request $request)
-    {
-        $user = $request->user();
-
-        if (! $user) {
-            abort(401);
-        }
-
-        if ((int) $user->user_type !== 1) {
-            abort(403);
-        }
-
-        $userId = (int) $user->getKey();
-
-        $documents = Document::query()
-            ->where('author', $userId)
-            ->orderByDesc('created_at')
-            ->limit(100)
-            ->get();
-
-        return view('pages.sidebar.upload-forms', [
-            'title' => 'Upload Forms',
-            'documents' => $documents,
-        ]);
-    }
-
-    public function storeUploadedForm(Request $request)
-    {
-        $user = $request->user();
-
-        if (! $user) {
-            abort(401);
-        }
-
-        if ((int) $user->user_type !== 1) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'description_text' => ['required', 'string', 'max:255'],
-            'form_file' => ['required', 'file', 'max:10240'],
-        ]);
-
-        $path = $request->file('form_file')->store('forms', 'public');
-
-        Document::query()->create([
-            'description_text' => $validated['description_text'],
-            'author' => (int) $user->getKey(),
-            'link' => $path,
-        ]);
-
-        return back()->with('success', 'Form uploaded successfully.');
-    }
-
     public function downloadFiles(Request $request)
     {
         $queryText = trim((string) $request->query('q', ''));
@@ -534,7 +481,7 @@ class SidebarMenuController extends Controller
         ]);
     }
 
-    public function storeRoleChangeRequest(Request $request)
+    public function storeRoleChangeRequest(Request $request, \App\Services\RequestTypeService $requestTypeService)
     {
         $validated = $request->validate([
             'organization_id' => ['required', 'integer', Rule::exists('organizations', 'organization_id')],
@@ -587,10 +534,26 @@ class SidebarMenuController extends Controller
             return back()->with('status', 'A pending role change request for this member already exists.');
         }
 
+        $requestType = $requestTypeService->resolveSystemType(
+            RequestType::SYSTEM_KEY_ROLE_CHANGE,
+            'Role Change Request',
+            RequestType::CATEGORY_ROLE_SECURITY,
+            $userId,
+        );
+
         ActionRequest::query()->create([
             'action' => $payload,
             'user' => $userId,
             'action_type' => 7,
+            'request_type_id' => (int) $requestType->getKey(),
+            'organization_id' => $organizationId,
+            'requested_by' => $userId,
+            'payload' => [
+                'organization_id' => $organizationId,
+                'target_user_id' => $targetUserId,
+                'current_role' => $currentRole,
+            ],
+            'requested_at' => now(),
         ]);
 
         return back()->with('success', 'Role change request submitted successfully.');

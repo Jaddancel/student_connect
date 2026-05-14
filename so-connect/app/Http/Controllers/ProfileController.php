@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Helpers\ProfileMatchHelper;
 use App\Models\Approval;
 use App\Models\Request as ActionRequest;
+use App\Models\RequestType;
 use Illuminate\Http\Request;
 
 class ProfileController extends Controller
@@ -14,7 +15,7 @@ class ProfileController extends Controller
         return view('pages.profile.create');
     }
 
-    public function store(Request $request)
+    public function store(Request $request, \App\Services\RequestTypeService $requestTypeService)
     {
         $validated = $request->validate([
             'fname' => ['required', 'string', 'max:255'],
@@ -59,7 +60,23 @@ class ProfileController extends Controller
         ActionRequest::query()->create([
             'action' => $action,
             'action_type' => 9,
+            'request_type_id' => (int) $requestTypeService->resolveSystemType(
+                RequestType::SYSTEM_KEY_PROFILE_MATCH,
+                'Profile Match Request',
+                RequestType::CATEGORY_ROLE_SECURITY,
+                (int) $user->getKey(),
+            )->getKey(),
+            'organization_id' => null,
+            'requested_by' => (int) $user->getKey(),
+            'payload' => [
+                'user_id' => (int) $user->getKey(),
+                'first_name' => $validated['fname'],
+                'last_name' => $validated['lname'],
+                'middle_name' => $validated['mname'] ?? '',
+                'suggested_profile_id' => (int) ($closestProfile?->getKey() ?? 0),
+            ],
             'user' => (int) $user->getKey(),
+            'requested_at' => now(),
         ]);
 
         $user->update([

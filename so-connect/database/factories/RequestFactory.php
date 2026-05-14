@@ -22,6 +22,10 @@ class RequestFactory extends Factory
             'requested_at' => now(),
             'user' => null,
             'action_type' => null,
+            'request_type_id' => null,
+            'organization_id' => null,
+            'requested_by' => null,
+            'payload' => [],
         ];
     }
 }

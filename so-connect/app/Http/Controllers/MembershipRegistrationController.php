@@ -6,6 +6,7 @@ use App\Models\Approval;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Request as ActionRequest;
+use App\Models\RequestType;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -31,7 +32,7 @@ class MembershipRegistrationController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, \App\Services\RequestTypeService $requestTypeService)
     {
         $validated = $request->validate([
             'organization_id' => [
@@ -69,10 +70,25 @@ class MembershipRegistrationController extends Controller
             return back()->with('status', 'You already have a pending membership request for this organization.');
         }
 
+        $requestType = $requestTypeService->resolveSystemType(
+            RequestType::SYSTEM_KEY_MEMBERSHIP,
+            'Membership Request',
+            RequestType::CATEGORY_ORGANIZATION,
+            $userId,
+        );
+
         ActionRequest::create([
             'action' => $actionValue,
             'action_type' => 1,
+            'request_type_id' => (int) $requestType->getKey(),
+            'organization_id' => $organizationId,
+            'requested_by' => $userId,
+            'payload' => [
+                'organization_id' => $organizationId,
+                'user_id' => $userId,
+            ],
             'user' => $userId,
+            'requested_at' => now(),
         ]);
 
         return back()->with('success', 'Membership request submitted successfully.');

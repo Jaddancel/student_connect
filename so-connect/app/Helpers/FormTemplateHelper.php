@@ -28,6 +28,31 @@ class FormTemplateHelper
         return $normalized !== '' ? $normalized : 'field';
     }
 
+    public static function placeholderBaseKey(string $fieldKey): string
+    {
+        $normalized = self::normalizeFieldKey($fieldKey);
+
+        return preg_replace('/\d+$/', '', $normalized) ?: $normalized;
+    }
+
+    public static function placeholderIndex(string $fieldKey): ?int
+    {
+        $normalized = self::normalizeFieldKey($fieldKey);
+
+        if (! preg_match('/(\d+)$/', $normalized, $matches)) {
+            return null;
+        }
+
+        $index = (int) ($matches[1] ?? 0);
+
+        return $index > 0 ? $index : null;
+    }
+
+    public static function wrapIndexedPlaceholder(string $fieldKey): string
+    {
+        return '{{'.self::placeholderBaseKey($fieldKey).'#}}';
+    }
+
     public static function normalizePlaceholder(string $placeholder): string
     {
         $trimmed = trim($placeholder);
@@ -124,15 +149,24 @@ class FormTemplateHelper
 
         $normalizedPayload = collect($payload)
             ->mapWithKeys(function ($value, $key) {
-                return [self::normalizeFieldKey((string) $key) => self::stringifyValue($value)];
+                return [self::normalizeFieldKey((string) $key) => self::normalizePayloadValue($value)];
             })
             ->all();
 
-        return $mappingCollection
-            ->mapWithKeys(function (TemplateDescription $mapping) use ($normalizedPayload) {
-                $fieldKey = self::normalizeFieldKey((string) ($mapping->field_key ?: $mapping->placeholder_key));
+        $multipleInputIndexes = [];
 
-                return [$fieldKey => (string) ($normalizedPayload[$fieldKey] ?? '')];
+        return $mappingCollection
+            ->mapWithKeys(function (TemplateDescription $mapping) use ($normalizedPayload, &$multipleInputIndexes) {
+                $fieldKey = self::normalizeFieldKey((string) ($mapping->field_key ?: $mapping->placeholder_key));
+                $placeholderKey = self::normalizeFieldKey((string) ($mapping->placeholder_key ?: $mapping->field_key));
+
+                $payloadValue = $normalizedPayload[$fieldKey] ?? '';
+
+                if (is_array($payloadValue)) {
+                    return [$placeholderKey => self::multipleInputValueForPlaceholder($payloadValue, $placeholderKey, $fieldKey, $multipleInputIndexes)];
+                }
+
+                return [$placeholderKey => self::stringifyValue($payloadValue)];
             })
             ->all();
     }
@@ -149,20 +183,30 @@ class FormTemplateHelper
             : collect($mappings);
 
         $normalizedPayload = collect($payload)
-            ->mapWithKeys(fn ($value, $key) => [self::normalizeFieldKey((string) $key) => self::stringifyValue($value)])
+            ->mapWithKeys(fn ($value, $key) => [self::normalizeFieldKey((string) $key) => self::normalizePayloadValue($value)])
             ->all();
 
+        $multipleInputIndexes = [];
+
         return $mappingCollection
-            ->filter(function (TemplateDescription $mapping) use ($normalizedPayload) {
+            ->filter(function (TemplateDescription $mapping) use ($normalizedPayload, &$multipleInputIndexes) {
                 if (! (bool) $mapping->is_required) {
                     return false;
                 }
 
                 $fieldKey = self::normalizeFieldKey((string) ($mapping->field_key ?: $mapping->placeholder_key));
+                $placeholderKey = self::normalizeFieldKey((string) ($mapping->placeholder_key ?: $mapping->field_key));
+                $payloadValue = $normalizedPayload[$fieldKey] ?? '';
 
-                return trim((string) ($normalizedPayload[$fieldKey] ?? '')) === '';
+                if (is_array($payloadValue)) {
+                    $value = self::multipleInputValueForPlaceholder($payloadValue, $placeholderKey, $fieldKey, $multipleInputIndexes);
+
+                    return trim($value) === '';
+                }
+
+                return trim((string) self::stringifyValue($payloadValue)) === '';
             })
-            ->map(fn (TemplateDescription $mapping) => self::normalizeFieldKey((string) ($mapping->field_key ?: $mapping->placeholder_key)))
+            ->map(fn (TemplateDescription $mapping) => self::normalizeFieldKey((string) ($mapping->placeholder_key ?: $mapping->field_key)))
             ->unique()
             ->values()
             ->all();
@@ -280,5 +324,39 @@ class FormTemplateHelper
         }
 
         return trim((string) $value);
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return array<int, string>|string
+     */
+    private static function normalizePayloadValue($value): array|string
+    {
+        if (is_array($value)) {
+            return array_values(array_map(
+                fn ($item) => trim((string) $item),
+                $value,
+            ));
+        }
+
+        return trim((string) $value);
+    }
+
+    /**
+     * @param  array<int, string>  $values
+     * @param  array<string, int>  $multipleInputIndexes
+     */
+    private static function multipleInputValueForPlaceholder(array $values, string $placeholderKey, string $fieldKey, array &$multipleInputIndexes): string
+    {
+        $placeholderIndex = self::placeholderIndex($placeholderKey);
+
+        if ($placeholderIndex !== null) {
+            return (string) ($values[$placeholderIndex - 1] ?? '');
+        }
+
+        $currentIndex = $multipleInputIndexes[$fieldKey] ?? 0;
+        $multipleInputIndexes[$fieldKey] = $currentIndex + 1;
+
+        return (string) ($values[$currentIndex] ?? '');
     }
 }
