@@ -1,3 +1,4 @@
+@props(['canDecide' => true])
 <div
     class="overflow-hidden rounded-2xl border border-gray-200 bg-white pt-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
     <div class="mb-4 flex flex-col gap-3 px-6 sm:flex-row sm:items-center sm:justify-between">
@@ -33,8 +34,10 @@
                             Request Date/Time</th>
                         <th class="px-6 py-3 text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">
                             Status</th>
+                        @if($canDecide)
                         <th class="px-6 py-3 text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">
                             Action</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -78,6 +81,7 @@
                                     }"
                                     x-text="row.approval_status_label"></span>
                             </td>
+                            @if($canDecide)
                             <td class="px-6 py-3.5">
                                 <div class="flex items-center gap-2">
                                     <button type="button"
@@ -108,6 +112,7 @@
                                     </button>
                                 </div>
                             </td>
+                            @endif
                         </tr>
                     </template>
                 </tbody>

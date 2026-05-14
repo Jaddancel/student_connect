@@ -42,8 +42,11 @@ Route::get('/dashboard/president', function () {
 })->middleware(['auth', 'dashboard.access:president'])->name('president-dashboard');
 
 Route::get('/dashboard/admin', function () {
-    return view('pages.dashboard.administrator', ['title' => 'Administrator Dashboard']);
-})->middleware(['auth', 'dashboard.access:admin'])->name('admin-dashboard');
+    return view('pages.dashboard.administrator', [
+        'title' => 'Admin Dashboard',
+        'canDecide' => false,
+    ]);
+})->middleware(['auth', 'admin'])->name('admin-dashboard');
 
 Route::get('/dashboard/officer', function () {
     return view('pages.dashboard.officer', ['title' => 'Officer Dashboard']);
@@ -68,7 +71,7 @@ Route::get('/calendar', function () {
     $user = request()->user();
     $isOfficerOrPresident = Gate::forUser($user)->allows('access-dashboard', 'officer')
         || Gate::forUser($user)->allows('access-dashboard', 'president');
-    $canRequestEvent = (int) $user->user_type === 2 || $isOfficerOrPresident;
+    $canRequestEvent = $isOfficerOrPresident;
 
     $eventRequestOrganizations = collect();
 
@@ -135,21 +138,21 @@ Route::get('/manage-organization', [OrganizationController::class, 'manage'])
     ->name('manage-organization');
 
 Route::get('/forms/manage', [FormWorkflowController::class, 'manageForms'])
-    ->middleware(['auth', 'superadmin'])
+    ->middleware(['auth', 'admin'])
     ->name('forms.manage');
 
 Route::post('/forms/manage', [FormWorkflowController::class, 'storeTemplate'])
-    ->middleware(['auth', 'superadmin'])
+    ->middleware(['auth', 'admin'])
     ->name('forms.manage.store');
 
 Route::get('/forms/{formId}/edit', [FormWorkflowController::class, 'editForm'])
     ->whereNumber('formId')
-    ->middleware(['auth', 'superadmin'])
+    ->middleware(['auth', 'admin'])
     ->name('forms.edit');
 
 Route::post('/forms/{formId}/edit', [FormWorkflowController::class, 'updateForm'])
     ->whereNumber('formId')
-    ->middleware(['auth', 'superadmin'])
+    ->middleware(['auth', 'admin'])
     ->name('forms.update');
 
 Route::get('/forms/{formId}', [FormWorkflowController::class, 'showFormPage'])
@@ -329,6 +332,25 @@ Route::get('/api/requests/{actionType}', function (int $actionType) use ($applyA
         abort(401);
     }
 
+    $hours = max((int) request()->query('hours', 0), 0);
+    $limit = min(max((int) request()->query('limit', 0), 0), 200);
+
+    $isAdmin = (int) $user->user_type === 2;
+
+    if ($isAdmin) {
+        $query = Request::query()->where('action_type', $actionType)->orderByDesc('requested_at');
+
+        if ($hours > 0) {
+            $query->where('requested_at', '>=', now()->subHours($hours));
+        }
+
+        if ($limit > 0) {
+            $query->limit($limit);
+        }
+
+        return ActionRequestResource::collection($query->get());
+    }
+
     $authorizedOrganizationIds = in_array($actionType, [2, 3, 4, 8], true)
         ? OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey())
         : OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
@@ -336,9 +358,6 @@ Route::get('/api/requests/{actionType}', function (int $actionType) use ($applyA
     if (empty($authorizedOrganizationIds)) {
         return ActionRequestResource::collection(collect());
     }
-
-    $hours = max((int) request()->query('hours', 0), 0);
-    $limit = min(max((int) request()->query('limit', 0), 0), 200);
 
     $query = $applyAuthorizedOrganizationScope(
         Request::query()->where('action_type', $actionType),
@@ -406,6 +425,19 @@ Route::get('/api/approvals/{actionType}', function (int $actionType) use ($apply
         abort(401);
     }
 
+    $isAdmin = (int) $user->user_type === 2;
+
+    if ($isAdmin) {
+        $allRequestIds = Request::query()->where('action_type', $actionType)->select('request_id');
+
+        return ApprovalResource::collection(
+            Approval::query()
+                ->whereIn('request', $allRequestIds)
+                ->orderByDesc('approved_at')
+                ->get()
+        );
+    }
+
     $authorizedOrganizationIds = in_array($actionType, [2, 3, 4, 8], true)
         ? OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey())
         : OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
@@ -440,18 +472,24 @@ Route::get('/api/approvals/{status}/{actionType}', function (string $status, int
         abort(401);
     }
 
-    $authorizedOrganizationIds = in_array($actionType, [2, 3, 4, 8], true)
-        ? OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey())
-        : OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
+    $isAdmin = (int) $user->user_type === 2;
 
-    if (empty($authorizedOrganizationIds)) {
-        return ApprovalResource::collection(collect());
+    if ($isAdmin) {
+        $scopedRequestIds = Request::query()->where('action_type', $actionType)->select('request_id');
+    } else {
+        $authorizedOrganizationIds = in_array($actionType, [2, 3, 4, 8], true)
+            ? OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey())
+            : OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
+
+        if (empty($authorizedOrganizationIds)) {
+            return ApprovalResource::collection(collect());
+        }
+
+        $scopedRequestIds = $applyAuthorizedOrganizationScope(
+            Request::query()->where('action_type', $actionType),
+            $authorizedOrganizationIds
+        )->select('request_id');
     }
-
-    $scopedRequestIds = $applyAuthorizedOrganizationScope(
-        Request::query()->where('action_type', $actionType),
-        $authorizedOrganizationIds
-    )->select('request_id');
 
     if ($status == 'approved') {
         return ApprovalResource::collection(
@@ -468,7 +506,6 @@ Route::get('/api/approvals/{status}/{actionType}', function (string $status, int
                 ->get()
         );
     } elseif ($status == 'pending') {
-        // add things for pending... - Jad
         return ApprovalResource::collection(
             Approval::query()
                 ->where('is_rejected', null)

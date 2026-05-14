@@ -36,7 +36,7 @@ class MemberFactory extends Factory
     public function officer(): static
     {
         return $this->state(fn () => [
-            'user' => User::factory()->admin()->create()->getKey(),
+            'user' => User::factory()->orgOfficer()->create()->getKey(),
         ]);
     }
 }

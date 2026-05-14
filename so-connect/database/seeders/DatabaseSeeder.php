@@ -17,5 +17,6 @@ class DatabaseSeeder extends Seeder
         $this->call(ProfileSeeder::class);
         $this->call(RequestSeeder::class);
         $this->call(SuperAdminSeeder::class);
+        $this->call(AdminSeeder::class);
     }
 }

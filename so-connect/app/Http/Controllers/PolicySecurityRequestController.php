@@ -23,12 +23,18 @@ class PolicySecurityRequestController extends Controller
             abort(401);
         }
 
-        $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
+        $isAdmin = (int) $user->user_type === 2;
 
-        if (empty($presidentOrganizationIds)) {
-            return response()->json([
-                'message' => 'You are not authorized to access policy and security requests.',
-            ], 403);
+        if (! $isAdmin) {
+            $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
+
+            if (empty($presidentOrganizationIds)) {
+                return response()->json([
+                    'message' => 'You are not authorized to access policy and security requests.',
+                ], 403);
+            }
+        } else {
+            $presidentOrganizationIds = null;
         }
 
         $hours = max((int) $request->query('hours', 0), 0);
@@ -56,7 +62,7 @@ class PolicySecurityRequestController extends Controller
                     'requested_role' => $this->nextRoleFromCurrent($currentRole),
                 ];
             })
-            ->filter(fn ($item) => in_array($item['organization_id'], $presidentOrganizationIds, true))
+            ->filter(fn ($item) => $presidentOrganizationIds === null || in_array($item['organization_id'], $presidentOrganizationIds, true))
             ->values();
 
         if ($limit > 0) {
@@ -128,12 +134,18 @@ class PolicySecurityRequestController extends Controller
             abort(401);
         }
 
-        $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
+        $isAdmin = (int) $user->user_type === 2;
 
-        if (empty($presidentOrganizationIds)) {
-            return response()->json([
-                'message' => 'You are not authorized to access policy and security approvals.',
-            ], 403);
+        if (! $isAdmin) {
+            $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
+
+            if (empty($presidentOrganizationIds)) {
+                return response()->json([
+                    'message' => 'You are not authorized to access policy and security approvals.',
+                ], 403);
+            }
+        } else {
+            $presidentOrganizationIds = null;
         }
 
         $requestIds = ActionRequest::query()
@@ -141,6 +153,9 @@ class PolicySecurityRequestController extends Controller
             ->orderByDesc('requested_at')
             ->get()
             ->filter(function ($actionRequest) use ($presidentOrganizationIds) {
+                if ($presidentOrganizationIds === null) {
+                    return true;
+                }
                 [, $organizationId] = $this->parseRoleChangeAction($actionRequest->action);
 
                 return in_array($organizationId, $presidentOrganizationIds, true);
@@ -170,17 +185,28 @@ class PolicySecurityRequestController extends Controller
             abort(401);
         }
 
-        $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
+        $isAdmin = (int) $user->user_type === 2;
 
-        if (empty($presidentOrganizationIds)) {
-            return response()->json([
-                'message' => 'You are not authorized to access policy and security metrics.',
-            ], 403);
+        if (! $isAdmin) {
+            $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
+
+            if (empty($presidentOrganizationIds)) {
+                return response()->json([
+                    'message' => 'You are not authorized to access policy and security metrics.',
+                ], 403);
+            }
+        } else {
+            $presidentOrganizationIds = null;
         }
 
-        $organizationNames = Organization::query()
-            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'organizations.detail')
-            ->whereIn('organizations.organization_id', $presidentOrganizationIds)
+        $orgQuery = Organization::query()
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'organizations.detail');
+
+        if ($presidentOrganizationIds !== null) {
+            $orgQuery->whereIn('organizations.organization_id', $presidentOrganizationIds);
+        }
+
+        $organizationNames = $orgQuery
             ->pluck('od.name')
             ->map(fn ($name) => $name ?: 'Unknown Organization')
             ->values()
@@ -190,6 +216,9 @@ class PolicySecurityRequestController extends Controller
             ->where('action_type', 7)
             ->get()
             ->filter(function ($actionRequest) use ($presidentOrganizationIds) {
+                if ($presidentOrganizationIds === null) {
+                    return true;
+                }
                 [, $organizationId] = $this->parseRoleChangeAction($actionRequest->action);
 
                 return in_array($organizationId, $presidentOrganizationIds, true);
@@ -212,26 +241,26 @@ class PolicySecurityRequestController extends Controller
             ->reject(fn ($requestId) => in_array($requestId, $resolvedRequestIds, true))
             ->count();
 
-        $adminsCount = (int) \DB::table('organization_officers')
-            ->whereIn('organization', $presidentOrganizationIds)
-            ->where('role', 'president')
-            ->count();
+        $officerQuery = \DB::table('organization_officers');
+        $memberQuery = \DB::table('members');
 
-        $officersCount = (int) \DB::table('organization_officers')
-            ->whereIn('organization', $presidentOrganizationIds)
-            ->where('role', 'officer')
-            ->count();
+        if ($presidentOrganizationIds !== null) {
+            $officerQuery->whereIn('organization', $presidentOrganizationIds);
+            $memberQuery->whereIn('organization', $presidentOrganizationIds);
+        }
 
-        $membershipsCount = (int) \DB::table('members')
-            ->whereIn('organization', $presidentOrganizationIds)
-            ->count();
+        $adminsCount = (int) (clone $officerQuery)->where('role', 'president')->count();
+        $officersCount = (int) (clone $officerQuery)->where('role', 'officer')->count();
+        $membershipsCount = (int) $memberQuery->count();
 
         return response()->json([
             'data' => [
                 'organization_names' => $organizationNames,
-                'organization_label' => count($organizationNames) === 1
-                    ? ($organizationNames[0] ?? 'Unknown Organization')
-                    : 'Your Organizations',
+                'organization_label' => $isAdmin
+                    ? 'All Organizations'
+                    : (count($organizationNames) === 1
+                        ? ($organizationNames[0] ?? 'Unknown Organization')
+                        : 'Your Organizations'),
                 'admins_count' => $adminsCount,
                 'officers_count' => $officersCount,
                 'memberships_count' => $membershipsCount,

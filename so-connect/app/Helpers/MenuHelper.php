@@ -62,8 +62,11 @@ class MenuHelper
             ],
         ];
 
-        if ((int) $user->user_type === 1) {
+        if ((int) $user->user_type === 2) {
             $menuGroups[2]['items'][] = ['icon' => 'forms', 'name' => 'Manage Document Forms', 'path' => '/forms/manage'];
+        }
+
+        if ((int) $user->user_type === 1) {
             $menuGroups[2]['items'][] = ['icon' => 'charts', 'name' => 'Dashboard Builder', 'path' => '/superadmin/dashboard-builder'];
             $menuGroups[2]['items'][] = ['icon' => 'forms', 'name' => 'Request Types', 'path' => '/superadmin/request-types'];
         }
@@ -99,13 +102,13 @@ class MenuHelper
             'is_officer' => $isOfficer,
             'is_president' => $isPresident,
             'is_admin' => $isAdmin,
-            'is_member_only' => (int) $user->user_type === 3 && ! $isAdmin,
+            'is_member_only' => (int) $user->user_type === 4 && ! $isAdmin,
         ];
     }
 
     private static function resolveUserRoleLevels(User $user): array
     {
-        if ((int) $user->user_type === 1) {
+        if (in_array((int) $user->user_type, [1, 2], true)) {
             return Form::SIDEBAR_GROUP_OPTIONS;
         }
 
@@ -132,14 +135,14 @@ class MenuHelper
 
     private static function injectFormMenuItems(array $menuGroups, User $user): array
     {
-        $isSuperAdmin = (int) $user->user_type === 1;
+        $isPrivilegedUser = (int) $user->user_type <= 2;
 
         $formsQuery = Form::query()
             ->where('is_active', true)
             ->where('is_published', true)
             ->with('requestType');
 
-        if (! $isSuperAdmin) {
+        if (! $isPrivilegedUser) {
             $organizationIds = \App\Services\OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
 
             $formsQuery->where(function ($query) use ($organizationIds) {
@@ -155,7 +158,7 @@ class MenuHelper
             ->orderBy('name')
             ->get();
 
-        if (! $isSuperAdmin) {
+        if (! $isPrivilegedUser) {
             $userRoleLevels = self::resolveUserRoleLevels($user);
             $forms = $forms->filter(function (Form $form) use ($userRoleLevels) {
                 $formRoles = (array) ($form->sidebar_group ?? []);

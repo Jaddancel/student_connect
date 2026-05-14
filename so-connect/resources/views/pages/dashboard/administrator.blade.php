@@ -25,7 +25,7 @@
 
         <div class="col-span-12 space-y-6 xl:col-span-7" x-show="$store.dashboardType.current.code !== 7">
             <x-dashboard.metrics-by-type />
-            <x-dashboard.list-by-type />
+            <x-dashboard.list-by-type :canDecide="$canDecide ?? true" />
         </div>
         <div class="col-span-12 space-y-6 xl:col-span-5" x-show="$store.dashboardType.current.code !== 7">
             <x-dashboard.compare-by-type />
@@ -33,7 +33,7 @@
         </div>
 
         <div class="col-span-12 space-y-6 xl:col-span-7" x-show="$store.dashboardType.current.code === 7">
-            <x-dashboard.list-by-type />
+            <x-dashboard.list-by-type :canDecide="$canDecide ?? true" />
         </div>
         <div class="col-span-12 space-y-6 xl:col-span-5" x-show="$store.dashboardType.current.code === 7">
             <x-dashboard.a-d-chart-by-type />

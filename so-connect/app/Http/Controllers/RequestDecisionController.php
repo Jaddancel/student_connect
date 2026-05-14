@@ -203,6 +203,10 @@ class RequestDecisionController extends Controller
             return 'superadmin';
         }
 
+        if ($this->isAdminScopeRequest($actionType, $systemKey)) {
+            return 'sysadmin';
+        }
+
         if ($this->isPresidentScopeRequest($actionType, $systemKey)) {
             return 'president';
         }
@@ -216,6 +220,10 @@ class RequestDecisionController extends Controller
             return null;
         }
 
+        if ($this->isAdminScopeRequest($actionType, $systemKey)) {
+            return null;
+        }
+
         if ($this->isPresidentScopeRequest($actionType, $systemKey)) {
             return OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
         }
@@ -223,15 +231,22 @@ class RequestDecisionController extends Controller
         return OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
     }
 
-    private function isPresidentScopeRequest(int $actionType, string $systemKey): bool
+    private function isAdminScopeRequest(int $actionType, string $systemKey): bool
     {
-        return in_array($actionType, [2, 3, 4, 7, 8], true)
+        return in_array($actionType, [3, 4, 8], true)
             || in_array($systemKey, [
-                RequestType::SYSTEM_KEY_EVENT,
-                RequestType::SYSTEM_KEY_ROLE_CHANGE,
                 RequestType::SYSTEM_KEY_FORM_GENERATION,
                 RequestType::SYSTEM_KEY_FORM_ACCESS,
                 RequestType::SYSTEM_KEY_FORM_UPLOAD,
+            ], true);
+    }
+
+    private function isPresidentScopeRequest(int $actionType, string $systemKey): bool
+    {
+        return in_array($actionType, [2, 7], true)
+            || in_array($systemKey, [
+                RequestType::SYSTEM_KEY_EVENT,
+                RequestType::SYSTEM_KEY_ROLE_CHANGE,
             ], true);
     }
 

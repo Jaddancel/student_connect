@@ -53,8 +53,6 @@ class DocumentGenerationService
             'requested_at' => now(),
         ]);
 
-        app(RequestApprovalService::class)->autoApproveIfPresident($actionRequest, $requesterUserId);
-
         return $actionRequest;
     }
 
@@ -81,8 +79,6 @@ class DocumentGenerationService
             'user' => $requesterUserId,
             'requested_at' => now(),
         ]);
-
-        app(RequestApprovalService::class)->autoApproveIfPresident($actionRequest, $requesterUserId);
 
         return $actionRequest;
     }
@@ -111,8 +107,6 @@ class DocumentGenerationService
             'user' => $uploaderUserId,
             'requested_at' => now(),
         ]);
-
-        app(RequestApprovalService::class)->autoApproveIfPresident($actionRequest, $uploaderUserId);
 
         return $actionRequest;
     }

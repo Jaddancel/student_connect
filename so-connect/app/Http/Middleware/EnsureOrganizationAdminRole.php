@@ -17,7 +17,7 @@ class EnsureOrganizationAdminRole
             abort(401);
         }
 
-        if ((int) $user->user_type === 1) {
+        if ((int) $user->user_type <= 2) {
             abort(403, 'Organization admin pages are reserved for officers and presidents.');
         }
 

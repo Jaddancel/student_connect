@@ -17,8 +17,8 @@ class EnsureMemberRole
             abort(401);
         }
 
-        // Member category is reserved for member users only (not officer/president/superadmin).
-        if ((int) $user->user_type !== 3) {
+        // Member category is reserved for member users only (not officer/president/admin/superadmin).
+        if ((int) $user->user_type !== 4) {
             abort(403, 'Only member users can access this page.');
         }
 

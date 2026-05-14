@@ -33,7 +33,7 @@ class FormWorkflowController extends Controller
             abort(401);
         }
 
-        $isSuperAdmin = (int) $user->user_type === 1;
+        $isSuperAdmin = (int) $user->user_type <= 2;
 
         if (! $isSuperAdmin) {
             abort(403);
@@ -80,7 +80,7 @@ class FormWorkflowController extends Controller
             abort(401);
         }
 
-        if ((int) $user->user_type !== 1) {
+        if ((int) $user->user_type > 2) {
             abort(403);
         }
 
@@ -187,7 +187,7 @@ class FormWorkflowController extends Controller
     {
         $user = $request->user();
 
-        if (! $user || (int) $user->user_type !== 1) {
+        if (! $user || (int) $user->user_type > 2) {
             abort(403);
         }
 
@@ -220,7 +220,7 @@ class FormWorkflowController extends Controller
     {
         $user = $request->user();
 
-        if (! $user || (int) $user->user_type !== 1) {
+        if (! $user || (int) $user->user_type > 2) {
             abort(403);
         }
 

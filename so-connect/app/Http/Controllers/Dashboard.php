@@ -11,18 +11,21 @@ class Dashboard extends Controller
     {
         $user = auth()->user();
 
-        if ((int) $user->user_type === 1) {
+        $userType = (int) $user->user_type;
+
+        if ($userType === 1) {
             return redirect()->route('superadmin.profile-requests');
         }
 
-        if ((int) $user->user_type === 3 && ! $user->profile && ! $user->profile_pending) {
+        if ($userType === 2) {
+            return redirect()->route('admin-dashboard');
+        }
+
+        if ($userType === 4 && ! $user->profile && ! $user->profile_pending) {
             return redirect()->route('profile.create');
         }
 
-        $isUserAnOfficer = $user
-            ->memberships()
-            ->whereHas('officers')
-            ->exists() ?? auth()->user()->user_type == 2 ? true : false;
+        $isUserAnOfficer = $user->memberships()->whereHas('officers')->exists();
 
         if ($isUserAnOfficer) {
             $isPresident = $user
@@ -35,7 +38,7 @@ class Dashboard extends Controller
             if ($isPresident) {
                 return redirect()->route('president-dashboard');
             } else {
-                return redirect()->route('admin-dashboard');
+                return redirect()->route('officer-dashboard');
             }
         } else {
             return redirect()->route('member-dashboard');
@@ -57,7 +60,7 @@ class Dashboard extends Controller
         $upcomingEvents = collect();
 
         if ($organizationIds->isNotEmpty()) {
-            $isMemberUser = (int) $user->user_type === 3;
+            $isMemberUser = (int) $user->user_type === 4;
             $windowEnd = now()->addDays(30);
 
             $upcomingEvents = DB::table('events as e')

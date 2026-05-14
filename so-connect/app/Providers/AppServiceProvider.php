@@ -43,6 +43,7 @@ class AppServiceProvider extends ServiceProvider
             return match ($dashboard) {
                 'president' => $isPresident,
                 'admin', 'officer' => $isOfficer || $isPresident,
+                'sysadmin' => (int) $user->user_type === 2,
                 default => false,
             };
         });

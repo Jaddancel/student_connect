@@ -17,7 +17,7 @@ class EnsurePresidentRole
             abort(401);
         }
 
-        if ((int) $user->user_type === 1) {
+        if ((int) $user->user_type <= 2) {
             abort(403, 'President pages are reserved for organization presidents.');
         }
 
