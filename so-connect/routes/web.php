@@ -142,6 +142,16 @@ Route::post('/forms/manage', [FormWorkflowController::class, 'storeTemplate'])
     ->middleware(['auth', 'superadmin'])
     ->name('forms.manage.store');
 
+Route::get('/forms/{formId}/edit', [FormWorkflowController::class, 'editForm'])
+    ->whereNumber('formId')
+    ->middleware(['auth', 'superadmin'])
+    ->name('forms.edit');
+
+Route::post('/forms/{formId}/edit', [FormWorkflowController::class, 'updateForm'])
+    ->whereNumber('formId')
+    ->middleware(['auth', 'superadmin'])
+    ->name('forms.update');
+
 Route::get('/forms/{formId}', [FormWorkflowController::class, 'showFormPage'])
     ->whereNumber('formId')
     ->middleware('auth')

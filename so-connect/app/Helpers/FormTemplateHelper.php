@@ -31,8 +31,13 @@ class FormTemplateHelper
     public static function placeholderBaseKey(string $fieldKey): string
     {
         $normalized = self::normalizeFieldKey($fieldKey);
+        $base = preg_replace('/\d+$/', '', $normalized) ?? $normalized;
 
-        return preg_replace('/\d+$/', '', $normalized) ?: $normalized;
+        // Trim any trailing underscores left after stripping the numeric suffix
+        // (e.g. "item_1" → base "item_" → trimmed to "item").
+        $base = rtrim($base, '_');
+
+        return $base !== '' ? $base : $normalized;
     }
 
     public static function placeholderIndex(string $fieldKey): ?int
@@ -79,13 +84,12 @@ class FormTemplateHelper
         }
 
         $zip = new ZipArchive;
-        $opened = $zip->open($absolutePath);
 
-        if ($opened !== true) {
+        if ($zip->open($absolutePath) !== true) {
             throw new RuntimeException('Unable to read DOCX template file.');
         }
 
-        $xmlPayload = '';
+        $combined = '';
 
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $entryName = $zip->getNameIndex($i);
@@ -94,11 +98,12 @@ class FormTemplateHelper
                 continue;
             }
 
-            if (! str_starts_with($entryName, 'word/')) {
-                continue;
-            }
+            // Only read body content — skip styles, settings, fontTable, etc.
+            // which never contain user placeholders but add noise after tag-stripping.
+            $isDocumentBody = $entryName === 'word/document.xml';
+            $isHeaderOrFooter = (bool) preg_match('/^word\/(header|footer)\d*\.xml$/', $entryName);
 
-            if (! str_ends_with($entryName, '.xml')) {
+            if (! $isDocumentBody && ! $isHeaderOrFooter) {
                 continue;
             }
 
@@ -108,32 +113,64 @@ class FormTemplateHelper
                 continue;
             }
 
-            // Flatten Word text runs so placeholder regex can match markers split by tags.
-            $flattened = preg_replace('/<[^>]+>/', '', $content) ?? '';
-
-            if ($flattened === '') {
-                continue;
-            }
-
-            $xmlPayload .= "\n".$flattened;
+            // Join <w:t> text nodes per paragraph so that placeholders split
+            // across XML runs (common in Word-generated DOCX) are reconstructed.
+            $combined .= "\n".self::joinTextRunsPerParagraph($content);
         }
 
         $zip->close();
 
-        if ($xmlPayload === '') {
+        if ($combined === '') {
             return [];
         }
 
-        preg_match_all('/\{\{\s*([a-zA-Z0-9_\.:-]+)\s*\}\}/', $xmlPayload, $matches);
+        // Allow trailing # which marks a field as multiline (e.g. {{members#}}).
+        preg_match_all('/\{\{\s*([a-zA-Z0-9_\.:-]+#?)\s*\}\}/', $combined, $matches);
 
-        $placeholders = collect($matches[1] ?? [])
-            ->map(fn ($placeholder) => self::normalizeFieldKey((string) $placeholder))
-            ->filter(fn (string $placeholder) => $placeholder !== '')
+        return collect($matches[1] ?? [])
+            ->map(function (string $placeholder): string {
+                // Preserve the trailing # but normalise everything before it.
+                $isMultiline = str_ends_with($placeholder, '#');
+                $base = $isMultiline ? substr($placeholder, 0, -1) : $placeholder;
+                $normalizedBase = self::normalizeFieldKey($base);
+
+                return $normalizedBase !== '' ? ($normalizedBase.($isMultiline ? '#' : '')) : '';
+            })
+            ->filter(fn (string $placeholder) => $placeholder !== '' && $placeholder !== '#')
             ->unique()
             ->values()
             ->all();
+    }
 
-        return $placeholders;
+    /**
+     * Extracts text from DOCX XML by concatenating all <w:t> nodes within each
+     * paragraph before joining paragraphs with newlines. This correctly handles
+     * Word's habit of splitting placeholder text (e.g. {{item1}}) across multiple
+     * XML runs inside the same paragraph.
+     */
+    private static function joinTextRunsPerParagraph(string $xml): string
+    {
+        // Split on paragraph-close tags so each chunk is one paragraph.
+        $paragraphChunks = preg_split('/<\/w:p\s*>/', $xml) ?? [];
+
+        $lines = [];
+
+        foreach ($paragraphChunks as $chunk) {
+            // Collect every <w:t ...>...</w:t> segment within this paragraph.
+            preg_match_all('/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/', $chunk, $textMatches);
+
+            if (! empty($textMatches[1])) {
+                // Concatenate runs directly — no separator — so {{item}} split
+                // as "{{" + "item" + "}}" across runs becomes "{{item}}".
+                $paraText = implode('', $textMatches[1]);
+                // Decode XML character entities (e.g. &amp; &lt;) so the
+                // placeholder regex sees literal characters.
+                $paraText = html_entity_decode($paraText, ENT_QUOTES | ENT_XML1, 'UTF-8');
+                $lines[] = $paraText;
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     /**
@@ -157,13 +194,16 @@ class FormTemplateHelper
 
         return $mappingCollection
             ->mapWithKeys(function (TemplateDescription $mapping) use ($normalizedPayload, &$multipleInputIndexes) {
+                $rawPlaceholderKey = (string) ($mapping->placeholder_key ?: $mapping->field_key);
                 $fieldKey = self::normalizeFieldKey((string) ($mapping->field_key ?: $mapping->placeholder_key));
-                $placeholderKey = self::normalizeFieldKey((string) ($mapping->placeholder_key ?: $mapping->field_key));
+                $placeholderKey = self::normalizeFieldKey($rawPlaceholderKey);
+                // Preserve the # suffix for multiline detection even though normalizeFieldKey strips it.
+                $effectivePlaceholderKey = str_ends_with($rawPlaceholderKey, '#') ? $placeholderKey.'#' : $placeholderKey;
 
                 $payloadValue = $normalizedPayload[$fieldKey] ?? '';
 
                 if (is_array($payloadValue)) {
-                    return [$placeholderKey => self::multipleInputValueForPlaceholder($payloadValue, $placeholderKey, $fieldKey, $multipleInputIndexes)];
+                    return [$placeholderKey => self::multipleInputValueForPlaceholder($payloadValue, $effectivePlaceholderKey, $fieldKey, $multipleInputIndexes)];
                 }
 
                 return [$placeholderKey => self::stringifyValue($payloadValue)];
@@ -194,12 +234,14 @@ class FormTemplateHelper
                     return false;
                 }
 
+                $rawPlaceholderKey = (string) ($mapping->placeholder_key ?: $mapping->field_key);
                 $fieldKey = self::normalizeFieldKey((string) ($mapping->field_key ?: $mapping->placeholder_key));
-                $placeholderKey = self::normalizeFieldKey((string) ($mapping->placeholder_key ?: $mapping->field_key));
+                $placeholderKey = self::normalizeFieldKey($rawPlaceholderKey);
+                $effectivePlaceholderKey = str_ends_with($rawPlaceholderKey, '#') ? $placeholderKey.'#' : $placeholderKey;
                 $payloadValue = $normalizedPayload[$fieldKey] ?? '';
 
                 if (is_array($payloadValue)) {
-                    $value = self::multipleInputValueForPlaceholder($payloadValue, $placeholderKey, $fieldKey, $multipleInputIndexes);
+                    $value = self::multipleInputValueForPlaceholder($payloadValue, $effectivePlaceholderKey, $fieldKey, $multipleInputIndexes);
 
                     return trim($value) === '';
                 }
@@ -348,6 +390,14 @@ class FormTemplateHelper
      */
     private static function multipleInputValueForPlaceholder(array $values, string $placeholderKey, string $fieldKey, array &$multipleInputIndexes): string
     {
+        // {{fieldname#}} format: join every non-empty row with a newline.
+        if (str_ends_with($placeholderKey, '#')) {
+            $rows = array_values(array_filter(array_map('trim', $values), fn ($v) => $v !== ''));
+
+            return implode("\n", $rows);
+        }
+
+        // Legacy numbered format {{field1}}, {{field2}}, … — pick by slot index.
         $placeholderIndex = self::placeholderIndex($placeholderKey);
 
         if ($placeholderIndex !== null) {

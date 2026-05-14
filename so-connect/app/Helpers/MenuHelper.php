@@ -103,14 +103,43 @@ class MenuHelper
         ];
     }
 
+    private static function resolveUserRoleLevels(User $user): array
+    {
+        if ((int) $user->user_type === 1) {
+            return Form::SIDEBAR_GROUP_OPTIONS;
+        }
+
+        $roleLevels = [Form::ROLE_LEVEL_MEMBER];
+
+        $isPresident = $user->memberships()
+            ->whereHas('officers', fn ($q) => $q->where('role', 'president'))
+            ->exists();
+
+        if ($isPresident) {
+            $roleLevels[] = Form::ROLE_LEVEL_PRESIDENT;
+        }
+
+        $isOfficer = $user->memberships()
+            ->whereHas('officers', fn ($q) => $q->where('role', 'officer'))
+            ->exists();
+
+        if ($isOfficer) {
+            $roleLevels[] = Form::ROLE_LEVEL_OFFICER;
+        }
+
+        return $roleLevels;
+    }
+
     private static function injectFormMenuItems(array $menuGroups, User $user): array
     {
+        $isSuperAdmin = (int) $user->user_type === 1;
+
         $formsQuery = Form::query()
             ->where('is_active', true)
             ->where('is_published', true)
             ->with('requestType');
 
-        if ((int) $user->user_type !== 1) {
+        if (! $isSuperAdmin) {
             $organizationIds = \App\Services\OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
 
             $formsQuery->where(function ($query) use ($organizationIds) {
@@ -125,6 +154,15 @@ class MenuHelper
         $forms = $formsQuery
             ->orderBy('name')
             ->get();
+
+        if (! $isSuperAdmin) {
+            $userRoleLevels = self::resolveUserRoleLevels($user);
+            $forms = $forms->filter(function (Form $form) use ($userRoleLevels) {
+                $formRoles = (array) ($form->sidebar_group ?? []);
+
+                return ! empty(array_intersect($formRoles, $userRoleLevels));
+            });
+        }
 
         if ($forms->isEmpty()) {
             return $menuGroups;

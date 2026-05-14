@@ -60,17 +60,21 @@
                 </div>
 
                 <div>
-                    <label for="sidebar_group" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                         Role Level <span class="text-error-500">*</span>
                     </label>
-                    <select id="sidebar_group" name="sidebar_group"
-                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                    @php $oldRoleLevels = (array) old('sidebar_group', ['president']); @endphp
+                    <div class="flex flex-wrap gap-4 rounded-lg border border-gray-300 bg-transparent px-4 py-3 dark:border-gray-700">
                         @foreach ($roleLevels as $roleLevel => $roleLabel)
-                            <option value="{{ $roleLevel }}" @selected(old('sidebar_group', 'president') === $roleLevel)>
+                            <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                <input type="checkbox" name="sidebar_group[]" value="{{ $roleLevel }}"
+                                    @checked(in_array($roleLevel, $oldRoleLevels))
+                                    class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500/20 dark:border-gray-700" />
                                 {{ $roleLabel }}
-                            </option>
+                            </label>
                         @endforeach
-                    </select>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Select all role levels that should see this form.</p>
                 </div>
 
                 <div>
@@ -109,18 +113,10 @@
                         class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 block h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 file:mr-3 file:rounded-md file:border-0 file:bg-brand-500 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-brand-600 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                 </div>
 
-                <div class="md:col-span-2 flex items-center gap-3">
-                    <input type="checkbox" id="is_published" name="is_published" value="1" @checked(old('is_published'))
-                        class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500/20 dark:border-gray-700" />
-                    <label for="is_published" class="text-sm text-gray-700 dark:text-gray-300">
-                        Publish immediately for officer requests
-                    </label>
-                </div>
-
                 <div class="md:col-span-2 flex justify-end">
                     <button type="submit"
                         class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">
-                        Save Template
+                        Create Form
                     </button>
                 </div>
             </form>
@@ -160,8 +156,9 @@
                                 </th>
                                 <th
                                     class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                    Published
+                                    Status
                                 </th>
+                                <th class="px-4 py-3"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -174,8 +171,7 @@
                                         </p>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                        <p>{{ $form->organization_id ? '#' . (int) $form->organization_id : 'All organizations' }}
-                                        </p>
+                                        <p>{{ $form->organization_id ? '#' . (int) $form->organization_id : 'All organizations' }}</p>
                                         <p class="text-xs text-gray-500 dark:text-gray-400">
                                             {{ \App\Models\Form::roleLevelLabel($form->sidebar_group) }}
                                         </p>
@@ -193,9 +189,15 @@
                                     </td>
                                     <td class="px-4 py-3 text-sm">
                                         <span
-                                            class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $form->is_published ? 'bg-success-100 text-success-700 dark:bg-success-500/15 dark:text-success-400' : 'bg-warning-100 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400' }}">
-                                            {{ $form->is_published ? 'Published' : 'Draft' }}
+                                            class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $form->is_active ? 'bg-success-100 text-success-700 dark:bg-success-500/15 dark:text-success-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' }}">
+                                            {{ $form->is_active ? 'Active' : 'Inactive' }}
                                         </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm">
+                                        <a href="{{ route('forms.edit', ['formId' => $form->id]) }}"
+                                            class="inline-flex items-center rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                                            Edit
+                                        </a>
                                     </td>
                                 </tr>
                             @endforeach

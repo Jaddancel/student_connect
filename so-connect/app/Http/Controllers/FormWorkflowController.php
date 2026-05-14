@@ -72,7 +72,7 @@ class FormWorkflowController extends Controller
         ]);
     }
 
-    public function storeTemplate(Request $request, DocumentGenerationService $generationService): RedirectResponse
+    public function storeTemplate(Request $request): RedirectResponse
     {
         $user = $request->user();
 
@@ -80,28 +80,23 @@ class FormWorkflowController extends Controller
             abort(401);
         }
 
-        $isSuperAdmin = (int) $user->user_type === 1;
-
-        if (! $isSuperAdmin) {
+        if ((int) $user->user_type !== 1) {
             abort(403);
         }
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description_text' => ['nullable', 'string', 'max:2000'],
-            'sidebar_group' => ['required', 'string', Rule::in(Form::SIDEBAR_GROUP_OPTIONS)],
+            'sidebar_group' => ['required', 'array', 'min:1'],
+            'sidebar_group.*' => ['required', 'string', Rule::in(Form::SIDEBAR_GROUP_OPTIONS)],
             'request_type_id' => ['required', 'integer', Rule::exists('request_types', 'request_type_id')->where('is_active', true)],
             'organization_id' => ['nullable', 'integer', Rule::exists('organizations', 'organization_id')],
             'template_file' => ['required', 'file', 'mimes:docx', 'max:10240'],
-            'is_published' => ['nullable', 'boolean'],
         ]);
 
-        $organizationId = array_key_exists('organization_id', $validated) && $validated['organization_id'] !== null
-            ? (int) $validated['organization_id']
-            : null;
+        $organizationId = isset($validated['organization_id']) ? (int) $validated['organization_id'] : null;
         $userId = (int) $user->getKey();
-        $requestType = RequestType::query()->findOrFail((int) $validated['request_type_id']);
-        $sidebarGroup = (string) $validated['sidebar_group'];
+        $sidebarGroup = array_values(array_unique((array) $validated['sidebar_group']));
 
         $uploadedFile = $request->file('template_file');
 
@@ -132,7 +127,7 @@ class FormWorkflowController extends Controller
         $fieldDefinitions = $this->buildTemplateFieldDefinitions($placeholders);
 
         try {
-            DB::transaction(function () use ($validated, $organizationId, $userId, $storedPath, $fieldDefinitions, $generationService, $sidebarGroup) {
+            DB::transaction(function () use ($validated, $organizationId, $userId, $storedPath, $fieldDefinitions, $sidebarGroup) {
                 $form = Form::query()->create([
                     'name' => trim((string) $validated['name']),
                     'description_text' => trim((string) ($validated['description_text'] ?? '')) ?: null,
@@ -141,7 +136,7 @@ class FormWorkflowController extends Controller
                     'organization_id' => $organizationId,
                     'created_by' => $userId,
                     'is_active' => true,
-                    'is_published' => (bool) ($validated['is_published'] ?? false),
+                    'is_published' => true,
                 ]);
 
                 $template = Template::query()->create([
@@ -155,7 +150,6 @@ class FormWorkflowController extends Controller
                 ]);
 
                 foreach ($fieldDefinitions as $fieldDefinition) {
-
                     $field = FormDescription::query()->create([
                         'form_id' => (int) $form->getKey(),
                         'field_key' => (string) $fieldDefinition['field_key'],
@@ -177,13 +171,6 @@ class FormWorkflowController extends Controller
                         ]);
                     }
                 }
-
-                $generationService->createFormUploadRequest(
-                    $organizationId,
-                    (int) $form->getKey(),
-                    (int) $template->getKey(),
-                    $userId,
-                );
             });
         } catch (\Throwable $throwable) {
             Storage::disk($disk)->delete($storedPath);
@@ -193,7 +180,112 @@ class FormWorkflowController extends Controller
             ])->withInput();
         }
 
-        return back()->with('success', 'Document form template uploaded and mapped successfully.');
+        return back()->with('success', 'Document form created and published successfully.');
+    }
+
+    public function editForm(Request $request, int $formId)
+    {
+        $user = $request->user();
+
+        if (! $user || (int) $user->user_type !== 1) {
+            abort(403);
+        }
+
+        $form = Form::query()
+            ->with(['fields.mappings', 'templates' => fn ($q) => $q->orderByDesc('version'), 'requestType'])
+            ->findOrFail($formId);
+
+        $organizations = DB::table('organizations as o')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->select(['o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name")])
+            ->orderBy('organization_name')
+            ->get();
+
+        $requestTypes = RequestType::query()
+            ->where('is_active', true)
+            ->orderBy('category')
+            ->orderBy('name')
+            ->get();
+
+        return view('pages.sidebar.edit-document-form', [
+            'title' => 'Edit Form: '.$form->name,
+            'form' => $form,
+            'organizations' => $organizations,
+            'requestTypesByCategory' => $requestTypes->groupBy('category'),
+            'roleLevels' => Form::roleLevelOptions(),
+        ]);
+    }
+
+    public function updateForm(Request $request, int $formId): RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $user || (int) $user->user_type !== 1) {
+            abort(403);
+        }
+
+        $form = Form::query()->with('fields')->findOrFail($formId);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'description_text' => ['nullable', 'string', 'max:2000'],
+            'sidebar_group' => ['required', 'array', 'min:1'],
+            'sidebar_group.*' => ['required', 'string', Rule::in(Form::SIDEBAR_GROUP_OPTIONS)],
+            'request_type_id' => ['required', 'integer', Rule::exists('request_types', 'request_type_id')->where('is_active', true)],
+            'organization_id' => ['nullable', 'integer', Rule::exists('organizations', 'organization_id')],
+            'is_active' => ['nullable', 'boolean'],
+            'fields' => ['nullable', 'array'],
+            'fields.*.field_label' => ['nullable', 'string', 'max:255'],
+            'fields.*.field_type' => ['nullable', 'string', 'max:50'],
+            'fields.*.is_required' => ['nullable', 'boolean'],
+            'fields.*.static_options' => ['nullable', 'string'],
+            'fields.*.db_source' => ['nullable', 'string', Rule::in(['organizations', 'users'])],
+        ]);
+
+        DB::transaction(function () use ($form, $validated) {
+            $form->update([
+                'name' => trim((string) $validated['name']),
+                'description_text' => trim((string) ($validated['description_text'] ?? '')) ?: null,
+                'request_type_id' => (int) $validated['request_type_id'],
+                'sidebar_group' => array_values(array_unique((array) $validated['sidebar_group'])),
+                'organization_id' => isset($validated['organization_id']) ? (int) $validated['organization_id'] : null,
+                'is_active' => (bool) ($validated['is_active'] ?? true),
+                'is_published' => true,
+            ]);
+
+            $postedFields = (array) ($validated['fields'] ?? []);
+
+            foreach ($form->fields as $field) {
+                $fieldKey = (string) $field->field_key;
+                $posted = $postedFields[$fieldKey] ?? [];
+
+                $fieldType = trim((string) ($posted['field_type'] ?? $field->field_type));
+                $fieldLabel = trim((string) ($posted['field_label'] ?? $field->field_label));
+                $isRequired = (bool) ($posted['is_required'] ?? $field->is_required);
+
+                $fieldOptions = null;
+
+                if ($fieldType === 'select') {
+                    $rawOptions = trim((string) ($posted['static_options'] ?? ''));
+                    $options = array_values(array_filter(array_map('trim', explode("\n", $rawOptions))));
+                    $fieldOptions = $options ?: null;
+                } elseif ($fieldType === 'dynamicSelect') {
+                    $source = (string) ($posted['db_source'] ?? 'organizations');
+                    $fieldOptions = ['source' => $source];
+                }
+
+                $field->update([
+                    'field_label' => $fieldLabel !== '' ? $fieldLabel : $field->field_label,
+                    'field_type' => $fieldType !== '' ? $fieldType : $field->field_type,
+                    'is_required' => $isRequired,
+                    'field_options' => $fieldOptions,
+                ]);
+            }
+        });
+
+        return redirect()
+            ->route('forms.edit', ['formId' => $formId])
+            ->with('success', 'Form updated successfully.');
     }
 
     public function showFormPage(Request $request, int $formId)
@@ -212,9 +304,22 @@ class FormWorkflowController extends Controller
             abort(404);
         }
 
+        $dynamicFieldOptions = [];
+        foreach ($form->fields as $field) {
+            if ($field->field_type !== 'dynamicSelect' || ! is_array($field->field_options)) {
+                continue;
+            }
+            $source = (string) ($field->field_options['source'] ?? 'organizations');
+            $dynamicFieldOptions[(string) $field->field_key] = [
+                'options' => $this->resolveDbOptions($source, $user),
+                'slot_count' => max(1, $field->mappings->count()),
+            ];
+        }
+
         return view('pages.sidebar.form-request-page', [
             'title' => $form->name,
             'form' => $form,
+            'dynamicFieldOptions' => $dynamicFieldOptions,
             'requestRows' => $this->buildOwnDocumentRequestRows($userId, (int) $form->getKey()),
         ]);
     }
@@ -252,18 +357,31 @@ class FormWorkflowController extends Controller
             $fieldKey = (string) $field->field_key;
             $normalizedValue = $this->normalizeRequestValue($rawFields[$fieldKey] ?? null);
 
-            if ($field->field_type === 'multipleInputs') {
-                $expectedCount = max(1, $field->mappings->count());
+            if (in_array($field->field_type, ['multipleInputs', 'dynamicSelect'], true)) {
                 $values = is_array($normalizedValue) ? array_values($normalizedValue) : [$normalizedValue];
 
-                while (count($values) < $expectedCount) {
-                    $values[] = '';
-                }
+                $isHashField = str_ends_with((string) ($field->placeholder_hint ?? ''), '#}}');
 
-                if ((bool) $field->is_required) {
-                    for ($index = 0; $index < $expectedCount; $index++) {
-                        if (trim((string) ($values[$index] ?? '')) === '') {
-                            $fieldErrors['fields.'.$fieldKey.'.'.($index + 1)] = ($field->field_label ?: $fieldKey).' entry #'.($index + 1).' is required.';
+                if ($isHashField) {
+                    // {{fieldname#}}: at least one non-empty row required.
+                    if ((bool) $field->is_required) {
+                        $hasContent = ! empty(array_filter(array_map('trim', $values), fn ($v) => $v !== ''));
+                        if (! $hasContent) {
+                            $fieldErrors['fields.'.$fieldKey] = ($field->field_label ?: $fieldKey).' requires at least one entry.';
+                        }
+                    }
+                } else {
+                    // Legacy numbered slots: each slot must be filled.
+                    $expectedCount = max(1, $field->mappings->count());
+                    while (count($values) < $expectedCount) {
+                        $values[] = '';
+                    }
+
+                    if ((bool) $field->is_required) {
+                        for ($index = 0; $index < $expectedCount; $index++) {
+                            if (trim((string) ($values[$index] ?? '')) === '') {
+                                $fieldErrors['fields.'.$fieldKey.'.'.($index + 1)] = ($field->field_label ?: $fieldKey).' entry #'.($index + 1).' is required.';
+                            }
                         }
                     }
                 }
@@ -314,27 +432,31 @@ class FormWorkflowController extends Controller
             return null;
         }
 
-        $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
+        $isSuperAdmin = (int) $user->user_type === 1;
 
-        if (empty($presidentOrganizationIds)) {
-            abort(403);
-        }
-
-        $form = Form::query()
+        $formQuery = Form::query()
             ->with([
                 'fields.mappings',
                 'templates' => fn ($templateQuery) => $templateQuery->where('is_active', true)->orderByDesc('version'),
             ])
             ->whereKey($formId)
             ->where('is_active', true)
-            ->where('is_published', true)
-            ->where(function ($query) use ($presidentOrganizationIds) {
+            ->where('is_published', true);
+
+        if (! $isSuperAdmin) {
+            $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
+
+            if (empty($presidentOrganizationIds)) {
+                abort(403);
+            }
+
+            $formQuery->where(function ($query) use ($presidentOrganizationIds) {
                 $query->whereNull('organization_id')
                     ->orWhereIn('organization_id', $presidentOrganizationIds);
-            })
-            ->first();
+            });
+        }
 
-        return $form;
+        return $formQuery->first();
     }
 
     public function generatedDocuments(Request $request)
@@ -437,6 +559,68 @@ class FormWorkflowController extends Controller
     }
 
     /**
+     * Resolves role-scoped select options for a dynamicSelect field.
+     *
+     * @return array<int, array{value: int|string, label: string}>
+     */
+    private function resolveDbOptions(string $source, \App\Models\User $user): array
+    {
+        $isSuperAdmin = (int) $user->user_type === 1;
+        $userId = (int) $user->getKey();
+
+        if ($source === 'organizations') {
+            $query = DB::table('organizations as o')
+                ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+                ->select(['o.organization_id as value', DB::raw("COALESCE(od.name, 'Unknown Organization') as label")])
+                ->orderBy('label');
+
+            if (! $isSuperAdmin) {
+                $orgIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
+                if (empty($orgIds)) {
+                    $orgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
+                }
+                $query->whereIn('o.organization_id', $orgIds ?: [0]);
+            }
+
+            return $query->get()->map(fn ($row) => ['value' => $row->value, 'label' => $row->label])->all();
+        }
+
+        if ($source === 'users') {
+            $query = DB::table('users as u')
+                ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+                ->select([
+                    'u.user_id as value',
+                    DB::raw("TRIM(CONCAT(COALESCE(p.first_name,''), ' ', COALESCE(p.last_name,''))) as label"),
+                    'u.user_email',
+                ])
+                ->where('u.user_type', '!=', 1)
+                ->orderByRaw("COALESCE(p.last_name,''), COALESCE(p.first_name,'')");
+
+            if (! $isSuperAdmin) {
+                $orgIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
+                if (empty($orgIds)) {
+                    $orgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
+                }
+                $memberUserIds = DB::table('members as m')
+                    ->whereIn('m.organization', $orgIds ?: [0])
+                    ->pluck('m.user')
+                    ->unique()
+                    ->values()
+                    ->all();
+                $query->whereIn('u.user_id', $memberUserIds ?: [0]);
+            }
+
+            return $query->get()->map(function ($row) {
+                $name = trim((string) $row->label);
+                $label = $name !== '' ? $name : (string) $row->user_email;
+                return ['value' => $row->value, 'label' => $label];
+            })->all();
+        }
+
+        return [];
+    }
+
+    /**
      * @return Collection<int, array<string, mixed>>
      */
     private function buildOwnDocumentRequestRows(int $userId, ?int $formId = null): Collection
@@ -521,28 +705,26 @@ class FormWorkflowController extends Controller
         $definitions = [];
 
         foreach ($placeholders as $order => $placeholder) {
-            $normalized = FormTemplateHelper::normalizeFieldKey((string) $placeholder);
-            $baseKey = FormTemplateHelper::placeholderBaseKey($normalized);
-            $placeholderIndex = FormTemplateHelper::placeholderIndex($normalized);
+            $placeholder = (string) $placeholder;
 
-            if ($placeholderIndex !== null) {
-                if (! isset($definitions[$baseKey])) {
-                    $definitions[$baseKey] = [
-                        'field_key' => $baseKey,
-                        'field_label' => (string) Str::of($baseKey)->replace('_', ' ')->title(),
+            // {{fieldname#}} — the # suffix marks this as a multiline field.
+            if (str_ends_with($placeholder, '#')) {
+                $fieldKey = substr($placeholder, 0, -1); // strip trailing #
+                if (! isset($definitions[$fieldKey])) {
+                    $definitions[$fieldKey] = [
+                        'field_key' => $fieldKey,
+                        'field_label' => (string) Str::of($fieldKey)->replace('_', ' ')->title(),
                         'field_type' => 'multipleInputs',
                         'field_order' => $order,
-                        'placeholder_hint' => FormTemplateHelper::wrapIndexedPlaceholder($baseKey),
-                        'placeholders' => [],
+                        'placeholder_hint' => '{{'.$fieldKey.'#}}',
+                        'placeholders' => [$placeholder], // keep the # in the stored key
                     ];
                 }
 
-                $definitions[$baseKey]['field_type'] = 'multipleInputs';
-                $definitions[$baseKey]['placeholder_hint'] = FormTemplateHelper::wrapIndexedPlaceholder($baseKey);
-                $definitions[$baseKey]['placeholders'][$placeholderIndex] = $normalized;
-
                 continue;
             }
+
+            $normalized = FormTemplateHelper::normalizeFieldKey($placeholder);
 
             if (! isset($definitions[$normalized])) {
                 $definitions[$normalized] = [
@@ -555,14 +737,6 @@ class FormWorkflowController extends Controller
                 ];
             }
         }
-
-        foreach ($definitions as &$definition) {
-            if (($definition['field_type'] ?? 'text') === 'multipleInputs') {
-                ksort($definition['placeholders']);
-            }
-        }
-
-        unset($definition);
 
         uasort($definitions, function (array $left, array $right): int {
             $comparison = ($left['field_order'] ?? 0) <=> ($right['field_order'] ?? 0);

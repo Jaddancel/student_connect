@@ -45,6 +45,7 @@ class Form extends Model
         return [
             'is_active' => 'boolean',
             'is_published' => 'boolean',
+            'sidebar_group' => 'array',
         ];
     }
 
@@ -68,8 +69,18 @@ class Form extends Model
         return self::sidebarGroupOptions();
     }
 
-    public static function roleLevelLabel(?string $roleLevel): string
+    /**
+     * @param  string|array<int,string>|null  $roleLevel
+     */
+    public static function roleLevelLabel(string|array|null $roleLevel): string
     {
+        if (is_array($roleLevel)) {
+            $options = self::sidebarGroupOptions();
+            $labels = array_map(fn ($r) => $options[$r] ?? ucfirst((string) $r), $roleLevel);
+
+            return implode(', ', $labels);
+        }
+
         return self::sidebarGroupLabel($roleLevel);
     }
 

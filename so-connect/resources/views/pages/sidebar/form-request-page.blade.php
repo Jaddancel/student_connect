@@ -95,6 +95,32 @@
                                         </div>
                                     </div>
                                 </div>
+                            @elseif ($field->field_type === 'dynamicSelect')
+                                @php
+                                    $dynConfig = $dynamicFieldOptions[$field->field_key] ?? ['options' => [], 'slot_count' => 1];
+                                    $dynOptions = $dynConfig['options'];
+                                    $slotCount = max(1, $dynConfig['slot_count']);
+                                    $dynOldValues = is_array($oldValue) ? $oldValue : [];
+                                @endphp
+                                <div class="space-y-2">
+                                    @for ($slot = 0; $slot < $slotCount; $slot++)
+                                        @php $slotOld = $dynOldValues[$slot] ?? ''; @endphp
+                                        <select name="fields[{{ $field->field_key }}][]"
+                                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                                            <option value="">
+                                                {{ $slotCount > 1 ? 'Select ' . ($slot + 1) . '…' : 'Select…' }}
+                                            </option>
+                                            @foreach ($dynOptions as $opt)
+                                                <option value="{{ $opt['value'] }}" @selected((string) $slotOld === (string) $opt['value'])>
+                                                    {{ $opt['label'] }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    @endfor
+                                    @if (empty($dynOptions))
+                                        <p class="text-xs text-gray-400 dark:text-gray-500">No options available for your role.</p>
+                                    @endif
+                                </div>
                             @elseif (in_array($field->field_type, ['textarea', 'long_text'], true))
                                 <textarea id="field_{{ $field->field_key }}" name="fields[{{ $field->field_key }}]" rows="4"
                                     placeholder="Enter {{ strtolower($field->field_label ?: $field->field_key) }}"

@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 use PhpOffice\PhpWord\TemplateProcessor;
 use RuntimeException;
 use Symfony\Component\Process\Process;
+use ZipArchive;
 
 class DocumentGenerationService
 {
@@ -120,7 +121,8 @@ class DocumentGenerationService
     {
         [$organizationId, $submissionId, $formId] = FormTemplateHelper::decodeDocumentGenerationAction($request->action);
 
-        if ($organizationId <= 0 || $submissionId <= 0 || $formId <= 0) {
+        // organizationId == 0 means the form is not scoped to a specific org — that is valid.
+        if ($submissionId <= 0 || $formId <= 0) {
             throw new RuntimeException('Document generation request payload is invalid.');
         }
 
@@ -134,13 +136,20 @@ class DocumentGenerationService
             throw new RuntimeException('Form submission and requested form do not match.');
         }
 
-        if ((int) ($submission->organization_id ?? 0) !== $organizationId) {
+        $submissionOrgId = (int) ($submission->organization_id ?? 0);
+        if ($submissionOrgId !== $organizationId) {
             throw new RuntimeException('Form submission organization does not match request organization.');
         }
 
         $template = Template::query()
             ->where('form_id', $formId)
-            ->where('organization_id', $organizationId)
+            ->where(function ($q) use ($organizationId) {
+                if ($organizationId > 0) {
+                    $q->where('organization_id', $organizationId);
+                } else {
+                    $q->whereNull('organization_id');
+                }
+            })
             ->where('is_active', true)
             ->orderByDesc('version')
             ->with(['mappings.field'])
@@ -188,21 +197,19 @@ class DocumentGenerationService
 
         File::ensureDirectoryExists(dirname($generatedDocxAbsolutePath));
 
-        try {
-            $processor = new TemplateProcessor($templateAbsolutePath);
+        $preprocessedTemplatePath = null;
 
-            if (method_exists($processor, 'setMacroChars')) {
-                $processor->setMacroChars('{{', '}}');
-            } elseif (method_exists($processor, 'setMacroOpeningChars') && method_exists($processor, 'setMacroClosingChars')) {
-                $processor->setMacroOpeningChars('{{');
-                $processor->setMacroClosingChars('}}');
-            }
+        try {
+            $preprocessedTemplatePath = $this->preprocessTemplateDocx($templateAbsolutePath);
+            $processor = new TemplateProcessor($preprocessedTemplatePath);
 
             foreach ($replacementMap as $fieldKey => $value) {
                 $processor->setValue($fieldKey, $value);
             }
 
             $processor->saveAs($generatedDocxAbsolutePath);
+            @unlink($preprocessedTemplatePath);
+            $preprocessedTemplatePath = null;
 
             $pdfAbsolutePath = $this->convertDocxToPdf($generatedDocxAbsolutePath);
             $generatedPdfRelativePath = $this->relativePathFromDiskAbsolute($pdfAbsolutePath, $disk);
@@ -226,6 +233,10 @@ class DocumentGenerationService
                 'generated_at' => now(),
             ]);
         } catch (\Throwable $throwable) {
+            if ($preprocessedTemplatePath !== null) {
+                @unlink($preprocessedTemplatePath);
+            }
+
             $failedRecord = GeneratedDocument::query()->create([
                 'form_submission_id' => (int) $submission->getKey(),
                 'template_id' => (int) $template->getKey(),
@@ -248,6 +259,60 @@ class DocumentGenerationService
         }
     }
 
+    private function preprocessTemplateDocx(string $absolutePath): string
+    {
+        $tempPath = sys_get_temp_dir().'/phpword_'.Str::random(12).'.docx';
+        copy($absolutePath, $tempPath);
+
+        $zip = new ZipArchive();
+        if ($zip->open($tempPath) !== true) {
+            throw new RuntimeException('Unable to preprocess template DOCX for generation.');
+        }
+
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+            if (! is_string($name)) {
+                continue;
+            }
+            $isTarget = $name === 'word/document.xml'
+                || (bool) preg_match('/^word\/(header|footer)\d*\.xml$/', $name);
+            if (! $isTarget) {
+                continue;
+            }
+            $xml = $zip->getFromName($name);
+            if (! is_string($xml) || $xml === '') {
+                continue;
+            }
+            $zip->deleteName($name);
+            $zip->addFromString($name, $this->convertBraceMacrosToPhpWord($xml));
+        }
+
+        $zip->close();
+
+        return $tempPath;
+    }
+
+    private function convertBraceMacrosToPhpWord(string $xml): string
+    {
+        // Match {{fieldname}} or {{fieldname#}} that may span multiple XML runs.
+        // [^}]* stops at the first } so it can't overshoot to a later placeholder.
+        return preg_replace_callback(
+            '/\{\{([^}]*)\}\}/s',
+            function ($match) {
+                $inner = trim(strip_tags($match[1]));
+                $isMultiline = str_ends_with($inner, '#');
+                $key = $isMultiline ? substr($inner, 0, -1) : $inner;
+                $key = trim(preg_replace('/[^a-z0-9_]+/i', '_', strtolower($key)), '_');
+                if ($key === '') {
+                    return $match[0];
+                }
+
+                return '${'.$key.'}';
+            },
+            $xml
+        ) ?? $xml;
+    }
+
     private function convertDocxToPdf(string $docxAbsolutePath): string
     {
         if (! is_file($docxAbsolutePath)) {
@@ -261,12 +326,16 @@ class DocumentGenerationService
         $process = new Process([
             $binary,
             '--headless',
+            '--norestore',
             '--convert-to',
             'pdf:writer_pdf_Export',
             '--outdir',
             $outDir,
             $docxAbsolutePath,
         ]);
+
+        // Force software rendering — GPU acceleration causes black PDFs in containers.
+        $process->setEnv(['SAL_USE_VCLPLUGIN' => 'svp']);
 
         $process->setTimeout($timeout);
         $process->run();
