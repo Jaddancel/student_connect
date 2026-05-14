@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Approval;
+use App\Models\Event;
+use App\Models\Event\EventDetail;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Profile;
@@ -9,31 +12,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
-
-function createUserWithProfile(string $email): User
-{
-    $addressId = DB::table('profile_addresses')->insertGetId([
-        'country' => 'Philippines',
-        'province' => 'Cebu',
-        'town' => 'Cebu City',
-        'barangay' => 'Lahug',
-    ]);
-
-    $profile = Profile::query()->create([
-        'first_name' => 'Test',
-        'last_name' => 'User',
-        'middle_name' => 'T',
-        'occupation' => 'Student',
-        'address' => $addressId,
-    ]);
-
-    return User::query()->create([
-        'user_email' => $email,
-        'user_password' => 'password',
-        'user_type' => 3,
-        'profile' => $profile->getKey(),
-    ]);
-}
 
 function assignOfficerRole(User $user, int $organizationId, string $role = 'officer'): void
 {
@@ -337,3 +315,47 @@ it('approves type 7 officer to president role change', function () {
         'role' => 'president',
     ]);
 });
+
+it('auto-approves requests when a president creates them', function () {
+    $president = createUserWithProfile('auto-approve-president@example.test');
+    $organization = Organization::query()->create([
+        'organization_type' => 1,
+        'detail' => null,
+    ]);
+
+    assignOfficerRole($president, (int) $organization->getKey(), 'president');
+
+    // When president creates an event request
+    $this->actingAs($president)
+        ->postJson('/api/events/requests', [
+            'organization_id' => (int) $organization->getKey(),
+            'name' => 'Tech Meetup',
+            'location' => 'Virtual',
+            'desc_text' => 'A tech meetup',
+            'start_time' => now()->addDay()->toDateTimeString(),
+            'end_time' => now()->addDay()->addHours(2)->toDateTimeString(),
+        ])
+        ->assertCreated();
+
+    // The request should be automatically approved
+    $lastRequest = ActionRequest::query()->latest()->first();
+    expect($lastRequest)->not()->toBeNull();
+    expect($lastRequest->action_type)->toBe(2); // Event request type
+
+    $approval = DB::table('approvals')
+        ->where('request', (int) $lastRequest->getKey())
+        ->first();
+
+    expect($approval)->not()->toBeNull();
+    expect($approval->approved_at)->not()->toBeNull();
+    expect((bool) $approval->is_rejected)->toBeFalse();
+
+    // The event should have been created automatically
+    $event = Event::query()
+        ->where('organization', (int) $organization->getKey())
+        ->where('creator', (int) $president->getKey())
+        ->first();
+
+    expect($event)->not()->toBeNull();
+});
+

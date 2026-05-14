@@ -31,7 +31,7 @@ class DocumentGenerationService
             $requesterUserId,
         );
 
-        return ActionRequest::query()->create([
+        $actionRequest = ActionRequest::query()->create([
             'action' => FormTemplateHelper::encodeDocumentGenerationAction(
                 (int) ($organizationId ?? 0),
                 $submissionId,
@@ -51,6 +51,10 @@ class DocumentGenerationService
             'user' => $requesterUserId,
             'requested_at' => now(),
         ]);
+
+        app(RequestApprovalService::class)->autoApproveIfPresident($actionRequest, $requesterUserId);
+
+        return $actionRequest;
     }
 
     public function createDocumentAccessRequest(?int $organizationId, int $generatedDocumentId, int $requesterUserId): ActionRequest
@@ -62,7 +66,7 @@ class DocumentGenerationService
             $requesterUserId,
         );
 
-        return ActionRequest::query()->create([
+        $actionRequest = ActionRequest::query()->create([
             'action' => FormTemplateHelper::encodeDocumentAccessAction((int) ($organizationId ?? 0), $generatedDocumentId, $requesterUserId),
             'action_type' => FormTemplateHelper::ACTION_TYPE_DOCUMENT_ACCESS,
             'request_type_id' => (int) $requestType->getKey(),
@@ -76,6 +80,10 @@ class DocumentGenerationService
             'user' => $requesterUserId,
             'requested_at' => now(),
         ]);
+
+        app(RequestApprovalService::class)->autoApproveIfPresident($actionRequest, $requesterUserId);
+
+        return $actionRequest;
     }
 
     public function createFormUploadRequest(?int $organizationId, int $formId, int $templateId, int $uploaderUserId): ActionRequest
@@ -87,7 +95,7 @@ class DocumentGenerationService
             $uploaderUserId,
         );
 
-        return ActionRequest::query()->create([
+        $actionRequest = ActionRequest::query()->create([
             'action' => FormTemplateHelper::encodeFormUploadAction((int) ($organizationId ?? 0), $formId, $templateId, $uploaderUserId),
             'action_type' => FormTemplateHelper::ACTION_TYPE_FORM_UPLOAD,
             'request_type_id' => (int) $requestType->getKey(),
@@ -102,6 +110,10 @@ class DocumentGenerationService
             'user' => $uploaderUserId,
             'requested_at' => now(),
         ]);
+
+        app(RequestApprovalService::class)->autoApproveIfPresident($actionRequest, $uploaderUserId);
+
+        return $actionRequest;
     }
 
     public function generateFromApprovedRequest(ActionRequest $request, int $generatedByUserId): GeneratedDocument

@@ -541,7 +541,7 @@ class SidebarMenuController extends Controller
             $userId,
         );
 
-        ActionRequest::query()->create([
+        $actionRequest = ActionRequest::query()->create([
             'action' => $payload,
             'user' => $userId,
             'action_type' => 7,
@@ -555,6 +555,8 @@ class SidebarMenuController extends Controller
             ],
             'requested_at' => now(),
         ]);
+
+        app(\App\Services\RequestApprovalService::class)->autoApproveIfPresident($actionRequest, $userId);
 
         return back()->with('success', 'Role change request submitted successfully.');
     }

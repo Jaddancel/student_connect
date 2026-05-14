@@ -179,6 +179,8 @@ class EventController extends Controller
             'requested_at' => now(),
         ]);
 
+        app(\App\Services\RequestApprovalService::class)->autoApproveIfPresident($actionRequest, $userId);
+
         return response()->json([
             'message' => 'Event request submitted successfully.',
             'request_id' => (int) $actionRequest->getKey(),

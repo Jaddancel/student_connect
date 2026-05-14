@@ -64,6 +64,11 @@ function assignDocumentWorkflowOfficerRole(User $user, int $organizationId, stri
     ]);
 }
 
+function createUserWithProfile(string $email): User
+{
+    return createDocumentWorkflowUserWithProfile($email);
+}
+
 function createTempDocx(array $placeholders): string
 {
     $docxPath = tempnam(sys_get_temp_dir(), 'docx_');

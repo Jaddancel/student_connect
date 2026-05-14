@@ -77,7 +77,7 @@ class MembershipRegistrationController extends Controller
             $userId,
         );
 
-        ActionRequest::create([
+        $actionRequest = ActionRequest::create([
             'action' => $actionValue,
             'action_type' => 1,
             'request_type_id' => (int) $requestType->getKey(),
@@ -90,6 +90,8 @@ class MembershipRegistrationController extends Controller
             'user' => $userId,
             'requested_at' => now(),
         ]);
+
+        app(\App\Services\RequestApprovalService::class)->autoApproveIfPresident($actionRequest, $userId);
 
         return back()->with('success', 'Membership request submitted successfully.');
     }

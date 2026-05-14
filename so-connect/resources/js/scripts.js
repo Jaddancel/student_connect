@@ -5,10 +5,35 @@
 */
 //
 // Scripts
-// 
+//
 
 window.addEventListener('DOMContentLoaded', event => {
     const bootstrap = window.bootstrap;
+
+    // Background slideshow
+    var startBackgroundSlideshow = function () {
+        const masthead = document.body.querySelector('header.masthead');
+        if (!masthead) return;
+
+        const backgroundImages = [
+            '/images/landing/BG1.jpg',
+            '/images/landing/BG2.jpg',
+            '/images/landing/BG3.jpg',
+            '/images/landing/BG4.jpg',
+            '/images/landing/BG5.jpg',
+            '/images/landing/BG6.jpg',
+            '/images/landing/BG7.jpg',
+            '/images/landing/BG8.jpg',
+        ];
+
+        let currentIndex = 0;
+        setInterval(function () {
+            currentIndex = (currentIndex + 1) % backgroundImages.length;
+            masthead.style.backgroundImage = 'linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("' + backgroundImages[currentIndex] + '")';
+        }, 5000);
+    };
+
+    startBackgroundSlideshow();
 
     // Navbar shrink function
     var navbarShrink = function () {
