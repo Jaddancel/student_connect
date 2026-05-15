@@ -164,7 +164,7 @@ class DocumentGenerationService
     public function generateFromSubmission(
         FormSubmission $submission,
         Template $template,
-        int $requestId,
+        ?int $requestId,
         int $generatedByUserId,
     ): GeneratedDocument {
         $disk = (string) config('documents.disk', 'public');

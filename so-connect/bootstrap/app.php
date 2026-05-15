@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role.member' => \App\Http\Middleware\EnsureMemberRole::class,
             'role.admin' => \App\Http\Middleware\EnsureOrganizationAdminRole::class,
             'role.president' => \App\Http\Middleware\EnsurePresidentRole::class,
+            'president.or.admin' => \App\Http\Middleware\EnsurePresidentOrAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

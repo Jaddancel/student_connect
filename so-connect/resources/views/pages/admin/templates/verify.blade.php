@@ -79,7 +79,7 @@
                         <div class="py-3">
                             <div class="flex items-start justify-between gap-2">
                                 <div>
-                                    <span class="font-mono text-xs text-gray-500 dark:text-gray-400">{{ '{{' }}{{ $key }}{{ '}}' }}</span>
+                                    <span class="font-mono text-xs text-gray-500 dark:text-gray-400">{{ '{' . '{' . $key . '}' . '}' }}</span>
                                     <p class="mt-0.5 text-sm text-gray-700 dark:text-gray-300">{{ $entry['field']->field_label }}</p>
                                 </div>
                                 @if($entry['field']->is_required)
@@ -112,7 +112,7 @@
                             <div class="flex items-start justify-between gap-2">
                                 <div>
                                     <span class="font-mono text-xs {{ $field->is_required ? 'text-error-500' : 'text-gray-400 dark:text-gray-500' }}">
-                                        {{ '{{' }}{{ $key }}{{ '}}' }}
+                                        {{ '{' . '{' . $key . '}' . '}' }}
                                     </span>
                                     <p class="mt-0.5 text-sm text-gray-700 dark:text-gray-300">{{ $field->field_label }}</p>
                                 </div>
@@ -145,7 +145,7 @@
                 <div class="divide-y divide-gray-100 dark:divide-gray-800 px-5">
                     @forelse($extra as $placeholder)
                         <div class="py-3">
-                            <span class="font-mono text-xs text-blue-600 dark:text-blue-400">{{ '{{' }}{{ $placeholder }}{{ '}}' }}</span>
+                            <span class="font-mono text-xs text-blue-600 dark:text-blue-400">{{ '{' . '{' . $placeholder . '}' . '}' }}</span>
                             <p class="mt-0.5 text-xs text-gray-400 dark:text-gray-500">No matching form field — will be left blank in generated documents.</p>
                         </div>
                     @empty

@@ -70,6 +70,33 @@ class MenuHelper
                 'title' => 'Admin',
                 'items' => [
                     ['icon' => 'forms', 'name' => 'Template Manager', 'path' => '/admin/templates'],
+                    ['icon' => 'task', 'name' => 'Promotion Requests', 'path' => '/promotion-requests'],
+                ],
+            ];
+
+            $adminForms = \App\Models\Form::whereNotNull('route_name')
+                ->where('is_published', true)
+                ->whereJsonContains('sidebar_group', 'admin')
+                ->orderBy('name')
+                ->get(['id', 'name', 'route_name']);
+
+            if ($adminForms->isNotEmpty()) {
+                $menuGroups[] = [
+                    'title' => 'Organization Forms',
+                    'items' => $adminForms->map(fn ($f) => [
+                        'icon' => 'forms',
+                        'name' => $f->name,
+                        'path' => '/forms/' . $f->route_name,
+                    ])->all(),
+                ];
+            }
+        }
+
+        if ((int) $user->user_type === 4) {
+            $menuGroups[] = [
+                'title' => 'Requests',
+                'items' => [
+                    ['icon' => 'forms', 'name' => 'Request Promotion', 'path' => '/member/promotion-request'],
                 ],
             ];
         }
@@ -100,6 +127,13 @@ class MenuHelper
                     ])->all(),
                 ];
             }
+
+            $menuGroups[] = [
+                'title' => 'Policy & Security',
+                'items' => [
+                    ['icon' => 'task', 'name' => 'Promotion Requests', 'path' => '/promotion-requests'],
+                ],
+            ];
         }
 
         return $menuGroups;

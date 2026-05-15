@@ -7,10 +7,16 @@ use App\Http\Controllers\Auth\Register;
 use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\LandingPage;
+use App\Http\Controllers\Member\PromotionRequestController;
 use App\Http\Controllers\MembershipRegistrationController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\PolicySecurityRequestController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PromotionRequestsPageController;
+use App\Http\Controllers\AccomplishmentReportController;
+use App\Http\Controllers\FinancialReportController;
+use App\Http\Controllers\OrganizationRecognitionController;
+use App\Http\Controllers\WorkplanController;
 use App\Http\Controllers\RequestDecisionController;
 use App\Http\Controllers\SidebarMenuController;
 use App\Http\Controllers\SuperAdminController;
@@ -136,6 +142,42 @@ Route::get('/recent-event-requests', [SidebarMenuController::class, 'recentEvent
 Route::get('/manage-organization', [OrganizationController::class, 'manage'])
     ->middleware('auth')
     ->name('manage-organization');
+
+// Member promotion request
+Route::get('/member/promotion-request', [PromotionRequestController::class, 'index'])
+    ->middleware('auth')->name('member.promotion-request');
+Route::post('/member/promotion-request', [PromotionRequestController::class, 'store'])
+    ->middleware('auth')->name('member.promotion-request.store');
+
+// Promotion requests management (President + Admin)
+Route::get('/promotion-requests', [PromotionRequestsPageController::class, 'index'])
+    ->middleware('auth')->name('promotion-requests');
+Route::get('/promotion-requests/submissions/{submissionId}/confirm', [PromotionRequestsPageController::class, 'confirmation'])
+    ->whereNumber('submissionId')->middleware('auth')->name('promotion-requests.confirmation');
+Route::post('/promotion-requests/submissions/{submissionId}/confirm', [PromotionRequestsPageController::class, 'confirm'])
+    ->whereNumber('submissionId')->middleware('auth')->name('promotion-requests.confirm');
+
+Route::middleware(['auth', 'president.or.admin'])->group(function () {
+    Route::get('/forms/organization-recognition', [OrganizationRecognitionController::class, 'index'])
+        ->name('organization-recognition');
+    Route::post('/forms/organization-recognition', [OrganizationRecognitionController::class, 'store'])
+        ->name('organization-recognition.store');
+
+    Route::get('/forms/accomplishment-report', [AccomplishmentReportController::class, 'index'])
+        ->name('accomplishment-report');
+    Route::post('/forms/accomplishment-report', [AccomplishmentReportController::class, 'store'])
+        ->name('accomplishment-report.store');
+
+    Route::get('/forms/workplan', [WorkplanController::class, 'index'])
+        ->name('workplan');
+    Route::post('/forms/workplan', [WorkplanController::class, 'store'])
+        ->name('workplan.store');
+
+    Route::get('/forms/financial-report', [FinancialReportController::class, 'index'])
+        ->name('financial-report');
+    Route::post('/forms/financial-report', [FinancialReportController::class, 'store'])
+        ->name('financial-report.store');
+});
 
 Route::get('/forms/student-leader-directory', function () {
     return view('pages.form.student-leader-directory', ['title' => 'Directory of Student Leader']);

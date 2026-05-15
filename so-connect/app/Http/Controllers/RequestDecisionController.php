@@ -7,9 +7,12 @@ use App\Http\Resources\ApprovalResource;
 use App\Models\Approval;
 use App\Models\Event;
 use App\Models\Event\EventDetail;
+use App\Models\Form;
+use App\Models\FormSubmission;
 use App\Models\Member;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
+use App\Models\User;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\JsonResponse;
@@ -37,7 +40,7 @@ class RequestDecisionController extends Controller
         $requestType = $actionRequest->requestType;
         $systemKey = (string) ($requestType?->system_key ?? '');
 
-        $requiredDashboard = $this->requiredDashboardForRequest($actionType, $systemKey);
+        $requiredDashboard = $this->requiredDashboardForRequest($actionType, $systemKey, $actionRequest);
 
         if (! Gate::forUser($user)->allows('access-dashboard', $requiredDashboard)) {
             return response()->json([
@@ -73,6 +76,8 @@ class RequestDecisionController extends Controller
                     'message' => $throwable->getMessage(),
                 ], 422);
             }
+
+            $this->maybeCreateOrganization($actionRequest);
         }
 
         $approval = Approval::query()->updateOrCreate(
@@ -133,9 +138,54 @@ class RequestDecisionController extends Controller
                             'reassigned_at' => now(),
                         ]
                     );
+
+                    // Upgrade member's system user_type to officer level
+                    User::query()
+                        ->where('user_id', $targetUserId)
+                        ->where('user_type', 4)
+                        ->update(['user_type' => 3]);
                 }
 
                 if ($currentRole === 'officer') {
+                    // Demote existing president(s) in this org before promoting the new one
+                    $oldPresidentMemberIds = DB::table('organization_officers')
+                        ->where('organization', $targetOrganizationId)
+                        ->where('role', 'president')
+                        ->where('member', '!=', (int) $membership->getKey())
+                        ->pluck('member')
+                        ->all();
+
+                    if (! empty($oldPresidentMemberIds)) {
+                        DB::table('organization_officers')
+                            ->where('organization', $targetOrganizationId)
+                            ->where('role', 'president')
+                            ->whereIn('member', $oldPresidentMemberIds)
+                            ->update(['role' => 'member', 'reassigned_at' => now()]);
+
+                        // Downgrade user_type for demoted presidents who no longer hold officer/president in any org
+                        $oldPresidentUserIds = DB::table('members')
+                            ->whereIn('member_id', $oldPresidentMemberIds)
+                            ->pluck('user')
+                            ->filter()
+                            ->unique()
+                            ->all();
+
+                        foreach ($oldPresidentUserIds as $oldPresidentUserId) {
+                            $stillOfficer = DB::table('organization_officers as oo')
+                                ->join('members as m', 'm.member_id', '=', 'oo.member')
+                                ->where('m.user', $oldPresidentUserId)
+                                ->whereIn('oo.role', ['officer', 'president'])
+                                ->exists();
+
+                            if (! $stillOfficer) {
+                                User::query()
+                                    ->where('user_id', $oldPresidentUserId)
+                                    ->where('user_type', 3)
+                                    ->update(['user_type' => 4]);
+                            }
+                        }
+                    }
+
                     DB::table('organization_officers')
                         ->where('member', (int) $membership->getKey())
                         ->where('organization', $targetOrganizationId)
@@ -160,7 +210,22 @@ class RequestDecisionController extends Controller
                             'reassigned_at' => now(),
                         ]);
                     }
+
+                    // Upgrade new president's user_type to officer level if still member
+                    User::query()
+                        ->where('user_id', $targetUserId)
+                        ->where('user_type', 4)
+                        ->update(['user_type' => 3]);
                 }
+
+                // Auto-create a pre-filled FormSubmission for the Student Leader Directory
+                $this->createPromotionFormSubmission(
+                    $targetUserId,
+                    $targetOrganizationId,
+                    $currentRole === 'member' ? 'Officer' : 'President',
+                    (int) $actionRequest->getKey(),
+                    (int) $user->getKey(),
+                );
             }
         }
 
@@ -197,7 +262,7 @@ class RequestDecisionController extends Controller
         ]);
     }
 
-    private function requiredDashboardForRequest(int $actionType, string $systemKey): string
+    private function requiredDashboardForRequest(int $actionType, string $systemKey, ?ActionRequest $actionRequest = null): string
     {
         if ($systemKey === RequestType::SYSTEM_KEY_PROFILE_MATCH || $actionType === 9) {
             return 'superadmin';
@@ -205,6 +270,14 @@ class RequestDecisionController extends Controller
 
         if ($this->isAdminScopeRequest($actionType, $systemKey)) {
             return 'sysadmin';
+        }
+
+        // Member-initiated president requests (officer → president) must be approved by Admin
+        if ($this->isRoleChangeRequest($actionType, $systemKey) && $actionRequest !== null) {
+            $payload = (array) ($actionRequest->payload ?? []);
+            if (($payload['member_initiated'] ?? false) && ($payload['current_role'] ?? '') === 'officer') {
+                return 'sysadmin';
+            }
         }
 
         if ($this->isPresidentScopeRequest($actionType, $systemKey)) {
@@ -369,6 +442,38 @@ class RequestDecisionController extends Controller
         return $this->parseEventAction($actionRequest->action);
     }
 
+    private function maybeCreateOrganization(ActionRequest $actionRequest): void
+    {
+        $payload = (array) ($actionRequest->payload ?? []);
+
+        if (! ($payload['create_organization'] ?? false)) {
+            return;
+        }
+
+        $submissionId = (int) ($payload['submission_id'] ?? 0);
+        if ($submissionId <= 0) {
+            return;
+        }
+
+        $submission = FormSubmission::query()->find($submissionId);
+        if (! $submission) {
+            return;
+        }
+
+        $orgName = trim((string) (($submission->payload ?? [])['organization'] ?? ''));
+        if ($orgName === '') {
+            return;
+        }
+
+        $exists = DB::table('organization_details')->where('name', $orgName)->exists();
+        if ($exists) {
+            return;
+        }
+
+        $detail = \App\Models\Organization\OrganizationDetail::create(['name' => $orgName]);
+        \App\Models\Organization::create(['detail' => $detail->getKey()]);
+    }
+
     protected function parseMembershipAction(?string $action): array
     {
         $parts = array_map('trim', explode('|', (string) $action));
@@ -423,5 +528,59 @@ class RequestDecisionController extends Controller
         $eventLocation = implode('|', array_slice($parts, 6));
 
         return [$organizationId, $requesterUserId, $eventName, $eventStartTime, $eventEndTime, $eventDescription, $eventLocation];
+    }
+
+    private function createPromotionFormSubmission(
+        int $targetUserId,
+        int $organizationId,
+        string $requestedRole,
+        int $promotionRequestId,
+        int $approverUserId,
+    ): void {
+        $form = Form::query()->where('route_name', 'student-leader-directory')->first();
+
+        if (! $form) {
+            return;
+        }
+
+        $userRow = DB::table('users as u')
+            ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+            ->leftJoin('profile_addresses as pa', 'pa.profile_address_id', '=', 'p.address')
+            ->where('u.user_id', $targetUserId)
+            ->select([
+                'p.first_name', 'p.middle_name', 'p.last_name',
+                'p.occupation',
+                'pa.barangay', 'pa.town', 'pa.province',
+            ])
+            ->first();
+
+        $fullName = $userRow
+            ? trim(implode(' ', array_filter([$userRow->first_name, $userRow->middle_name, $userRow->last_name])))
+            : '';
+
+        $address = $userRow
+            ? trim(implode(', ', array_filter([$userRow->barangay, $userRow->town, $userRow->province])))
+            : '';
+
+        $orgName = DB::table('organizations as o')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->where('o.organization_id', $organizationId)
+            ->value('od.name') ?? '';
+
+        FormSubmission::query()->create([
+            'form_id' => (int) $form->getKey(),
+            'organization_id' => $organizationId,
+            'submitted_by' => $approverUserId,
+            'submitted_at' => now(),
+            'payload' => [
+                'name' => $fullName,
+                'position' => $requestedRole,
+                'organization' => $orgName,
+                'present_address' => $address,
+                'date_filed' => now()->format('Y-m-d'),
+                'course' => $userRow?->occupation ?? '',
+                'promotion_request_id' => $promotionRequestId,
+            ],
+        ]);
     }
 }
