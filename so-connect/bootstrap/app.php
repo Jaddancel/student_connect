@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'dashboard.access' => \App\Http\Middleware\EnsureDashboardAccess::class,
             'superadmin' => \App\Http\Middleware\EnsureSuperAdmin::class,
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
+            'admin.or.superadmin' => \App\Http\Middleware\EnsureAdminOrSuperAdmin::class,
             'role.member' => \App\Http\Middleware\EnsureMemberRole::class,
             'role.admin' => \App\Http\Middleware\EnsureOrganizationAdminRole::class,
             'role.president' => \App\Http\Middleware\EnsurePresidentRole::class,

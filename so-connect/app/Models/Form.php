@@ -38,6 +38,7 @@ class Form extends Model
         'created_by',
         'is_active',
         'is_published',
+        'route_name',
     ];
 
     protected function casts(): array

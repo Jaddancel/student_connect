@@ -1,11 +1,11 @@
 <?php
 
+use App\Http\Controllers\Admin\TemplateManagerController;
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\Register;
 use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\EventController;
-use App\Http\Controllers\FormWorkflowController;
 use App\Http\Controllers\LandingPage;
 use App\Http\Controllers\MembershipRegistrationController;
 use App\Http\Controllers\OrganizationController;
@@ -145,42 +145,21 @@ Route::get('/forms/joint-statement', function () {
     return view('pages.form.joint-statement', ['title' => 'Joint Statement of Involvement/Commitment']);
 })->middleware(['auth', 'role.president'])->name('joint-statement');
 
-Route::get('/forms/manage', [FormWorkflowController::class, 'manageForms'])
-    ->middleware(['auth', 'admin'])
-    ->name('forms.manage');
 
-Route::post('/forms/manage', [FormWorkflowController::class, 'storeTemplate'])
-    ->middleware(['auth', 'admin'])
-    ->name('forms.manage.store');
-
-Route::get('/forms/{formId}/edit', [FormWorkflowController::class, 'editForm'])
-    ->whereNumber('formId')
-    ->middleware(['auth', 'admin'])
-    ->name('forms.edit');
-
-Route::post('/forms/{formId}/edit', [FormWorkflowController::class, 'updateForm'])
-    ->whereNumber('formId')
-    ->middleware(['auth', 'admin'])
-    ->name('forms.update');
-
-Route::get('/forms/{formId}', [FormWorkflowController::class, 'showFormPage'])
-    ->whereNumber('formId')
-    ->middleware('auth')
-    ->name('forms.show');
-
-Route::post('/forms/{formId}', [FormWorkflowController::class, 'submitFormPage'])
-    ->whereNumber('formId')
-    ->middleware('auth')
-    ->name('forms.submit');
-
-Route::get('/generated-documents', [FormWorkflowController::class, 'generatedDocuments'])
-    ->middleware('auth')
-    ->name('generated-documents');
-
-Route::get('/generated-documents/{generatedDocumentId}/download', [FormWorkflowController::class, 'downloadGenerated'])
-    ->whereNumber('generatedDocumentId')
-    ->middleware('auth')
-    ->name('generated-documents.download');
+Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
+    Route::get('/admin/templates', [TemplateManagerController::class, 'index'])
+        ->name('admin.templates.index');
+    Route::get('/admin/templates/{form}/upload', [TemplateManagerController::class, 'showUpload'])
+        ->name('admin.templates.upload');
+    Route::post('/admin/templates/{form}/upload', [TemplateManagerController::class, 'storeUpload'])
+        ->name('admin.templates.store');
+    Route::get('/admin/templates/{template}/verify', [TemplateManagerController::class, 'showVerify'])
+        ->name('admin.templates.verify');
+    Route::post('/admin/templates/{template}/confirm', [TemplateManagerController::class, 'confirm'])
+        ->name('admin.templates.confirm');
+    Route::delete('/admin/templates/{template}', [TemplateManagerController::class, 'destroy'])
+        ->name('admin.templates.destroy');
+});
 
 Route::get('/superadmin/profile-requests', [SuperAdminController::class, 'profileRequests'])
     ->middleware(['auth', 'superadmin'])

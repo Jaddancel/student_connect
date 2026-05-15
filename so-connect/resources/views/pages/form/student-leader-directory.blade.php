@@ -256,16 +256,28 @@
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                     </div>
 
-                    {{-- 8. Course / Year --}}
-                    <div>
-                        <label for="course_year"
-                            class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                            <span class="mr-1 font-semibold text-gray-500 dark:text-gray-500">8.</span>
-                            Course / Year <span class="text-error-500">*</span>
-                        </label>
-                        <input type="text" id="course_year" name="course_year"
-                            placeholder="e.g. BS Computer Science – 3rd Year"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                    {{-- 8. Course / Year Level --}}
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label for="course"
+                                class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                                <span class="mr-1 font-semibold text-gray-500 dark:text-gray-500">8.</span>
+                                Course <span class="text-error-500">*</span>
+                            </label>
+                            <input type="text" id="course" name="course"
+                                placeholder="e.g. BS Computer Science"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                        </div>
+
+                        <div>
+                            <label for="year_level"
+                                class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                                Year Level <span class="text-error-500">*</span>
+                            </label>
+                            <input type="text" id="year_level" name="year_level"
+                                placeholder="e.g. 3rd Year"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                        </div>
                     </div>
 
                     {{-- 9. Talents and Hobbies --}}
