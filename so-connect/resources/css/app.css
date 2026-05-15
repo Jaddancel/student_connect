@@ -47,18 +47,18 @@
   --color-white: #ffffff;
   --color-black: #101828;
 
-  --color-brand-25: #f2f7ff;
-  --color-brand-50: #ecf3ff;
-  --color-brand-100: #dde9ff;
-  --color-brand-200: #c2d6ff;
-  --color-brand-300: #9cb9ff;
-  --color-brand-400: #7592ff;
-  --color-brand-500: #465fff;
-  --color-brand-600: #3641f5;
-  --color-brand-700: #2a31d8;
-  --color-brand-800: #252dae;
-  --color-brand-900: #262e89;
-  --color-brand-950: #161950;
+  --color-brand-25: #f0fdf4;
+  --color-brand-50: #dcfce7;
+  --color-brand-100: #bbf7d0;
+  --color-brand-200: #86efac;
+  --color-brand-300: #4ade80;
+  --color-brand-400: #22c55e;
+  --color-brand-500: #16a34a;
+  --color-brand-600: #15803d;
+  --color-brand-700: #166534;
+  --color-brand-800: #14532d;
+  --color-brand-900: #052e16;
+  --color-brand-950: #020c06;
 
   --color-blue-light-25: #f5fbff;
   --color-blue-light-50: #f0f9ff;
@@ -152,7 +152,7 @@
   --shadow-theme-xl: 0px 20px 24px -4px rgba(16, 24, 40, 0.08),
     0px 8px 8px -4px rgba(16, 24, 40, 0.03);
   --shadow-datepicker: -5px 0 0 #262d3c, 5px 0 0 #262d3c;
-  --shadow-focus-ring: 0px 0px 0px 4px rgba(70, 95, 255, 0.12);
+  --shadow-focus-ring: 0px 0px 0px 4px rgba(22, 163, 74, 0.12);
   --shadow-slider-navigation: 0px 1px 2px 0px rgba(16, 24, 40, 0.1),
     0px 1px 3px 0px rgba(16, 24, 40, 0.1);
   --shadow-tooltip: 0px 4px 6px -2px rgba(16, 24, 40, 0.05),
@@ -192,6 +192,41 @@
   body {
     @apply relative font-normal font-outfit z-1 bg-gray-50;
   }
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #9ca3af;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #1d2939;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
 }
 
 @utility menu-item {
@@ -293,15 +328,25 @@
   }
 
   &::-webkit-scrollbar-track {
-    @apply rounded-full;
+    @apply rounded-full bg-gray-100;
   }
 
   &::-webkit-scrollbar-thumb {
-    @apply bg-gray-200 rounded-full dark:bg-gray-700;
+    @apply bg-gray-400 rounded-full;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-500;
   }
 }
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background-color: #1d2939;
+}
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #344054;
+  background-color: #4b5563;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #6b7280;
 }
 @layer utilities {
   /* For Remove Date Icon */
@@ -538,13 +583,13 @@ span.flatpickr-weekday,
 .flatpickr-day.selected.nextMonthDay,
 .flatpickr-day.startRange.nextMonthDay,
 .flatpickr-day.endRange.nextMonthDay {
-  background: #465fff;
+  background: #16a34a;
   @apply !border-brand-500 !bg-brand-500 hover:!border-brand-500 hover:!bg-brand-500;
 }
 .flatpickr-day.selected.startRange + .endRange:not(:nth-child(7n + 1)),
 .flatpickr-day.startRange.startRange + .endRange:not(:nth-child(7n + 1)),
 .flatpickr-day.endRange.startRange + .endRange:not(:nth-child(7n + 1)) {
-  box-shadow: -10px 0 0 #465fff;
+  box-shadow: -10px 0 0 #16a34a;
 }
 
 .flatpickr-months .flatpickr-prev-month svg,
@@ -789,11 +834,11 @@ span.flatpickr-weekday,
 }
 
 .simplebar-scrollbar:before {
-  @apply !bg-gray-200 !rounded-full dark:!bg-gray-700 !opacity-100;
+  @apply !bg-gray-400 !rounded-full !opacity-100;
 }
 
 .dark .simplebar-scrollbar::before {
-  @apply !bg-gray-700;
+  background-color: #4b5563 !important;
 }
 
 .simplebar-scrollbar.simplebar-visible:before {
@@ -892,4 +937,12 @@ pre[class*='language-'] {
   .flatpickr-calendar.static {
     margin-right: -60px !important;
   }
+}
+
+/* Dark green card/section border motif — unlayered so it wins over Tailwind utilities */
+.border-gray-200 {
+  border-color: #15803d;
+}
+.dark .dark\:border-gray-800 {
+  border-color: #166534;
 }

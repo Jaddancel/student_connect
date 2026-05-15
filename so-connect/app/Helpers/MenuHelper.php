@@ -72,6 +72,7 @@ class MenuHelper
 
         if ($isPresident) {
             $menuGroups[2]['items'][] = ['icon' => 'forms', 'name' => 'Student Leader Directory', 'path' => '/forms/student-leader-directory'];
+            $menuGroups[2]['items'][] = ['icon' => 'forms', 'name' => 'Joint Statement', 'path' => '/forms/joint-statement'];
         }
 
         if ((int) $user->user_type === 1) {

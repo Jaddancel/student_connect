@@ -141,6 +141,10 @@ Route::get('/forms/student-leader-directory', function () {
     return view('pages.form.student-leader-directory', ['title' => 'Directory of Student Leader']);
 })->middleware(['auth', 'role.president'])->name('student-leader-directory');
 
+Route::get('/forms/joint-statement', function () {
+    return view('pages.form.joint-statement', ['title' => 'Joint Statement of Involvement/Commitment']);
+})->middleware(['auth', 'role.president'])->name('joint-statement');
+
 Route::get('/forms/manage', [FormWorkflowController::class, 'manageForms'])
     ->middleware(['auth', 'admin'])
     ->name('forms.manage');
