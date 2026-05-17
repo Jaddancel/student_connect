@@ -49,7 +49,6 @@ class MenuHelper
                 'title' => 'Account',
                 'items' => [
                     ['icon' => 'user-profile', 'name' => 'Profile', 'path' => '/profile'],
-                    ['icon' => 'user-profile', 'name' => 'Create Profile', 'path' => '/profile/create'],
                 ],
             ],
         ];
@@ -58,6 +57,7 @@ class MenuHelper
             $menuGroups[] = [
                 'title' => 'Admin',
                 'items' => [
+                    ['icon' => 'user-profile', 'name' => 'Profile Manager', 'path' => '/superadmin/profiles'],
                     ['icon' => 'charts', 'name' => 'Dashboard Builder', 'path' => '/superadmin/dashboard-builder'],
                     ['icon' => 'forms', 'name' => 'Request Types', 'path' => '/superadmin/request-types'],
                     ['icon' => 'forms', 'name' => 'Template Manager', 'path' => '/admin/templates'],

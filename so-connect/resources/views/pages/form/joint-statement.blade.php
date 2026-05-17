@@ -6,7 +6,7 @@
     <div class="space-y-6">
 
         {{-- ── FORM HEADER ─────────────────────────────────────────────── --}}
-        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+        <div class="rounded-2xl border border-gray-200 bg-palette-lime-pale p-5 shadow-[inset_0_4px_0_var(--color-palette-lime)] dark:border-gray-800 dark:bg-white/[0.03] dark:shadow-[inset_0_4px_0_rgb(165_255_91_/_0.3)] lg:p-6">
             <div class="mb-1 text-center">
                 <h2 class="text-xl font-bold uppercase tracking-widest text-gray-900 dark:text-white">
                     Joint Statement of Involvement/Commitment
@@ -24,8 +24,8 @@
             @csrf
 
             {{-- ── SECTION 1 · DATE & ORGANIZATION ────────────────────── --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-4 text-base font-semibold text-gray-800 dark:text-white/90">Date &amp; Organization</h3>
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Date &amp; Organization</h3>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
@@ -66,8 +66,8 @@
             </div>
 
             {{-- ── SECTION 2 · PRESIDENT ────────────────────────────────── --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-4 text-base font-semibold text-gray-800 dark:text-white/90">President</h3>
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">President</h3>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
@@ -114,8 +114,8 @@
             </div>
 
             {{-- ── SECTION 3 · ADVISER 1 ────────────────────────────────── --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-4 text-base font-semibold text-gray-800 dark:text-white/90">Adviser 1 <span class="text-error-500">*</span></h3>
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Adviser 1 <span class="text-error-500">*</span></h3>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
@@ -162,10 +162,10 @@
             </div>
 
             {{-- ── SECTION 4 · ADVISER 2 (optional) ───────────────────────── --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6"
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6"
                 x-data="{ enabled: false }">
                 <div class="flex items-center justify-between">
-                    <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Adviser 2</h3>
+                    <h3 class="border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Adviser 2</h3>
                     <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                         <span>Add second adviser</span>
                         <button type="button" @click="enabled = !enabled"
@@ -224,7 +224,7 @@
             </div>
 
             {{-- ── SECTION 5 · ACTIONS ──────────────────────────────────── --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
                 <div class="flex justify-end gap-3">
                     <button type="reset"
                         class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">

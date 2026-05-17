@@ -16,7 +16,7 @@
             </div>
         @endif
 
-        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+        <div class="rounded-2xl border border-gray-200 bg-palette-lime-pale p-5 shadow-[inset_0_4px_0_var(--color-palette-lime)] dark:border-gray-800 dark:bg-white/[0.03] dark:shadow-[inset_0_4px_0_rgb(165_255_91_/_0.3)] lg:p-6">
             <h2 class="text-base font-bold text-gray-900 dark:text-white uppercase tracking-wide text-center">Republic of the Philippines</h2>
             <p class="text-center text-sm font-semibold text-gray-800 dark:text-white/90 mt-0.5">TARLAC AGRICULTURAL UNIVERSITY</p>
             <p class="text-center text-xs text-gray-500 dark:text-gray-400">Camiling, Tarlac</p>
@@ -59,8 +59,8 @@
             @endif
 
             {{-- SECTION 1 · ORGANIZATION & SCHOOL YEAR --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-4 text-base font-semibold text-gray-800 dark:text-white/90">Organization Details</h3>
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Organization Details</h3>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     {{-- Organization --}}
@@ -103,8 +103,8 @@
             </div>
 
             {{-- SECTION 2 · ACTIVITY DETAILS --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-4 text-base font-semibold text-gray-800 dark:text-white/90">Activity Details</h3>
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Activity Details</h3>
 
                 <div class="space-y-4">
                     {{-- Event Select --}}
@@ -196,8 +196,8 @@
             </div>
 
             {{-- SECTION 3 · SIGNATURES --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-4 text-base font-semibold text-gray-800 dark:text-white/90">Signatures</h3>
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Signatures</h3>
 
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     {{-- Prepared By --}}

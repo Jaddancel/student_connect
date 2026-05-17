@@ -20,6 +20,13 @@ class Profile extends Model
         'first_name',
         'last_name',
         'middle_name',
+        'contact_number',
+        'age',
+        'sex',
+        'religion',
+        'nationality',
+        'birthday',
+        'course_year',
         'occupation',
         'address',
     ];
@@ -31,6 +38,6 @@ class Profile extends Model
 
     public function addressOfUser()
     {
-        return $this->hasOne(profileAddress::class, 'address', 'profile_address_id');
+        return $this->belongsTo(profileAddress::class, 'address', 'profile_address_id');
     }
 }

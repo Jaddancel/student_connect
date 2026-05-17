@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Faker\FilipinoPersonProvider;
 use App\Models\Officer;
 use App\Models\User;
 use App\Policies\RolePolicy;
+use Faker\Generator as FakerGenerator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -15,7 +17,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->callAfterResolving(FakerGenerator::class, function (FakerGenerator $faker) {
+            $faker->addProvider(new FilipinoPersonProvider($faker));
+        });
     }
 
     /**

@@ -19,6 +19,7 @@ use App\Http\Controllers\WorkplanController;
 use App\Http\Controllers\RequestDecisionController;
 use App\Http\Controllers\SidebarMenuController;
 use App\Http\Controllers\SuperAdminController;
+use App\Http\Controllers\DashboardSearchController;
 use App\Http\Controllers\UserController;
 use App\Http\Resources\ActionRequestResource;
 use App\Http\Resources\ApprovalResource;
@@ -247,10 +248,26 @@ Route::post('/superadmin/data-sync/import-api', [SuperAdminController::class, 'i
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.data-sync.import-api');
 
+Route::get('/superadmin/profiles', [SuperAdminController::class, 'profiles'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.profiles');
+
+Route::get('/superadmin/profiles/{id}/edit', [SuperAdminController::class, 'editProfile'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.profiles.edit');
+
+Route::patch('/superadmin/profiles/{id}', [SuperAdminController::class, 'updateProfile'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.profiles.update');
+
 // profile pages
 Route::get('/profile', function () {
+    $user = auth()->user();
+    if ($user && ! $user->profile()->exists()) {
+        return redirect()->route('profile.create');
+    }
     return view('pages.profile', ['title' => 'Profile']);
-})->name('profile');
+})->middleware('auth')->name('profile');
 
 Route::get('/profile/create', [ProfileController::class, 'profileForm'])->middleware('auth')->name('profile.create');
 Route::post('/profile/create', [ProfileController::class, 'store'])->middleware('auth')->name('profile.store');
@@ -545,6 +562,10 @@ Route::get('/api/users', function () {
 Route::get('/api/events/calendar', [EventController::class, 'calendarEvents'])
     ->middleware('auth')
     ->name('api.events.calendar');
+
+Route::get('/api/dashboard-search', [DashboardSearchController::class, 'index'])
+    ->middleware('auth')
+    ->name('api.dashboard-search');
 
 Route::get('/api/superadmin/data/export', [SuperAdminController::class, 'apiExport']);
 

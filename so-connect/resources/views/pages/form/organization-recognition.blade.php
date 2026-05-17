@@ -6,7 +6,7 @@
     <div class="space-y-6">
 
         {{-- ── FORM HEADER ─────────────────────────────────────────────── --}}
-        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+        <div class="rounded-2xl border border-gray-200 bg-palette-lime-pale p-5 shadow-[inset_0_4px_0_var(--color-palette-lime)] dark:border-gray-800 dark:bg-white/[0.03] dark:shadow-[inset_0_4px_0_rgb(165_255_91_/_0.3)] lg:p-6">
             <div class="mb-1 text-center">
                 <h2 class="text-xl font-bold uppercase tracking-widest text-gray-900 dark:text-white">
                     Application for Recognition/Renewal of Student Organization
@@ -27,8 +27,8 @@
             @csrf
 
             {{-- ── SECTION 1 · PLEASE CHECK ────────────────────────────── --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-4 text-base font-semibold text-gray-800 dark:text-white/90">Please Check</h3>
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Please Check</h3>
 
                 <div class="space-y-3">
                     <label class="flex cursor-pointer items-center gap-3">
@@ -47,14 +47,14 @@
             </div>
 
             {{-- ── SECTION 2 · BASIC INFORMATION ───────────────────────── --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6"
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6"
                 x-data="{
                     freshmanNumber: '',
                     sophomoreNumber: '',
                     juniorNumber: '',
                     get total() { return (parseInt(this.freshmanNumber) || 0) + (parseInt(this.sophomoreNumber) || 0) + (parseInt(this.juniorNumber) || 0); }
                 }">
-                <h3 class="mb-4 text-base font-semibold text-gray-800 dark:text-white/90">I. Basic Information</h3>
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">I. Basic Information</h3>
 
                 <div class="space-y-4">
 
@@ -170,16 +170,16 @@
             </div>
 
             {{-- ── SECTION 3 · OBJECTIVES ───────────────────────────────── --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-4 text-base font-semibold text-gray-800 dark:text-white/90">II. Objectives</h3>
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">II. Objectives</h3>
                 <textarea id="objectives" name="objectives" rows="6"
                     placeholder="State the objectives of the organization..."
                     class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">{{ old('objectives') }}</textarea>
             </div>
 
             {{-- ── SECTION 4 · WORKPLAN ─────────────────────────────────── --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-4 text-base font-semibold text-gray-800 dark:text-white/90">III. Workplan</h3>
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">III. Workplan</h3>
                 <p class="mb-3 text-xs text-gray-400 dark:text-gray-500">(Attach additional sheets if necessary)</p>
                 <textarea id="workplan" name="workplan" rows="8"
                     placeholder="Describe the planned activities and workplan..."
@@ -187,8 +187,8 @@
             </div>
 
             {{-- ── SECTION 5 · PRESIDENT ───────────────────────────────── --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-4 text-base font-semibold text-gray-800 dark:text-white/90">President</h3>
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">President</h3>
 
                 <div>
                     <label for="president_name_display" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
@@ -201,8 +201,8 @@
             </div>
 
             {{-- ── SECTION 6 · ADVISERS ─────────────────────────────────── --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-4 text-base font-semibold text-gray-800 dark:text-white/90">Adviser/s</h3>
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Adviser/s</h3>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
@@ -230,7 +230,7 @@
             @if ($isAdmin)
                 <div class="rounded-2xl border border-brand-200 bg-brand-50/50 p-5 dark:border-brand-800 dark:bg-brand-900/10 lg:p-6">
                     <div class="mb-4 flex items-center gap-2">
-                        <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Approval</h3>
+                        <h3 class="border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Approval</h3>
                         <span class="rounded bg-brand-100 px-1.5 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-900/30 dark:text-brand-400">Admin only</span>
                     </div>
 
@@ -258,7 +258,7 @@
             @endif
 
             {{-- ── SECTION 8 · SUBMIT ───────────────────────────────────── --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
                 <div class="flex justify-end gap-3">
                     <button type="reset"
                         class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">

@@ -485,6 +485,57 @@ class SuperAdminController extends Controller
         ]);
     }
 
+    public function profiles()
+    {
+        return view('pages.sidebar.superadmin-profiles', ['title' => 'Profile Manager']);
+    }
+
+    public function editProfile(int $id)
+    {
+        $profile = Profile::findOrFail($id);
+        $user = $profile->user()->first();
+
+        if ($user && (int) $user->user_type === 1) {
+            abort(403, 'Cannot edit a superadmin profile.');
+        }
+
+        return view('pages.sidebar.superadmin-profile-edit', [
+            'title' => 'Edit Profile',
+            'profile' => $profile,
+            'linkedUser' => $user,
+        ]);
+    }
+
+    public function updateProfile(Request $request, int $id)
+    {
+        $profile = Profile::findOrFail($id);
+        $user = $profile->user()->first();
+
+        if ($user && (int) $user->user_type === 1) {
+            abort(403, 'Cannot edit a superadmin profile.');
+        }
+
+        $validated = $request->validate([
+            'first_name'     => ['required', 'string', 'max:255'],
+            'last_name'      => ['required', 'string', 'max:255'],
+            'middle_name'    => ['nullable', 'string', 'max:255'],
+            'contact_number' => ['nullable', 'string', 'digits:10', 'starts_with:9'],
+            'age'            => ['nullable', 'integer', 'min:1', 'max:120'],
+            'sex'            => ['nullable', 'in:Male,Female'],
+            'religion'       => ['nullable', 'string', 'max:255'],
+            'nationality'    => ['nullable', 'string', 'max:255'],
+            'birthday'       => ['nullable', 'date', 'before:today'],
+            'course_year'    => ['nullable', 'string', 'max:255'],
+            'occupation'     => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $profile->update($validated);
+
+        return redirect()
+            ->route('superadmin.profiles.edit', $id)
+            ->with('status', 'Profile updated successfully.');
+    }
+
     public function dataSyncPage()
     {
         return view('pages.sidebar.superadmin-data-sync', [
