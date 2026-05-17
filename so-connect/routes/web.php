@@ -16,6 +16,7 @@ use App\Http\Controllers\AccomplishmentReportController;
 use App\Http\Controllers\FinancialReportController;
 use App\Http\Controllers\OrganizationRecognitionController;
 use App\Http\Controllers\WorkplanController;
+use App\Http\Controllers\EventPlanController;
 use App\Http\Controllers\RequestDecisionController;
 use App\Http\Controllers\SidebarMenuController;
 use App\Http\Controllers\SuperAdminController;
@@ -132,10 +133,6 @@ Route::post('/request-forms', [SidebarMenuController::class, 'storeRoleChangeReq
     ->middleware('auth')
     ->name('request-forms.store');
 
-Route::get('/recent-event-requests', [SidebarMenuController::class, 'recentEventRequests'])
-    ->middleware('auth')
-    ->name('recent-event-requests');
-
 Route::get('/manage-organization', [OrganizationController::class, 'manage'])
     ->middleware('auth')
     ->name('manage-organization');
@@ -149,6 +146,15 @@ Route::post('/promotion-requests/submissions/{submissionId}/confirm', [Promotion
     ->whereNumber('submissionId')->middleware(['auth', 'admin'])->name('promotion-requests.confirm');
 
 Route::middleware(['auth', 'officer.or.admin'])->group(function () {
+    Route::get('/event-plans', [EventPlanController::class, 'index'])
+        ->name('event-plans');
+    Route::post('/event-plans/{id}/create-event', [EventPlanController::class, 'storeEvent'])
+        ->whereNumber('id')
+        ->name('event-plans.create-event');
+    Route::patch('/event-plans/{id}/junk', [EventPlanController::class, 'junk'])
+        ->whereNumber('id')
+        ->name('event-plans.junk');
+
     Route::get('/forms/organization-recognition', [OrganizationRecognitionController::class, 'index'])
         ->name('organization-recognition');
     Route::post('/forms/organization-recognition', [OrganizationRecognitionController::class, 'store'])
@@ -415,9 +421,14 @@ Route::post('/api/requests/{requestId}/decision', [RequestDecisionController::cl
     ->whereNumber('requestId')
     ->middleware('auth');
 
-Route::post('/api/events/requests', [EventController::class, 'storeEventRequest'])
+Route::post('/api/events/requests', [EventController::class, 'storeEventPlanRequest'])
     ->middleware('auth')
     ->name('api.events.requests.store');
+
+Route::get('/api/organizations/{organizationId}/officers', [EventController::class, 'organizationOfficers'])
+    ->whereNumber('organizationId')
+    ->middleware('auth')
+    ->name('api.organizations.officers');
 
 Route::get('/api/organizations', function () {
     $ids = collect(explode(',', (string) request()->query('ids', '')))

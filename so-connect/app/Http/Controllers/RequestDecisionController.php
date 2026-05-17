@@ -7,6 +7,7 @@ use App\Http\Resources\ApprovalResource;
 use App\Models\Approval;
 use App\Models\Event;
 use App\Models\Event\EventDetail;
+use App\Models\EventPlan;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Member;
@@ -218,6 +219,16 @@ class RequestDecisionController extends Controller
             ]);
         }
 
+        if ($this->isEventPlanRequest($actionType, $systemKey)) {
+            $payload = (array) ($actionRequest->payload ?? []);
+            $eventPlanId = (int) ($payload['event_plan_id'] ?? 0);
+
+            if ($eventPlanId > 0) {
+                $newStatus = $validated['decision'] === 'approve' ? 'approved' : 'rejected';
+                EventPlan::query()->where('event_plan_id', $eventPlanId)->update(['status' => $newStatus]);
+            }
+        }
+
         return response()->json([
             'message' => $validated['decision'] === 'approve'
                 ? 'Request approved successfully.'
@@ -281,11 +292,17 @@ class RequestDecisionController extends Controller
 
     private function isPresidentScopeRequest(int $actionType, string $systemKey): bool
     {
-        return in_array($actionType, [2, 7], true)
+        return in_array($actionType, [2, 7, 10], true)
             || in_array($systemKey, [
                 RequestType::SYSTEM_KEY_EVENT,
                 RequestType::SYSTEM_KEY_ROLE_CHANGE,
+                RequestType::SYSTEM_KEY_EVENT_PLAN,
             ], true);
+    }
+
+    private function isEventPlanRequest(int $actionType, string $systemKey): bool
+    {
+        return $actionType === 10 || $systemKey === RequestType::SYSTEM_KEY_EVENT_PLAN;
     }
 
     private function isMembershipRequest(int $actionType, string $systemKey): bool

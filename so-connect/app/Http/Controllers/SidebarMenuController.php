@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Helpers\FormTemplateHelper;
 use App\Models\Approval;
 use App\Models\Document;
+use App\Models\EventPlan;
 use App\Models\Form;
 use App\Models\Template;
 use App\Models\Request as ActionRequest;
@@ -64,62 +65,6 @@ class SidebarMenuController extends Controller
         ]);
     }
 
-    public function recentEventRequests(Request $request)
-    {
-        $userId = (int) $request->user()->getKey();
-
-        $eventRequests = ActionRequest::query()
-            ->where('action_type', 2)
-            ->where('user', $userId)
-            ->orderByDesc('requested_at')
-            ->limit(100)
-            ->get(['request_id', 'action', 'requested_at']);
-
-        $approvalMap = Approval::query()
-            ->whereIn('request', $eventRequests->pluck('request_id')->all())
-            ->get(['request', 'is_rejected', 'approved_at'])
-            ->keyBy('request');
-
-        $organizationIds = $eventRequests
-            ->map(function ($actionRequest) {
-                [$organizationId] = $this->parseEventAction($actionRequest->action);
-
-                return $organizationId;
-            })
-            ->filter(fn ($organizationId) => $organizationId > 0)
-            ->unique()
-            ->values();
-
-        $organizationNameMap = $this->organizationNameMap($organizationIds);
-
-        $rows = $eventRequests
-            ->map(function ($actionRequest) use ($approvalMap, $organizationNameMap) {
-                [$organizationId, , $eventName, $startTime, $endTime, $description, $location] = $this->parseEventAction($actionRequest->action);
-                $approval = $approvalMap->get((int) $actionRequest->request_id);
-                $status = $this->resolveApprovalStatus($approval);
-
-                return [
-                    'request_id' => (int) $actionRequest->request_id,
-                    'event_name' => $eventName !== '' ? $eventName : 'Untitled Event',
-                    'organization_name' => $organizationNameMap[(int) $organizationId] ?? 'Unknown Organization',
-                    'location' => $location !== '' ? $location : 'TBA',
-                    'description' => $description !== '' ? $description : 'No description provided.',
-                    'start_time' => $startTime,
-                    'end_time' => $endTime,
-                    'requested_at' => $actionRequest->requested_at,
-                    'status' => $status,
-                    'status_label' => ucfirst($status),
-                    'approved_at' => $approval?->approved_at,
-                ];
-            })
-            ->values();
-
-        return view('pages.sidebar.recent-event-requests', [
-            'title' => 'Recent Event Requests',
-            'rows' => $rows,
-        ]);
-    }
-
     public function approvalRequests(Request $request)
     {
         $userId = (int) $request->user()->getKey();
@@ -134,10 +79,20 @@ class SidebarMenuController extends Controller
         }
 
         $candidateRequests = ActionRequest::query()
-            ->whereIn('action_type', [1, 2, 3, 4, 7, 8])
+            ->whereIn('action_type', [1, 2, 3, 4, 7, 8, 10])
             ->orderByDesc('requested_at')
             ->limit(300)
-            ->get(['request_id', 'action', 'action_type', 'requested_at', 'user']);
+            ->get(['request_id', 'action', 'action_type', 'requested_at', 'user', 'payload']);
+
+        $eventPlanRequestIds = $candidateRequests
+            ->where('action_type', 10)
+            ->pluck('request_id')
+            ->values();
+
+        $eventPlansByRequestId = EventPlan::query()
+            ->whereIn('request_id', $eventPlanRequestIds->all())
+            ->get(['event_plan_id', 'request_id', 'title', 'organization_id'])
+            ->keyBy('request_id');
 
         $formIds = $candidateRequests
             ->map(function (ActionRequest $actionRequest) {
@@ -176,7 +131,7 @@ class SidebarMenuController extends Controller
             ->all();
 
         $rows = $candidateRequests
-            ->map(function (ActionRequest $actionRequest) use ($officerOrganizationIds, $presidentOrganizationIds, $formNameMap, $templateNameMap) {
+            ->map(function (ActionRequest $actionRequest) use ($officerOrganizationIds, $presidentOrganizationIds, $formNameMap, $templateNameMap, $eventPlansByRequestId) {
                 $actionType = (int) $actionRequest->action_type;
 
                 if ($actionType === 1) {
@@ -270,6 +225,26 @@ class SidebarMenuController extends Controller
                         'organization_id' => $organizationId,
                         'requester_user_id' => $requesterUserId > 0 ? $requesterUserId : (int) $actionRequest->user,
                         'summary' => $formName.' · '.$templateName,
+                        'requested_at' => $actionRequest->requested_at,
+                    ];
+                }
+
+                if ($actionType === 10) {
+                    $eventPlan = $eventPlansByRequestId->get((int) $actionRequest->request_id);
+                    $organizationId = $eventPlan ? (int) $eventPlan->organization_id : 0;
+                    $planTitle = $eventPlan ? $eventPlan->title : 'Event Plan';
+
+                    if ($organizationId <= 0 || ! in_array($organizationId, $presidentOrganizationIds, true)) {
+                        return null;
+                    }
+
+                    return [
+                        'request_id' => (int) $actionRequest->request_id,
+                        'action_type' => $actionType,
+                        'type_label' => 'Event Plan Request',
+                        'organization_id' => $organizationId,
+                        'requester_user_id' => (int) $actionRequest->user,
+                        'summary' => $planTitle,
                         'requested_at' => $actionRequest->requested_at,
                     ];
                 }

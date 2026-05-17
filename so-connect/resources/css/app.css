@@ -689,6 +689,10 @@ span.flatpickr-weekday,
 }
 .fc .fc-daygrid-day {
   @apply p-2;
+  min-height: 120px;
+}
+.fc .fc-daygrid-day-frame {
+  min-height: 120px;
 }
 .fc .fc-daygrid-day.fc-day-today .fc-scrollgrid-sync-inner {
   @apply rounded-sm bg-gray-100 dark:bg-white/[0.03];

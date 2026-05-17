@@ -24,6 +24,8 @@ class DashboardSearchHelper
             ->exists();
 
         if ($isOfficerOrPresident) {
+            $items[] = ['name' => 'Event Plans', 'path' => '/event-plans', 'icon' => 'calendar', 'category' => 'Organization', 'keywords' => 'event plans activities calendar submit'];
+
             $publishedForms = \App\Models\Form::whereNotNull('route_name')
                 ->where('is_published', true)
                 ->orderBy('name')

@@ -6,6 +6,7 @@ use App\Helpers\FormTemplateHelper;
 use App\Models\Approval;
 use App\Models\Event;
 use App\Models\Event\EventDetail;
+use App\Models\EventPlan;
 use App\Models\Member;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
@@ -142,6 +143,15 @@ class RequestApprovalService
             }
         }
 
+        if ($this->isEventPlanRequest($actionType, $systemKey)) {
+            $payload = (array) ($actionRequest->payload ?? []);
+            $eventPlanId = (int) ($payload['event_plan_id'] ?? 0);
+
+            if ($eventPlanId > 0) {
+                EventPlan::query()->where('event_plan_id', $eventPlanId)->update(['status' => 'approved']);
+            }
+        }
+
         return $approval;
     }
 
@@ -201,6 +211,10 @@ class RequestApprovalService
 
         if ($this->isEventRequest($actionType, $systemKey)) {
             return $this->parseEventAction($actionRequest->action)[0] ?: null;
+        }
+
+        if ($this->isEventPlanRequest($actionType, $systemKey)) {
+            return $payloadOrganizationId > 0 ? $payloadOrganizationId : null;
         }
 
         if ($this->isDocumentGenerationRequest($actionType, $systemKey)
@@ -346,6 +360,11 @@ class RequestApprovalService
     private function isEventRequest(int $actionType, string $systemKey): bool
     {
         return $actionType === 2 || $systemKey === RequestType::SYSTEM_KEY_EVENT;
+    }
+
+    private function isEventPlanRequest(int $actionType, string $systemKey): bool
+    {
+        return $actionType === 10 || $systemKey === RequestType::SYSTEM_KEY_EVENT_PLAN;
     }
 
     private function isDocumentGenerationRequest(int $actionType, string $systemKey): bool

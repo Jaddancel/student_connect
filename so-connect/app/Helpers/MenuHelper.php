@@ -97,6 +97,13 @@ class MenuHelper
             ->exists();
 
         if ($isOfficerOrPresident) {
+            $menuGroups[] = [
+                'title' => 'Organization',
+                'items' => [
+                    ['icon' => 'calendar', 'name' => 'Event Plans', 'path' => '/event-plans'],
+                ],
+            ];
+
             $publishedForms = \App\Models\Form::whereNotNull('route_name')
                 ->where('is_published', true)
                 ->orderBy('name')

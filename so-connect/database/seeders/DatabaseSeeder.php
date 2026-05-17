@@ -19,5 +19,6 @@ class DatabaseSeeder extends Seeder
         $this->call(SuperAdminSeeder::class);
         $this->call(AdminSeeder::class);
         $this->call(FormPageSeeder::class);
+        $this->call(EventPlanSeeder::class);
     }
 }
