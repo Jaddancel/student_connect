@@ -11,11 +11,6 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class MemberFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [
@@ -24,13 +19,6 @@ class MemberFactory extends Factory
             'user' => null,
             'member_since' => fake()->dateTimeBetween('-6 years', 'now'),
         ];
-    }
-
-    public function regularMember(): static
-    {
-        return $this->state(fn () => [ // Lazy enclosures exists, TMYK.
-            'user' => User::factory()->regular()->create()->getKey(),
-        ]);
     }
 
     public function officer(): static

@@ -42,7 +42,7 @@ class WorkplanController extends Controller
                 ->join('organizations as o', 'o.organization_id', '=', 'm.organization')
                 ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
                 ->where('m.user', $userId)
-                ->where('oo.role', 'president')
+                ->whereIn('oo.role', ['officer', 'president'])
                 ->select([
                     'o.organization_id',
                     DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name"),
@@ -57,7 +57,7 @@ class WorkplanController extends Controller
         }
 
         return view('pages.form.workplan', [
-            'title' => 'Workplan for President',
+            'title' => 'Workplan',
             'isAdmin' => $isAdmin,
             'presidentName' => $presidentName,
             'organizations' => $organizations,
@@ -75,18 +75,18 @@ class WorkplanController extends Controller
         $isAdmin = (int) $user->user_type === 2;
 
         $validated = $request->validate([
-            'organization'              => ['required', 'string', 'max:255'],
-            'school_year'               => ['required', 'string', 'max:50'],
-            'organization_id'           => ['nullable', 'integer'],
-            'activities'                => ['nullable', 'array', 'max:50'],
-            'activities.*.title'        => ['nullable', 'string', 'max:255'],
-            'activities.*.target_date'  => ['nullable', 'string', 'max:100'],
-            'activities.*.resources'    => ['nullable', 'string', 'max:500'],
-            'activities.*.people'       => ['nullable', 'string', 'max:500'],
-            'name'                      => ['required', 'string', 'max:255'],
-            'adviser_name'              => ['nullable', 'string', 'max:255'],
-            'signature'                 => ['nullable', 'image', 'mimes:jpeg,png', 'max:2048'],
-            'adviser_signature'         => ['nullable', 'image', 'mimes:jpeg,png', 'max:2048'],
+            'organization'               => ['required', 'string', 'max:255'],
+            'schoolYear'                 => ['required', 'string', 'max:50'],
+            'organization_id'            => ['nullable', 'integer'],
+            'activities'                 => ['nullable', 'array', 'max:50'],
+            'activities.*.title'         => ['nullable', 'string', 'max:255'],
+            'activities.*.targetDate'    => ['nullable', 'string', 'max:100'],
+            'activities.*.resources'     => ['nullable', 'string', 'max:500'],
+            'activities.*.people'        => ['nullable', 'string', 'max:500'],
+            'name'                       => ['required', 'string', 'max:255'],
+            'adviserName'                => ['nullable', 'string', 'max:255'],
+            'signature'                  => ['nullable', 'image', 'mimes:jpeg,png', 'max:2048'],
+            'adviserSignature'           => ['nullable', 'image', 'mimes:jpeg,png', 'max:2048'],
         ]);
 
         $form = Form::query()->where('route_name', 'workplan')->firstOrFail();
@@ -95,28 +95,28 @@ class WorkplanController extends Controller
 
         $activities = collect($validated['activities'] ?? [])
             ->map(fn ($row) => [
-                'title'       => (string) ($row['title'] ?? ''),
-                'target_date' => (string) ($row['target_date'] ?? ''),
-                'resources'   => (string) ($row['resources'] ?? ''),
-                'people'      => (string) ($row['people'] ?? ''),
+                'title'      => (string) ($row['title'] ?? ''),
+                'targetDate' => (string) ($row['targetDate'] ?? ''),
+                'resources'  => (string) ($row['resources'] ?? ''),
+                'people'     => (string) ($row['people'] ?? ''),
             ])
-            ->filter(fn ($row) => $row['title'] !== '' || $row['target_date'] !== '' || $row['resources'] !== '' || $row['people'] !== '')
+            ->filter(fn ($row) => $row['title'] !== '' || $row['targetDate'] !== '' || $row['resources'] !== '' || $row['people'] !== '')
             ->values()
             ->all();
 
         $sigDir = 'form-signatures/'.now()->format('Y/m');
 
         $payload = [
-            'organization'  => $validated['organization'],
-            'school_year'   => $validated['school_year'],
-            'activities'    => $activities,
-            'name'          => $validated['name'],
-            'adviser_name'  => $validated['adviser_name'] ?? '',
-            'signature'     => '',
-            'adviser_signature' => '',
+            'organization'    => $validated['organization'],
+            'schoolYear'      => $validated['schoolYear'],
+            'activities'      => $activities,
+            'name'            => $validated['name'],
+            'adviserName'     => $validated['adviserName'] ?? '',
+            'signature'       => '',
+            'adviserSignature' => '',
         ];
 
-        foreach (['signature', 'adviser_signature'] as $sigField) {
+        foreach (['signature', 'adviserSignature'] as $sigField) {
             if ($request->hasFile($sigField)) {
                 $file = $request->file($sigField);
                 $path = $file->storeAs(

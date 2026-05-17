@@ -14,7 +14,7 @@ class EnsureDashboardAccess
         $user = $request->user();
 
         if (! $user || ! Gate::forUser($user)->allows('access-dashboard', $dashboard)) {
-            return redirect()->route('member-dashboard');
+            return redirect()->route('officer-dashboard');
         }
 
         return $next($request);

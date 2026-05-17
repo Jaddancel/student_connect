@@ -33,17 +33,10 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'user_password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
-            'user_type' => 4,
+            'user_type' => 3,
             'profile' => Profile::factory()->create()->profile_id,
             'profile_pending' => false,
         ];
-    }
-
-    public function regular()
-    {
-        return $this->state(fn (array $attributes) => [
-            'user_type' => 4,
-        ]);
     }
 
     public function orgOfficer()
@@ -120,7 +113,7 @@ class UserFactory extends Factory
     public function whoAppliesForRequest($org)
     {
         return $this->state(fn (array $attributes) => [
-            'user_type' => 4,
+            'user_type' => 3,
         ])->afterCreating(function (User $user) use ($org) {
             $userId = $user->getKey();
             Request::create([
@@ -134,7 +127,7 @@ class UserFactory extends Factory
     public function randomOrgRequest()
     {
         return $this->state(fn (array $attributes) => [
-            'user_type' => 4,
+            'user_type' => 3,
         ])->afterCreating(function (User $user) {
             $org = Organization::query()->inRandomOrder()->value('organization_id');
 

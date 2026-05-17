@@ -39,10 +39,10 @@ class AccomplishmentReportController extends Controller
                 ->orderBy('od.name')
                 ->get();
         } else {
-            $presidentOrgIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
+            $officerOrgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
             $organizations = DB::table('organizations as o')
                 ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
-                ->whereIn('o.organization_id', $presidentOrgIds)
+                ->whereIn('o.organization_id', $officerOrgIds)
                 ->select(['o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name")])
                 ->orderBy('od.name')
                 ->get();
@@ -80,22 +80,22 @@ class AccomplishmentReportController extends Controller
         $validated = $request->validate([
             'organization_id' => ['required', 'integer', 'min:1'],
             'organization'    => ['required', 'string', 'max:255'],
-            'school_year'     => ['required', 'string', 'max:20'],
+            'schoolYear'      => ['required', 'string', 'max:20'],
             'title'           => ['required', 'string', 'max:255'],
             'date'            => ['required', 'date'],
             'people'          => ['required', 'string'],
             'problem'         => ['nullable', 'string'],
             'phots'           => ['nullable', 'file', 'mimes:jpeg,png,pdf', 'max:5120'],
             'name'            => ['required', 'string', 'max:255'],
-            'signature_1'     => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
-            'signature_2'     => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            'signature1'      => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            'signature2'      => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
         ]);
 
         $organizationId = (int) $validated['organization_id'];
 
         if (! $isAdmin) {
-            $presidentOrgIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
-            if (! in_array($organizationId, $presidentOrgIds, true)) {
+            $officerOrgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
+            if (! in_array($organizationId, $officerOrgIds, true)) {
                 abort(403);
             }
         }
@@ -104,7 +104,7 @@ class AccomplishmentReportController extends Controller
 
         $payload = [
             'organization' => $validated['organization'],
-            'school_year'  => $validated['school_year'],
+            'schoolYear'   => $validated['schoolYear'],
             'title'        => $validated['title'],
             'date'         => $validated['date'],
             'people'       => $validated['people'],
@@ -112,7 +112,7 @@ class AccomplishmentReportController extends Controller
             'name'         => $validated['name'],
         ];
 
-        foreach (['phots', 'signature_1', 'signature_2'] as $fileField) {
+        foreach (['phots', 'signature1', 'signature2'] as $fileField) {
             if ($request->hasFile($fileField) && $request->file($fileField)->isValid()) {
                 $file = $request->file($fileField);
                 $path = $file->storeAs(

@@ -12,7 +12,6 @@ use App\Models\FormSubmission;
 use App\Models\Member;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
-use App\Models\User;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\JsonResponse;
@@ -138,12 +137,6 @@ class RequestDecisionController extends Controller
                             'reassigned_at' => now(),
                         ]
                     );
-
-                    // Upgrade member's system user_type to officer level
-                    User::query()
-                        ->where('user_id', $targetUserId)
-                        ->where('user_type', 4)
-                        ->update(['user_type' => 3]);
                 }
 
                 if ($currentRole === 'officer') {
@@ -161,29 +154,6 @@ class RequestDecisionController extends Controller
                             ->where('role', 'president')
                             ->whereIn('member', $oldPresidentMemberIds)
                             ->update(['role' => 'member', 'reassigned_at' => now()]);
-
-                        // Downgrade user_type for demoted presidents who no longer hold officer/president in any org
-                        $oldPresidentUserIds = DB::table('members')
-                            ->whereIn('member_id', $oldPresidentMemberIds)
-                            ->pluck('user')
-                            ->filter()
-                            ->unique()
-                            ->all();
-
-                        foreach ($oldPresidentUserIds as $oldPresidentUserId) {
-                            $stillOfficer = DB::table('organization_officers as oo')
-                                ->join('members as m', 'm.member_id', '=', 'oo.member')
-                                ->where('m.user', $oldPresidentUserId)
-                                ->whereIn('oo.role', ['officer', 'president'])
-                                ->exists();
-
-                            if (! $stillOfficer) {
-                                User::query()
-                                    ->where('user_id', $oldPresidentUserId)
-                                    ->where('user_type', 3)
-                                    ->update(['user_type' => 4]);
-                            }
-                        }
                     }
 
                     DB::table('organization_officers')
@@ -211,11 +181,6 @@ class RequestDecisionController extends Controller
                         ]);
                     }
 
-                    // Upgrade new president's user_type to officer level if still member
-                    User::query()
-                        ->where('user_id', $targetUserId)
-                        ->where('user_type', 4)
-                        ->update(['user_type' => 3]);
                 }
 
                 // Auto-create a pre-filled FormSubmission for the Student Leader Directory

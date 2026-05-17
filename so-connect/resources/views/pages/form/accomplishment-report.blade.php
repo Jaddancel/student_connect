@@ -92,10 +92,10 @@
 
                     {{-- School Year --}}
                     <div>
-                        <label for="school_year" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        <label for="schoolYear" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             School Year <span class="text-error-500">*</span>
                         </label>
-                        <input type="text" id="school_year" name="school_year" value="{{ old('school_year') }}"
+                        <input type="text" id="schoolYear" name="schoolYear" value="{{ old('schoolYear') }}"
                             placeholder="e.g. 2024–2025"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                     </div>
@@ -219,7 +219,7 @@
                                 Signature <span class="text-error-500">*</span>
                                 <span class="ml-1 text-xs font-normal text-gray-400">(photo of signature)</span>
                             </label>
-                            <label for="signature_1"
+                            <label for="signature1"
                                 class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-4 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:bg-gray-900/30 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
                                 <template x-if="preview">
                                     <img :src="preview" class="mb-2 max-h-16 object-contain" alt="Signature preview" />
@@ -233,7 +233,7 @@
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-400"
                                     x-text="preview ? 'Change signature' : 'Click to upload signature'"></span>
                                 <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
-                                <input id="signature_1" name="signature_1" type="file" accept="image/jpeg,image/png" class="hidden"
+                                <input id="signature1" name="signature1" type="file" accept="image/jpeg,image/png" class="hidden"
                                     @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
                             </label>
                             <p class="mt-1 text-center text-xs text-gray-400 dark:text-gray-500">Signature over Printed Name</p>
@@ -251,7 +251,7 @@
                                 Adviser Signature <span class="text-error-500">*</span>
                                 <span class="ml-1 text-xs font-normal text-gray-400">(photo of signature)</span>
                             </label>
-                            <label for="signature_2"
+                            <label for="signature2"
                                 class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-4 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:bg-gray-900/30 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
                                 <template x-if="preview">
                                     <img :src="preview" class="mb-2 max-h-16 object-contain" alt="Signature preview" />
@@ -265,7 +265,7 @@
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-400"
                                     x-text="preview ? 'Change signature' : 'Click to upload adviser signature'"></span>
                                 <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
-                                <input id="signature_2" name="signature_2" type="file" accept="image/jpeg,image/png" class="hidden"
+                                <input id="signature2" name="signature2" type="file" accept="image/jpeg,image/png" class="hidden"
                                     @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
                             </label>
                             <p class="mt-1 text-center text-xs text-gray-400 dark:text-gray-500">Signature over Printed Name of the Adviser</p>

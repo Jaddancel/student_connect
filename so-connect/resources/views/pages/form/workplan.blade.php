@@ -22,8 +22,8 @@
 
         <form action="{{ route('workplan.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6"
             x-data="{
-                activities: [{ title: '', target_date: '', resources: '', people: '' }],
-                addRow() { this.activities.push({ title: '', target_date: '', resources: '', people: '' }); },
+                activities: [{ title: '', targetDate: '', resources: '', people: '' }],
+                addRow() { this.activities.push({ title: '', targetDate: '', resources: '', people: '' }); },
                 removeRow(i) { if (this.activities.length > 1) this.activities.splice(i, 1); },
             }">
             @csrf
@@ -72,14 +72,14 @@
 
                     {{-- School Year --}}
                     <div>
-                        <label for="school_year" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        <label for="schoolYear" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             School Year <span class="text-error-500">*</span>
                         </label>
-                        <input type="text" id="school_year" name="school_year"
-                            value="{{ old('school_year') }}"
+                        <input type="text" id="schoolYear" name="schoolYear"
+                            value="{{ old('schoolYear') }}"
                             placeholder="e.g. 2024–2025"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
-                        @error('school_year')
+                        @error('schoolYear')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                         @enderror
                     </div>
@@ -120,8 +120,8 @@
                                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                                     </td>
                                     <td class="py-2 pr-3">
-                                        <input type="text" :name="`activities[${i}][target_date]`"
-                                            x-model="row.target_date"
+                                        <input type="text" :name="`activities[${i}][targetDate]`"
+                                            x-model="row.targetDate"
                                             placeholder="e.g. Jan 2025"
                                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                                     </td>
@@ -204,11 +204,11 @@
                         <p class="text-sm font-medium text-gray-700 dark:text-gray-400">Noted by</p>
 
                         <div>
-                            <label for="adviser_name" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            <label for="adviserName" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                 Adviser Name
                             </label>
-                            <input type="text" id="adviser_name" name="adviser_name"
-                                value="{{ old('adviser_name') }}"
+                            <input type="text" id="adviserName" name="adviserName"
+                                value="{{ old('adviserName') }}"
                                 placeholder="Faculty adviser's full name"
                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         </div>
@@ -217,7 +217,7 @@
                             <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                 Adviser Signature <span class="ml-1 text-xs font-normal text-gray-400">(JPG/PNG, max 2 MB)</span>
                             </label>
-                            <label for="adviser_signature"
+                            <label for="adviserSignature"
                                 class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-4 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:bg-gray-900/30 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
                                 <template x-if="preview">
                                     <img :src="preview" class="mb-2 max-h-16 object-contain" alt="Signature preview" />
@@ -230,7 +230,7 @@
                                 </template>
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-400"
                                     x-text="preview ? 'Change signature' : 'Click to upload adviser signature'"></span>
-                                <input id="adviser_signature" name="adviser_signature" type="file" accept="image/jpeg,image/png" class="hidden"
+                                <input id="adviserSignature" name="adviserSignature" type="file" accept="image/jpeg,image/png" class="hidden"
                                     @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
                             </label>
                             <p class="mt-1 text-center text-xs text-gray-400 dark:text-gray-500">Signature over Printed Name of the Adviser</p>

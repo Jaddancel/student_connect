@@ -8,8 +8,6 @@ use App\Services\DocumentGenerationService;
 use App\Services\RequestApprovalService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class OrganizationRecognitionController extends Controller
 {
@@ -43,7 +41,7 @@ class OrganizationRecognitionController extends Controller
                 ->join('organizations as o', 'o.organization_id', '=', 'm.organization')
                 ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
                 ->where('m.user', $userId)
-                ->where('oo.role', 'president')
+                ->whereIn('oo.role', ['officer', 'president'])
                 ->select([
                     'o.organization_id',
                     DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name"),
@@ -76,77 +74,51 @@ class OrganizationRecognitionController extends Controller
         $isAdmin = (int) $user->user_type === 2;
 
         $validated = $request->validate([
-            'organization'        => ['required', 'string', 'max:255'],
-            'name_of_president'   => ['required', 'string', 'max:255'],
-            'name_of_adviser_s'   => ['nullable', 'string', 'max:255'],
-            'date'                => ['nullable', 'date'],
-            'freshman'            => ['nullable', 'integer', 'min:0'],
-            'sophomore'           => ['nullable', 'integer', 'min:0'],
-            'junior'              => ['nullable', 'integer', 'min:0'],
-            'total'               => ['nullable', 'integer', 'min:0'],
-            'objectives'          => ['nullable', 'string'],
-            'workplan'            => ['nullable', 'string'],
-            'organization_id'     => ['nullable', 'integer'],
-            'signature_president' => ['nullable', 'image', 'mimes:jpeg,png', 'max:2048'],
-            'name_of_adviser_1'   => ['nullable', 'string', 'max:255'],
-            'signature_1'         => ['nullable', 'image', 'mimes:jpeg,png', 'max:2048'],
-            'name_of_adviser_2'   => ['nullable', 'string', 'max:255'],
-            'signature_2'         => ['nullable', 'image', 'mimes:jpeg,png', 'max:2048'],
-            'signature_3'         => ['nullable', 'image', 'mimes:jpeg,png', 'max:2048'],
-            'chair'               => ['nullable', 'string', 'max:255'],
-            'signature_4'         => ['nullable', 'image', 'mimes:jpeg,png', 'max:2048'],
-            'director'            => ['nullable', 'string', 'max:255'],
+            'nameOfOrganization' => ['required', 'string', 'max:255'],
+            'presidentName'      => ['required', 'string', 'max:255'],
+            'facultyAdvisers'    => ['required', 'string', 'max:255'],
+            'recognitionDate'    => ['nullable', 'date'],
+            'freshmanNumber'     => ['nullable', 'integer', 'min:0'],
+            'sophomoreNumber'    => ['nullable', 'integer', 'min:0'],
+            'juniorNumber'       => ['nullable', 'integer', 'min:0'],
+            'total'              => ['nullable', 'integer', 'min:0'],
+            'objectives'         => ['nullable', 'string'],
+            'workplan'           => ['nullable', 'string'],
+            'organization_id'    => ['nullable', 'integer'],
+            'recognition_type'   => ['nullable', 'in:c1,c2'],
+            'adviserLeft'        => ['nullable', 'string', 'max:255'],
+            'adviserRight'       => ['nullable', 'string', 'max:255'],
+            'chair'              => ['nullable', 'string', 'max:255'],
+            'director'           => ['nullable', 'string', 'max:255'],
         ]);
 
         $form = Form::query()->where('route_name', 'organization-recognition')->firstOrFail();
 
         $organizationId = $isAdmin ? null : ((int) ($validated['organization_id'] ?? 0) ?: null);
 
-        $c1 = $isAdmin && $request->boolean('c1');
-        $c2 = $request->boolean('c2');
-
-        $sigDir = 'form-signatures/'.now()->format('Y/m');
+        $recognitionType = $validated['recognition_type'] ?? null;
+        $c1 = $recognitionType === 'c1';
+        $c2 = $recognitionType === 'c2';
 
         $payload = [
-            'c1'                  => $c1,
-            'c2'                  => $c2,
-            'organization'        => $validated['organization'],
-            'name_of_president'   => $validated['name_of_president'],
-            'name_of_adviser_s'   => $validated['name_of_adviser_s'] ?? '',
-            'date'                => $validated['date'] ?? '',
-            'freshman'            => $validated['freshman'] ?? '',
-            'sophomore'           => $validated['sophomore'] ?? '',
-            'junior'              => $validated['junior'] ?? '',
-            'total'               => $validated['total'] ?? '',
-            'objectives'          => $validated['objectives'] ?? '',
-            'workplan'            => $validated['workplan'] ?? '',
-            'name_of_adviser_1'   => $validated['name_of_adviser_1'] ?? '',
-            'name_of_adviser_2'   => $validated['name_of_adviser_2'] ?? '',
-            'chair'               => $isAdmin ? ($validated['chair'] ?? '') : '',
-            'director'            => $isAdmin ? ($validated['director'] ?? '') : '',
-            'create_organization' => $c1,
+            'c1'                 => $c1,
+            'c2'                 => $c2,
+            'nameOfOrganization' => $validated['nameOfOrganization'],
+            'presidentName'      => $validated['presidentName'],
+            'facultyAdvisers'    => $validated['facultyAdvisers'],
+            'recognitionDate'    => $validated['recognitionDate'] ?? '',
+            'freshmanNumber'     => $validated['freshmanNumber'] ?? '',
+            'sophomoreNumber'    => $validated['sophomoreNumber'] ?? '',
+            'juniorNumber'       => $validated['juniorNumber'] ?? '',
+            'total'              => $validated['total'] ?? '',
+            'objectives'         => $validated['objectives'] ?? '',
+            'workplan'           => $validated['workplan'] ?? '',
+            'adviserLeft'        => $validated['adviserLeft'] ?? '',
+            'adviserRight'       => $validated['adviserRight'] ?? '',
+            'chair'              => $isAdmin ? ($validated['chair'] ?? '') : '',
+            'director'           => $isAdmin ? ($validated['director'] ?? '') : '',
+            'create_organization'=> $c1,
         ];
-
-        foreach (['signature_president', 'signature_1', 'signature_2', 'signature_3', 'signature_4'] as $sigField) {
-            if ($sigField === 'signature_3' || $sigField === 'signature_4') {
-                if (! $isAdmin) {
-                    $payload[$sigField] = '';
-                    continue;
-                }
-            }
-
-            if ($request->hasFile($sigField)) {
-                $file = $request->file($sigField);
-                $path = $file->storeAs(
-                    $sigDir,
-                    Str::lower(Str::random(16)).'.'.$file->getClientOriginalExtension(),
-                    'public'
-                );
-                $payload[$sigField] = $path;
-            } else {
-                $payload[$sigField] = '';
-            }
-        }
 
         $submission = FormSubmission::query()->create([
             'form_id'         => (int) $form->getKey(),

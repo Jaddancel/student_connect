@@ -92,20 +92,11 @@ class MenuHelper
             }
         }
 
-        if ((int) $user->user_type === 4) {
-            $menuGroups[] = [
-                'title' => 'Requests',
-                'items' => [
-                    ['icon' => 'forms', 'name' => 'Request Promotion', 'path' => '/member/promotion-request'],
-                ],
-            ];
-        }
-
-        $isPresident = $user->memberships()
-            ->whereHas('officers', fn ($q) => $q->where('role', 'president'))
+        $isOfficerOrPresident = $user->memberships()
+            ->whereHas('officers', fn ($q) => $q->whereIn('role', ['president', 'officer']))
             ->exists();
 
-        if ($isPresident) {
+        if ($isOfficerOrPresident) {
             $publishedForms = \App\Models\Form::whereNotNull('route_name')
                 ->where('is_published', true)
                 ->orderBy('name')
@@ -128,12 +119,6 @@ class MenuHelper
                 ];
             }
 
-            $menuGroups[] = [
-                'title' => 'Policy & Security',
-                'items' => [
-                    ['icon' => 'task', 'name' => 'Promotion Requests', 'path' => '/promotion-requests'],
-                ],
-            ];
         }
 
         return $menuGroups;

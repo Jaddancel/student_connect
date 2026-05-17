@@ -6,7 +6,6 @@ use Illuminate\Support\Facades\DB;
 
 class Dashboard extends Controller
 {
-    //
     public function viewDashboard()
     {
         $user = auth()->user();
@@ -21,57 +20,34 @@ class Dashboard extends Controller
             return redirect()->route('admin-dashboard');
         }
 
-        if ($userType === 4 && ! $user->profile && ! $user->profile_pending) {
+        if ($userType >= 3 && ! $user->profile && ! $user->profile_pending) {
             return redirect()->route('profile.create');
         }
 
-        $isUserAnOfficer = $user->memberships()->whereHas('officers')->exists();
-
-        if ($isUserAnOfficer) {
-            $isPresident = $user
-                ->memberships()
-                ->whereHas('officers', function ($query) {
-                    $query->where('role', 'president');
-                })
-                ->exists();
-
-            if ($isPresident) {
-                return redirect()->route('president-dashboard');
-            } else {
-                return redirect()->route('officer-dashboard');
-            }
-        } else {
-            return redirect()->route('member-dashboard');
-        }
+        return redirect()->route('officer-dashboard');
     }
 
-    public function memberDashboard()
+    public function officerDashboard()
     {
         $user = auth()->user();
 
         $organizationIds = DB::table('members')
             ->where('user', (int) $user->getKey())
             ->pluck('organization')
-            ->map(fn ($organizationId) => (int) $organizationId)
-            ->filter(fn ($organizationId) => $organizationId > 0)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
             ->unique()
             ->values();
 
         $upcomingEvents = collect();
 
         if ($organizationIds->isNotEmpty()) {
-            $isMemberUser = (int) $user->user_type === 4;
-            $windowEnd = now()->addDays(30);
-
             $upcomingEvents = DB::table('events as e')
                 ->join('event_details as ed', 'ed.event_detail_id', '=', 'e.event_detail')
                 ->leftJoin('organizations as o', 'o.organization_id', '=', 'e.organization')
                 ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
                 ->whereIn('e.organization', $organizationIds->all())
                 ->where('ed.start_time', '>=', now())
-                ->when($isMemberUser, function ($query) use ($windowEnd) {
-                    $query->where('ed.start_time', '<=', $windowEnd);
-                })
                 ->orderBy('ed.start_time')
                 ->limit(5)
                 ->get([
@@ -85,8 +61,8 @@ class Dashboard extends Controller
                 ]);
         }
 
-        return view('pages.dashboard.member', [
-            'title' => 'Member Dashboard',
+        return view('pages.dashboard.officer', [
+            'title' => 'Dashboard',
             'upcomingEvents' => $upcomingEvents,
         ]);
     }

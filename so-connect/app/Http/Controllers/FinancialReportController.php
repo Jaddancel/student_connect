@@ -27,10 +27,10 @@ class FinancialReportController extends Controller
                 ->orderBy('od.name')
                 ->get();
         } else {
-            $presidentOrgIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
+            $officerOrgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
             $organizations = DB::table('organizations as o')
                 ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
-                ->whereIn('o.organization_id', $presidentOrgIds)
+                ->whereIn('o.organization_id', $officerOrgIds)
                 ->select(['o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name")])
                 ->orderBy('od.name')
                 ->get();
@@ -52,89 +52,89 @@ class FinancialReportController extends Controller
         $validated = $request->validate([
             'organization_id'      => ['required', 'integer', 'min:1'],
             'organization'         => ['required', 'string', 'max:255'],
-            'school_year'          => ['required', 'string', 'max:20'],
-            'fund_source'          => ['required', 'array', 'min:1'],
-            'fund_source.*'        => ['required', 'string', 'max:255'],
-            'fund_amount'          => ['required', 'array', 'min:1'],
-            'fund_amount.*'        => ['required', 'numeric', 'min:0'],
-            'total_funds'          => ['required', 'numeric', 'min:0'],
-            'activity_title'       => ['nullable', 'array'],
-            'activity_title.*'     => ['nullable', 'string', 'max:255'],
-            'activity_date'        => ['nullable', 'array'],
-            'activity_date.*'      => ['nullable', 'date'],
+            'schoolYear'           => ['required', 'string', 'max:20'],
+            'fundSource'           => ['required', 'array', 'min:1'],
+            'fundSource.*'         => ['required', 'string', 'max:255'],
+            'fundAmount'           => ['required', 'array', 'min:1'],
+            'fundAmount.*'         => ['required', 'numeric', 'min:0'],
+            'totalFunds'           => ['required', 'numeric', 'min:0'],
+            'activityTitle'        => ['nullable', 'array'],
+            'activityTitle.*'      => ['nullable', 'string', 'max:255'],
+            'activityDate'         => ['nullable', 'array'],
+            'activityDate.*'       => ['nullable', 'date'],
             'item'                 => ['nullable', 'array'],
             'item.*'               => ['nullable', 'string', 'max:255'],
-            'amount_per_unit'      => ['nullable', 'array'],
-            'amount_per_unit.*'    => ['nullable', 'numeric', 'min:0'],
+            'amountPerUnit'        => ['nullable', 'array'],
+            'amountPerUnit.*'      => ['nullable', 'numeric', 'min:0'],
             'quantity'             => ['nullable', 'array'],
             'quantity.*'           => ['nullable', 'numeric', 'min:0'],
-            'total_expenses'       => ['required', 'numeric', 'min:0'],
-            'cash_on_hand'         => ['required', 'numeric'],
-            'name_of_treasurer'    => ['required', 'string', 'max:255'],
-            'signature_treasurer'  => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
-            'name_of_the_auditor'  => ['required', 'string', 'max:255'],
-            'signature_auditor'    => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
-            'name_of_the_president'=> ['required', 'string', 'max:255'],
-            'signature_president'  => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
-            'name_of_the_adviser'  => ['required', 'string', 'max:255'],
-            'signature_adviser'    => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            'totalExpenses'        => ['required', 'numeric', 'min:0'],
+            'cashOnHand'           => ['required', 'numeric'],
+            'nameOfTreasurer'      => ['required', 'string', 'max:255'],
+            'signatureTreasurer'   => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            'nameOfTheAuditor'     => ['required', 'string', 'max:255'],
+            'signatureAuditor'     => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            'nameOfThePresident'   => ['required', 'string', 'max:255'],
+            'signaturePresident'   => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            'nameOfTheAdviser'     => ['required', 'string', 'max:255'],
+            'signatureAdviser'     => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
         ]);
 
         $organizationId = (int) $validated['organization_id'];
 
         if (! $isAdmin) {
-            $presidentOrgIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
-            if (! in_array($organizationId, $presidentOrgIds, true)) {
+            $officerOrgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
+            if (! in_array($organizationId, $officerOrgIds, true)) {
                 abort(403);
             }
         }
 
         $sigDir = 'form-signatures/'.now()->format('Y/m');
 
-        $fundSources = $validated['fund_source'];
-        $fundAmounts = $validated['fund_amount'];
+        $fundSources = $validated['fundSource'];
+        $fundAmounts = $validated['fundAmount'];
         $fundRows = [];
         foreach ($fundSources as $i => $source) {
             $fundRows[] = [
-                'fund_source' => $source,
-                'amount'      => $fundAmounts[$i] ?? 0,
+                'fundSource' => $source,
+                'amount'     => $fundAmounts[$i] ?? 0,
             ];
         }
 
-        $activityTitles  = $validated['activity_title'] ?? [];
-        $activityDates   = $validated['activity_date'] ?? [];
-        $items           = $validated['item'] ?? [];
-        $amountsPerUnit  = $validated['amount_per_unit'] ?? [];
-        $quantities      = $validated['quantity'] ?? [];
+        $activityTitles = $validated['activityTitle'] ?? [];
+        $activityDates  = $validated['activityDate'] ?? [];
+        $items          = $validated['item'] ?? [];
+        $amountsPerUnit = $validated['amountPerUnit'] ?? [];
+        $quantities     = $validated['quantity'] ?? [];
         $expenseRows = [];
         foreach ($activityTitles as $i => $title) {
             $qty = (float) ($quantities[$i] ?? 0);
             $apu = (float) ($amountsPerUnit[$i] ?? 0);
             $expenseRows[] = [
-                'activity_title'  => $title,
-                'activity_date'   => $activityDates[$i] ?? '',
-                'item'            => $items[$i] ?? '',
-                'amount_per_unit' => $apu,
-                'quantity'        => $qty,
-                'price_total'     => $apu * $qty,
+                'activityTitle' => $title,
+                'activityDate'  => $activityDates[$i] ?? '',
+                'item'          => $items[$i] ?? '',
+                'amountPerUnit' => $apu,
+                'quantity'      => $qty,
+                'priceTotal'    => $apu * $qty,
             ];
         }
 
         $payload = [
-            'organization'          => $validated['organization'],
-            'school_year'           => $validated['school_year'],
-            'fund_rows'             => $fundRows,
-            'total_funds'           => $validated['total_funds'],
-            'expense_rows'          => $expenseRows,
-            'total_expenses'        => $validated['total_expenses'],
-            'cash_on_hand'          => $validated['cash_on_hand'],
-            'name_of_treasurer'     => $validated['name_of_treasurer'],
-            'name_of_the_auditor'   => $validated['name_of_the_auditor'],
-            'name_of_the_president' => $validated['name_of_the_president'],
-            'name_of_the_adviser'   => $validated['name_of_the_adviser'],
+            'organization'      => $validated['organization'],
+            'schoolYear'        => $validated['schoolYear'],
+            'fundRows'          => $fundRows,
+            'totalFunds'        => $validated['totalFunds'],
+            'expenseRows'       => $expenseRows,
+            'totalExpenses'     => $validated['totalExpenses'],
+            'cashOnHand'        => $validated['cashOnHand'],
+            'nameOfTreasurer'   => $validated['nameOfTreasurer'],
+            'nameOfTheAuditor'  => $validated['nameOfTheAuditor'],
+            'nameOfThePresident'=> $validated['nameOfThePresident'],
+            'nameOfTheAdviser'  => $validated['nameOfTheAdviser'],
         ];
 
-        foreach (['signature_treasurer', 'signature_auditor', 'signature_president', 'signature_adviser'] as $fileField) {
+        foreach (['signatureTreasurer', 'signatureAuditor', 'signaturePresident', 'signatureAdviser'] as $fileField) {
             if ($request->hasFile($fileField) && $request->file($fileField)->isValid()) {
                 $file = $request->file($fileField);
                 $path = $file->storeAs(

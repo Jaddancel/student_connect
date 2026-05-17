@@ -29,21 +29,21 @@
             class="space-y-6"
             x-data="{
                 orgName: '{{ addslashes($organizations->first()?->organization_name ?? '') }}',
-                fundRows: [{ fund_source: '', fund_amount: '' }],
-                expenseRows: [{ activity_title: '', activity_date: '', item: '', amount_per_unit: '', quantity: '' }],
+                fundRows: [{ fundSource: '', fundAmount: '' }],
+                expenseRows: [{ activityTitle: '', activityDate: '', item: '', amountPerUnit: '', quantity: '' }],
 
-                addFundRow() { this.fundRows.push({ fund_source: '', fund_amount: '' }); },
+                addFundRow() { this.fundRows.push({ fundSource: '', fundAmount: '' }); },
                 removeFundRow(i) { if (this.fundRows.length > 1) this.fundRows.splice(i, 1); },
 
-                addExpenseRow() { this.expenseRows.push({ activity_title: '', activity_date: '', item: '', amount_per_unit: '', quantity: '' }); },
+                addExpenseRow() { this.expenseRows.push({ activityTitle: '', activityDate: '', item: '', amountPerUnit: '', quantity: '' }); },
                 removeExpenseRow(i) { if (this.expenseRows.length > 1) this.expenseRows.splice(i, 1); },
 
                 rowTotal(row) {
-                    return (parseFloat(row.amount_per_unit) || 0) * (parseFloat(row.quantity) || 0);
+                    return (parseFloat(row.amountPerUnit) || 0) * (parseFloat(row.quantity) || 0);
                 },
 
                 get totalFunds() {
-                    return this.fundRows.reduce((s, r) => s + (parseFloat(r.fund_amount) || 0), 0);
+                    return this.fundRows.reduce((s, r) => s + (parseFloat(r.fundAmount) || 0), 0);
                 },
 
                 get totalExpenses() {
@@ -103,10 +103,10 @@
                     </div>
 
                     <div>
-                        <label for="school_year" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        <label for="schoolYear" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             School Year <span class="text-error-500">*</span>
                         </label>
-                        <input type="text" id="school_year" name="school_year" value="{{ old('school_year') }}"
+                        <input type="text" id="schoolYear" name="schoolYear" value="{{ old('schoolYear') }}"
                             placeholder="e.g. 2024–2025"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                     </div>
@@ -137,14 +137,14 @@
                             <template x-for="(row, i) in fundRows" :key="i">
                                 <tr class="border-b border-gray-100 dark:border-gray-800">
                                     <td class="py-2 pr-3">
-                                        <input type="text" name="fund_source[]"
-                                            x-model="row.fund_source"
+                                        <input type="text" name="fundSource[]"
+                                            x-model="row.fundSource"
                                             placeholder="e.g. Membership Fees"
                                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                                     </td>
                                     <td class="py-2 pl-3 pr-2">
-                                        <input type="number" name="fund_amount[]"
-                                            x-model="row.fund_amount"
+                                        <input type="number" name="fundAmount[]"
+                                            x-model="row.fundAmount"
                                             placeholder="0.00" min="0" step="0.01"
                                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-32 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-right text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                                     </td>
@@ -168,7 +168,7 @@
                     </table>
                 </div>
 
-                <input type="hidden" name="total_funds" x-bind:value="totalFunds" />
+                <input type="hidden" name="totalFunds" x-bind:value="totalFunds" />
             </div>
 
             {{-- SECTION 3 · SUMMARY OF EXPENSES --}}
@@ -199,14 +199,14 @@
                             <template x-for="(row, i) in expenseRows" :key="i">
                                 <tr class="border-b border-gray-100 dark:border-gray-800">
                                     <td class="py-2 pr-2">
-                                        <input type="text" name="activity_title[]"
-                                            x-model="row.activity_title"
+                                        <input type="text" name="activityTitle[]"
+                                            x-model="row.activityTitle"
                                             placeholder="Activity"
                                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-36 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                                     </td>
                                     <td class="py-2 pl-3 pr-2">
-                                        <input type="date" name="activity_date[]"
-                                            x-model="row.activity_date"
+                                        <input type="date" name="activityDate[]"
+                                            x-model="row.activityDate"
                                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-36 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                                     </td>
                                     <td class="py-2 pl-3 pr-2">
@@ -216,8 +216,8 @@
                                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-32 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                                     </td>
                                     <td class="py-2 pl-3 pr-2">
-                                        <input type="number" name="amount_per_unit[]"
-                                            x-model="row.amount_per_unit"
+                                        <input type="number" name="amountPerUnit[]"
+                                            x-model="row.amountPerUnit"
                                             placeholder="0.00" min="0" step="0.01"
                                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-28 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-right text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                                     </td>
@@ -242,8 +242,8 @@
                     </table>
                 </div>
 
-                <input type="hidden" name="total_expenses" x-bind:value="totalExpenses" />
-                <input type="hidden" name="cash_on_hand" x-bind:value="cashOnHand" />
+                <input type="hidden" name="totalExpenses" x-bind:value="totalExpenses" />
+                <input type="hidden" name="cashOnHand" x-bind:value="cashOnHand" />
 
                 {{-- Financial Summary --}}
                 <div class="mt-4 ml-auto w-full max-w-xs space-y-1.5 border-t border-gray-200 pt-4 dark:border-gray-700">
@@ -272,8 +272,8 @@
                     <div class="space-y-3">
                         <p class="text-sm font-medium text-gray-700 dark:text-gray-400">Prepared by (Treasurer) <span class="text-error-500">*</span></p>
                         <div>
-                            <label for="name_of_treasurer" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Name <span class="text-error-500">*</span></label>
-                            <input type="text" id="name_of_treasurer" name="name_of_treasurer" value="{{ old('name_of_treasurer') }}"
+                            <label for="nameOfTreasurer" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Name <span class="text-error-500">*</span></label>
+                            <input type="text" id="nameOfTreasurer" name="nameOfTreasurer" value="{{ old('nameOfTreasurer') }}"
                                 placeholder="Full name of Treasurer"
                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         </div>
@@ -282,7 +282,7 @@
                                 Signature <span class="text-error-500">*</span>
                                 <span class="ml-1 text-xs font-normal text-gray-400">(photo of signature)</span>
                             </label>
-                            <label for="signature_treasurer"
+                            <label for="signatureTreasurer"
                                 class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-4 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:bg-gray-900/30 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
                                 <template x-if="preview">
                                     <img :src="preview" class="mb-2 max-h-16 object-contain" alt="Signature preview" />
@@ -292,7 +292,7 @@
                                 </template>
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-400" x-text="preview ? 'Change signature' : 'Click to upload signature'"></span>
                                 <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
-                                <input id="signature_treasurer" name="signature_treasurer" type="file" accept="image/jpeg,image/png" class="hidden"
+                                <input id="signatureTreasurer" name="signatureTreasurer" type="file" accept="image/jpeg,image/png" class="hidden"
                                     @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
                             </label>
                             <p class="mt-1 text-center text-xs text-gray-400 dark:text-gray-500">Signature over Printed Name of the Treasurer</p>
@@ -303,8 +303,8 @@
                     <div class="space-y-3">
                         <p class="text-sm font-medium text-gray-700 dark:text-gray-400">Audited by <span class="text-error-500">*</span></p>
                         <div>
-                            <label for="name_of_the_auditor" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Name <span class="text-error-500">*</span></label>
-                            <input type="text" id="name_of_the_auditor" name="name_of_the_auditor" value="{{ old('name_of_the_auditor') }}"
+                            <label for="nameOfTheAuditor" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Name <span class="text-error-500">*</span></label>
+                            <input type="text" id="nameOfTheAuditor" name="nameOfTheAuditor" value="{{ old('nameOfTheAuditor') }}"
                                 placeholder="Full name of Auditor"
                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         </div>
@@ -313,7 +313,7 @@
                                 Signature <span class="text-error-500">*</span>
                                 <span class="ml-1 text-xs font-normal text-gray-400">(photo of signature)</span>
                             </label>
-                            <label for="signature_auditor"
+                            <label for="signatureAuditor"
                                 class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-4 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:bg-gray-900/30 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
                                 <template x-if="preview">
                                     <img :src="preview" class="mb-2 max-h-16 object-contain" alt="Signature preview" />
@@ -323,7 +323,7 @@
                                 </template>
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-400" x-text="preview ? 'Change signature' : 'Click to upload signature'"></span>
                                 <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
-                                <input id="signature_auditor" name="signature_auditor" type="file" accept="image/jpeg,image/png" class="hidden"
+                                <input id="signatureAuditor" name="signatureAuditor" type="file" accept="image/jpeg,image/png" class="hidden"
                                     @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
                             </label>
                             <p class="mt-1 text-center text-xs text-gray-400 dark:text-gray-500">Signature over Printed Name of the Auditor</p>
@@ -334,8 +334,8 @@
                     <div class="space-y-3">
                         <p class="text-sm font-medium text-gray-700 dark:text-gray-400">Noted by (President) <span class="text-error-500">*</span></p>
                         <div>
-                            <label for="name_of_the_president" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Name <span class="text-error-500">*</span></label>
-                            <input type="text" id="name_of_the_president" name="name_of_the_president" value="{{ old('name_of_the_president') }}"
+                            <label for="nameOfThePresident" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Name <span class="text-error-500">*</span></label>
+                            <input type="text" id="nameOfThePresident" name="nameOfThePresident" value="{{ old('nameOfThePresident') }}"
                                 placeholder="Full name of President"
                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         </div>
@@ -344,7 +344,7 @@
                                 Signature <span class="text-error-500">*</span>
                                 <span class="ml-1 text-xs font-normal text-gray-400">(photo of signature)</span>
                             </label>
-                            <label for="signature_president"
+                            <label for="signaturePresident"
                                 class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-4 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:bg-gray-900/30 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
                                 <template x-if="preview">
                                     <img :src="preview" class="mb-2 max-h-16 object-contain" alt="Signature preview" />
@@ -354,7 +354,7 @@
                                 </template>
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-400" x-text="preview ? 'Change signature' : 'Click to upload signature'"></span>
                                 <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
-                                <input id="signature_president" name="signature_president" type="file" accept="image/jpeg,image/png" class="hidden"
+                                <input id="signaturePresident" name="signaturePresident" type="file" accept="image/jpeg,image/png" class="hidden"
                                     @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
                             </label>
                             <p class="mt-1 text-center text-xs text-gray-400 dark:text-gray-500">Signature over Printed Name of the President</p>
@@ -365,8 +365,8 @@
                     <div class="space-y-3">
                         <p class="text-sm font-medium text-gray-700 dark:text-gray-400">Approved by (Adviser) <span class="text-error-500">*</span></p>
                         <div>
-                            <label for="name_of_the_adviser" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Name <span class="text-error-500">*</span></label>
-                            <input type="text" id="name_of_the_adviser" name="name_of_the_adviser" value="{{ old('name_of_the_adviser') }}"
+                            <label for="nameOfTheAdviser" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Name <span class="text-error-500">*</span></label>
+                            <input type="text" id="nameOfTheAdviser" name="nameOfTheAdviser" value="{{ old('nameOfTheAdviser') }}"
                                 placeholder="Full name of Adviser"
                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         </div>
@@ -375,7 +375,7 @@
                                 Signature <span class="text-error-500">*</span>
                                 <span class="ml-1 text-xs font-normal text-gray-400">(photo of signature)</span>
                             </label>
-                            <label for="signature_adviser"
+                            <label for="signatureAdviser"
                                 class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-4 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:bg-gray-900/30 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
                                 <template x-if="preview">
                                     <img :src="preview" class="mb-2 max-h-16 object-contain" alt="Signature preview" />
@@ -385,7 +385,7 @@
                                 </template>
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-400" x-text="preview ? 'Change signature' : 'Click to upload signature'"></span>
                                 <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
-                                <input id="signature_adviser" name="signature_adviser" type="file" accept="image/jpeg,image/png" class="hidden"
+                                <input id="signatureAdviser" name="signatureAdviser" type="file" accept="image/jpeg,image/png" class="hidden"
                                     @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
                             </label>
                             <p class="mt-1 text-center text-xs text-gray-400 dark:text-gray-500">Signature over Printed Name of the Adviser</p>

@@ -56,9 +56,13 @@ class OrganizationFactory extends Factory
 
                 Officer::factory()->toLeadOrganization($organizationId)->create();
                 Officer::factory()->count(9)->assignedToOrganization($organizationId)->create();
-                Member::factory()->count(20)->regularMember()->create([
-                    'organization' => $organizationId,
-                ]);
+                for ($i = 0; $i < 20; $i++) {
+                    Member::create([
+                        'organization' => $organizationId,
+                        'user' => User::factory()->orgOfficer()->create()->getKey(),
+                        'member_since' => fake()->dateTimeBetween('-6 years', 'now'),
+                    ]);
+                }
 
                 $organization->update([
                     'detail' => $detailId,

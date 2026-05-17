@@ -6,7 +6,7 @@
     $displayName = trim($f_name . ' ' . $l_name);
     $userEmail = $authUser?->user_email ?? '';
 
-    $roleLabel = 'Member';
+    $roleLabel = 'Officer';
     $roleBadgeClass = 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
 
     if ($authUser) {

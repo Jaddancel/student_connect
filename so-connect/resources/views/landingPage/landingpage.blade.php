@@ -51,7 +51,7 @@
                         <a class="nav-link" href="#activity">Recent Activities</a>
                     </li>
                     <li class="nav-item ms-lg-3">
-                        <a class="nav-link btn btn-sm text-uppercase" href="#auth" style="padding: 8px 20px; border-radius: 20px; font-weight: 600; background-color: #C9A84C; color: white; transition: all 0.3s ease; display: inline-block;">Login / Sign Up</a>
+                        <a class="nav-link btn btn-sm text-uppercase" href="{{ route('login') }}" style="padding: 8px 20px; border-radius: 20px; font-weight: 600; background-color: #C9A84C; color: white; transition: all 0.3s ease; display: inline-block;">Login / Sign Up</a>
                     </li>
                 </ul>
             </div>

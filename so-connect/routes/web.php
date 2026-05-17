@@ -7,7 +7,6 @@ use App\Http\Controllers\Auth\Register;
 use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\LandingPage;
-use App\Http\Controllers\Member\PromotionRequestController;
 use App\Http\Controllers\MembershipRegistrationController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\PolicySecurityRequestController;
@@ -54,11 +53,8 @@ Route::get('/dashboard/admin', function () {
     ]);
 })->middleware(['auth', 'admin'])->name('admin-dashboard');
 
-Route::get('/dashboard/officer', function () {
-    return view('pages.dashboard.officer', ['title' => 'Officer Dashboard']);
-})->middleware(['auth', 'dashboard.access:officer'])->name('officer-dashboard');
-
-Route::get('/dashboard/member', [Dashboard::class, 'memberDashboard'])->middleware('auth')->name('member-dashboard');
+Route::get('/dashboard/officer', [Dashboard::class, 'officerDashboard'])
+    ->middleware(['auth', 'dashboard.access:officer'])->name('officer-dashboard');
 
 Route::get('/dashboard', [Dashboard::class, 'viewDashboard'])->middleware('auth')->name('dashboard');
 
@@ -143,21 +139,15 @@ Route::get('/manage-organization', [OrganizationController::class, 'manage'])
     ->middleware('auth')
     ->name('manage-organization');
 
-// Member promotion request
-Route::get('/member/promotion-request', [PromotionRequestController::class, 'index'])
-    ->middleware('auth')->name('member.promotion-request');
-Route::post('/member/promotion-request', [PromotionRequestController::class, 'store'])
-    ->middleware('auth')->name('member.promotion-request.store');
-
 // Promotion requests management (President + Admin)
 Route::get('/promotion-requests', [PromotionRequestsPageController::class, 'index'])
-    ->middleware('auth')->name('promotion-requests');
+    ->middleware(['auth', 'admin'])->name('promotion-requests');
 Route::get('/promotion-requests/submissions/{submissionId}/confirm', [PromotionRequestsPageController::class, 'confirmation'])
-    ->whereNumber('submissionId')->middleware('auth')->name('promotion-requests.confirmation');
+    ->whereNumber('submissionId')->middleware(['auth', 'admin'])->name('promotion-requests.confirmation');
 Route::post('/promotion-requests/submissions/{submissionId}/confirm', [PromotionRequestsPageController::class, 'confirm'])
-    ->whereNumber('submissionId')->middleware('auth')->name('promotion-requests.confirm');
+    ->whereNumber('submissionId')->middleware(['auth', 'admin'])->name('promotion-requests.confirm');
 
-Route::middleware(['auth', 'president.or.admin'])->group(function () {
+Route::middleware(['auth', 'officer.or.admin'])->group(function () {
     Route::get('/forms/organization-recognition', [OrganizationRecognitionController::class, 'index'])
         ->name('organization-recognition');
     Route::post('/forms/organization-recognition', [OrganizationRecognitionController::class, 'store'])
@@ -181,11 +171,11 @@ Route::middleware(['auth', 'president.or.admin'])->group(function () {
 
 Route::get('/forms/student-leader-directory', function () {
     return view('pages.form.student-leader-directory', ['title' => 'Directory of Student Leader']);
-})->middleware(['auth', 'role.president'])->name('student-leader-directory');
+})->middleware(['auth', 'role.officer'])->name('student-leader-directory');
 
 Route::get('/forms/joint-statement', function () {
     return view('pages.form.joint-statement', ['title' => 'Joint Statement of Involvement/Commitment']);
-})->middleware(['auth', 'role.president'])->name('joint-statement');
+})->middleware(['auth', 'role.officer'])->name('joint-statement');
 
 
 Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
