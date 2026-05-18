@@ -9,10 +9,9 @@ use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-class AccomplishmentReportController extends Controller
+class ActivityRequestController extends Controller
 {
     public function index(Request $request)
     {
@@ -48,25 +47,10 @@ class AccomplishmentReportController extends Controller
                 ->get();
         }
 
-        $orgIds = $organizations->pluck('organization_id')->toArray();
-
-        $events = DB::table('events as e')
-            ->join('event_details as ed', 'ed.event_detail_id', '=', 'e.event_detail')
-            ->whereIn('e.organization', $orgIds)
-            ->orderByDesc('ed.start_time')
-            ->select([
-                'e.event_id',
-                'e.organization as org_id',
-                'ed.name as title',
-                DB::raw('DATE(ed.start_time) as date'),
-            ])
-            ->get();
-
-        return view('pages.form.accomplishment-report', [
-            'title'         => 'Accomplishment Report',
+        return view('pages.form.activity-request', [
+            'title'         => 'Request for Organizational Activity',
             'isAdmin'       => $isAdmin,
             'organizations' => $organizations,
-            'events'        => $events,
             'presidentName' => $presidentName,
         ]);
     }
@@ -78,16 +62,21 @@ class AccomplishmentReportController extends Controller
         $isAdmin = (int) $user->user_type === 2;
 
         $validated = $request->validate([
-            'organization_id' => ['required', 'integer', 'min:1'],
-            'organization'    => ['required', 'string', 'max:255'],
-            'schoolYear'      => ['required', 'string', 'max:20'],
-            'title'           => ['required', 'string', 'max:255'],
-            'date'            => ['required', 'date'],
-            'people'          => ['required', 'string'],
-            'problem'         => ['nullable', 'string'],
-            'phots'           => ['nullable', 'file', 'mimes:jpeg,png,pdf', 'max:5120'],
-            'name'            => ['required', 'string', 'max:255'],
-            'signature1'      => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            'organization_id'      => ['required', 'integer', 'min:1'],
+            'organization'         => ['required', 'string', 'max:255'],
+            'date'                              => ['required', 'date'],
+            'projectActivity'                   => ['required', 'string', 'max:500'],
+            'purposed'                          => ['required', 'string', 'max:1000'],
+            'dayOfTheWeek'                      => ['nullable', 'string', 'max:20'],
+            'time'                              => ['required', 'string', 'max:50'],
+            'placeAndVenue'                     => ['required', 'string', 'max:255'],
+            'facilitiesOrEquipmentToBeUsedRow'  => ['nullable', 'array', 'max:10'],
+            'facilitiesOrEquipmentToBeUsedRow.*'=> ['nullable', 'string', 'max:255'],
+            'presidentName'                     => ['required', 'string', 'max:255'],
+            'presidentContactNo'                => ['required', 'string', 'max:50'],
+            'adviserRow'                        => ['required', 'array', 'min:1'],
+            'adviserRow.*'                      => ['required', 'string', 'max:255'],
+            'collegeDean'                       => ['nullable', 'string', 'max:255'],
         ]);
 
         $organizationId = (int) $validated['organization_id'];
@@ -99,33 +88,25 @@ class AccomplishmentReportController extends Controller
             }
         }
 
-        $sigDir = 'form-signatures/'.now()->format('Y/m');
+        $facilities = array_values(array_filter($validated['facilitiesOrEquipmentToBeUsedRow'] ?? [], fn ($v) => filled($v)));
+        $advisers   = array_values(array_filter($validated['adviserRow'], fn ($v) => filled($v)));
 
         $payload = [
-            'organization' => $validated['organization'],
-            'schoolYear'   => $validated['schoolYear'],
-            'title'        => $validated['title'],
-            'date'         => $validated['date'],
-            'people'       => $validated['people'],
-            'problem'      => $validated['problem'] ?? '',
-            'name'         => $validated['name'],
+            'date'                             => $validated['date'],
+            'organization'                     => $validated['organization'],
+            'projectActivity'                  => $validated['projectActivity'],
+            'purposed'                         => $validated['purposed'],
+            'dayOfTheWeek'                     => \Carbon\Carbon::parse($validated['date'])->format('l'),
+            'time'                             => $validated['time'],
+            'placeAndVenue'                    => $validated['placeAndVenue'],
+            'facilitiesOrEquipmentToBeUsedRow' => $facilities,
+            'presidentName'                    => $validated['presidentName'],
+            'presidentContactNo'               => $validated['presidentContactNo'],
+            'adviserRow'                       => $advisers,
+            'collegeDean'                      => $validated['collegeDean'] ?? '',
         ];
 
-        foreach (['phots', 'signature1'] as $fileField) {
-            if ($request->hasFile($fileField) && $request->file($fileField)->isValid()) {
-                $file = $request->file($fileField);
-                $path = $file->storeAs(
-                    $sigDir,
-                    Str::lower(Str::random(16)).'.'.$file->getClientOriginalExtension(),
-                    'public'
-                );
-                $payload[$fileField] = $path;
-            } else {
-                $payload[$fileField] = '';
-            }
-        }
-
-        $form = Form::query()->where('route_name', 'accomplishment-report')->firstOrFail();
+        $form = Form::query()->where('route_name', 'activity-request')->firstOrFail();
 
         $submission = FormSubmission::query()->create([
             'form_id'         => (int) $form->getKey(),
@@ -143,8 +124,8 @@ class AccomplishmentReportController extends Controller
             ->first();
 
         if (! $template) {
-            return redirect()->route('accomplishment-report')
-                ->with('status', 'Report submitted. No active template found — document not generated yet.');
+            return redirect()->route('activity-request')
+                ->with('status', 'Request submitted. No active template found — document not generated yet.');
         }
 
         try {
@@ -156,10 +137,10 @@ class AccomplishmentReportController extends Controller
             );
 
             return redirect()->route('download-files')
-                ->with('success', 'Accomplishment report generated and is now available for download.');
+                ->with('success', 'Activity request generated and is now available for download.');
         } catch (\Throwable $e) {
-            return redirect()->route('accomplishment-report')
-                ->with('status', 'Report submitted, but document generation failed: '.$e->getMessage());
+            return redirect()->route('activity-request')
+                ->with('status', 'Request submitted, but document generation failed: ' . $e->getMessage());
         }
     }
 }

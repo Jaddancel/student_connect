@@ -17,6 +17,14 @@
 
     <div class="space-y-8">
 
+        {{-- Workplan Section --}}
+        <x-workplan-section
+            :workplans="$workplans ?? []"
+            :activeSemester="$activeSemester ?? null"
+            :orgNames="$orgNames ?? []"
+            :personNames="$personNames ?? []"
+        />
+
         {{-- Pending Plans --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
             <div class="mb-4 flex items-center justify-between">
@@ -29,7 +37,7 @@
             @if ($grouped['pending']->isEmpty())
                 <p class="text-sm text-gray-500 dark:text-gray-400">No pending event plans.</p>
             @else
-                <div class="space-y-4">
+                <div class="space-y-1">
                     @foreach ($grouped['pending'] as $plan)
                         <x-event-plan-card :plan="$plan" :personNames="$personNames" :orgNames="$orgNames" status="pending" />
                     @endforeach
@@ -49,7 +57,7 @@
             @if ($grouped['approved']->isEmpty())
                 <p class="text-sm text-gray-500 dark:text-gray-400">No approved event plans.</p>
             @else
-                <div class="space-y-4">
+                <div class="space-y-1">
                     @foreach ($grouped['approved'] as $plan)
                         <x-event-plan-card :plan="$plan" :personNames="$personNames" :orgNames="$orgNames" status="approved" />
                     @endforeach
@@ -66,7 +74,7 @@
                     {{ $grouped['rejected']->count() }}
                 </span>
             </div>
-            <div class="space-y-4">
+            <div class="space-y-1">
                 @foreach ($grouped['rejected'] as $plan)
                     <x-event-plan-card :plan="$plan" :personNames="$personNames" :orgNames="$orgNames" status="rejected" />
                 @endforeach
@@ -83,7 +91,7 @@
                     {{ $grouped['junked']->count() }}
                 </span>
             </div>
-            <div class="space-y-4">
+            <div class="space-y-1">
                 @foreach ($grouped['junked'] as $plan)
                     <x-event-plan-card :plan="$plan" :personNames="$personNames" :orgNames="$orgNames" status="junked" />
                 @endforeach

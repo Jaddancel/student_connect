@@ -240,37 +240,6 @@
                         </div>
                     </div>
 
-                    {{-- Noted By (Adviser) --}}
-                    <div class="space-y-3">
-                        <p class="text-sm font-medium text-gray-700 dark:text-gray-400">Noted by <span class="text-error-500">*</span></p>
-
-                        <div class="h-11"></div>{{-- spacer to align signature upload with left column --}}
-
-                        <div x-data="{ preview: null }">
-                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                                Adviser Signature <span class="text-error-500">*</span>
-                                <span class="ml-1 text-xs font-normal text-gray-400">(photo of signature)</span>
-                            </label>
-                            <label for="signature2"
-                                class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-4 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:bg-gray-900/30 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
-                                <template x-if="preview">
-                                    <img :src="preview" class="mb-2 max-h-16 object-contain" alt="Signature preview" />
-                                </template>
-                                <template x-if="!preview">
-                                    <svg class="mb-2 h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                            d="M16.862 3.487a2.25 2.25 0 113.182 3.182L8.5 18.213l-4.5 1 1-4.5L16.862 3.487z" />
-                                    </svg>
-                                </template>
-                                <span class="text-sm font-medium text-gray-600 dark:text-gray-400"
-                                    x-text="preview ? 'Change signature' : 'Click to upload adviser signature'"></span>
-                                <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
-                                <input id="signature2" name="signature2" type="file" accept="image/jpeg,image/png" class="hidden"
-                                    @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
-                            </label>
-                            <p class="mt-1 text-center text-xs text-gray-400 dark:text-gray-500">Signature over Printed Name of the Adviser</p>
-                        </div>
-                    </div>
                 </div>
 
                 <div class="mt-6 flex justify-end gap-3">

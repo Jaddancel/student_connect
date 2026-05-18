@@ -139,12 +139,14 @@ class DocumentGenerationService
             ->where('form_id', $formId)
             ->where(function ($q) use ($organizationId) {
                 if ($organizationId > 0) {
-                    $q->where('organization_id', $organizationId);
+                    $q->where('organization_id', $organizationId)
+                        ->orWhereNull('organization_id');
                 } else {
                     $q->whereNull('organization_id');
                 }
             })
             ->where('is_active', true)
+            ->orderByRaw('CASE WHEN organization_id IS NOT NULL THEN 0 ELSE 1 END')
             ->orderByDesc('version')
             ->with(['mappings.field'])
             ->first();
@@ -176,7 +178,7 @@ class DocumentGenerationService
 
         $templateAbsolutePath = Storage::disk($disk)->path($templatePath);
 
-        $mappings = $template->mappings()->get();
+        $mappings = $template->mappings()->with('field')->get();
 
         $missingRequiredFields = FormTemplateHelper::missingRequiredFields($mappings, (array) $submission->payload);
 
@@ -185,6 +187,15 @@ class DocumentGenerationService
         }
 
         $replacementMap = FormTemplateHelper::buildReplacementMap($mappings, (array) $submission->payload);
+
+        // Collect placeholder keys whose FormDescription field_type is 'file' (image upload).
+        $imagePlaceholderKeys = $mappings
+            ->filter(fn ($m) => ($m->field?->field_type ?? '') === 'file')
+            ->map(fn ($m) => FormTemplateHelper::normalizeFieldKey(
+                (string) ($m->placeholder_key ?: $m->field_key)
+            ))
+            ->flip()
+            ->all();
 
         $generatedDocxRelativePath = $this->nextGeneratedDocxPath((int) $submission->getKey());
         $generatedDocxAbsolutePath = Storage::disk($disk)->path($generatedDocxRelativePath);
@@ -197,8 +208,15 @@ class DocumentGenerationService
             $preprocessedTemplatePath = $this->preprocessTemplateDocx($templateAbsolutePath);
             $processor = new TemplateProcessor($preprocessedTemplatePath);
 
-            foreach ($replacementMap as $fieldKey => $value) {
-                $processor->setValue($fieldKey, $value);
+            foreach ($replacementMap as $placeholderKey => $value) {
+                if (isset($imagePlaceholderKeys[$placeholderKey]) && $value !== '') {
+                    $absoluteImagePath = Storage::disk($disk)->path($value);
+                    if (is_file($absoluteImagePath)) {
+                        $processor->setImageValue($placeholderKey, ['path' => $absoluteImagePath, 'ratio' => true]);
+                        continue;
+                    }
+                }
+                $processor->setValue($placeholderKey, $value);
             }
 
             $processor->saveAs($generatedDocxAbsolutePath);

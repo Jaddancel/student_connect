@@ -1,6 +1,10 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminWorkplanController;
+use App\Http\Controllers\Admin\EventPlanRequestController;
+use App\Http\Controllers\Admin\SemesterController;
 use App\Http\Controllers\Admin\TemplateManagerController;
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\Register;
@@ -13,6 +17,7 @@ use App\Http\Controllers\PolicySecurityRequestController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PromotionRequestsPageController;
 use App\Http\Controllers\AccomplishmentReportController;
+use App\Http\Controllers\ActivityRequestController;
 use App\Http\Controllers\FinancialReportController;
 use App\Http\Controllers\OrganizationRecognitionController;
 use App\Http\Controllers\WorkplanController;
@@ -78,6 +83,7 @@ Route::get('/calendar', function () {
     $canRequestEvent = $isOfficerOrPresident;
 
     $eventRequestOrganizations = collect();
+    $lockedOrgIds = [];
 
     if ($canRequestEvent) {
         $eventRequestOrganizations = Organization::query()
@@ -91,12 +97,25 @@ Route::get('/calendar', function () {
             ])
             ->unique('organization_id')
             ->values();
+
+        $activeSemester = \App\Models\Semester::currentlyActive();
+        if ($activeSemester && $eventRequestOrganizations->isNotEmpty()) {
+            $lockedOrgIds = \App\Models\Workplan::query()
+                ->where('semester_id', $activeSemester->semester_id)
+                ->whereIn('organization_id', $eventRequestOrganizations->pluck('organization_id'))
+                ->whereIn('status', ['finalized', 'archived'])
+                ->pluck('organization_id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+        }
     }
 
-    return view('pages.calender', [
+    return view('pages.calendar', [
         'title' => 'Calendar',
         'canRequestEvent' => $canRequestEvent,
         'eventRequestOrganizations' => $eventRequestOrganizations,
+        'lockedOrgIds' => $lockedOrgIds,
     ]);
 })->middleware('auth')->name('calendar');
 
@@ -154,6 +173,9 @@ Route::middleware(['auth', 'officer.or.admin'])->group(function () {
     Route::patch('/event-plans/{id}/junk', [EventPlanController::class, 'junk'])
         ->whereNumber('id')
         ->name('event-plans.junk');
+    Route::patch('/event-plans/{id}/revise', [EventPlanController::class, 'revise'])
+        ->whereNumber('id')
+        ->name('event-plans.revise');
 
     Route::get('/forms/organization-recognition', [OrganizationRecognitionController::class, 'index'])
         ->name('organization-recognition');
@@ -165,10 +187,21 @@ Route::middleware(['auth', 'officer.or.admin'])->group(function () {
     Route::post('/forms/accomplishment-report', [AccomplishmentReportController::class, 'store'])
         ->name('accomplishment-report.store');
 
-    Route::get('/forms/workplan', [WorkplanController::class, 'index'])
-        ->name('workplan');
-    Route::post('/forms/workplan', [WorkplanController::class, 'store'])
-        ->name('workplan.store');
+    Route::get('/forms/activity-request', [ActivityRequestController::class, 'index'])
+        ->name('activity-request');
+    Route::post('/forms/activity-request', [ActivityRequestController::class, 'store'])
+        ->name('activity-request.store');
+
+    Route::get('/forms/workplan/{workplan_id}', [WorkplanController::class, 'review'])
+        ->whereNumber('workplan_id')
+        ->name('workplan.review');
+    Route::post('/forms/workplan/{workplan_id}/generate', [WorkplanController::class, 'generatePdf'])
+        ->whereNumber('workplan_id')
+        ->name('workplan.generate');
+
+    Route::patch('/workplans/{workplan_id}/finalize', [EventPlanController::class, 'finalize'])
+        ->whereNumber('workplan_id')
+        ->name('workplans.finalize');
 
     Route::get('/forms/financial-report', [FinancialReportController::class, 'index'])
         ->name('financial-report');
@@ -185,6 +218,26 @@ Route::get('/forms/joint-statement', function () {
 })->middleware(['auth', 'role.officer'])->name('joint-statement');
 
 
+Route::middleware(['auth', 'admin'])->group(function () {
+    Route::get('/admin/semesters', [SemesterController::class, 'index'])->name('admin.semesters.index');
+    Route::post('/admin/semesters', [SemesterController::class, 'store'])->name('admin.semesters.store');
+    Route::get('/admin/semesters/{semester}/edit', [SemesterController::class, 'edit'])->name('admin.semesters.edit');
+    Route::patch('/admin/semesters/{semester}', [SemesterController::class, 'update'])->name('admin.semesters.update');
+
+    Route::get('/admin/event-plan-requests', [EventPlanRequestController::class, 'index'])
+        ->name('admin.event-plan-requests.index');
+    Route::post('/admin/event-plan-requests/{requestId}/decide', [EventPlanRequestController::class, 'decide'])
+        ->whereNumber('requestId')
+        ->name('admin.event-plan-requests.decide');
+
+    Route::get('/admin/workplans', [AdminWorkplanController::class, 'index'])
+        ->name('admin.workplans.index');
+});
+
+Route::get('/documents', [DocumentController::class, 'index'])
+    ->middleware('auth')
+    ->name('documents.index');
+
 Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
     Route::get('/admin/templates', [TemplateManagerController::class, 'index'])
         ->name('admin.templates.index');
@@ -198,6 +251,8 @@ Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
         ->name('admin.templates.confirm');
     Route::delete('/admin/templates/{template}', [TemplateManagerController::class, 'destroy'])
         ->name('admin.templates.destroy');
+    Route::get('/admin/templates/field-reference', [TemplateManagerController::class, 'fieldReference'])
+        ->name('admin.templates.field-reference');
 });
 
 Route::get('/superadmin/profile-requests', [SuperAdminController::class, 'profileRequests'])

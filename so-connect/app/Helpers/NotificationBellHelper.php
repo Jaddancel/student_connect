@@ -3,8 +3,10 @@
 namespace App\Helpers;
 
 use App\Models\Request as ActionRequest;
+use App\Models\Semester;
 use App\Models\User;
 use App\Services\OrganizationAuthorizationService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -19,12 +21,49 @@ class NotificationBellHelper
 
         $requestNotifications = self::recentRequestNotifications($user, $hours);
         $eventNotifications = self::upcomingEventNotifications($user, $hours);
+        $semesterWarnings = self::semesterWarningNotifications($user);
 
         return collect()
+            ->merge($semesterWarnings->all())
             ->merge($requestNotifications->all())
             ->merge($eventNotifications->all())
             ->sortByDesc('created_at')
             ->values();
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    public static function semesterWarningNotifications(User $user): Collection
+    {
+        if ((int) $user->user_type !== 2) {
+            return collect();
+        }
+
+        $activeSemester = Semester::currentlyActive();
+        if (! $activeSemester) {
+            return collect();
+        }
+
+        $endDate = $activeSemester->activePeriodEnd();
+        $today = Carbon::today();
+        $daysLeft = (int) $today->diffInDays($endDate, false);
+
+        if ($daysLeft < 0 || $daysLeft > 30) {
+            return collect();
+        }
+
+        $label = $daysLeft === 0 ? 'today' : ($daysLeft === 1 ? 'tomorrow' : "in {$daysLeft} days");
+
+        return collect([[
+            'id' => 'semester-warning-'.$activeSemester->semester_id,
+            'kind' => 'system',
+            'title' => 'Preparation Period Ending Soon',
+            'description' => "The preparation period for \"{$activeSemester->name}\" ends {$label}. Assign the next semester now.",
+            'name' => 'Semester Alert',
+            'created_at' => now()->toDateTimeString(),
+            'link' => route('admin.semesters.index'),
+        ]]);
     }
 
     /**

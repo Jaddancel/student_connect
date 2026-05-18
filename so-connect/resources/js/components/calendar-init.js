@@ -14,6 +14,7 @@ export function calendarInit() {
   const canRequestEvent = calendarWrapper.dataset.canRequestEvent === "1";
   const eventRequestEndpoint = calendarWrapper.dataset.eventRequestEndpoint || "";
   const officersEndpointTemplate = calendarWrapper.dataset.officersEndpoint || "/api/organizations/{id}/officers";
+  const lockedOrgIds = JSON.parse(calendarWrapper.dataset.lockedOrgIds || "[]").map(Number);
 
   // Day Summary Modal
   const daySummaryModal = document.getElementById("daySummaryModal");
@@ -33,6 +34,31 @@ export function calendarInit() {
 
   let currentPlanDate = "";
   let calendarInstance = null;
+  let successDismissTimer = null;
+
+  const pageSuccessAlert = document.getElementById("calendar-success-alert");
+  const pageSuccessMessage = document.getElementById("calendar-success-message");
+  const pageSuccessDismiss = document.getElementById("calendar-success-dismiss");
+
+  const showPageSuccess = (message) => {
+    if (!pageSuccessAlert || !pageSuccessMessage) return;
+    if (successDismissTimer) clearTimeout(successDismissTimer);
+    pageSuccessMessage.textContent = message;
+    pageSuccessAlert.classList.remove("hidden");
+    pageSuccessAlert.classList.add("flex");
+    pageSuccessAlert.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    successDismissTimer = setTimeout(hidePageSuccess, 5000);
+  };
+
+  const hidePageSuccess = () => {
+    if (!pageSuccessAlert) return;
+    pageSuccessAlert.classList.add("hidden");
+    pageSuccessAlert.classList.remove("flex");
+  };
+
+  if (pageSuccessDismiss) {
+    pageSuccessDismiss.addEventListener("click", hidePageSuccess);
+  }
 
   // ─── Feedback helpers ───────────────────────────────────────────────────────
 
@@ -90,22 +116,63 @@ export function calendarInit() {
         daySummaryEventListEl.innerHTML =
           '<p class="text-sm text-gray-400 dark:text-gray-500 italic">No events on this day.</p>';
       } else {
+        const chevronSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+
         daySummaryEventListEl.innerHTML = eventsOnDay
           .map((ev) => {
             const startStr = ev.start
               ? new Date(ev.start).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
               : "";
+            const endStr = ev.end
+              ? new Date(ev.end).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+              : "";
             const org = ev.extendedProps?.organization || "";
+            const location = ev.extendedProps?.location || "";
+            const description = ev.extendedProps?.description || "";
+            const timeRange = startStr && endStr ? `${startStr} – ${endStr}` : startStr;
+            const metaLine = [timeRange, org].filter(Boolean).join(" · ");
+
+            const detailRows = [
+              location ? `<div class="flex gap-1.5"><span class="shrink-0 font-medium text-gray-600 dark:text-gray-300">Location</span><span class="text-gray-500 dark:text-gray-400">${location}</span></div>` : "",
+              timeRange ? `<div class="flex gap-1.5"><span class="shrink-0 font-medium text-gray-600 dark:text-gray-300">Time</span><span class="text-gray-500 dark:text-gray-400">${timeRange}</span></div>` : "",
+              org ? `<div class="flex gap-1.5"><span class="shrink-0 font-medium text-gray-600 dark:text-gray-300">Organization</span><span class="text-gray-500 dark:text-gray-400">${org}</span></div>` : "",
+              description ? `<div class="flex gap-1.5"><span class="shrink-0 font-medium text-gray-600 dark:text-gray-300">Details</span><span class="text-gray-500 dark:text-gray-400">${description}</span></div>` : "",
+            ].filter(Boolean).join("");
+
             return `
-              <div class="flex items-start gap-2 rounded-lg border border-gray-100 px-3 py-2 dark:border-gray-700">
-                <div class="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-brand-500"></div>
-                <div>
-                  <p class="text-sm font-medium text-gray-800 dark:text-white/90">${ev.title}</p>
-                  ${startStr ? `<p class="text-xs text-gray-500 dark:text-gray-400">${startStr}${org ? " · " + org : ""}</p>` : ""}
+              <div class="ep-item overflow-hidden rounded-lg border border-gray-100 dark:border-gray-700">
+                <button type="button" class="ep-toggle w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
+                  <span class="ep-chevron flex h-4 w-4 shrink-0 items-center justify-center text-gray-400 dark:text-gray-500 transition-transform duration-200">${chevronSvg}</span>
+                  <span class="flex-1 min-w-0">
+                    <span class="block text-sm font-semibold text-gray-800 dark:text-white/90 truncate">${ev.title}</span>
+                    ${metaLine ? `<span class="block text-xs text-gray-500 dark:text-gray-400">${metaLine}</span>` : ""}
+                  </span>
+                </button>
+                <div class="ep-detail" style="max-height:0;overflow:hidden;transition:max-height 0.25s ease;">
+                  <div class="border-t border-gray-100 dark:border-gray-700 px-3 py-2.5 space-y-1 text-xs">
+                    ${detailRows || '<span class="text-gray-400 dark:text-gray-500 italic">No additional details.</span>'}
+                  </div>
                 </div>
               </div>`;
           })
           .join("");
+
+        daySummaryEventListEl.querySelectorAll(".ep-toggle").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const item = btn.closest(".ep-item");
+            const detail = item.querySelector(".ep-detail");
+            const chevron = btn.querySelector(".ep-chevron");
+            const isOpen = detail.style.maxHeight !== "0px" && detail.style.maxHeight !== "";
+
+            daySummaryEventListEl.querySelectorAll(".ep-detail").forEach((d) => { d.style.maxHeight = "0px"; });
+            daySummaryEventListEl.querySelectorAll(".ep-chevron").forEach((c) => { c.style.transform = ""; });
+
+            if (!isOpen) {
+              detail.style.maxHeight = detail.scrollHeight + "px";
+              chevron.style.transform = "rotate(90deg)";
+            }
+          });
+        });
       }
     }
 
@@ -232,6 +299,13 @@ export function calendarInit() {
       return;
     }
 
+    if (lockedOrgIds.includes(parseInt(organizationId, 10))) {
+      setPlanFeedback(
+        "This organization's workplan has been finalized. New event plans cannot be submitted until the next preparation period begins."
+      );
+      return;
+    }
+
     const originalLabel = submitPlanBtn ? submitPlanBtn.textContent : "";
     if (submitPlanBtn) {
       submitPlanBtn.disabled = true;
@@ -266,6 +340,7 @@ export function calendarInit() {
       setPlanFeedback("Event plan submitted successfully.", "success");
       window.setTimeout(() => {
         closeEventPlanModal();
+        showPageSuccess("Event plan submitted successfully. It will appear under your event plans once reviewed.");
       }, 700);
     } catch (error) {
       const message =
@@ -289,6 +364,11 @@ export function calendarInit() {
     return month < 10 ? `0${month}` : `${month}`;
   };
 
+  const fmtTime = (dt) =>
+    dt
+      ? new Date(dt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+      : "";
+
   calendarInstance = new Calendar(calendarWrapper, {
     plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
     selectable: true,
@@ -301,6 +381,11 @@ export function calendarInit() {
       right: "dayGridMonth,listWeek,timeGridDay",
     },
     events: "/api/events/calendar",
+    nowIndicator: true,
+    slotDuration: "00:30:00",
+    slotMinTime: "06:00:00",
+    slotMaxTime: "23:00:00",
+    scrollTime: "07:00:00",
     select(info) {
       const allEvents = calendarInstance ? calendarInstance.getEvents() : [];
       const clickedDate = info.startStr.slice(0, 10);
@@ -314,18 +399,54 @@ export function calendarInit() {
       openDaySummaryModal(clickedDate, eventsOnDay);
     },
     displayEventTime: false,
+    dayHeaderContent(arg) {
+      if (arg.view.type === "timeGridDay") {
+        const weekday = arg.date.toLocaleDateString(undefined, { weekday: "long" });
+        const day    = arg.date.getDate();
+        const isToday = arg.isToday;
+        return {
+          html: `
+            <div class="fc-day-header-wrap${isToday ? " fc-day-header-today" : ""}">
+              <span class="fc-day-header-weekday">${weekday}</span>
+              <span class="fc-day-header-num">${day}</span>
+            </div>`,
+        };
+      }
+      return arg.text;
+    },
     eventContent(eventInfo) {
       const eventLevel = eventInfo.event.extendedProps?.calendar || "Primary";
       const colorClass = `fc-bg-${eventLevel.toLowerCase()}`;
+      const viewType   = eventInfo.view.type;
+
+      if (viewType === "timeGridDay") {
+        const org      = eventInfo.event.extendedProps?.organization || "";
+        const location = eventInfo.event.extendedProps?.location     || "";
+        const start    = fmtTime(eventInfo.event.start);
+        const end      = fmtTime(eventInfo.event.end);
+        const timeStr  = start && end ? `${start} – ${end}` : start;
+        const meta     = [location, org].filter(Boolean).join(" · ");
+
+        return {
+          html: `
+            <div class="fc-day-event-card ${colorClass}">
+              <div class="fc-day-event-accent"></div>
+              <div class="fc-day-event-body">
+                <div class="fc-day-event-title">${eventInfo.event.title}</div>
+                ${timeStr ? `<div class="fc-day-event-time">${timeStr}</div>` : ""}
+                ${meta    ? `<div class="fc-day-event-meta">${meta}</div>`    : ""}
+              </div>
+            </div>`,
+        };
+      }
 
       return {
         html: `
-            <div class="event-fc-color flex fc-event-main ${colorClass} p-1 rounded-sm">
-              <div class="fc-daygrid-event-dot"></div>
-              <div class="fc-event-time">${eventInfo.timeText}</div>
-              <div class="fc-event-title">${eventInfo.event.title}</div>
-            </div>
-          `,
+          <div class="event-fc-color flex fc-event-main ${colorClass} p-1 rounded-sm">
+            <div class="fc-daygrid-event-dot"></div>
+            <div class="fc-event-time">${eventInfo.timeText}</div>
+            <div class="fc-event-title">${eventInfo.event.title}</div>
+          </div>`,
       };
     },
   });
@@ -347,11 +468,26 @@ export function calendarInit() {
   if (planOrgEl) {
     planOrgEl.addEventListener("change", () => {
       const orgId = planOrgEl.value;
-      if (orgId) {
+      if (!orgId) {
+        clearPlanFeedback();
+        if (submitPlanBtn) submitPlanBtn.disabled = false;
+        if (personsContainer)
+          personsContainer.innerHTML =
+            '<p class="text-xs text-gray-400 dark:text-gray-500 italic">Select an organization first.</p>';
+        return;
+      }
+      if (lockedOrgIds.includes(parseInt(orgId, 10))) {
+        setPlanFeedback(
+          "This organization's workplan for the current semester has been finalized. New event plans cannot be submitted until the next preparation period begins."
+        );
+        if (submitPlanBtn) submitPlanBtn.disabled = true;
+        if (personsContainer)
+          personsContainer.innerHTML =
+            '<p class="text-xs text-gray-400 dark:text-gray-500 italic">Submissions are locked.</p>';
+      } else {
+        clearPlanFeedback();
+        if (submitPlanBtn) submitPlanBtn.disabled = false;
         loadOfficers(orgId);
-      } else if (personsContainer) {
-        personsContainer.innerHTML =
-          '<p class="text-xs text-gray-400 dark:text-gray-500 italic">Select an organization first.</p>';
       }
     });
   }

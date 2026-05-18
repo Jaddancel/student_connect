@@ -76,7 +76,8 @@ class OrganizationRecognitionController extends Controller
         $validated = $request->validate([
             'nameOfOrganization' => ['required', 'string', 'max:255'],
             'presidentName'      => ['required', 'string', 'max:255'],
-            'facultyAdvisers'    => ['required', 'string', 'max:255'],
+            'facultyAdvisers'    => ['required', 'array', 'min:1'],
+            'facultyAdvisers.*'  => ['required', 'string', 'max:255'],
             'recognitionDate'    => ['nullable', 'date'],
             'freshmanNumber'     => ['nullable', 'integer', 'min:0'],
             'sophomoreNumber'    => ['nullable', 'integer', 'min:0'],
@@ -105,7 +106,7 @@ class OrganizationRecognitionController extends Controller
             'c2'                 => $c2,
             'nameOfOrganization' => $validated['nameOfOrganization'],
             'presidentName'      => $validated['presidentName'],
-            'facultyAdvisers'    => $validated['facultyAdvisers'],
+            'facultyAdvisers'    => array_values(array_filter($validated['facultyAdvisers'], fn ($v) => filled($v))),
             'recognitionDate'    => $validated['recognitionDate'] ?? '',
             'freshmanNumber'     => $validated['freshmanNumber'] ?? '',
             'sophomoreNumber'    => $validated['sophomoreNumber'] ?? '',

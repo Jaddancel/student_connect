@@ -89,6 +89,11 @@ class RequestDecisionController extends Controller
             ]
         );
 
+        if ($generatedDocumentId > 0) {
+            \App\Models\GeneratedDocument::where('generated_document_id', $generatedDocumentId)
+                ->update(['approval_id' => (int) $approval->approval_id]);
+        }
+
         if ($this->isMembershipRequest($actionType, $systemKey) && $validated['decision'] === 'approve') {
             [$targetOrganizationId, $targetUserId] = $this->resolveMembershipDetails($actionRequest);
 

@@ -26,6 +26,15 @@ class TemplateManagerController extends Controller
         return view('pages.admin.templates.index', compact('forms', 'activeTemplates'));
     }
 
+    public function fieldReference()
+    {
+        $forms = Form::whereNotNull('route_name')
+            ->with(['fields' => fn ($q) => $q->orderBy('field_order')->orderBy('id')])
+            ->get();
+
+        return view('pages.admin.templates.field-reference', compact('forms'));
+    }
+
     public function showUpload(Form $form)
     {
         abort_if($form->route_name === null, 404);

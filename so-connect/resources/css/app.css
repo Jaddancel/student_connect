@@ -755,6 +755,204 @@ span.flatpickr-weekday,
   @apply text-sm font-medium text-gray-500 dark:text-gray-400;
 }
 
+/* ─── Day view: slot height ─────────────────────────────────────────────────── */
+.fc-timeGridDay-view .fc-timegrid-slot {
+  height: 3rem !important;
+}
+.fc-timeGridDay-view .fc-timegrid-slot-minor {
+  border-top-style: dashed !important;
+  border-color: var(--color-gray-100) !important;
+}
+.dark .fc-timeGridDay-view .fc-timegrid-slot-minor {
+  border-color: rgba(255,255,255,0.04) !important;
+}
+
+/* ─── Day view: column header ───────────────────────────────────────────────── */
+.fc-timeGridDay-view .fc-col-header-cell {
+  padding: 0 !important;
+  border-bottom: 1px solid var(--color-gray-200) !important;
+}
+.dark .fc-timeGridDay-view .fc-col-header-cell {
+  border-bottom-color: rgba(255,255,255,0.08) !important;
+}
+.fc-timeGridDay-view .fc-col-header-cell-cushion {
+  padding: 0 !important;
+  display: block;
+  text-decoration: none !important;
+}
+.fc-day-header-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.875rem 1.25rem;
+}
+.fc-day-header-weekday {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-gray-400);
+}
+.dark .fc-day-header-weekday {
+  color: var(--color-gray-500);
+}
+.fc-day-header-num {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-gray-800);
+  line-height: 1;
+}
+.dark .fc-day-header-num {
+  color: rgba(255,255,255,0.85);
+}
+.fc-day-header-today .fc-day-header-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  background: var(--color-brand-500);
+  color: #fff;
+  font-size: 1.125rem;
+}
+.fc-day-header-today .fc-day-header-weekday {
+  color: var(--color-brand-600);
+}
+.dark .fc-day-header-today .fc-day-header-weekday {
+  color: var(--color-brand-400);
+}
+
+/* ─── Day view: time labels ─────────────────────────────────────────────────── */
+.fc-timeGridDay-view .fc-timegrid-slot-label-frame {
+  padding: 0 0.75rem !important;
+  display: flex;
+  align-items: flex-start;
+  height: 100%;
+}
+.fc-timeGridDay-view .fc-timegrid-slot-label-cushion {
+  font-size: 0.6875rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-gray-400) !important;
+  transform: translateY(-0.45em);
+  display: inline-block;
+}
+.dark .fc-timeGridDay-view .fc-timegrid-slot-label-cushion {
+  color: var(--color-gray-500) !important;
+}
+
+/* ─── Day view: now indicator ───────────────────────────────────────────────── */
+.fc-timegrid-now-indicator-line {
+  border-color: var(--color-brand-500) !important;
+  border-top-width: 2px !important;
+}
+.fc-timegrid-now-indicator-arrow {
+  border-top-color:    var(--color-brand-500) !important;
+  border-bottom-color: var(--color-brand-500) !important;
+  margin-top: -3px;
+}
+
+/* ─── Day view: event cards ─────────────────────────────────────────────────── */
+.fc-timeGridDay-view .fc-timegrid-event {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 6px !important;
+  overflow: hidden;
+}
+.fc-timeGridDay-view .fc-timegrid-event .fc-event-main {
+  padding: 0 !important;
+  height: 100%;
+}
+.fc-day-event-card {
+  display: flex;
+  height: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+  min-height: 2rem;
+}
+.fc-day-event-accent {
+  width: 3px;
+  flex-shrink: 0;
+  border-radius: 6px 0 0 6px;
+}
+.fc-day-event-body {
+  flex: 1;
+  padding: 5px 8px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+}
+.fc-day-event-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-gray-800);
+}
+.fc-day-event-time {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--color-gray-500);
+  white-space: nowrap;
+}
+.fc-day-event-meta {
+  font-size: 0.675rem;
+  color: var(--color-gray-400);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Primary / brand */
+.fc-day-event-card.fc-bg-primary { background: var(--color-brand-50); }
+.fc-day-event-card.fc-bg-primary .fc-day-event-accent { background: var(--color-brand-500); }
+.fc-day-event-card.fc-bg-primary .fc-day-event-title { color: var(--color-brand-800); }
+.fc-day-event-card.fc-bg-primary .fc-day-event-time  { color: var(--color-brand-600); }
+
+/* Success */
+.fc-day-event-card.fc-bg-success { background: var(--color-success-50); }
+.fc-day-event-card.fc-bg-success .fc-day-event-accent { background: var(--color-success-500); }
+.fc-day-event-card.fc-bg-success .fc-day-event-title { color: var(--color-success-800); }
+.fc-day-event-card.fc-bg-success .fc-day-event-time  { color: var(--color-success-600); }
+
+/* Danger */
+.fc-day-event-card.fc-bg-danger { background: var(--color-error-50); }
+.fc-day-event-card.fc-bg-danger .fc-day-event-accent { background: var(--color-error-500); }
+.fc-day-event-card.fc-bg-danger .fc-day-event-title { color: var(--color-error-800); }
+.fc-day-event-card.fc-bg-danger .fc-day-event-time  { color: var(--color-error-600); }
+
+/* Warning */
+.fc-day-event-card.fc-bg-warning { background: var(--color-warning-50); }
+.fc-day-event-card.fc-bg-warning .fc-day-event-accent { background: var(--color-warning-500); }
+.fc-day-event-card.fc-bg-warning .fc-day-event-title { color: var(--color-warning-800); }
+.fc-day-event-card.fc-bg-warning .fc-day-event-time  { color: var(--color-warning-600); }
+
+/* ─── Dark mode event cards ──────────────────────────────────────────────────── */
+.dark .fc-day-event-card.fc-bg-primary { background: rgba(22,163,74,0.12); }
+.dark .fc-day-event-card.fc-bg-primary .fc-day-event-title { color: var(--color-brand-300); }
+.dark .fc-day-event-card.fc-bg-primary .fc-day-event-time  { color: var(--color-brand-400); }
+
+.dark .fc-day-event-card.fc-bg-success { background: rgba(18,183,106,0.12); }
+.dark .fc-day-event-card.fc-bg-success .fc-day-event-title { color: var(--color-success-300); }
+.dark .fc-day-event-card.fc-bg-success .fc-day-event-time  { color: var(--color-success-400); }
+
+.dark .fc-day-event-card.fc-bg-danger { background: rgba(240,68,56,0.12); }
+.dark .fc-day-event-card.fc-bg-danger .fc-day-event-title { color: var(--color-error-300); }
+.dark .fc-day-event-card.fc-bg-danger .fc-day-event-time  { color: var(--color-error-400); }
+
+.dark .fc-day-event-card.fc-bg-warning { background: rgba(247,144,9,0.12); }
+.dark .fc-day-event-card.fc-bg-warning .fc-day-event-title { color: var(--color-warning-300); }
+.dark .fc-day-event-card.fc-bg-warning .fc-day-event-time  { color: var(--color-warning-400); }
+
+.dark .fc-day-event-meta { color: rgba(255,255,255,0.35); }
+
 .input-date-icon::-webkit-inner-spin-button,
 .input-date-icon::-webkit-calendar-picker-indicator {
   opacity: 0;

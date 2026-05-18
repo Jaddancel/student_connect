@@ -4,23 +4,52 @@ namespace App\Http\Controllers;
 
 use App\Models\Form;
 use App\Models\FormSubmission;
+use App\Models\Workplan;
 use App\Services\DocumentGenerationService;
+use App\Services\OrganizationAuthorizationService;
 use App\Services\RequestApprovalService;
+use App\Services\WorkplanService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class WorkplanController extends Controller
 {
-    public function index(Request $request)
+    public function review(Request $request, int $workplan_id, WorkplanService $workplanService)
     {
         $user = $request->user();
         $userId = (int) $user->getKey();
         $isAdmin = (int) $user->user_type === 2;
 
-        $presidentName = '';
-        $organizations = collect();
-        $organizationId = null;
+        $workplan = Workplan::query()->with(['semester', 'organization'])->findOrFail($workplan_id);
+
+        if (! $isAdmin) {
+            $presidentOrgIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
+            if (! in_array((int) $workplan->organization_id, $presidentOrgIds, true)) {
+                abort(403);
+            }
+        }
+
+        $plans = $workplanService->getApprovedPlansForWorkplan($workplan);
+
+        $personIds = $plans->flatMap(fn ($p) => $p->persons_responsible ?? [])->unique()->filter()->values()->all();
+        $personNames = [];
+
+        if (! empty($personIds)) {
+            $personNames = DB::table('users as u')
+                ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+                ->whereIn('u.user_id', $personIds)
+                ->select('u.user_id', DB::raw("TRIM(CONCAT(COALESCE(p.first_name,''), ' ', COALESCE(p.last_name,''))) as name"))
+                ->get()
+                ->pluck('name', 'user_id')
+                ->all();
+        }
+
+        $orgRow = DB::table('organizations as o')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->where('o.organization_id', $workplan->organization_id)
+            ->select(DB::raw("COALESCE(od.name, 'Unknown Organization') as name"))
+            ->first();
 
         $profileRow = DB::table('users as u')
             ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
@@ -28,6 +57,7 @@ class WorkplanController extends Controller
             ->select(['p.first_name', 'p.middle_name', 'p.last_name'])
             ->first();
 
+        $presidentName = '';
         if ($profileRow) {
             $presidentName = trim(implode(' ', array_filter([
                 $profileRow->first_name,
@@ -36,87 +66,115 @@ class WorkplanController extends Controller
             ])));
         }
 
-        if (! $isAdmin) {
-            $organizations = DB::table('organization_officers as oo')
-                ->join('members as m', 'm.member_id', '=', 'oo.member')
-                ->join('organizations as o', 'o.organization_id', '=', 'm.organization')
-                ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
-                ->where('m.user', $userId)
-                ->whereIn('oo.role', ['officer', 'president'])
-                ->select([
-                    'o.organization_id',
-                    DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name"),
-                ])
-                ->get()
-                ->unique('organization_id')
-                ->values();
-
-            if ($organizations->count() === 1) {
-                $organizationId = (int) $organizations->first()->organization_id;
-            }
-        }
-
         return view('pages.form.workplan', [
             'title' => 'Workplan',
-            'isAdmin' => $isAdmin,
+            'workplan' => $workplan,
+            'semester' => $workplan->semester,
+            'plans' => $plans,
+            'personNames' => $personNames,
+            'orgName' => $orgRow?->name ?? 'Unknown Organization',
             'presidentName' => $presidentName,
-            'organizations' => $organizations,
-            'organizationId' => $organizationId,
+            'isAdmin' => $isAdmin,
         ]);
     }
 
-    public function store(
+    public function generatePdf(
         Request $request,
+        int $workplan_id,
         DocumentGenerationService $docService,
         RequestApprovalService $approvalService,
+        WorkplanService $workplanService,
     ) {
         $user = $request->user();
         $userId = (int) $user->getKey();
         $isAdmin = (int) $user->user_type === 2;
 
+        $workplan = Workplan::query()->with('semester')->findOrFail($workplan_id);
+
+        if ($workplan->status !== 'finalized') {
+            return back()->withErrors(['workplan' => 'Only finalized workplans can generate a PDF.']);
+        }
+
+        if (! $isAdmin) {
+            $presidentOrgIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
+            if (! in_array((int) $workplan->organization_id, $presidentOrgIds, true)) {
+                abort(403);
+            }
+        }
+
         $validated = $request->validate([
-            'organization'               => ['required', 'string', 'max:255'],
-            'schoolYear'                 => ['required', 'string', 'max:50'],
-            'organization_id'            => ['nullable', 'integer'],
-            'activities'                 => ['nullable', 'array', 'max:50'],
-            'activities.*.title'         => ['nullable', 'string', 'max:255'],
-            'activities.*.targetDate'    => ['nullable', 'string', 'max:100'],
-            'activities.*.resources'     => ['nullable', 'string', 'max:500'],
-            'activities.*.people'        => ['nullable', 'string', 'max:500'],
-            'name'                       => ['required', 'string', 'max:255'],
-            'adviserName'                => ['nullable', 'string', 'max:255'],
-            'signature'                  => ['nullable', 'image', 'mimes:jpeg,png', 'max:2048'],
-            'adviserSignature'           => ['nullable', 'image', 'mimes:jpeg,png', 'max:2048'],
+            'name'             => ['required', 'string', 'max:255'],
+            'advisername'      => ['nullable', 'string', 'max:255'],
+            'signature'        => ['nullable', 'image', 'mimes:jpeg,png', 'max:2048'],
         ]);
 
+        $plans = $workplanService->getApprovedPlansForWorkplan($workplan);
+
+        $missingFields = [];
+        foreach ($plans as $plan) {
+            if (empty(trim((string) ($plan->resources_needed ?? '')))) {
+                $missingFields[] = "Plan \"{$plan->title}\" is missing required field: Resources Needed.";
+            }
+            if (empty($plan->persons_responsible ?? [])) {
+                $missingFields[] = "Plan \"{$plan->title}\" is missing required field: Persons Responsible.";
+            }
+        }
+
+        if (! empty($missingFields)) {
+            return redirect()->route('workplan.review', $workplan_id)
+                ->withErrors(['workplan' => implode(' ', $missingFields)]);
+        }
+
+        $personIds = $plans->flatMap(fn ($p) => $p->persons_responsible ?? [])->unique()->filter()->values()->all();
+        $personNames = [];
+
+        if (! empty($personIds)) {
+            $personNames = DB::table('users as u')
+                ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+                ->whereIn('u.user_id', $personIds)
+                ->select('u.user_id', DB::raw("TRIM(CONCAT(COALESCE(p.first_name,''), ' ', COALESCE(p.last_name,''))) as name"))
+                ->get()
+                ->pluck('name', 'user_id')
+                ->all();
+        }
+
+        $orgRow = DB::table('organizations as o')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->where('o.organization_id', $workplan->organization_id)
+            ->select(DB::raw("COALESCE(od.name, 'Unknown Organization') as name"))
+            ->first();
+
+        $activities = $plans->map(function ($plan) use ($personNames) {
+            $names = collect($plan->persons_responsible ?? [])
+                ->map(fn ($id) => $personNames[$id] ?? null)
+                ->filter()
+                ->implode(', ');
+
+            return [
+                'title'  => (string) $plan->title,
+                'target' => \Illuminate\Support\Carbon::parse($plan->target_date)->format('M d, Y'),
+                'resources' => (string) ($plan->resources_needed ?? ''),
+                'people' => $names,
+            ];
+        })->values()->all();
+
         $form = Form::query()->where('route_name', 'workplan')->firstOrFail();
-
-        $organizationId = $isAdmin ? null : ((int) ($validated['organization_id'] ?? 0) ?: null);
-
-        $activities = collect($validated['activities'] ?? [])
-            ->map(fn ($row) => [
-                'title'      => (string) ($row['title'] ?? ''),
-                'targetDate' => (string) ($row['targetDate'] ?? ''),
-                'resources'  => (string) ($row['resources'] ?? ''),
-                'people'     => (string) ($row['people'] ?? ''),
-            ])
-            ->filter(fn ($row) => $row['title'] !== '' || $row['targetDate'] !== '' || $row['resources'] !== '' || $row['people'] !== '')
-            ->values()
-            ->all();
 
         $sigDir = 'form-signatures/'.now()->format('Y/m');
 
         $payload = [
-            'organization'    => $validated['organization'],
-            'schoolYear'      => $validated['schoolYear'],
-            'activities'      => $activities,
-            'name'            => $validated['name'],
-            'adviserName'     => $validated['adviserName'] ?? '',
-            'signature'       => '',
-            'adviserSignature' => '',
+            'organization'     => $orgRow?->name ?? 'Unknown Organization',
+            'schoolyear'       => $workplan->semester->name,
+            'activities'       => array_column($activities, 'title'),
+            'target'           => array_column($activities, 'target'),
+            'people'           => array_column($activities, 'people'),
+            'resources'        => array_column($activities, 'resources'),
+            'name'             => $validated['name'],
+            'advisername'      => $validated['advisername'] ?? '',
+            'signature'        => '',
         ];
 
-        foreach (['signature', 'adviserSignature'] as $sigField) {
+        foreach (['signature'] as $sigField) {
             if ($request->hasFile($sigField)) {
                 $file = $request->file($sigField);
                 $path = $file->storeAs(
@@ -129,32 +187,28 @@ class WorkplanController extends Controller
         }
 
         $submission = FormSubmission::query()->create([
-            'form_id'         => (int) $form->getKey(),
-            'organization_id' => $organizationId,
-            'submitted_by'    => $userId,
-            'submitted_at'    => now(),
-            'payload'         => $payload,
+            'form_id' => (int) $form->getKey(),
+            'organization_id' => (int) $workplan->organization_id,
+            'submitted_by' => $userId,
+            'submitted_at' => now(),
+            'payload' => $payload,
         ]);
 
         $actionRequest = $docService->createDocumentGenerationRequest(
-            $organizationId,
+            (int) $workplan->organization_id,
             (int) $submission->getKey(),
             (int) $form->getKey(),
             $userId,
         );
 
-        if ($isAdmin) {
-            try {
-                $approvalService->approve($actionRequest, $userId);
-            } catch (\Throwable) {
-                // Document generation may fail if no template is uploaded yet; request still recorded.
-            }
+        try {
+            $approvalService->approve($actionRequest, $userId);
+        } catch (\Throwable $e) {
+            return redirect()->route('workplan.review', $workplan_id)
+                ->withErrors(['workplan' => 'PDF generation failed: '.$e->getMessage()]);
         }
 
-        return redirect()->route('workplan')
-            ->with('success', $isAdmin
-                ? 'Workplan submitted and auto-approved. The document will be available in Download Files.'
-                : 'Your workplan has been submitted and is pending admin approval.'
-            );
+        return redirect()->route('documents.index')
+            ->with('success', 'Workplan PDF generated successfully.');
     }
 }

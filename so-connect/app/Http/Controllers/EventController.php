@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\EventPlan;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
+use App\Models\Semester;
 use App\Models\User;
+use App\Models\Workplan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -107,6 +109,21 @@ class EventController extends Controller
             return response()->json([
                 'message' => 'You can only submit event plans for organizations you belong to.',
             ], 403);
+        }
+
+        $activeSemester = Semester::currentlyActive();
+        if ($activeSemester) {
+            $workplanFinalized = Workplan::query()
+                ->where('organization_id', $organizationId)
+                ->where('semester_id', $activeSemester->semester_id)
+                ->whereIn('status', ['finalized', 'archived'])
+                ->exists();
+
+            if ($workplanFinalized) {
+                return response()->json([
+                    'message' => 'Your organization\'s workplan for this semester has been finalized. New event plans cannot be submitted until the next preparation period begins.',
+                ], 403);
+            }
         }
 
         $requestType = $requestTypeService->resolveSystemType(

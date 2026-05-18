@@ -52,7 +52,10 @@
                     freshmanNumber: '',
                     sophomoreNumber: '',
                     juniorNumber: '',
-                    get total() { return (parseInt(this.freshmanNumber) || 0) + (parseInt(this.sophomoreNumber) || 0) + (parseInt(this.juniorNumber) || 0); }
+                    get total() { return (parseInt(this.freshmanNumber) || 0) + (parseInt(this.sophomoreNumber) || 0) + (parseInt(this.juniorNumber) || 0); },
+                    advisers: {{ Js::from(old('facultyAdvisers', [''])) }},
+                    addAdviser() { this.advisers.push(''); },
+                    removeAdviser(i) { if (this.advisers.length > 1) this.advisers.splice(i, 1); }
                 }">
                 <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">I. Basic Information</h3>
 
@@ -105,13 +108,33 @@
 
                     {{-- Faculty Advisers --}}
                     <div>
-                        <label for="facultyAdvisers" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Faculty Adviser/s <span class="text-error-500">*</span>
                         </label>
-                        <input type="text" id="facultyAdvisers" name="facultyAdvisers"
-                            placeholder="Name(s) of faculty adviser(s)"
-                            value="{{ old('facultyAdvisers') }}"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                        <div class="space-y-2">
+                            <template x-for="(adviser, index) in advisers" :key="index">
+                                <div class="flex gap-2 items-center">
+                                    <input type="text" :name="'facultyAdvisers[' + index + ']'"
+                                        x-model="advisers[index]"
+                                        :placeholder="'Adviser ' + (index + 1) + ' full name'"
+                                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                    <button type="button" @click="removeAdviser(index)"
+                                        x-show="advisers.length > 1"
+                                        class="flex-shrink-0 rounded-lg border border-error-200 p-2 text-error-500 transition hover:bg-error-50 dark:border-error-500/30 dark:hover:bg-error-500/10">
+                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                        <button type="button" @click="addAdviser()"
+                            class="mt-2 flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Adviser
+                        </button>
                         @error('facultyAdvisers')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                         @enderror

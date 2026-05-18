@@ -375,10 +375,13 @@ class FormTemplateHelper
     private static function normalizePayloadValue($value): array|string
     {
         if (is_array($value)) {
-            return array_values(array_map(
-                fn ($item) => trim((string) $item),
-                $value,
-            ));
+            $flat = [];
+            foreach ($value as $item) {
+                if (is_scalar($item) || $item === null) {
+                    $flat[] = trim((string) $item);
+                }
+            }
+            return array_values($flat);
         }
 
         return trim((string) $value);

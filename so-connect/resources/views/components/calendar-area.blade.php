@@ -2,6 +2,7 @@
 @props([
     'canRequestEvent' => null,
     'eventRequestOrganizations' => null,
+    'lockedOrgIds' => [],
 ])
 
 @php
@@ -41,12 +42,30 @@
 @endphp
 
 <div>
+    {{-- Page-level success alert (shown after successful event plan submission) --}}
+    <div id="calendar-success-alert"
+        class="mb-4 hidden items-center justify-between gap-3 rounded-xl border border-success-200 bg-success-50 px-4 py-3 dark:border-success-500/30 dark:bg-success-500/10">
+        <div class="flex items-center gap-2">
+            <svg class="h-4 w-4 shrink-0 text-success-600 dark:text-success-400" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M12 3.5C7.30558 3.5 3.5 7.30558 3.5 12C3.5 16.6944 7.30558 20.5 12 20.5C16.6944 20.5 20.5 16.6944 20.5 12C20.5 7.30558 16.6944 3.5 12 3.5ZM2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12ZM16.5303 9.46967C16.8232 9.76256 16.8232 10.2374 16.5303 10.5303L11.5303 15.5303C11.2374 15.8232 10.7626 15.8232 10.4697 15.5303L7.96967 13.0303C7.67678 12.7374 7.67678 12.2626 7.96967 11.9697C8.26256 11.6768 8.73744 11.6768 9.03033 11.9697L11 13.9393L15.4697 9.46967C15.7626 9.17678 16.2374 9.17678 16.5303 9.46967Z" fill="currentColor"/>
+            </svg>
+            <p id="calendar-success-message" class="text-sm font-medium text-success-700 dark:text-success-400"></p>
+        </div>
+        <button id="calendar-success-dismiss" type="button"
+            class="shrink-0 text-success-500 hover:text-success-700 dark:text-success-400 dark:hover:text-success-200">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M6.04289 16.5418C5.65237 16.9323 5.65237 17.5655 6.04289 17.956C6.43342 18.3465 7.06658 18.3465 7.45711 17.956L11.9987 13.4144L16.5408 17.9565C16.9313 18.347 17.5645 18.347 17.955 17.9565C18.3455 17.566 18.3455 16.9328 17.955 16.5423L13.4129 12.0002L17.955 7.45808C18.3455 7.06756 18.3455 6.43439 17.955 6.04387C17.5645 5.65335 16.9313 5.65335 16.5408 6.04387L11.9987 10.586L7.45711 6.04439C7.06658 5.65386 6.43342 5.65386 6.04289 6.04439C5.65237 6.43491 5.65237 7.06808 6.04289 7.4586L10.5845 12.0002L6.04289 16.5418Z" fill="currentColor"/>
+            </svg>
+        </button>
+    </div>
+
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="custom-calendar">
             <div id="calendar" class="min-h-screen"
                 data-can-request-event="{{ $resolvedCanRequestEvent ? '1' : '0' }}"
                 data-event-request-endpoint="{{ route('api.events.requests.store') }}"
-                data-officers-endpoint="/api/organizations/{id}/officers"></div>
+                data-officers-endpoint="/api/organizations/{id}/officers"
+                data-locked-org-ids="{{ json_encode(array_values(array_map('intval', $lockedOrgIds))) }}"></div>
         </div>
     </div>
 

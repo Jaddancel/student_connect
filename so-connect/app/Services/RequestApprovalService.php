@@ -171,6 +171,10 @@ class RequestApprovalService
             return false;
         }
 
+        if ($this->isEventPlanRequest($requestActionType, (string) ($requestType?->system_key ?? ''))) {
+            return false;
+        }
+
         $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($requesterUserId);
 
         if (empty($presidentOrganizationIds)) {

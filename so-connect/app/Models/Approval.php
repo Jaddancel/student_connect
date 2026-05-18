@@ -18,6 +18,7 @@ class Approval extends Model
         'request',
         'admin',
         'is_rejected',
+        'rejection_reason',
     ];
 
     protected function casts(): array

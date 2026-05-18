@@ -77,7 +77,6 @@ class FinancialReportController extends Controller
             'nameOfThePresident'   => ['required', 'string', 'max:255'],
             'signaturePresident'   => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
             'nameOfTheAdviser'     => ['required', 'string', 'max:255'],
-            'signatureAdviser'     => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
         ]);
 
         $organizationId = (int) $validated['organization_id'];
@@ -134,7 +133,7 @@ class FinancialReportController extends Controller
             'nameOfTheAdviser'  => $validated['nameOfTheAdviser'],
         ];
 
-        foreach (['signatureTreasurer', 'signatureAuditor', 'signaturePresident', 'signatureAdviser'] as $fileField) {
+        foreach (['signatureTreasurer', 'signatureAuditor', 'signaturePresident'] as $fileField) {
             if ($request->hasFile($fileField) && $request->file($fileField)->isValid()) {
                 $file = $request->file($fileField);
                 $path = $file->storeAs(

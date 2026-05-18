@@ -43,6 +43,7 @@ class MenuHelper
                 'items' => [
                     ['icon' => 'dashboard', 'name' => 'Dashboard', 'path' => '/dashboard'],
                     ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
+                    ['icon' => 'pages', 'name' => 'Documents', 'path' => '/documents'],
                 ],
             ],
             [
@@ -70,7 +71,16 @@ class MenuHelper
                 'title' => 'Admin',
                 'items' => [
                     ['icon' => 'forms', 'name' => 'Template Manager', 'path' => '/admin/templates'],
+                    ['icon' => 'forms', 'name' => 'Workplans', 'path' => '/admin/workplans'],
+                    ['icon' => 'calendar', 'name' => 'Semester Management', 'path' => '/admin/semesters'],
+                ],
+            ];
+
+            $menuGroups[] = [
+                'title' => 'Requests',
+                'items' => [
                     ['icon' => 'task', 'name' => 'Promotion Requests', 'path' => '/promotion-requests'],
+                    ['icon' => 'task', 'name' => 'Event Plan Requests', 'path' => '/admin/event-plan-requests'],
                 ],
             ];
 

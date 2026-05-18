@@ -16,6 +16,7 @@ class FormPageSeeder extends Seeder
         $this->seedAccomplishmentReport();
         $this->seedWorkplan();
         $this->seedFinancialReport();
+        $this->seedActivityRequest();
     }
 
     private function seedStudentLeaderDirectory(): void
@@ -166,12 +167,14 @@ class FormPageSeeder extends Seeder
 
         $fields = [
             ['field_key' => 'organization',     'field_label' => 'Name of Organization',  'field_type' => 'text',     'is_required' => true],
-            ['field_key' => 'schoolYear',       'field_label' => 'School Year',           'field_type' => 'text',     'is_required' => true],
-            ['field_key' => 'activities',       'field_label' => 'Planned Activities',    'field_type' => 'textarea', 'is_required' => false],
+            ['field_key' => 'schoolyear',       'field_label' => 'School Year',           'field_type' => 'text',     'is_required' => true],
+            ['field_key' => 'activities',       'field_label' => 'Title of Activity',     'field_type' => 'textarea', 'is_required' => false],
+            ['field_key' => 'target',           'field_label' => 'Target Date',           'field_type' => 'text',     'is_required' => true],
+            ['field_key' => 'resources',        'field_label' => 'Resources Needed',      'field_type' => 'textarea', 'is_required' => true],
+            ['field_key' => 'people',           'field_label' => 'Persons Involved',      'field_type' => 'textarea', 'is_required' => true],
             ['field_key' => 'name',             'field_label' => 'Prepared By (Name)',    'field_type' => 'text',     'is_required' => true],
-            ['field_key' => 'adviserName',      'field_label' => 'Adviser Name',          'field_type' => 'text',     'is_required' => false],
+            ['field_key' => 'advisername',      'field_label' => 'Adviser Name',          'field_type' => 'text',     'is_required' => false],
             ['field_key' => 'signature',        'field_label' => 'President Signature',   'field_type' => 'file',     'is_required' => false],
-            ['field_key' => 'adviserSignature', 'field_label' => 'Adviser Signature',     'field_type' => 'file',     'is_required' => false],
         ];
 
         $keys = array_column($fields, 'field_key');
@@ -208,7 +211,6 @@ class FormPageSeeder extends Seeder
             ['field_key' => 'phots',        'field_label' => 'Documentation',           'field_type' => 'file',     'is_required' => false],
             ['field_key' => 'name',         'field_label' => 'Prepared By (Name)',      'field_type' => 'text',     'is_required' => true],
             ['field_key' => 'signature1',   'field_label' => 'Signature (Prepared By)', 'field_type' => 'file',     'is_required' => true],
-            ['field_key' => 'signature2',   'field_label' => 'Signature (Adviser)',     'field_type' => 'file',     'is_required' => true],
         ];
 
         foreach ($fields as $order => $field) {
@@ -219,6 +221,45 @@ class FormPageSeeder extends Seeder
         }
 
         $keys = array_column($fields, 'field_key');
+        FormDescription::where('form_id', $form->id)->whereNotIn('field_key', $keys)->delete();
+    }
+
+    private function seedActivityRequest(): void
+    {
+        $form = Form::updateOrCreate(
+            ['route_name' => 'activity-request'],
+            [
+                'name'          => 'Request for Organizational Meeting/Services/Projects/Activities',
+                'is_active'     => true,
+                'is_published'  => true,
+                'sidebar_group' => ['president', 'admin'],
+            ]
+        );
+
+        $fields = [
+            ['field_key' => 'date',                             'field_label' => 'Date',                               'field_type' => 'date',     'is_required' => true],
+            ['field_key' => 'organization',                     'field_label' => 'Name of Organization',               'field_type' => 'text',     'is_required' => true],
+            ['field_key' => 'projectActivity',                  'field_label' => 'Nature of Project/Activity',         'field_type' => 'text',     'is_required' => true],
+            ['field_key' => 'purposed',                         'field_label' => 'Purpose of Activity',                'field_type' => 'textarea', 'is_required' => true],
+            ['field_key' => 'dayOfTheWeek',                     'field_label' => 'Day of the Week',                    'field_type' => 'text',     'is_required' => false],
+            ['field_key' => 'time',                             'field_label' => 'Time',                               'field_type' => 'text',     'is_required' => true],
+            ['field_key' => 'placeAndVenue',                    'field_label' => 'Place/Venue',                        'field_type' => 'text',     'is_required' => true],
+            ['field_key' => 'facilitiesOrEquipmentToBeUsedRow', 'field_label' => 'Facilities/Equipment to be Used',   'field_type' => 'textarea', 'is_required' => false],
+            ['field_key' => 'presidentName',                    'field_label' => 'President Name',                     'field_type' => 'text',     'is_required' => true],
+            ['field_key' => 'presidentContactNo',               'field_label' => 'President Contact Number',           'field_type' => 'text',     'is_required' => true],
+            ['field_key' => 'adviserRow',                       'field_label' => 'Faculty Advisers',                   'field_type' => 'textarea', 'is_required' => true],
+            ['field_key' => 'collegeDean',                      'field_label' => 'College Dean',                       'field_type' => 'text',     'is_required' => false],
+        ];
+
+        $keys = array_column($fields, 'field_key');
+
+        foreach ($fields as $order => $field) {
+            FormDescription::updateOrCreate(
+                ['form_id' => $form->id, 'field_key' => $field['field_key']],
+                array_merge($field, ['field_order' => $order + 1])
+            );
+        }
+
         FormDescription::where('form_id', $form->id)->whereNotIn('field_key', $keys)->delete();
     }
 
@@ -245,7 +286,6 @@ class FormPageSeeder extends Seeder
             ['field_key' => 'name',         'field_label' => 'Prepared By (Name)',    'field_type' => 'text',     'is_required' => true],
             ['field_key' => 'signature',    'field_label' => 'Signature',             'field_type' => 'file',     'is_required' => false],
             ['field_key' => 'adviserName',  'field_label' => 'Adviser Name',          'field_type' => 'text',     'is_required' => false],
-            ['field_key' => 'adviserSig',   'field_label' => 'Adviser Signature',     'field_type' => 'file',     'is_required' => false],
         ];
 
         $keys = array_column($fields, 'field_key');

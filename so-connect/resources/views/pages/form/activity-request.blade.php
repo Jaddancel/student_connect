@@ -1,0 +1,275 @@
+@extends('layouts.app')
+
+@section('content')
+    <x-common.page-breadcrumb pageTitle="Request for Organizational Activity" />
+
+    <div class="space-y-6">
+
+        @if(session('success'))
+            <div class="rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm font-medium text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400">
+                {{ session('success') }}
+            </div>
+        @endif
+        @if(session('status'))
+            <div class="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm font-medium text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-400">
+                {{ session('status') }}
+            </div>
+        @endif
+
+        <div class="rounded-2xl border border-gray-200 bg-palette-lime-pale p-5 shadow-[inset_0_4px_0_var(--color-palette-lime)] dark:border-gray-800 dark:bg-white/[0.03] dark:shadow-[inset_0_4px_0_rgb(165_255_91_/_0.3)] lg:p-6">
+            <h2 class="text-base font-bold text-gray-900 dark:text-white uppercase tracking-wide text-center">Republic of the Philippines</h2>
+            <p class="text-center text-sm font-semibold text-gray-800 dark:text-white/90 mt-0.5">TARLAC AGRICULTURAL UNIVERSITY</p>
+            <p class="text-center text-xs text-gray-500 dark:text-gray-400">Camiling, Tarlac</p>
+            <p class="text-center text-sm font-medium text-gray-700 dark:text-gray-300 mt-2">OFFICE OF STUDENT SERVICES AND DEVELOPMENT</p>
+            <p class="text-center text-xs text-gray-500 dark:text-gray-400">Student Development Unit</p>
+            <p class="text-center text-base font-bold text-gray-900 dark:text-white mt-3 tracking-widest uppercase">Request for Organizational Meeting / Services / Projects / Activities</p>
+        </div>
+
+        <form action="{{ route('activity-request.store') }}" method="POST"
+            class="space-y-6"
+            x-data="{
+                orgId: '{{ $organizations->first()?->organization_id ?? '' }}',
+                orgName: '{{ addslashes($organizations->first()?->organization_name ?? '') }}',
+                onOrgChange(el) {
+                    const opt = el.options[el.selectedIndex];
+                    this.orgName = opt ? opt.dataset.name : '';
+                },
+                facilities: {{ Js::from(old('facilitiesOrEquipmentToBeUsedRow', ['', ''])) }},
+                addFacility() {
+                    if (this.facilities.length < 10) this.facilities.push('');
+                },
+                removeFacility(i) {
+                    if (this.facilities.length > 1) this.facilities.splice(i, 1);
+                },
+                advisers: {{ Js::from(old('adviserRow', [''])) }},
+                addAdviser() {
+                    this.advisers.push('');
+                },
+                removeAdviser(i) {
+                    if (this.advisers.length > 1) this.advisers.splice(i, 1);
+                },
+            }">
+            @csrf
+
+            @if($errors->any())
+                <div class="rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
+                    @foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach
+                </div>
+            @endif
+
+            {{-- SECTION 1 · ORGANIZATION & DATE --}}
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Organization Details</h3>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-1">
+                    {{-- Organization --}}
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Name of Organization <span class="text-error-500">*</span>
+                        </label>
+                        @if($organizations->count() > 1)
+                            <select name="organization_id"
+                                @change="onOrgChange($el); $el.form.querySelector('[name=organization]').value = orgName"
+                                x-init="orgId = '{{ old('organization_id', $organizations->first()?->organization_id ?? '') }}'"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                                @foreach($organizations as $org)
+                                    <option value="{{ $org->organization_id }}"
+                                        data-name="{{ $org->organization_name }}"
+                                        @selected(old('organization_id', $organizations->first()?->organization_id) == $org->organization_id)>
+                                        {{ $org->organization_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <input type="hidden" name="organization" x-bind:value="orgName" value="{{ old('organization', $organizations->first()?->organization_name ?? '') }}" />
+                        @else
+                            <input type="text" name="organization" value="{{ old('organization', $organizations->first()?->organization_name ?? '') }}"
+                                class="dark:bg-dark-900 shadow-theme-xs h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900/50 dark:text-white/70"
+                                readonly />
+                            <input type="hidden" name="organization_id" value="{{ $organizations->first()?->organization_id ?? '' }}" />
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            {{-- SECTION 2 · ACTIVITY DETAILS --}}
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Activity Details</h3>
+
+                <div class="space-y-4">
+                    {{-- Nature of Project/Activity --}}
+                    <div>
+                        <label for="projectActivity" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Nature of Project / Activity <span class="text-error-500">*</span>
+                        </label>
+                        <input type="text" id="projectActivity" name="projectActivity"
+                            value="{{ old('projectActivity') }}"
+                            placeholder="e.g. General Assembly, Sports Fest, Community Outreach"
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                    </div>
+
+                    {{-- Purpose of Activity --}}
+                    <div>
+                        <label for="purposed" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Purpose of Activity <span class="text-error-500">*</span>
+                        </label>
+                        <textarea id="purposed" name="purposed" rows="3"
+                            placeholder="Describe the purpose of the activity"
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">{{ old('purposed') }}</textarea>
+                    </div>
+
+                    {{-- Date / Day / Time / Venue --}}
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <div>
+                            <label for="activityDate" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                                Date <span class="text-error-500">*</span>
+                            </label>
+                            <input type="date" id="activityDate" name="date"
+                                value="{{ old('date') }}"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Day of week will be auto-computed</p>
+                        </div>
+
+                        <div>
+                            <label for="time" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                                Time <span class="text-error-500">*</span>
+                            </label>
+                            <input type="text" id="time" name="time"
+                                value="{{ old('time') }}"
+                                placeholder="e.g. 8:00 AM – 5:00 PM"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <label for="placeAndVenue" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                                Place / Venue <span class="text-error-500">*</span>
+                            </label>
+                            <input type="text" id="placeAndVenue" name="placeAndVenue"
+                                value="{{ old('placeAndVenue') }}"
+                                placeholder="e.g. TAU Gymnasium"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                        </div>
+                    </div>
+
+                    {{-- Facilities / Equipment --}}
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            University Facilities / Equipment to be Used
+                        </label>
+                        <div class="space-y-2">
+                            <template x-for="(item, index) in facilities" :key="index">
+                                <div class="flex gap-2 items-center">
+                                    <input type="text" :name="'facilitiesOrEquipmentToBeUsedRow[' + index + ']'"
+                                        x-model="facilities[index]"
+                                        placeholder="e.g. Projector, Sound System, Chairs"
+                                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                    <button type="button" @click="removeFacility(index)"
+                                        x-show="facilities.length > 1"
+                                        class="flex-shrink-0 rounded-lg border border-error-200 p-2 text-error-500 transition hover:bg-error-50 dark:border-error-500/30 dark:hover:bg-error-500/10">
+                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                        <button type="button" @click="addFacility()"
+                            x-show="facilities.length < 10"
+                            class="mt-2 flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Facility / Equipment
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {{-- SECTION 3 · PRESIDENT --}}
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">President Information</h3>
+                <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">Activity report will be submitted on: <span class="font-medium text-gray-700 dark:text-gray-300">End of the 1st Semester</span></p>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label for="presidentName" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            President Name <span class="text-error-500">*</span>
+                        </label>
+                        <input type="text" id="presidentName" name="presidentName"
+                            value="{{ old('presidentName', $presidentName) }}"
+                            placeholder="Full name of the President"
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                    </div>
+
+                    <div>
+                        <label for="presidentContactNo" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Contact Number <span class="text-error-500">*</span>
+                        </label>
+                        <input type="text" id="presidentContactNo" name="presidentContactNo"
+                            value="{{ old('presidentContactNo') }}"
+                            placeholder="e.g. 09XX-XXX-XXXX"
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                    </div>
+                </div>
+            </div>
+
+            {{-- SECTION 4 · ADVISERS --}}
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-1 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Faculty Adviser/s</h3>
+                <p class="mb-4 text-xs text-gray-500 dark:text-gray-400 pl-4">As the adviser/s of this student organization, I/we promise to attend the proposed activity and will strictly observe the diligence of a good father/mother over our students (loco parentis role) to ensure their safety.</p>
+
+                <div class="space-y-2">
+                    <template x-for="(adviser, index) in advisers" :key="index">
+                        <div class="flex gap-2 items-center">
+                            <input type="text" :name="'adviserRow[' + index + ']'"
+                                x-model="advisers[index]"
+                                :placeholder="'Adviser ' + (index + 1) + ' full name'"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            <button type="button" @click="removeAdviser(index)"
+                                x-show="advisers.length > 1"
+                                class="flex-shrink-0 rounded-lg border border-error-200 p-2 text-error-500 transition hover:bg-error-50 dark:border-error-500/30 dark:hover:bg-error-500/10">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+                <button type="button" @click="addAdviser()"
+                    class="mt-2 flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Adviser
+                </button>
+            </div>
+
+            {{-- SECTION 5 · COLLEGE DEAN (optional) --}}
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3 class="mb-1 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">College Dean</h3>
+                <p class="mb-4 text-xs text-gray-500 dark:text-gray-400 pl-4">For College-based Student Organizations and Student Councils only.</p>
+
+                <div>
+                    <label for="collegeDean" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        College Dean Name <span class="text-xs font-normal text-gray-400 ml-1">(optional)</span>
+                    </label>
+                    <input type="text" id="collegeDean" name="collegeDean"
+                        value="{{ old('collegeDean') }}"
+                        placeholder="Full name of the College Dean"
+                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                </div>
+
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="reset"
+                        class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                        Clear
+                    </button>
+                    <button type="submit"
+                        class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">
+                        Submit &amp; Generate PDF
+                    </button>
+                </div>
+            </div>
+
+        </form>
+    </div>
+@endsection
