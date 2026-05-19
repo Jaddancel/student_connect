@@ -273,6 +273,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/joint-statement-requests/{requestId}/decide', [JointStatementRequestController::class, 'decide'])
         ->whereNumber('requestId')
         ->name('admin.joint-statement-requests.decide');
+    Route::post('/admin/joint-statement-requests/{requestId}/generate', [JointStatementRequestController::class, 'generate'])
+        ->whereNumber('requestId')
+        ->name('admin.joint-statement-requests.generate');
 
     Route::get('/admin/workplans', [AdminWorkplanController::class, 'index'])
         ->name('admin.workplans.index');
@@ -303,6 +306,10 @@ Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
     Route::get('/admin/templates/field-reference', [TemplateManagerController::class, 'fieldReference'])
         ->name('admin.templates.field-reference');
 });
+
+Route::get('/superadmin/dashboard', [SuperAdminController::class, 'monitoringDashboard'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.dashboard');
 
 Route::get('/superadmin/profile-requests', [SuperAdminController::class, 'profileRequests'])
     ->middleware(['auth', 'superadmin'])

@@ -28,7 +28,7 @@ class Organization extends Model
 
     public function detail()
     {
-        return $this->hasOne(OrganizationDetail::class, 'detail', 'organization_detail_id');
+        return $this->belongsTo(OrganizationDetail::class, 'detail', 'organization_detail_id');
     }
 
     public function events()

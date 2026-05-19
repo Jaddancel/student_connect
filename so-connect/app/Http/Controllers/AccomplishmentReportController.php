@@ -10,7 +10,6 @@ use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class AccomplishmentReportController extends Controller
@@ -91,6 +90,11 @@ class AccomplishmentReportController extends Controller
             'name'            => ['required', 'string', 'max:255'],
             'signature'       => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
             'adviserName'     => ['nullable', 'string', 'max:255'],
+            'has_rewards'         => ['nullable', 'boolean'],
+            'is_individual'       => ['required_if:has_rewards,1', 'in:yes,no'],
+            'area_scope_of_award' => ['required_if:has_rewards,1', 'in:Local,Provincial,Regional,International'],
+            'minutes_of_meeting'   => ['nullable', 'integer', 'min:0'],
+            'summary_of_expenses'  => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $organizationId = (int) $validated['organization_id'];
@@ -113,6 +117,11 @@ class AccomplishmentReportController extends Controller
             'problem'      => $validated['problem'] ?? '',
             'name'         => $validated['name'],
             'adviserName'  => $validated['adviserName'] ?? '',
+            'has_rewards'         => (bool) ($validated['has_rewards'] ?? false),
+            'is_individual'       => $validated['is_individual'] ?? null,
+            'area_scope_of_award' => $validated['area_scope_of_award'] ?? null,
+            'minutes_of_meeting'  => isset($validated['minutes_of_meeting']) ? (int) $validated['minutes_of_meeting'] : null,
+            'summary_of_expenses' => isset($validated['summary_of_expenses']) ? (float) $validated['summary_of_expenses'] : null,
         ];
 
         foreach (['photos', 'signature'] as $fileField) {

@@ -13,7 +13,7 @@ class Dashboard extends Controller
         $userType = (int) $user->user_type;
 
         if ($userType === 1) {
-            return redirect()->route('superadmin.profile-requests');
+            return redirect()->route('superadmin.dashboard');
         }
 
         if ($userType === 2) {

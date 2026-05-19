@@ -126,6 +126,7 @@
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Decision</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Reason</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Decided At</th>
+                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Document</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -152,6 +153,18 @@
                                     </td>
                                     <td class="px-6 py-4 text-gray-500 dark:text-gray-400">
                                         {{ \Illuminate\Support\Carbon::parse($row['approval']->approved_at)->format('M d, Y') }}
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        @if ($row['has_document'])
+                                            <span class="inline-flex items-center gap-1 text-xs text-success-600 dark:text-success-400">
+                                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                                                </svg>
+                                                Generated
+                                            </span>
+                                        @else
+                                            <span class="text-xs text-gray-400 dark:text-gray-500">—</span>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach

@@ -99,7 +99,15 @@ class JointStatementRequestController extends Controller
                 ->all();
         }
 
-        $rows = $requests->map(function ($request) use ($approvals, $requesterNames, $orgNames) {
+        $generatedDocRequestIds = DB::table('generated_documents')
+            ->whereIn('request_id', $requestIds)
+            ->where('status', 'generated')
+            ->pluck('request_id')
+            ->map(fn ($id) => (int) $id)
+            ->flip()
+            ->all();
+
+        $rows = $requests->map(function ($request) use ($approvals, $requesterNames, $orgNames, $generatedDocRequestIds) {
             $payload = (array) ($request->payload ?? []);
             $organizationId = (int) ($request->organization_id ?? ($payload['organization_id'] ?? 0));
             $statementDate = (string) ($payload['date'] ?? '');
@@ -111,6 +119,7 @@ class JointStatementRequestController extends Controller
                 'org_name' => $orgNames[$organizationId] ?? 'Unknown Organization',
                 'statement_date' => $statementDate,
                 'submission_id' => (int) ($payload['submission_id'] ?? 0),
+                'has_document' => isset($generatedDocRequestIds[(int) $request->request_id]),
             ];
         });
 
@@ -156,13 +165,14 @@ class JointStatementRequestController extends Controller
         }
 
         $generatedDocumentId = null;
+        $docGenWarning = null;
 
         if ($validated['decision'] === 'approve') {
             try {
                 $generatedDocument = $documentGenerationService->generateFromApprovedRequest($actionRequest, $userId);
                 $generatedDocumentId = (int) $generatedDocument->getKey();
             } catch (\Throwable $throwable) {
-                return back()->withErrors(['request' => $throwable->getMessage()]);
+                $docGenWarning = $throwable->getMessage();
             }
         }
 
@@ -178,13 +188,60 @@ class JointStatementRequestController extends Controller
 
         if ($generatedDocumentId) {
             \App\Models\GeneratedDocument::where('generated_document_id', $generatedDocumentId)
-                ->update(['approval_id' => (int) $approval->approval_id]);
+                ->update(['approval_id' => (int) $approval->getKey()]);
         }
 
-        $message = $validated['decision'] === 'approve'
-            ? 'Joint statement approved successfully.'
-            : 'Joint statement rejected.';
+        if ($validated['decision'] === 'approve') {
+            $message = $docGenWarning
+                ? 'Joint statement approved. Document could not be generated: '.$docGenWarning
+                : 'Joint statement approved successfully.';
+        } else {
+            $message = 'Joint statement rejected.';
+        }
 
         return redirect()->route('admin.joint-statement-requests.index')->with('success', $message);
+    }
+
+    public function generate(Request $request, int $requestId, DocumentGenerationService $documentGenerationService): RedirectResponse
+    {
+        $user = $request->user();
+        if (! $user) {
+            abort(401);
+        }
+
+        $userId = (int) $user->getKey();
+
+        $actionRequest = ActionRequest::query()->findOrFail($requestId);
+
+        $approval = \App\Models\Approval::query()
+            ->where('request', $requestId)
+            ->where('is_rejected', false)
+            ->first();
+
+        if (! $approval) {
+            return back()->withErrors(['request' => 'This request has not been approved yet.']);
+        }
+
+        $alreadyGenerated = DB::table('generated_documents')
+            ->where('request_id', $requestId)
+            ->where('status', 'generated')
+            ->exists();
+
+        if ($alreadyGenerated) {
+            return redirect()->route('admin.joint-statement-requests.index')
+                ->with('success', 'Document has already been generated for this request.');
+        }
+
+        try {
+            $generatedDocument = $documentGenerationService->generateFromApprovedRequest($actionRequest, $userId);
+
+            \App\Models\GeneratedDocument::where('generated_document_id', (int) $generatedDocument->getKey())
+                ->update(['approval_id' => (int) $approval->getKey()]);
+        } catch (\Throwable $throwable) {
+            return back()->withErrors(['request' => 'Document generation failed: '.$throwable->getMessage()]);
+        }
+
+        return redirect()->route('admin.joint-statement-requests.index')
+            ->with('success', 'Document generated successfully.');
     }
 }

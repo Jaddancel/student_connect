@@ -58,6 +58,7 @@ class MenuHelper
             $menuGroups[] = [
                 'title' => 'Admin',
                 'items' => [
+                    ['icon' => 'dashboard', 'name' => 'System Dashboard', 'path' => '/superadmin/dashboard'],
                     ['icon' => 'user-profile', 'name' => 'Profile Manager', 'path' => '/superadmin/profiles'],
                     ['icon' => 'charts', 'name' => 'Dashboard Builder', 'path' => '/superadmin/dashboard-builder'],
                     ['icon' => 'forms', 'name' => 'Request Types', 'path' => '/superadmin/request-types'],

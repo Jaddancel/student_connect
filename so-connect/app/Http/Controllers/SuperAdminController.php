@@ -22,6 +22,127 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SuperAdminController extends Controller
 {
+    public function monitoringDashboard()
+    {
+        $totalUsers = DB::table('users')->where('user_type', '>', 1)->count();
+
+        $totalOrganizations = DB::table('organizations')->count();
+
+        $pendingProfileRequests = DB::table('requests as r')
+            ->where('r.action_type', 9)
+            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))
+                ->from('approvals as a')
+                ->whereColumn('a.request', 'r.request_id'))
+            ->count();
+
+        $pendingOfficerRequests = DB::table('requests as r')
+            ->where('r.action_type', 12)
+            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))
+                ->from('approvals as a')
+                ->whereColumn('a.request', 'r.request_id'))
+            ->count();
+
+        $userGrowthRaw = DB::table('users')
+            ->where('user_type', '>', 1)
+            ->where('user_created_at', '>=', now()->subMonths(12)->startOfMonth())
+            ->selectRaw("DATE_FORMAT(user_created_at, '%Y-%m') as month, COUNT(*) as total")
+            ->groupBy('month')
+            ->orderBy('month')
+            ->pluck('total', 'month');
+
+        $userGrowthLabels = [];
+        $userGrowthData   = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $key              = now()->subMonths($i)->format('Y-m');
+            $userGrowthLabels[] = now()->subMonths($i)->format('M Y');
+            $userGrowthData[]   = (int) ($userGrowthRaw[$key] ?? 0);
+        }
+
+        $requestsRaw = DB::table('requests')
+            ->where('requested_at', '>=', now()->subMonths(6)->startOfMonth())
+            ->selectRaw("DATE_FORMAT(requested_at, '%Y-%m') as month, COUNT(*) as total")
+            ->groupBy('month')
+            ->orderBy('month')
+            ->pluck('total', 'month');
+
+        $approvalsRaw = DB::table('approvals')
+            ->where('approved_at', '>=', now()->subMonths(6)->startOfMonth())
+            ->selectRaw("DATE_FORMAT(approved_at, '%Y-%m') as month, COUNT(*) as total")
+            ->groupBy('month')
+            ->orderBy('month')
+            ->pluck('total', 'month');
+
+        $activityLabels    = [];
+        $activityRequests  = [];
+        $activityApprovals = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $key                 = now()->subMonths($i)->format('Y-m');
+            $activityLabels[]    = now()->subMonths($i)->format('M Y');
+            $activityRequests[]  = (int) ($requestsRaw[$key] ?? 0);
+            $activityApprovals[] = (int) ($approvalsRaw[$key] ?? 0);
+        }
+
+        $workplanStats      = DB::table('workplans')
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+        $workplansActive    = (int) ($workplanStats['active']    ?? 0);
+        $workplansFinalized = (int) ($workplanStats['finalized'] ?? 0);
+        $workplansArchived  = (int) ($workplanStats['archived']  ?? 0);
+
+        $actionTypeLabels = [
+            1 => 'Activity Request', 2 => 'Accomplishment Report',
+            3 => 'Financial Report',  4 => 'Org Recognition',
+            5 => 'Joint Statement',   6 => 'Project Request',
+            9 => 'Profile Match',    11 => 'Event Plan',
+            12 => 'Officer Account',
+        ];
+
+        $recentActivity = DB::table('requests as r')
+            ->leftJoin('approvals as a', 'a.request', '=', 'r.request_id')
+            ->leftJoin('users as u', 'u.user_id', '=', 'r.user')
+            ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+            ->leftJoin('organizations as o', 'o.organization_id', '=', 'r.organization_id')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->orderByDesc('r.requested_at')
+            ->limit(15)
+            ->get([
+                'r.request_id',
+                'r.action_type',
+                'r.requested_at',
+                DB::raw("COALESCE(p.first_name, '') as first_name"),
+                DB::raw("COALESCE(p.last_name, '')  as last_name"),
+                DB::raw("COALESCE(u.user_email, 'Unknown') as user_email"),
+                DB::raw("COALESCE(od.name, '') as organization_name"),
+                'a.is_rejected',
+                'a.approved_at',
+            ])
+            ->map(function ($row) use ($actionTypeLabels) {
+                $row->action_label   = $actionTypeLabels[(int) $row->action_type] ?? 'Request #'.$row->action_type;
+                $row->status         = is_null($row->is_rejected) ? 'pending' : ($row->is_rejected ? 'rejected' : 'approved');
+                $row->requester_name = trim($row->first_name.' '.$row->last_name) ?: $row->user_email;
+
+                return $row;
+            });
+
+        return view('pages.dashboard.superadmin', [
+            'title'                  => 'System Dashboard',
+            'totalUsers'             => $totalUsers,
+            'totalOrganizations'     => $totalOrganizations,
+            'pendingProfileRequests' => $pendingProfileRequests,
+            'pendingOfficerRequests' => $pendingOfficerRequests,
+            'workplansActive'        => $workplansActive,
+            'workplansFinalized'     => $workplansFinalized,
+            'workplansArchived'      => $workplansArchived,
+            'userGrowthLabels'       => $userGrowthLabels,
+            'userGrowthData'         => $userGrowthData,
+            'activityLabels'         => $activityLabels,
+            'activityRequests'       => $activityRequests,
+            'activityApprovals'      => $activityApprovals,
+            'recentActivity'         => $recentActivity,
+        ]);
+    }
+
     public function profileRequests()
     {
         $profileRequestTypeId = (int) app(\App\Services\RequestTypeService::class)
