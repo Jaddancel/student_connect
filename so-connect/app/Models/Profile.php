@@ -29,7 +29,23 @@ class Profile extends Model
         'course_year',
         'occupation',
         'address',
+        'position',
+        'photo',
+        'birthplace',
+        'home_address',
+        'parents_guardian',
+        'talents_hobbies',
+        'financial_support',
+        'scholar_provider',
+        'financial_support_other',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'financial_support' => 'array',
+        ];
+    }
 
     public function user()
     {

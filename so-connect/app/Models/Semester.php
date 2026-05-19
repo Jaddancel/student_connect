@@ -84,4 +84,68 @@ class Semester extends Model
             ->get()
             ->first(fn (self $s) => $s->isCurrentlyActive());
     }
+
+    /**
+     * Returns the current semester: active one first, otherwise the most recently started.
+     */
+    public static function current(): ?self
+    {
+        return static::currentlyActive()
+            ?? static::query()->where('starts_at', '<=', Carbon::today())->orderByDesc('starts_at')->first();
+    }
+
+    /**
+     * Returns the current school year string, using the current semester if one exists,
+     * otherwise deriving it from today's date so forms are always pre-filled.
+     */
+    public static function currentSchoolYear(): string
+    {
+        $semester = static::current();
+        if ($semester) {
+            return $semester->schoolYear();
+        }
+
+        $today = Carbon::today();
+        $year  = (int) $today->format('Y');
+        $month = (int) $today->format('n');
+
+        return $month >= 8
+            ? $year . '–' . ($year + 1)
+            : ($year - 1) . '–' . $year;
+    }
+
+    /**
+     * Derives the school year string (e.g. "2024–2025") from starts_at.
+     * Aug–Dec → that year to next. Jan–Jul → previous year to that year.
+     */
+    public function schoolYear(): string
+    {
+        $year = (int) $this->starts_at->format('Y');
+        $month = (int) $this->starts_at->format('n');
+
+        if ($month >= 8) {
+            return $year . '–' . ($year + 1);
+        }
+
+        return ($year - 1) . '–' . $year;
+    }
+
+    /**
+     * Returns "1st", "2nd", or "summer" based on starts_at month.
+     * Aug–Dec = 1st, Jan–May = 2nd, Jun–Jul = summer.
+     */
+    public function semesterLabel(): string
+    {
+        $month = (int) $this->starts_at->format('n');
+
+        if ($month >= 8) {
+            return '1st';
+        }
+
+        if ($month <= 5) {
+            return '2nd';
+        }
+
+        return 'summer';
+    }
 }

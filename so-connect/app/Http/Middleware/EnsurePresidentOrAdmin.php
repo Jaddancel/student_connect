@@ -21,10 +21,9 @@ class EnsurePresidentOrAdmin
             return $next($request);
         }
 
-        $isPresident = DB::table('organization_officers as oo')
-            ->join('members as m', 'm.member_id', '=', 'oo.member')
-            ->where('m.user', (int) $user->getKey())
-            ->where('oo.role', 'president')
+        $isPresident = DB::table('organization_officers')
+            ->where('user', (int) $user->getKey())
+            ->where('role', 'president')
             ->exists();
 
         if (! $isPresident) {

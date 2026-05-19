@@ -19,7 +19,13 @@
         {{-- Avatar + identity --}}
         <div class="flex w-full flex-col items-center gap-5 xl:flex-row">
             <div class="h-20 w-20 shrink-0 overflow-hidden rounded-full border border-gray-200 dark:border-gray-800">
-                <x-common.initial-avatar :name="$avatarName" size="h-20 w-20" text="text-2xl" class="h-full w-full" />
+                @if ($authProfile?->photo)
+                    <img src="{{ \Illuminate\Support\Facades\Storage::url($authProfile->photo) }}"
+                        alt="{{ $avatarName }}"
+                        class="h-full w-full object-cover" />
+                @else
+                    <x-common.initial-avatar :name="$avatarName" size="h-20 w-20" text="text-2xl" class="h-full w-full" />
+                @endif
             </div>
 
             <div class="text-center xl:text-left">

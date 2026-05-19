@@ -10,7 +10,6 @@ use App\Models\Event\EventDetail;
 use App\Models\EventPlan;
 use App\Models\Form;
 use App\Models\FormSubmission;
-use App\Models\Member;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
 use App\Services\DocumentGenerationService;
@@ -19,6 +18,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class RequestDecisionController extends Controller
@@ -98,21 +98,16 @@ class RequestDecisionController extends Controller
             [$targetOrganizationId, $targetUserId] = $this->resolveMembershipDetails($actionRequest);
 
             if ($targetOrganizationId > 0 && $targetUserId > 0) {
-                $membership = Member::query()->firstOrCreate(
-                    [
-                        'organization' => $targetOrganizationId,
-                        'user' => $targetUserId,
-                    ],
-                    [
-                        'member_since' => now(),
-                    ]
-                );
-
-                // Membership approval should only grant member status in the receiving organization.
                 DB::table('organization_officers')
-                    ->where('member', (int) $membership->getKey())
+                    ->where('user', $targetUserId)
                     ->where('organization', $targetOrganizationId)
+                    ->whereIn('role', ['officer', 'president'])
                     ->delete();
+
+                DB::table('organization_officers')->updateOrInsert(
+                    ['user' => $targetUserId, 'organization' => $targetOrganizationId],
+                    ['role' => 'member', 'member_since' => now(), 'registered_at' => now(), 'reassigned_at' => now()]
+                );
             }
         }
 
@@ -120,68 +115,39 @@ class RequestDecisionController extends Controller
             [$targetUserId, $targetOrganizationId, $currentRole] = $this->resolveRoleChangeDetails($actionRequest);
 
             if ($targetOrganizationId > 0 && $targetUserId > 0) {
-                $membership = Member::query()->firstOrCreate(
-                    [
-                        'organization' => $targetOrganizationId,
-                        'user' => $targetUserId,
-                    ],
-                    [
-                        'member_since' => now(),
-                    ]
-                );
-
                 if ($currentRole === 'member') {
                     DB::table('organization_officers')->updateOrInsert(
-                        [
-                            'member' => (int) $membership->getKey(),
-                            'organization' => $targetOrganizationId,
-                        ],
-                        [
-                            'role' => 'officer',
-                            'yearterm' => null,
-                            'registered_at' => now(),
-                            'reassigned_at' => now(),
-                        ]
+                        ['user' => $targetUserId, 'organization' => $targetOrganizationId],
+                        ['role' => 'officer', 'yearterm' => null, 'registered_at' => now(), 'reassigned_at' => now()]
                     );
                 }
 
                 if ($currentRole === 'officer') {
                     // Demote existing president(s) in this org before promoting the new one
-                    $oldPresidentMemberIds = DB::table('organization_officers')
+                    DB::table('organization_officers')
                         ->where('organization', $targetOrganizationId)
                         ->where('role', 'president')
-                        ->where('member', '!=', (int) $membership->getKey())
-                        ->pluck('member')
-                        ->all();
-
-                    if (! empty($oldPresidentMemberIds)) {
-                        DB::table('organization_officers')
-                            ->where('organization', $targetOrganizationId)
-                            ->where('role', 'president')
-                            ->whereIn('member', $oldPresidentMemberIds)
-                            ->update(['role' => 'member', 'reassigned_at' => now()]);
-                    }
+                        ->where('user', '!=', $targetUserId)
+                        ->update(['role' => 'officer', 'reassigned_at' => now()]);
 
                     DB::table('organization_officers')
-                        ->where('member', (int) $membership->getKey())
+                        ->where('user', $targetUserId)
                         ->where('organization', $targetOrganizationId)
-                        ->update([
-                            'role' => 'president',
-                            'reassigned_at' => now(),
-                        ]);
+                        ->update(['role' => 'president', 'reassigned_at' => now()]);
 
                     $hasPresidentRole = DB::table('organization_officers')
-                        ->where('member', (int) $membership->getKey())
+                        ->where('user', $targetUserId)
                         ->where('organization', $targetOrganizationId)
                         ->where('role', 'president')
                         ->exists();
 
                     if (! $hasPresidentRole) {
                         DB::table('organization_officers')->insert([
-                            'member' => (int) $membership->getKey(),
+                            'user' => $targetUserId,
                             'organization' => $targetOrganizationId,
                             'role' => 'president',
                             'yearterm' => null,
+                            'member_since' => now(),
                             'registered_at' => now(),
                             'reassigned_at' => now(),
                         ]);
@@ -224,6 +190,21 @@ class RequestDecisionController extends Controller
             ]);
         }
 
+        if ($this->isNewOfficerRequest($actionType) && $validated['decision'] === 'approve') {
+            $payload = (array) ($actionRequest->payload ?? []);
+            $firstName  = (string) ($payload['first_name'] ?? '');
+            $lastName   = (string) ($payload['last_name'] ?? '');
+            $middleName = (string) ($payload['middle_name'] ?? '');
+
+            ActionRequest::query()->create([
+                'action'       => "0|{$firstName}|{$lastName}|{$middleName}|0",
+                'action_type'  => 12,
+                'payload'      => array_merge($payload, ['original_request_id' => (int) $actionRequest->getKey()]),
+                'user'         => null,
+                'requested_at' => now(),
+            ]);
+        }
+
         if ($this->isEventPlanRequest($actionType, $systemKey)) {
             $payload = (array) ($actionRequest->payload ?? []);
             $eventPlanId = (int) ($payload['event_plan_id'] ?? 0);
@@ -240,6 +221,96 @@ class RequestDecisionController extends Controller
                 : 'Request rejected successfully.',
             'generated_document_id' => $generatedDocumentId,
             'data' => ApprovalResource::make($approval->fresh()),
+        ]);
+    }
+
+    public function approveWithSignatures(Request $request, int $requestId, DocumentGenerationService $documentGenerationService): JsonResponse
+    {
+        $validated = $request->validate([
+            'chair'            => ['required', 'string', 'max:255'],
+            'director'         => ['required', 'string', 'max:255'],
+            'signatureChair'   => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            'signatureDirector'=> ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+        ]);
+
+        $actionRequest = ActionRequest::query()->with('requestType')->findOrFail($requestId);
+        $user = $request->user();
+
+        if (! $user) {
+            abort(401);
+        }
+
+        $actionType = (int) $actionRequest->action_type;
+        $requestType = $actionRequest->requestType;
+        $systemKey = (string) ($requestType?->system_key ?? '');
+
+        if (! $this->isDocumentGenerationRequest($actionType, $systemKey)) {
+            return response()->json(['message' => 'This endpoint is only for document generation requests.'], 422);
+        }
+
+        $requiredDashboard = $this->requiredDashboardForRequest($actionType, $systemKey, $actionRequest);
+        if (! Gate::forUser($user)->allows('access-dashboard', $requiredDashboard)) {
+            return response()->json(['message' => 'You are not authorized to decide this request.'], 403);
+        }
+
+        [$organizationId, $submissionId] = FormTemplateHelper::decodeDocumentGenerationAction($actionRequest->action);
+
+        $submission = FormSubmission::query()->find($submissionId);
+        if (! $submission) {
+            return response()->json(['message' => 'Submission not found.'], 422);
+        }
+
+        $sigDir = 'form-signatures/' . now()->format('Y/m');
+        $sigChairPath = '';
+        $sigDirectorPath = '';
+
+        if ($request->hasFile('signatureChair') && $request->file('signatureChair')->isValid()) {
+            $file = $request->file('signatureChair');
+            $sigChairPath = $file->storeAs($sigDir, Str::lower(Str::random(16)) . '.' . $file->getClientOriginalExtension(), 'public');
+        }
+
+        if ($request->hasFile('signatureDirector') && $request->file('signatureDirector')->isValid()) {
+            $file = $request->file('signatureDirector');
+            $sigDirectorPath = $file->storeAs($sigDir, Str::lower(Str::random(16)) . '.' . $file->getClientOriginalExtension(), 'public');
+        }
+
+        $payload = (array) ($submission->payload ?? []);
+        $payload['chair']            = $validated['chair'];
+        $payload['director']         = $validated['director'];
+        $payload['signatureChair']   = $sigChairPath;
+        $payload['signatureDirector']= $sigDirectorPath;
+        $submission->update(['payload' => $payload]);
+
+        try {
+            $generatedDocument = $documentGenerationService->generateFromApprovedRequest(
+                $actionRequest,
+                (int) $user->getKey(),
+            );
+            $generatedDocumentId = (int) $generatedDocument->getKey();
+        } catch (\Throwable $throwable) {
+            return response()->json(['message' => $throwable->getMessage()], 422);
+        }
+
+        $this->maybeCreateOrganization($actionRequest);
+
+        $approval = Approval::query()->updateOrCreate(
+            ['request' => (int) $actionRequest->getKey()],
+            [
+                'admin'       => (int) $user->getKey(),
+                'approved_at' => now(),
+                'is_rejected' => false,
+            ]
+        );
+
+        if ($generatedDocumentId > 0) {
+            \App\Models\GeneratedDocument::where('generated_document_id', $generatedDocumentId)
+                ->update(['approval_id' => (int) $approval->approval_id]);
+        }
+
+        return response()->json([
+            'message'               => 'Request approved successfully.',
+            'generated_document_id' => $generatedDocumentId,
+            'data'                  => ApprovalResource::make($approval->fresh()),
         ]);
     }
 
@@ -287,12 +358,17 @@ class RequestDecisionController extends Controller
 
     private function isAdminScopeRequest(int $actionType, string $systemKey): bool
     {
-        return in_array($actionType, [3, 4, 8], true)
+        return in_array($actionType, [3, 4, 8, 11], true)
             || in_array($systemKey, [
                 RequestType::SYSTEM_KEY_FORM_GENERATION,
                 RequestType::SYSTEM_KEY_FORM_ACCESS,
                 RequestType::SYSTEM_KEY_FORM_UPLOAD,
             ], true);
+    }
+
+    private function isNewOfficerRequest(int $actionType): bool
+    {
+        return $actionType === 11;
     }
 
     private function isPresidentScopeRequest(int $actionType, string $systemKey): bool

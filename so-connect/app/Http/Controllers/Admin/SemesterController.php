@@ -57,14 +57,52 @@ class SemesterController extends Controller
             'vacation_days' => ['required', 'integer', 'min:1', 'max:365'],
         ]);
 
-        Semester::query()->create([
+        $semester = Semester::query()->create([
             'name' => $validated['name'],
             'starts_at' => $validated['starts_at'],
             'vacation_days' => (int) $validated['vacation_days'],
             'created_by' => (int) $request->user()->getKey(),
         ]);
 
-        return redirect()->route('admin.semesters.index')->with('success', 'Semester created successfully.');
+        $message = 'Semester created successfully.';
+
+        $next = $this->nextSemesterSuggestion($semester);
+        $alreadyExists = Semester::query()
+            ->whereYear('starts_at', $next['starts_at']->year)
+            ->whereMonth('starts_at', $next['starts_at']->month)
+            ->exists();
+
+        if (! $alreadyExists) {
+            Semester::query()->create([
+                'name'         => $next['name'],
+                'starts_at'    => $next['starts_at']->toDateString(),
+                'vacation_days'=> $semester->vacation_days,
+                'created_by'   => (int) $request->user()->getKey(),
+            ]);
+            $nextName = $next['name'];
+            $message .= " The next semester \"{$nextName}\" was automatically created with a suggested date — you can adjust it anytime.";
+        }
+
+        return redirect()->route('admin.semesters.index')->with('success', $message);
+    }
+
+    private function nextSemesterSuggestion(Semester $semester): array
+    {
+        $month = (int) $semester->starts_at->format('n');
+        $year  = (int) $semester->starts_at->format('Y');
+
+        if ($month >= 8) {
+            $nextYear = $year + 1;
+            return [
+                'name'     => "Second Semester {$year}–{$nextYear}",
+                'starts_at' => Carbon::create($nextYear, 1, 22),
+            ];
+        }
+
+        return [
+            'name'     => 'First Semester ' . $year . '–' . ($year + 1),
+            'starts_at' => Carbon::create($year, 8, 25),
+        ];
     }
 
     public function edit(Semester $semester)

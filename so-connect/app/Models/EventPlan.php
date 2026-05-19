@@ -23,9 +23,14 @@ class EventPlan extends Model
         'target_date',
         'resources_needed',
         'persons_responsible',
+        'event_location',
+        'event_start_time',
+        'event_end_time',
+        'event_description',
         'status',
         'event_id',
         'request_id',
+        'parent_plan_id',
     ];
 
     protected function casts(): array
@@ -34,6 +39,8 @@ class EventPlan extends Model
             'target_date' => 'date',
             'persons_responsible' => 'array',
             'status' => 'string',
+            'event_start_time' => 'datetime',
+            'event_end_time' => 'datetime',
         ];
     }
 
@@ -55,5 +62,15 @@ class EventPlan extends Model
     public function request(): BelongsTo
     {
         return $this->belongsTo(Request::class, 'request_id', 'request_id');
+    }
+
+    public function parentPlan(): BelongsTo
+    {
+        return $this->belongsTo(EventPlan::class, 'parent_plan_id', 'event_plan_id');
+    }
+
+    public function isEventRequest(): bool
+    {
+        return $this->parent_plan_id !== null;
     }
 }

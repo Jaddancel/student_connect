@@ -3,8 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Approval;
-use App\Models\Event;
-use App\Models\Event\EventDetail;
 use App\Models\EventPlan;
 use App\Models\Organization;
 use App\Models\Request as ActionRequest;
@@ -99,6 +97,20 @@ class EventPlanController extends Controller
             }
         }
 
+        $approvedPlanIds = $grouped['approved']->pluck('event_plan_id')->all();
+        $pendingEventRequestParentIds = [];
+
+        if (! empty($approvedPlanIds)) {
+            $pendingEventRequestParentIds = EventPlan::query()
+                ->whereIn('parent_plan_id', $approvedPlanIds)
+                ->where('status', 'pending')
+                ->pluck('parent_plan_id')
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+        }
+
         return view('pages.sidebar.event-plans', [
             'title' => 'Event Plans',
             'grouped' => $grouped,
@@ -106,6 +118,7 @@ class EventPlanController extends Controller
             'orgNames' => $orgNames,
             'activeSemester' => $activeSemester,
             'workplans' => $workplans,
+            'pendingEventRequestParentIds' => $pendingEventRequestParentIds,
         ]);
     }
 
@@ -139,7 +152,7 @@ class EventPlanController extends Controller
         return redirect()->route('event-plans')->with('success', 'Workplan finalized. PDF generation is now available.');
     }
 
-    public function storeEvent(Request $request, int $id): RedirectResponse
+    public function storeEvent(Request $request, int $id, RequestTypeService $requestTypeService): RedirectResponse
     {
         $user = $request->user();
         $userId = (int) $user->getKey();
@@ -154,6 +167,15 @@ class EventPlanController extends Controller
             return back()->withErrors(['plan' => 'This plan already has an associated event.']);
         }
 
+        $alreadyPending = EventPlan::query()
+            ->where('parent_plan_id', $id)
+            ->where('status', 'pending')
+            ->exists();
+
+        if ($alreadyPending) {
+            return back()->withErrors(['plan' => 'An event creation request for this plan is already pending admin approval.']);
+        }
+
         $officerOrgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
         $presidentOrgIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
         $allOrgIds = array_unique(array_merge($officerOrgIds, $presidentOrgIds));
@@ -163,30 +185,61 @@ class EventPlanController extends Controller
         }
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'location' => ['required', 'string', 'max:255'],
-            'desc_text' => ['nullable', 'string', 'max:5000'],
-            'start_time' => ['required', 'date'],
-            'end_time' => ['required', 'date', 'after_or_equal:start_time'],
+            'title'                => ['required', 'string', 'max:255'],
+            'target_date'          => ['required', 'date'],
+            'resources_needed'     => ['nullable', 'string', 'max:5000'],
+            'persons_responsible'  => ['nullable', 'array'],
+            'persons_responsible.*'=> ['integer'],
+            'event_location'       => ['required', 'string', 'max:255'],
+            'event_start_time'     => ['required', 'date'],
+            'event_end_time'       => ['required', 'date', 'after_or_equal:event_start_time'],
+            'event_description'    => ['nullable', 'string', 'max:5000'],
         ]);
 
-        $eventDetail = EventDetail::query()->create([
-            'name' => $validated['name'],
-            'location' => $validated['location'],
-            'desc_text' => $validated['desc_text'] ?? '',
-            'start_time' => $validated['start_time'],
-            'end_time' => $validated['end_time'],
+        $requestType = $requestTypeService->resolveSystemType(
+            RequestType::SYSTEM_KEY_EVENT_PLAN,
+            'Event Plan Request',
+            RequestType::CATEGORY_EVENT,
+            $userId,
+        );
+
+        $actionRequest = ActionRequest::query()->create([
+            'action'          => '',
+            'action_type'     => 10,
+            'request_type_id' => (int) $requestType->getKey(),
+            'organization_id' => (int) $plan->organization_id,
+            'requested_by'    => $userId,
+            'payload'         => [],
+            'user'            => $userId,
+            'requested_at'    => now(),
         ]);
 
-        $event = Event::query()->create([
-            'organization' => (int) $plan->organization_id,
-            'creator' => $userId,
-            'event_detail' => (int) $eventDetail->getKey(),
+        $eventPlan = EventPlan::query()->create([
+            'organization_id'     => (int) $plan->organization_id,
+            'created_by'          => $userId,
+            'title'               => $validated['title'],
+            'target_date'         => $validated['target_date'],
+            'resources_needed'    => $validated['resources_needed'] ?? null,
+            'persons_responsible' => $validated['persons_responsible'] ?? [],
+            'event_location'      => $validated['event_location'],
+            'event_start_time'    => $validated['event_start_time'],
+            'event_end_time'      => $validated['event_end_time'],
+            'event_description'   => $validated['event_description'] ?? null,
+            'status'              => 'pending',
+            'parent_plan_id'      => $id,
+            'request_id'          => (int) $actionRequest->getKey(),
         ]);
 
-        $plan->update(['event_id' => (int) $event->getKey()]);
+        $actionRequest->update([
+            'payload' => [
+                'event_plan_id'  => (int) $eventPlan->getKey(),
+                'parent_plan_id' => $id,
+                'organization_id'=> (int) $plan->organization_id,
+                'user_id'        => $userId,
+            ],
+        ]);
 
-        return redirect()->route('event-plans')->with('success', 'Event created successfully and added to the calendar.');
+        return redirect()->route('event-plans')->with('success', 'Event creation request submitted for admin approval.');
     }
 
     public function revise(Request $request, int $id, RequestTypeService $requestTypeService): RedirectResponse

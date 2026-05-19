@@ -22,7 +22,7 @@ class ActivityRequestController extends Controller
         $profileRow = DB::table('users as u')
             ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
             ->where('u.user_id', $userId)
-            ->select(['p.first_name', 'p.middle_name', 'p.last_name'])
+            ->select(['p.first_name', 'p.middle_name', 'p.last_name', 'p.contact_number'])
             ->first();
 
         $presidentName = $profileRow ? trim(implode(' ', array_filter([
@@ -30,6 +30,8 @@ class ActivityRequestController extends Controller
             $profileRow->middle_name,
             $profileRow->last_name,
         ]))) : '';
+
+        $presidentContact = $profileRow?->contact_number ?? '';
 
         if ($isAdmin) {
             $organizations = DB::table('organizations as o')
@@ -48,10 +50,11 @@ class ActivityRequestController extends Controller
         }
 
         return view('pages.form.activity-request', [
-            'title'         => 'Request for Organizational Activity',
-            'isAdmin'       => $isAdmin,
-            'organizations' => $organizations,
-            'presidentName' => $presidentName,
+            'title'            => 'Request for Organizational Activity',
+            'isAdmin'          => $isAdmin,
+            'organizations'    => $organizations,
+            'presidentName'    => $presidentName,
+            'presidentContact' => $presidentContact,
         ]);
     }
 

@@ -1,4 +1,4 @@
-@props(['plan', 'personNames' => [], 'orgNames' => [], 'status'])
+@props(['plan', 'personNames' => [], 'orgNames' => [], 'status', 'hasPendingEventRequest' => false])
 
 @php
     $orgName = $orgNames[(int) $plan->organization_id] ?? 'Unknown Organization';
@@ -117,11 +117,17 @@
 
             {{-- Actions --}}
             <div class="flex flex-wrap gap-2">
-                @if ($status === 'approved' && ! $hasEvent)
+                @if ($status === 'approved' && ! $hasEvent && ! $hasPendingEventRequest)
                     <button type="button" @click="showCreateForm = !showCreateForm"
                         class="inline-flex items-center rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-100 dark:border-brand-600 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20">
                         Create Event
                     </button>
+                @endif
+
+                @if ($status === 'approved' && ! $hasEvent && $hasPendingEventRequest)
+                    <span class="inline-flex items-center rounded-lg border border-warning-300 bg-warning-50 px-3 py-1.5 text-xs font-medium text-warning-700 dark:border-warning-600 dark:bg-warning-500/10 dark:text-warning-400">
+                        Event Request Pending Approval
+                    </span>
                 @endif
 
                 @if ($hasEvent)
@@ -213,40 +219,100 @@
             @endif
 
             {{-- Inline Create Event Form --}}
-            @if ($status === 'approved' && ! $hasEvent)
-                <div x-show="showCreateForm" x-cloak class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
-                    <h4 class="mb-3 text-sm font-semibold text-gray-700 dark:text-white/80">Create Event from Plan</h4>
+            @if ($status === 'approved' && ! $hasEvent && ! $hasPendingEventRequest)
+                <div x-show="showCreateForm" x-cloak
+                    x-data="{
+                        createOfficers: [],
+                        createSelected: @json(array_values(array_map('intval', $plan->persons_responsible ?? []))),
+                        createLoading: false,
+                        async loadOfficers() {
+                            if (this.createOfficers.length > 0) return;
+                            this.createLoading = true;
+                            try {
+                                const r = await fetch('/api/organizations/{{ (int) $plan->organization_id }}/officers');
+                                this.createOfficers = await r.json();
+                            } finally {
+                                this.createLoading = false;
+                            }
+                        }
+                    }"
+                    x-init="$watch('showCreateForm', v => v && loadOfficers())"
+                    class="mt-4 rounded-xl border border-brand-200 bg-brand-50/40 p-4 dark:border-brand-700 dark:bg-brand-500/5">
+                    <h4 class="mb-1 text-sm font-semibold text-gray-700 dark:text-white/80">Submit Event Creation Request</h4>
+                    <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">This request will be sent to the admin for approval before the event appears on the calendar.</p>
                     <form method="POST" action="{{ route('event-plans.create-event', $plan->event_plan_id) }}" class="space-y-3">
                         @csrf
+
+                        {{-- Plan fields --}}
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Event Plan Details</p>
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div class="sm:col-span-2">
-                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Event Name</label>
-                                <input type="text" name="name" value="{{ $plan->title }}" required
-                                    class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90" />
-                            </div>
-                            <div class="sm:col-span-2">
-                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Location</label>
-                                <input type="text" name="location" required
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Title <span class="text-error-500">*</span></label>
+                                <input type="text" name="title" value="{{ $plan->title }}" required
                                     class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90" />
                             </div>
                             <div>
-                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Start Date &amp; Time</label>
-                                <input type="datetime-local" name="start_time" required
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Target Date <span class="text-error-500">*</span></label>
+                                <input type="date" name="target_date" value="{{ $plan->target_date?->format('Y-m-d') }}" required
+                                    class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90" />
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Resources Needed</label>
+                                <textarea name="resources_needed" rows="2"
+                                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90">{{ $plan->resources_needed }}</textarea>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Persons Responsible</label>
+                                <div class="min-h-[48px] max-h-32 overflow-y-auto rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-gray-600 dark:bg-gray-900">
+                                    <template x-if="createLoading">
+                                        <p class="text-xs text-gray-400 italic">Loading officers…</p>
+                                    </template>
+                                    <template x-if="!createLoading && createOfficers.length === 0">
+                                        <p class="text-xs text-gray-400 italic">No officers found.</p>
+                                    </template>
+                                    <template x-for="officer in createOfficers" :key="officer.user_id">
+                                        <label class="flex cursor-pointer items-center gap-2 py-1">
+                                            <input type="checkbox" :value="officer.user_id" x-model="createSelected"
+                                                class="h-3.5 w-3.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
+                                            <span class="text-xs text-gray-700 dark:text-gray-300" x-text="officer.name"></span>
+                                        </label>
+                                    </template>
+                                </div>
+                                <template x-for="id in createSelected" :key="id">
+                                    <input type="hidden" name="persons_responsible[]" :value="id" />
+                                </template>
+                            </div>
+                        </div>
+
+                        {{-- Event-specific fields --}}
+                        <p class="mt-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Event Details</p>
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div class="sm:col-span-2">
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Location <span class="text-error-500">*</span></label>
+                                <input type="text" name="event_location" required
+                                    class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
+                                    placeholder="e.g. Main Hall, Room 201" />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Start Date &amp; Time <span class="text-error-500">*</span></label>
+                                <input type="datetime-local" name="event_start_time" required
                                     value="{{ $plan->target_date?->format('Y-m-d') }}T09:00"
                                     class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90" />
                             </div>
                             <div>
-                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">End Date &amp; Time</label>
-                                <input type="datetime-local" name="end_time" required
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">End Date &amp; Time <span class="text-error-500">*</span></label>
+                                <input type="datetime-local" name="event_end_time" required
                                     value="{{ $plan->target_date?->format('Y-m-d') }}T17:00"
                                     class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90" />
                             </div>
                             <div class="sm:col-span-2">
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Description <span class="font-normal text-gray-400">(optional)</span></label>
-                                <textarea name="desc_text" rows="2"
-                                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90">{{ $plan->resources_needed }}</textarea>
+                                <textarea name="event_description" rows="2"
+                                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
+                                    placeholder="Brief description of the event"></textarea>
                             </div>
                         </div>
+
                         <div class="flex items-center gap-2 justify-end">
                             <button type="button" @click="showCreateForm = false"
                                 class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400">
@@ -254,7 +320,7 @@
                             </button>
                             <button type="submit"
                                 class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-600">
-                                Create Event
+                                Submit for Approval
                             </button>
                         </div>
                     </form>

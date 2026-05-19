@@ -4,10 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Form;
 use App\Models\FormSubmission;
+use App\Models\Semester;
+use App\Models\Workplan;
 use App\Services\DocumentGenerationService;
-use App\Services\RequestApprovalService;
+use App\Services\OrganizationAuthorizationService;
+use App\Services\WorkplanService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class OrganizationRecognitionController extends Controller
 {
@@ -15,7 +19,10 @@ class OrganizationRecognitionController extends Controller
     {
         $user = $request->user();
         $userId = (int) $user->getKey();
-        $isAdmin = (int) $user->user_type === 2;
+
+        if ((int) $user->user_type === 2) {
+            abort(403, 'This form is for organization officers only.');
+        }
 
         $presidentName = '';
         $organizations = collect();
@@ -35,91 +42,159 @@ class OrganizationRecognitionController extends Controller
             ])));
         }
 
-        if (! $isAdmin) {
-            $organizations = DB::table('organization_officers as oo')
-                ->join('members as m', 'm.member_id', '=', 'oo.member')
-                ->join('organizations as o', 'o.organization_id', '=', 'm.organization')
-                ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
-                ->where('m.user', $userId)
-                ->whereIn('oo.role', ['officer', 'president'])
-                ->select([
-                    'o.organization_id',
-                    DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name"),
-                ])
-                ->get()
-                ->unique('organization_id')
-                ->values();
+        $organizations = DB::table('organization_officers as oo')
+            ->join('organizations as o', 'o.organization_id', '=', 'oo.organization')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->where('oo.user', $userId)
+            ->whereIn('oo.role', ['officer', 'president'])
+            ->select([
+                'o.organization_id',
+                DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name"),
+            ])
+            ->get()
+            ->unique('organization_id')
+            ->values();
 
-            if ($organizations->count() === 1) {
-                $organizationId = (int) $organizations->first()->organization_id;
-            }
+        if ($organizations->count() === 1) {
+            $organizationId = (int) $organizations->first()->organization_id;
         }
 
+        $orgIds = $organizations->pluck('organization_id')->map(fn ($id) => (int) $id)->toArray();
+
+        $activeSemester = Semester::current();
+
+        $finalisedWorkplans = Workplan::query()
+            ->whereIn('organization_id', $orgIds)
+            ->where('status', 'finalized')
+            ->when($activeSemester, fn ($q) => $q->where('semester_id', $activeSemester->semester_id))
+            ->with('semester')
+            ->orderByDesc('finalized_at')
+            ->get();
+
+        $workplanService = new WorkplanService();
+        $workplanActivities = [];
+        foreach ($finalisedWorkplans as $wp) {
+            $plans = $workplanService->getApprovedPlansForWorkplan($wp);
+            $workplanActivities[$wp->workplan_id] = $plans->map(fn ($p) => [
+                'title'     => $p->title,
+                'date'      => $p->target_date->format('M d, Y'),
+                'resources' => $p->resources_needed,
+            ])->values()->all();
+        }
+
+        $defaultWorkplanId = $finalisedWorkplans->first()?->workplan_id;
+
         return view('pages.form.organization-recognition', [
-            'title' => 'Application for Recognition/Renewal of Student Organization',
-            'isAdmin' => $isAdmin,
-            'presidentName' => $presidentName,
-            'organizations' => $organizations,
-            'organizationId' => $organizationId,
+            'title'               => 'Application for Recognition/Renewal of Student Organization',
+            'presidentName'       => $presidentName,
+            'organizations'       => $organizations,
+            'organizationId'      => $organizationId,
+            'finalisedWorkplans'  => $finalisedWorkplans,
+            'workplanActivities'  => $workplanActivities,
+            'defaultWorkplanId'   => $defaultWorkplanId,
         ]);
     }
 
-    public function store(
-        Request $request,
-        DocumentGenerationService $docService,
-        RequestApprovalService $approvalService,
-    ) {
+    public function store(Request $request, DocumentGenerationService $docService)
+    {
         $user = $request->user();
         $userId = (int) $user->getKey();
-        $isAdmin = (int) $user->user_type === 2;
+
+        if ((int) $user->user_type === 2) {
+            abort(403, 'This form is for organization officers only.');
+        }
 
         $validated = $request->validate([
-            'nameOfOrganization' => ['required', 'string', 'max:255'],
-            'presidentName'      => ['required', 'string', 'max:255'],
-            'facultyAdvisers'    => ['required', 'array', 'min:1'],
-            'facultyAdvisers.*'  => ['required', 'string', 'max:255'],
-            'recognitionDate'    => ['nullable', 'date'],
-            'freshmanNumber'     => ['nullable', 'integer', 'min:0'],
-            'sophomoreNumber'    => ['nullable', 'integer', 'min:0'],
-            'juniorNumber'       => ['nullable', 'integer', 'min:0'],
-            'total'              => ['nullable', 'integer', 'min:0'],
-            'objectives'         => ['nullable', 'string'],
-            'workplan'           => ['nullable', 'string'],
-            'organization_id'    => ['nullable', 'integer'],
-            'recognition_type'   => ['nullable', 'in:c1,c2'],
-            'adviserLeft'        => ['nullable', 'string', 'max:255'],
-            'adviserRight'       => ['nullable', 'string', 'max:255'],
-            'chair'              => ['nullable', 'string', 'max:255'],
-            'director'           => ['nullable', 'string', 'max:255'],
+            'organization'        => ['required', 'string', 'max:255'],
+            'organization_id'     => ['nullable', 'integer'],
+            'recognition_type'    => ['nullable', 'in:c1,c2'],
+            'name_of_president'   => ['required', 'string', 'max:255'],
+            'nameOfAdviserRow'    => ['required', 'array', 'min:1'],
+            'nameOfAdviserRow.*'  => ['required', 'string', 'max:255'],
+            'date'                => ['nullable', 'date'],
+            'freshman'            => ['nullable', 'integer', 'min:0'],
+            'sophomore'           => ['nullable', 'integer', 'min:0'],
+            'junior'              => ['nullable', 'integer', 'min:0'],
+            'total'               => ['nullable', 'integer', 'min:0'],
+            'objectives'          => ['nullable', 'string'],
+            'workplan_id'         => ['nullable', 'integer'],
+            'nameOfAdviser1'      => ['nullable', 'string', 'max:255'],
+            'nameOfAdviser2'      => ['nullable', 'string', 'max:255'],
+            'signaturePresident'  => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
         ]);
 
-        $form = Form::query()->where('route_name', 'organization-recognition')->firstOrFail();
+        $organizationId = (int) ($validated['organization_id'] ?? 0) ?: null;
 
-        $organizationId = $isAdmin ? null : ((int) ($validated['organization_id'] ?? 0) ?: null);
+        $officerOrgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
+        if ($organizationId !== null && ! in_array($organizationId, $officerOrgIds, true)) {
+            abort(403);
+        }
 
         $recognitionType = $validated['recognition_type'] ?? null;
         $c1 = $recognitionType === 'c1';
         $c2 = $recognitionType === 'c2';
 
+        $workplanActivity  = [];
+        $workplanDate      = [];
+        $workplanResources = [];
+        $workplanName      = '';
+
+        if (! empty($validated['workplan_id'])) {
+            $workplan = Workplan::find((int) $validated['workplan_id']);
+            if ($workplan) {
+                $workplanName = $workplan->semester?->name ?? '';
+                $plans = (new WorkplanService())->getApprovedPlansForWorkplan($workplan);
+                foreach ($plans as $plan) {
+                    $workplanActivity[]  = $plan->title;
+                    $workplanDate[]      = $plan->target_date->format('M d, Y');
+                    $workplanResources[] = $plan->resources_needed;
+                }
+            }
+        }
+
+        $sigDir  = 'form-signatures/' . now()->format('Y/m');
+        $sigPath = '';
+
+        if ($request->hasFile('signaturePresident') && $request->file('signaturePresident')->isValid()) {
+            $file    = $request->file('signaturePresident');
+            $sigPath = $file->storeAs(
+                $sigDir,
+                Str::lower(Str::random(16)) . '.' . $file->getClientOriginalExtension(),
+                'public'
+            );
+        }
+
+        $workplanText = $workplanName;
+
         $payload = [
-            'c1'                 => $c1,
-            'c2'                 => $c2,
-            'nameOfOrganization' => $validated['nameOfOrganization'],
-            'presidentName'      => $validated['presidentName'],
-            'facultyAdvisers'    => array_values(array_filter($validated['facultyAdvisers'], fn ($v) => filled($v))),
-            'recognitionDate'    => $validated['recognitionDate'] ?? '',
-            'freshmanNumber'     => $validated['freshmanNumber'] ?? '',
-            'sophomoreNumber'    => $validated['sophomoreNumber'] ?? '',
-            'juniorNumber'       => $validated['juniorNumber'] ?? '',
-            'total'              => $validated['total'] ?? '',
-            'objectives'         => $validated['objectives'] ?? '',
-            'workplan'           => $validated['workplan'] ?? '',
-            'adviserLeft'        => $validated['adviserLeft'] ?? '',
-            'adviserRight'       => $validated['adviserRight'] ?? '',
-            'chair'              => $isAdmin ? ($validated['chair'] ?? '') : '',
-            'director'           => $isAdmin ? ($validated['director'] ?? '') : '',
-            'create_organization'=> $c1,
+            'c1'                  => $c1,
+            'c2'                  => $c2,
+            'nameoforganization'  => $validated['organization'],
+            'presidentname'       => $validated['name_of_president'],
+            'nameOfAdviserRow'    => array_values(array_filter($validated['nameOfAdviserRow'], fn ($v) => filled($v))),
+            'date'                => $validated['date'] ?? '',
+            'freshman'            => $validated['freshman'] ?? '',
+            'sophomore'           => $validated['sophomore'] ?? '',
+            'junior'              => $validated['junior'] ?? '',
+            'total'               => $validated['total'] ?? '',
+            'objectives'          => $validated['objectives'] ?? '',
+            'workplan_id'         => $validated['workplan_id'] ?? '',
+            'workplan'            => $workplanText,
+            'workplanActivity'    => $workplanActivity,
+            'workplanDate'        => $workplanDate,
+            'workplanResources'   => $workplanResources,
+            'nameOfPresident'     => $validated['name_of_president'],
+            'signaturePresident'  => $sigPath,
+            'adviserleft'         => $validated['nameOfAdviser1'] ?? '',
+            'adviserright'        => $validated['nameOfAdviser2'] ?? '',
+            'chair'               => '',
+            'signatureChair'      => '',
+            'director'            => '',
+            'signatureDirector'   => '',
+            'create_organization' => $c1,
         ];
+
+        $form = Form::query()->where('route_name', 'organization-recognition')->firstOrFail();
 
         $submission = FormSubmission::query()->create([
             'form_id'         => (int) $form->getKey(),
@@ -129,25 +204,14 @@ class OrganizationRecognitionController extends Controller
             'payload'         => $payload,
         ]);
 
-        $actionRequest = $docService->createDocumentGenerationRequest(
+        $docService->createDocumentGenerationRequest(
             $organizationId,
             (int) $submission->getKey(),
             (int) $form->getKey(),
             $userId,
         );
 
-        if ($isAdmin) {
-            try {
-                $approvalService->approve($actionRequest, $userId);
-            } catch (\Throwable) {
-                // Document generation may fail if no template is uploaded yet; request still recorded.
-            }
-        }
-
         return redirect()->route('organization-recognition')
-            ->with('success', $isAdmin
-                ? 'Form submitted and auto-approved. The document will be available in Download Files.'
-                : 'Your application has been submitted and is pending admin approval.'
-            );
+            ->with('success', 'Your application has been submitted and is pending admin approval.');
     }
 }

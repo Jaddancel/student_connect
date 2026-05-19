@@ -90,20 +90,24 @@ class FormPageSeeder extends Seeder
         $fields = [
             ['field_key' => 'c1',                  'field_label' => 'Recognition',                                  'field_type' => 'radio',    'is_required' => false],
             ['field_key' => 'c2',                  'field_label' => 'Renewal',                                      'field_type' => 'radio',    'is_required' => false],
-            ['field_key' => 'nameOfOrganization',  'field_label' => 'Name of Organization',                         'field_type' => 'text',     'is_required' => true],
-            ['field_key' => 'presidentName',       'field_label' => 'President',                                    'field_type' => 'text',     'is_required' => true],
-            ['field_key' => 'facultyAdvisers',     'field_label' => 'Faculty Adviser/s',                            'field_type' => 'text',     'is_required' => true],
-            ['field_key' => 'recognitionDate',     'field_label' => 'Date of 1st Recognition',                      'field_type' => 'date',     'is_required' => false],
-            ['field_key' => 'freshmanNumber',      'field_label' => 'No. of Members – Freshman',                    'field_type' => 'text',     'is_required' => false],
-            ['field_key' => 'sophomoreNumber',     'field_label' => 'No. of Members – Sophomore',                   'field_type' => 'text',     'is_required' => false],
-            ['field_key' => 'juniorNumber',        'field_label' => 'No. of Members – Junior',                      'field_type' => 'text',     'is_required' => false],
-            ['field_key' => 'total',               'field_label' => 'Total Members',                                'field_type' => 'text',     'is_required' => false],
+            ['field_key' => 'nameoforganization',  'field_label' => 'Name of Organization',                         'field_type' => 'text',     'is_required' => true],
+            ['field_key' => 'presidentname',       'field_label' => 'President',                                    'field_type' => 'text',     'is_required' => true],
+            ['field_key' => 'nameOfAdviserRow',    'field_label' => 'Faculty Adviser/s',                            'field_type' => 'text',     'is_required' => true],
+            ['field_key' => 'date',                'field_label' => 'Date of 1st Recognition',                      'field_type' => 'date',     'is_required' => false],
+            ['field_key' => 'freshman',            'field_label' => 'No. of Members – Freshman',                    'field_type' => 'number',   'is_required' => false],
+            ['field_key' => 'sophomore',           'field_label' => 'No. of Members – Sophomore',                   'field_type' => 'number',   'is_required' => false],
+            ['field_key' => 'junior',              'field_label' => 'No. of Members – Junior',                      'field_type' => 'number',   'is_required' => false],
+            ['field_key' => 'total',               'field_label' => 'Total Members',                                'field_type' => 'number',   'is_required' => false],
             ['field_key' => 'objectives',          'field_label' => 'Objectives',                                   'field_type' => 'textarea', 'is_required' => false],
-            ['field_key' => 'workplan',            'field_label' => 'Workplan',                                     'field_type' => 'textarea', 'is_required' => false],
-            ['field_key' => 'adviserLeft',         'field_label' => 'Adviser',                                      'field_type' => 'text',     'is_required' => false],
-            ['field_key' => 'adviserRight',        'field_label' => 'Adviser',                                      'field_type' => 'text',     'is_required' => false],
+            ['field_key' => 'workplan',            'field_label' => 'Workplan',                                     'field_type' => 'text',     'is_required' => false],
+            ['field_key' => 'nameOfPresident',     'field_label' => 'President (Signatory)',                        'field_type' => 'text',     'is_required' => false],
+            ['field_key' => 'signaturePresident',  'field_label' => 'President Signature',                          'field_type' => 'file',     'is_required' => true],
+            ['field_key' => 'adviserleft',         'field_label' => 'Adviser (Left)',                               'field_type' => 'text',     'is_required' => false],
+            ['field_key' => 'adviserright',        'field_label' => 'Adviser (Right)',                              'field_type' => 'text',     'is_required' => false],
             ['field_key' => 'chair',               'field_label' => 'Chair, Student Organizations',                 'field_type' => 'text',     'is_required' => false],
+            ['field_key' => 'signatureChair',      'field_label' => 'Chair Signature (Recommending Approval)',      'field_type' => 'file',     'is_required' => false],
             ['field_key' => 'director',            'field_label' => 'Director, Student Services and Development',   'field_type' => 'text',     'is_required' => false],
+            ['field_key' => 'signatureDirector',   'field_label' => 'Director Signature (Approved)',                'field_type' => 'file',     'is_required' => false],
         ];
 
         $keys = array_column($fields, 'field_key');
@@ -208,9 +212,10 @@ class FormPageSeeder extends Seeder
             ['field_key' => 'date',         'field_label' => 'Date',                    'field_type' => 'date',     'is_required' => true],
             ['field_key' => 'people',       'field_label' => 'Persons Involved',        'field_type' => 'textarea', 'is_required' => true],
             ['field_key' => 'problem',      'field_label' => 'Problem/s Encountered',   'field_type' => 'textarea', 'is_required' => false],
-            ['field_key' => 'phots',        'field_label' => 'Documentation',           'field_type' => 'file',     'is_required' => false],
+            ['field_key' => 'photos',       'field_label' => 'Documentation',           'field_type' => 'file',     'is_required' => false],
             ['field_key' => 'name',         'field_label' => 'Prepared By (Name)',      'field_type' => 'text',     'is_required' => true],
-            ['field_key' => 'signature1',   'field_label' => 'Signature (Prepared By)', 'field_type' => 'file',     'is_required' => true],
+            ['field_key' => 'signature',    'field_label' => 'Signature (Prepared By)', 'field_type' => 'file',     'is_required' => true],
+            ['field_key' => 'adviserName',  'field_label' => 'Adviser Name (Noted By)', 'field_type' => 'text',     'is_required' => false],
         ];
 
         foreach ($fields as $order => $field) {
@@ -276,16 +281,32 @@ class FormPageSeeder extends Seeder
         );
 
         $fields = [
-            ['field_key' => 'organization', 'field_label' => 'Name of Organization', 'field_type' => 'text',     'is_required' => true],
-            ['field_key' => 'schoolYear',   'field_label' => 'School Year',           'field_type' => 'text',     'is_required' => true],
-            ['field_key' => 'period',       'field_label' => 'Period Covered',        'field_type' => 'text',     'is_required' => false],
-            ['field_key' => 'income',       'field_label' => 'Total Income',          'field_type' => 'text',     'is_required' => false],
-            ['field_key' => 'expenses',     'field_label' => 'Total Expenses',        'field_type' => 'text',     'is_required' => false],
-            ['field_key' => 'balance',      'field_label' => 'Balance',               'field_type' => 'text',     'is_required' => false],
-            ['field_key' => 'remarks',      'field_label' => 'Remarks',               'field_type' => 'textarea', 'is_required' => false],
-            ['field_key' => 'name',         'field_label' => 'Prepared By (Name)',    'field_type' => 'text',     'is_required' => true],
-            ['field_key' => 'signature',    'field_label' => 'Signature',             'field_type' => 'file',     'is_required' => false],
-            ['field_key' => 'adviserName',  'field_label' => 'Adviser Name',          'field_type' => 'text',     'is_required' => false],
+            // Organization details
+            ['field_key' => 'organization',          'field_label' => 'Name of Organization',                      'field_type' => 'text',   'is_required' => true],
+            ['field_key' => 'date',                  'field_label' => 'School Year',                               'field_type' => 'text',   'is_required' => true],
+            // Source of funds rows
+            ['field_key' => 'fundSource',            'field_label' => 'Source of Funds',                           'field_type' => 'text',   'is_required' => true],
+            ['field_key' => 'amount',                'field_label' => 'Amount (₱)',                                'field_type' => 'number', 'is_required' => true],
+            ['field_key' => 'totalFunds',            'field_label' => 'Total Funds',                               'field_type' => 'number', 'is_required' => true],
+            // Expense rows
+            ['field_key' => 'activityTitle',         'field_label' => 'Activity Title',                            'field_type' => 'text',   'is_required' => false],
+            ['field_key' => 'activityDate',          'field_label' => 'Activity Date',                             'field_type' => 'date',   'is_required' => false],
+            ['field_key' => 'item',                  'field_label' => 'Item / Description',                        'field_type' => 'text',   'is_required' => false],
+            ['field_key' => 'amountPerUnit',         'field_label' => 'Amount per Unit (₱)',                       'field_type' => 'number', 'is_required' => false],
+            ['field_key' => 'quantity',              'field_label' => 'Quantity',                                  'field_type' => 'number', 'is_required' => false],
+            ['field_key' => 'priceTotal',            'field_label' => 'Row Total (₱)',                             'field_type' => 'number', 'is_required' => false],
+            // Financial summary
+            ['field_key' => 'totalExpenses',         'field_label' => 'Total Expenses',                            'field_type' => 'number', 'is_required' => true],
+            ['field_key' => 'cashOnHand',            'field_label' => 'Cash on Hand',                              'field_type' => 'number', 'is_required' => true],
+            // Signatories
+            ['field_key' => 'name_of_treasurer',    'field_label' => 'Name of Treasurer',                         'field_type' => 'text',   'is_required' => true],
+            ['field_key' => 'signature1',            'field_label' => 'Treasurer Signature',                       'field_type' => 'file',   'is_required' => true],
+            ['field_key' => 'name_of_the_auditor',  'field_label' => 'Name of Auditor',                           'field_type' => 'text',   'is_required' => true],
+            ['field_key' => 'signature2',            'field_label' => 'Auditor Signature',                         'field_type' => 'file',   'is_required' => true],
+            ['field_key' => 'name_of_the_president','field_label' => 'Name of President',                         'field_type' => 'text',   'is_required' => true],
+            ['field_key' => 'signature3',            'field_label' => 'President Signature',                       'field_type' => 'file',   'is_required' => true],
+            ['field_key' => 'name_of_the_adviser',  'field_label' => 'Name of Adviser',                           'field_type' => 'text',   'is_required' => true],
+            ['field_key' => 'signature4',            'field_label' => 'Adviser Signature',                         'field_type' => 'file',   'is_required' => true],
         ];
 
         $keys = array_column($fields, 'field_key');

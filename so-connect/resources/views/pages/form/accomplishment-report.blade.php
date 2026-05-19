@@ -72,7 +72,7 @@
                             <select name="organization_id"
                                 @change="onOrgChange($el); $el.form.querySelector('[name=organization]').value = orgName"
                                 x-init="orgId = '{{ old('organization_id', $organizations->first()?->organization_id ?? '') }}'"
-                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('organization_id') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
                                 @foreach($organizations as $org)
                                     <option value="{{ $org->organization_id }}"
                                         data-name="{{ $org->organization_name }}"
@@ -95,9 +95,12 @@
                         <label for="schoolYear" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             School Year <span class="text-error-500">*</span>
                         </label>
-                        <input type="text" id="schoolYear" name="schoolYear" value="{{ old('schoolYear') }}"
+                        <input type="text" id="schoolYear" name="schoolYear" value="{{ old('schoolYear', $currentSchoolYear ?? '') }}"
                             placeholder="e.g. 2024–2025"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('schoolYear') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                        @error('schoolYear')
+                            <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                        @enderror
                     </div>
                 </div>
             </div>
@@ -135,7 +138,10 @@
                                 :value="title || '{{ old('title') }}'"
                                 x-model="title"
                                 placeholder="Activity title"
-                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('title') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            @error('title')
+                                <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         {{-- Date --}}
@@ -146,7 +152,10 @@
                             <input type="date" id="date" name="date"
                                 x-model="date"
                                 value="{{ old('date') }}"
-                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('date') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            @error('date')
+                                <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                            @enderror
                         </div>
                     </div>
 
@@ -156,7 +165,10 @@
                             Persons Involved <span class="text-error-500">*</span>
                         </label>
                         <textarea id="people" name="people" rows="3" placeholder="List all persons involved"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">{{ old('people') }}</textarea>
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border {{ $errors->has('people') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">{{ old('people') }}</textarea>
+                        @error('people')
+                            <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     {{-- Problem/s Encountered --}}
@@ -168,14 +180,14 @@
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">{{ old('problem') }}</textarea>
                     </div>
 
-                    {{-- Documentation (phots) --}}
+                    {{-- Documentation (photos) --}}
                     <div x-data="{ preview: null }">
                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Documentation
                             <span class="ml-1 text-xs font-normal text-gray-400">(photo/PDF, optional)</span>
                         </label>
-                        <label for="phots"
-                            class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-5 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:bg-gray-900/30 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
+                        <label for="photos"
+                            class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed {{ $errors->has('photos') ? 'border-error-500 bg-error-50 dark:border-error-500/40 dark:bg-error-500/5' : 'border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30' }} px-4 py-5 transition hover:border-brand-400 hover:bg-brand-50 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
                             <template x-if="preview">
                                 <img :src="preview" class="mb-2 max-h-24 object-contain rounded" alt="Documentation preview" />
                             </template>
@@ -188,7 +200,7 @@
                             <span class="text-sm font-medium text-gray-600 dark:text-gray-400"
                                 x-text="preview ? 'Change file' : 'Click to upload documentation'"></span>
                             <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG, PDF — max 5 MB</span>
-                            <input id="phots" name="phots" type="file" accept="image/jpeg,image/png,application/pdf" class="hidden"
+                            <input id="photos" name="photos" type="file" accept="image/jpeg,image/png,application/pdf" class="hidden"
                                 @change="preview = ($event.target.files[0] && $event.target.files[0].type.startsWith('image/')) ? URL.createObjectURL($event.target.files[0]) : null" />
                         </label>
                     </div>
@@ -211,7 +223,10 @@
                             <input type="text" id="name" name="name"
                                 value="{{ old('name', $presidentName) }}"
                                 placeholder="Full name"
-                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('name') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            @error('name')
+                                <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <div x-data="{ preview: null }">
@@ -219,8 +234,8 @@
                                 Signature <span class="text-error-500">*</span>
                                 <span class="ml-1 text-xs font-normal text-gray-400">(photo of signature)</span>
                             </label>
-                            <label for="signature1"
-                                class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-4 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:bg-gray-900/30 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
+                            <label for="signature"
+                                class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed {{ $errors->has('signature') ? 'border-error-500 bg-error-50 dark:border-error-500/40 dark:bg-error-500/5' : 'border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30' }} px-4 py-4 transition hover:border-brand-400 hover:bg-brand-50 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
                                 <template x-if="preview">
                                     <img :src="preview" class="mb-2 max-h-16 object-contain" alt="Signature preview" />
                                 </template>
@@ -233,10 +248,27 @@
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-400"
                                     x-text="preview ? 'Change signature' : 'Click to upload signature'"></span>
                                 <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
-                                <input id="signature1" name="signature1" type="file" accept="image/jpeg,image/png" class="hidden"
+                                <input id="signature" name="signature" type="file" accept="image/jpeg,image/png" class="hidden"
                                     @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
                             </label>
+                            @error('signature')
+                                <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                            @enderror
                             <p class="mt-1 text-center text-xs text-gray-400 dark:text-gray-500">Signature over Printed Name</p>
+                        </div>
+                    </div>
+
+                    {{-- Noted By --}}
+                    <div>
+                        <p class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-400">Noted by</p>
+                        <div>
+                            <label for="adviserName" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                                Adviser Name
+                            </label>
+                            <input type="text" id="adviserName" name="adviserName"
+                                value="{{ old('adviserName') }}"
+                                placeholder="Faculty adviser's full name"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         </div>
                     </div>
 

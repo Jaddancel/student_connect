@@ -3,7 +3,6 @@
 namespace Database\Factories;
 
 use App\Models\Event;
-use App\Models\Member;
 use App\Models\Officer;
 use App\Models\Organization;
 use App\Models\Organization\OrganizationDetail;
@@ -57,10 +56,13 @@ class OrganizationFactory extends Factory
                 Officer::factory()->toLeadOrganization($organizationId)->create();
                 Officer::factory()->count(9)->assignedToOrganization($organizationId)->create();
                 for ($i = 0; $i < 20; $i++) {
-                    Member::create([
-                        'organization' => $organizationId,
-                        'user' => User::factory()->orgOfficer()->create()->getKey(),
-                        'member_since' => fake()->dateTimeBetween('-6 years', 'now'),
+                    \Illuminate\Support\Facades\DB::table('organization_officers')->insert([
+                        'organization'  => $organizationId,
+                        'user'          => User::factory()->orgOfficer()->create()->getKey(),
+                        'role'          => 'member',
+                        'member_since'  => fake()->dateTimeBetween('-6 years', 'now'),
+                        'registered_at' => now(),
+                        'reassigned_at' => now(),
                     ]);
                 }
 

@@ -50,8 +50,8 @@
 
             <!-- Logo (mobile only) -->
             <a href="{{ route('dashboard') }}" class="xl:hidden">
-                <img class="dark:hidden" src="/images/logo/logo.svg" alt="Logo" />
-                <img class="hidden dark:block" src="/images/logo/logo-dark.svg" alt="Logo" />
+                <img class="dark:hidden" src="/images/logo/logo.svg" alt="Logo" width="120" height="32" />
+                <img class="hidden dark:block" src="/images/logo/logo-dark.svg" alt="Logo" width="120" height="32" />
             </a>
 
             <!-- Application Menu Toggle (mobile only) -->

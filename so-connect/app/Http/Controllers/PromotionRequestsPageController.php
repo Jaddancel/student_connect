@@ -6,6 +6,7 @@ use App\Models\Approval;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Request as ActionRequest;
+use App\Models\Semester;
 use App\Models\Template;
 use App\Models\User;
 use App\Services\DocumentGenerationService;
@@ -32,12 +33,35 @@ class PromotionRequestsPageController extends Controller
         }
 
         $allRequests = ActionRequest::query()
-            ->where('action_type', 7)
+            ->whereIn('action_type', [7, 11])
             ->orderByDesc('requested_at')
             ->get();
 
         $rows = $allRequests
-            ->map(function ($actionRequest) use ($presidentOrganizationIds) {
+            ->map(function ($actionRequest) use ($presidentOrganizationIds, $isAdmin) {
+                $actionType = (int) $actionRequest->action_type;
+
+                if ($actionType === 11) {
+                    if (! $isAdmin) {
+                        return null;
+                    }
+
+                    [$organizationId] = $this->parseNewOfficerAction($actionRequest->action);
+                    $payload = (array) ($actionRequest->payload ?? []);
+
+                    return [
+                        'request_id'      => (int) $actionRequest->request_id,
+                        'target_user_id'  => 0,
+                        'organization_id' => $organizationId,
+                        'current_role'    => 'new',
+                        'requested_role'  => 'officer',
+                        'requested_at'    => $actionRequest->requested_at,
+                        'member_initiated' => false,
+                        'display_type'    => 'new_officer',
+                        'payload_name'    => trim(($payload['first_name'] ?? '').' '.($payload['last_name'] ?? '')),
+                    ];
+                }
+
                 [$targetUserId, $organizationId, $currentRole] = $this->parseRoleChangeAction($actionRequest->action);
 
                 if ($presidentOrganizationIds !== null && ! in_array($organizationId, $presidentOrganizationIds, true)) {
@@ -45,13 +69,15 @@ class PromotionRequestsPageController extends Controller
                 }
 
                 return [
-                    'request_id' => (int) $actionRequest->request_id,
-                    'target_user_id' => $targetUserId,
+                    'request_id'      => (int) $actionRequest->request_id,
+                    'target_user_id'  => $targetUserId,
                     'organization_id' => $organizationId,
-                    'current_role' => $currentRole,
-                    'requested_role' => $this->nextRole($currentRole),
-                    'requested_at' => $actionRequest->requested_at,
+                    'current_role'    => $currentRole,
+                    'requested_role'  => $this->nextRole($currentRole),
+                    'requested_at'    => $actionRequest->requested_at,
                     'member_initiated' => (bool) (((array) ($actionRequest->payload ?? []))['member_initiated'] ?? false),
+                    'display_type'    => 'role_change',
+                    'payload_name'    => null,
                 ];
             })
             ->filter()
@@ -101,13 +127,17 @@ class PromotionRequestsPageController extends Controller
 
             $submissionId = $submissionMap[$row['request_id']] ?? null;
 
+            $requesterName = $row['display_type'] === 'new_officer'
+                ? $row['payload_name']
+                : ($userNameMap[$row['target_user_id']] ?? 'Unknown User');
+
             return array_merge($row, [
                 'organization_name' => $orgNameMap[$row['organization_id']] ?? 'Unknown Organization',
-                'requester_name' => $userNameMap[$row['target_user_id']] ?? 'Unknown User',
-                'status' => $status,
-                'approved_at' => $approval?->approved_at,
-                'can_decide' => $status === 'pending',
-                'submission_id' => $submissionId,
+                'requester_name'    => $requesterName,
+                'status'            => $status,
+                'approved_at'       => $approval?->approved_at,
+                'can_decide'        => $status === 'pending',
+                'submission_id'     => $submissionId,
             ]);
         })->values();
 
@@ -138,6 +168,10 @@ class PromotionRequestsPageController extends Controller
         }
 
         $payload = (array) ($submission->payload ?? []);
+
+        if (empty($payload['school_year'])) {
+            $payload['school_year'] = Semester::current()?->schoolYear() ?? '';
+        }
 
         return view('pages.sidebar.promotion-confirmation', [
             'title' => 'Confirm Promotion Details',
@@ -224,6 +258,14 @@ class PromotionRequestsPageController extends Controller
             return redirect()->route('promotion-requests')
                 ->with('status', 'Details saved, but document generation failed: '.$e->getMessage());
         }
+    }
+
+    private function parseNewOfficerAction(?string $action): array
+    {
+        $parts = array_map('trim', explode('|', (string) $action));
+        $organizationId = isset($parts[1]) && ctype_digit($parts[1]) ? (int) $parts[1] : 0;
+
+        return [$organizationId];
     }
 
     private function parseRoleChangeAction(?string $action): array

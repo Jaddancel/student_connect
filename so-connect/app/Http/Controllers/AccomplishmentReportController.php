@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Form;
 use App\Models\FormSubmission;
+use App\Models\Semester;
 use App\Models\Template;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
@@ -68,6 +69,7 @@ class AccomplishmentReportController extends Controller
             'organizations' => $organizations,
             'events'        => $events,
             'presidentName' => $presidentName,
+            'currentSchoolYear' => Semester::currentSchoolYear(),
         ]);
     }
 
@@ -85,9 +87,10 @@ class AccomplishmentReportController extends Controller
             'date'            => ['required', 'date'],
             'people'          => ['required', 'string'],
             'problem'         => ['nullable', 'string'],
-            'phots'           => ['nullable', 'file', 'mimes:jpeg,png,pdf', 'max:5120'],
+            'photos'          => ['nullable', 'file', 'mimes:jpeg,png,pdf', 'max:5120'],
             'name'            => ['required', 'string', 'max:255'],
-            'signature1'      => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            'signature'       => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            'adviserName'     => ['nullable', 'string', 'max:255'],
         ]);
 
         $organizationId = (int) $validated['organization_id'];
@@ -109,9 +112,10 @@ class AccomplishmentReportController extends Controller
             'people'       => $validated['people'],
             'problem'      => $validated['problem'] ?? '',
             'name'         => $validated['name'],
+            'adviserName'  => $validated['adviserName'] ?? '',
         ];
 
-        foreach (['phots', 'signature1'] as $fileField) {
+        foreach (['photos', 'signature'] as $fileField) {
             if ($request->hasFile($fileField) && $request->file($fileField)->isValid()) {
                 $file = $request->file($fileField);
                 $path = $file->storeAs(

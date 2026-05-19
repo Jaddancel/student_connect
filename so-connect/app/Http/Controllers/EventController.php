@@ -22,7 +22,7 @@ class EventController extends Controller
     {
         $userId = (int) $request->user()->getKey();
 
-        $organizationIds = DB::table('members')
+        $organizationIds = DB::table('organization_officers')
             ->where('user', $userId)
             ->pluck('organization')
             ->map(fn ($organizationId) => (int) $organizationId)
@@ -100,7 +100,7 @@ class EventController extends Controller
         $userId = (int) $user->getKey();
         $organizationId = (int) $validated['organization_id'];
 
-        $isOrganizationMember = DB::table('members')
+        $isOrganizationMember = DB::table('organization_officers')
             ->where('user', $userId)
             ->where('organization', $organizationId)
             ->exists();
@@ -173,14 +173,10 @@ class EventController extends Controller
 
     public function organizationOfficers(int $organizationId): JsonResponse
     {
-        $officers = DB::table('members as m')
-            ->join('organization_officers as oo', function ($join) {
-                $join->on('oo.member', '=', 'm.member_id')
-                    ->on('oo.organization', '=', 'm.organization');
-            })
-            ->join('users as u', 'u.user_id', '=', 'm.user')
+        $officers = DB::table('organization_officers as oo')
+            ->join('users as u', 'u.user_id', '=', 'oo.user')
             ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
-            ->where('m.organization', $organizationId)
+            ->where('oo.organization', $organizationId)
             ->whereIn('oo.role', ['officer', 'president'])
             ->select([
                 'u.user_id',

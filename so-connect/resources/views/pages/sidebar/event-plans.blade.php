@@ -59,7 +59,13 @@
             @else
                 <div class="space-y-1">
                     @foreach ($grouped['approved'] as $plan)
-                        <x-event-plan-card :plan="$plan" :personNames="$personNames" :orgNames="$orgNames" status="approved" />
+                        <x-event-plan-card
+                            :plan="$plan"
+                            :personNames="$personNames"
+                            :orgNames="$orgNames"
+                            status="approved"
+                            :hasPendingEventRequest="in_array((int) $plan->event_plan_id, $pendingEventRequestParentIds ?? [], true)"
+                        />
                     @endforeach
                 </div>
             @endif

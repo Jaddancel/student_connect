@@ -2,6 +2,11 @@
     $authUser    = auth()->user();
     $authProfile = $authUser?->profile()->first();
 
+    $financialSupport = $authProfile?->financial_support;
+    $financialSupportDisplay = is_array($financialSupport) && count($financialSupport) > 0
+        ? implode(', ', array_map('ucwords', array_map('str_replace', array_fill(0, count($financialSupport), '_'), array_fill(0, count($financialSupport), ' '), $financialSupport)))
+        : null;
+
     $fields = [
         ['label' => 'First Name',    'value' => $authProfile?->first_name],
         ['label' => 'Last Name',     'value' => $authProfile?->last_name],
@@ -13,6 +18,12 @@
         ['label' => 'Religion',      'value' => $authProfile?->religion],
         ['label' => 'Nationality',   'value' => $authProfile?->nationality],
         ['label' => 'Course & Year', 'value' => $authProfile?->course_year],
+        ['label' => 'Position',      'value' => $authProfile?->position],
+        ['label' => 'Birthplace',    'value' => $authProfile?->birthplace],
+        ['label' => 'Home Address',  'value' => $authProfile?->home_address],
+        ['label' => 'Financial Support', 'value' => $financialSupportDisplay],
+        ['label' => 'Scholar Provider',  'value' => $authProfile?->scholar_provider],
+        ['label' => 'Other Financial Support', 'value' => $authProfile?->financial_support_other],
     ];
 @endphp
 

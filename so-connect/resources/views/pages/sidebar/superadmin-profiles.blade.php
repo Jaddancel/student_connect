@@ -18,7 +18,7 @@
             try {
                 const res = await fetch(`/superadmin/profiles/search?q=${encodeURIComponent(this.query)}&excludeSuperadmin=1`);
                 const data = await res.json();
-                this.results = data.profiles ?? data ?? [];
+                this.results = data.data ?? [];
             } catch (e) {
                 this.results = [];
             }

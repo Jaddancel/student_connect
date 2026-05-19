@@ -71,7 +71,6 @@ class MenuHelper
                 'title' => 'Admin',
                 'items' => [
                     ['icon' => 'forms', 'name' => 'Template Manager', 'path' => '/admin/templates'],
-                    ['icon' => 'forms', 'name' => 'Workplans', 'path' => '/admin/workplans'],
                     ['icon' => 'calendar', 'name' => 'Semester Management', 'path' => '/admin/semesters'],
                 ],
             ];
@@ -81,6 +80,7 @@ class MenuHelper
                 'items' => [
                     ['icon' => 'task', 'name' => 'Promotion Requests', 'path' => '/promotion-requests'],
                     ['icon' => 'task', 'name' => 'Event Plan Requests', 'path' => '/admin/event-plan-requests'],
+                    ['icon' => 'forms', 'name' => 'Joint Statements', 'path' => '/admin/joint-statement-requests'],
                 ],
             ];
 
@@ -102,15 +102,14 @@ class MenuHelper
             }
         }
 
-        $isOfficerOrPresident = $user->memberships()
-            ->whereHas('officers', fn ($q) => $q->whereIn('role', ['president', 'officer']))
-            ->exists();
+        $isOfficerOrPresident = $user->officers()->whereIn('role', ['officer', 'president'])->exists();
 
         if ($isOfficerOrPresident) {
             $menuGroups[] = [
                 'title' => 'Organization',
                 'items' => [
                     ['icon' => 'calendar', 'name' => 'Event Plans', 'path' => '/event-plans'],
+                    ['icon' => 'forms', 'name' => 'Joint Statement', 'path' => '/forms/joint-statement'],
                 ],
             ];
 

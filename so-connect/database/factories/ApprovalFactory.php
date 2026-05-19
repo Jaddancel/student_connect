@@ -3,7 +3,6 @@
 namespace Database\Factories;
 
 use App\Models\Approval;
-use App\Models\Member;
 use App\Models\Officer;
 use App\Models\Organization;
 use App\Models\Request;
@@ -43,10 +42,14 @@ class ApprovalFactory extends Factory
                 ->first()?->getKey(),
             'is_rejected' => false,
         ])->afterCreating(function (Approval $approval) use ($randomOrg) {
-            Member::create([
-                'organization' => $randomOrg,
-                'user' => User::query()->inRandomOrder()->first()->user_id,
-                'approval' => $approval->getKey(),
+            \Illuminate\Support\Facades\DB::table('organization_officers')->insert([
+                'organization'  => $randomOrg,
+                'user'          => User::query()->inRandomOrder()->first()->user_id,
+                'approval'      => $approval->getKey(),
+                'role'          => 'member',
+                'member_since'  => now(),
+                'registered_at' => now(),
+                'reassigned_at' => now(),
             ]);
         });
     }
@@ -65,10 +68,14 @@ class ApprovalFactory extends Factory
                 ->first()?->getKey(),
             'is_rejected' => true,
         ])->afterCreating(function (Approval $approval) use ($randomOrg) {
-            Member::create([
-                'organization' => $randomOrg,
-                'user' => User::query()->inRandomOrder()->first()->user_id,
-                'approval' => $approval->getKey(),
+            \Illuminate\Support\Facades\DB::table('organization_officers')->insert([
+                'organization'  => $randomOrg,
+                'user'          => User::query()->inRandomOrder()->first()->user_id,
+                'approval'      => $approval->getKey(),
+                'role'          => 'member',
+                'member_since'  => now(),
+                'registered_at' => now(),
+                'reassigned_at' => now(),
             ]);
         });
     }

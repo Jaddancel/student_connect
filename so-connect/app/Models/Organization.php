@@ -31,11 +31,6 @@ class Organization extends Model
         return $this->hasOne(OrganizationDetail::class, 'detail', 'organization_detail_id');
     }
 
-    public function memberOfThisOrganization()
-    {
-        return $this->belongsTo(Member::class, 'organization', 'organization_id');
-    }
-
     public function events()
     {
         return $this->hasMany(Event::class, 'organization', 'organization_id');

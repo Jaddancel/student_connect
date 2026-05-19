@@ -12,10 +12,8 @@
 
     if ($authUser) {
         $isOfficerOrPresident = $authUser
-            ->memberships()
-            ->whereHas('officers', function ($query) {
-                $query->whereIn('role', ['officer', 'president']);
-            })
+            ->officers()
+            ->whereIn('role', ['officer', 'president'])
             ->exists();
 
         if (! is_bool($resolvedCanRequestEvent)) {
@@ -24,9 +22,9 @@
 
         if ($resolvedCanRequestEvent && $resolvedOrganizations->isEmpty()) {
             $resolvedOrganizations = \App\Models\Organization::query()
-                ->join('members as m', 'm.organization', '=', 'organizations.organization_id')
+                ->join('organization_officers as oo', 'oo.organization', '=', 'organizations.organization_id')
                 ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'organizations.detail')
-                ->where('m.user', (int) $authUser->getKey())
+                ->where('oo.user', (int) $authUser->getKey())
                 ->orderBy('od.name')
                 ->get([
                     'organizations.organization_id',

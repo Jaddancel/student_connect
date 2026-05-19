@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminOfficerCreationController;
 use App\Http\Controllers\Admin\AdminWorkplanController;
 use App\Http\Controllers\Admin\EventPlanRequestController;
+use App\Http\Controllers\Admin\JointStatementRequestController;
 use App\Http\Controllers\Admin\SemesterController;
 use App\Http\Controllers\Admin\TemplateManagerController;
 use App\Http\Controllers\DocumentController;
@@ -22,6 +24,8 @@ use App\Http\Controllers\FinancialReportController;
 use App\Http\Controllers\OrganizationRecognitionController;
 use App\Http\Controllers\WorkplanController;
 use App\Http\Controllers\EventPlanController;
+use App\Http\Controllers\JointStatementController;
+use App\Http\Controllers\StudentLeaderDirectoryController;
 use App\Http\Controllers\RequestDecisionController;
 use App\Http\Controllers\SidebarMenuController;
 use App\Http\Controllers\SuperAdminController;
@@ -87,9 +91,9 @@ Route::get('/calendar', function () {
 
     if ($canRequestEvent) {
         $eventRequestOrganizations = Organization::query()
-            ->join('members as m', 'm.organization', '=', 'organizations.organization_id')
+            ->join('organization_officers as oo', 'oo.organization', '=', 'organizations.organization_id')
             ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'organizations.detail')
-            ->where('m.user', (int) $user->getKey())
+            ->where('oo.user', (int) $user->getKey())
             ->orderBy('od.name')
             ->get([
                 'organizations.organization_id',
@@ -209,13 +213,15 @@ Route::middleware(['auth', 'officer.or.admin'])->group(function () {
         ->name('financial-report.store');
 });
 
-Route::get('/forms/student-leader-directory', function () {
-    return view('pages.form.student-leader-directory', ['title' => 'Directory of Student Leader']);
-})->middleware(['auth', 'role.officer'])->name('student-leader-directory');
+Route::get('/forms/student-leader-directory', [StudentLeaderDirectoryController::class, 'index'])
+    ->middleware(['auth', 'role.officer'])->name('student-leader-directory');
+Route::post('/forms/student-leader-directory', [StudentLeaderDirectoryController::class, 'store'])
+    ->middleware(['auth', 'role.officer'])->name('student-leader-directory.store');
 
-Route::get('/forms/joint-statement', function () {
-    return view('pages.form.joint-statement', ['title' => 'Joint Statement of Involvement/Commitment']);
-})->middleware(['auth', 'role.officer'])->name('joint-statement');
+Route::get('/forms/joint-statement', [JointStatementController::class, 'index'])
+    ->middleware(['auth', 'role.officer'])->name('joint-statement');
+Route::post('/forms/joint-statement', [JointStatementController::class, 'store'])
+    ->middleware(['auth', 'role.officer'])->name('joint-statement.store');
 
 
 Route::middleware(['auth', 'admin'])->group(function () {
@@ -230,8 +236,19 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->whereNumber('requestId')
         ->name('admin.event-plan-requests.decide');
 
+    Route::get('/admin/joint-statement-requests', [JointStatementRequestController::class, 'index'])
+        ->name('admin.joint-statement-requests.index');
+    Route::post('/admin/joint-statement-requests/{requestId}/decide', [JointStatementRequestController::class, 'decide'])
+        ->whereNumber('requestId')
+        ->name('admin.joint-statement-requests.decide');
+
     Route::get('/admin/workplans', [AdminWorkplanController::class, 'index'])
         ->name('admin.workplans.index');
+
+    Route::get('/admin/officers/create', [AdminOfficerCreationController::class, 'create'])
+        ->name('admin.officers.create');
+    Route::post('/admin/officers/create', [AdminOfficerCreationController::class, 'store'])
+        ->name('admin.officers.store');
 });
 
 Route::get('/documents', [DocumentController::class, 'index'])
@@ -292,6 +309,11 @@ Route::post('/superadmin/profile-requests/{requestId}/decision', [SuperAdminCont
     ->whereNumber('requestId')
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.profile-requests.decision');
+
+Route::post('/superadmin/officer-account-requests/{requestId}/decision', [SuperAdminController::class, 'decideOfficerAccountRequest'])
+    ->whereNumber('requestId')
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.officer-account-requests.decision');
 
 Route::get('/superadmin/data-sync', [SuperAdminController::class, 'dataSyncPage'])
     ->middleware(['auth', 'superadmin'])
@@ -475,6 +497,11 @@ Route::get('/api/requests/{actionType}', function (int $actionType) use ($applyA
 Route::post('/api/requests/{requestId}/decision', [RequestDecisionController::class, 'store'])
     ->whereNumber('requestId')
     ->middleware('auth');
+
+Route::post('/api/requests/{requestId}/approve-with-signatures', [RequestDecisionController::class, 'approveWithSignatures'])
+    ->whereNumber('requestId')
+    ->middleware('auth')
+    ->name('requests.approve-with-signatures');
 
 Route::post('/api/events/requests', [EventController::class, 'storeEventPlanRequest'])
     ->middleware('auth')

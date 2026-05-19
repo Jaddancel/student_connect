@@ -200,7 +200,17 @@ class FormTemplateHelper
                 // Preserve the # suffix for multiline detection even though normalizeFieldKey strips it.
                 $effectivePlaceholderKey = str_ends_with($rawPlaceholderKey, '#') ? $placeholderKey.'#' : $placeholderKey;
 
-                $payloadValue = $normalizedPayload[$fieldKey] ?? '';
+                $hasPayloadValue = array_key_exists($fieldKey, $normalizedPayload);
+                $payloadValue = $hasPayloadValue ? $normalizedPayload[$fieldKey] : '';
+
+                if (! $hasPayloadValue && self::placeholderIndex($placeholderKey) !== null) {
+                    $baseFieldKey = self::placeholderBaseKey($fieldKey);
+                    if ($baseFieldKey !== $fieldKey && array_key_exists($baseFieldKey, $normalizedPayload)) {
+                        $fieldKey = $baseFieldKey;
+                        $payloadValue = $normalizedPayload[$fieldKey];
+                        $hasPayloadValue = true;
+                    }
+                }
 
                 if (is_array($payloadValue)) {
                     return [$placeholderKey => self::multipleInputValueForPlaceholder($payloadValue, $effectivePlaceholderKey, $fieldKey, $multipleInputIndexes)];

@@ -24,7 +24,7 @@ class SidebarMenuController extends Controller
         $user = $request->user();
         $userId = (int) $user->getKey();
 
-        $organizationIds = DB::table('members')
+        $organizationIds = DB::table('organization_officers')
             ->where('user', $userId)
             ->pluck('organization')
             ->map(fn ($organizationId) => (int) $organizationId)
@@ -182,6 +182,7 @@ class SidebarMenuController extends Controller
                     return [
                         'request_id' => (int) $actionRequest->request_id,
                         'action_type' => $actionType,
+                        'form_id' => $formId,
                         'type_label' => 'Document Generation Request',
                         'organization_id' => $organizationId,
                         'requester_user_id' => $requesterUserId > 0 ? $requesterUserId : (int) $actionRequest->user,
@@ -293,9 +294,13 @@ class SidebarMenuController extends Controller
             })
             ->values();
 
+        $orgRecognitionForm = Form::query()->where('route_name', 'organization-recognition')->first();
+        $orgRecognitionFormId = $orgRecognitionForm ? (int) $orgRecognitionForm->getKey() : 0;
+
         return view('pages.sidebar.approval-requests', [
             'title' => 'Approval Requests',
             'rows' => $rows,
+            'orgRecognitionFormId' => $orgRecognitionFormId,
         ]);
     }
 
@@ -396,16 +401,12 @@ class SidebarMenuController extends Controller
             }
 
             if ($selectedOrganizationId > 0 && in_array($selectedOrganizationId, $presidentOrganizationIds, true)) {
-                $members = DB::table('members as m')
-                    ->join('users as u', 'u.user_id', '=', 'm.user')
+                $members = DB::table('organization_officers as oo')
+                    ->join('users as u', 'u.user_id', '=', 'oo.user')
                     ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
-                    ->leftJoin('organization_officers as oo', function ($join) {
-                        $join->on('oo.member', '=', 'm.member_id')
-                            ->on('oo.organization', '=', 'm.organization');
-                    })
-                    ->where('m.organization', $selectedOrganizationId)
+                    ->where('oo.organization', $selectedOrganizationId)
                     ->select([
-                        'm.user as user_id',
+                        'oo.user as user_id',
                         'u.user_email',
                         'p.first_name',
                         'p.middle_name',
@@ -472,25 +473,18 @@ class SidebarMenuController extends Controller
             return back()->with('status', 'You are not authorized to request role changes for this organization.');
         }
 
-        $memberRow = DB::table('members as m')
-            ->leftJoin('organization_officers as oo', function ($join) {
-                $join->on('oo.member', '=', 'm.member_id')
-                    ->on('oo.organization', '=', 'm.organization');
-            })
-            ->where('m.organization', $organizationId)
-            ->where('m.user', $targetUserId)
-            ->select([
-                'm.member_id',
-                DB::raw("COALESCE(oo.`role`, 'member') as member_role"),
-            ])
+        $officerRow = DB::table('organization_officers')
+            ->where('organization', $organizationId)
+            ->where('user', $targetUserId)
+            ->select([DB::raw("COALESCE(`role`, 'member') as member_role")])
             ->first();
 
-        if (! $memberRow) {
-            return back()->with('status', 'Selected user is not a member of the selected organization.');
+        if (! $officerRow) {
+            return back()->with('status', 'Selected user is not an officer of the selected organization.');
         }
 
-        $currentRole = in_array($memberRow->member_role, ['member', 'officer', 'president'], true)
-            ? $memberRow->member_role
+        $currentRole = in_array($officerRow->member_role, ['member', 'officer', 'president'], true)
+            ? $officerRow->member_role
             : 'member';
 
         if ($currentRole === 'president') {

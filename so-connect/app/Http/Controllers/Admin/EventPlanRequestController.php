@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Approval;
+use App\Models\Event;
+use App\Models\Event\EventDetail;
 use App\Models\EventPlan;
 use App\Models\Request as ActionRequest;
 use Illuminate\Http\RedirectResponse;
@@ -115,15 +117,39 @@ class EventPlanRequestController extends Controller
 
         $payload = (array) ($actionRequest->payload ?? []);
         $eventPlanId = (int) ($payload['event_plan_id'] ?? 0);
+        $isApproved = $validated['decision'] === 'approve';
 
         if ($eventPlanId > 0) {
-            $newStatus = $validated['decision'] === 'approve' ? 'approved' : 'rejected';
-            EventPlan::query()->where('event_plan_id', $eventPlanId)->update(['status' => $newStatus]);
+            $plan = EventPlan::query()->find($eventPlanId);
+
+            if ($plan && $isApproved && $plan->isEventRequest()) {
+                $eventDetail = EventDetail::query()->create([
+                    'name'       => $plan->title,
+                    'location'   => $plan->event_location,
+                    'desc_text'  => $plan->event_description ?? '',
+                    'start_time' => $plan->event_start_time,
+                    'end_time'   => $plan->event_end_time,
+                ]);
+
+                $event = Event::query()->create([
+                    'organization' => (int) $plan->organization_id,
+                    'creator'      => $userId,
+                    'event_detail' => (int) $eventDetail->getKey(),
+                ]);
+
+                $eventId = (int) $event->getKey();
+
+                $plan->update(['status' => 'approved', 'event_id' => $eventId]);
+
+                EventPlan::query()
+                    ->where('event_plan_id', $plan->parent_plan_id)
+                    ->update(['event_id' => $eventId]);
+            } elseif ($plan) {
+                $plan->update(['status' => $isApproved ? 'approved' : 'rejected']);
+            }
         }
 
-        $message = $validated['decision'] === 'approve'
-            ? 'Event plan approved successfully.'
-            : 'Event plan rejected.';
+        $message = $isApproved ? 'Event plan approved successfully.' : 'Event plan rejected.';
 
         return redirect()->route('admin.event-plan-requests.index')->with('success', $message);
     }

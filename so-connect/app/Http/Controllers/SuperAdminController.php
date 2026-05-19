@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ProfileMatchHelper;
-use App\Models\DashboardWidget;
 use App\Models\Approval;
+use App\Models\DashboardWidget;
 use App\Models\Profile;
+use App\Models\Profile\profileAddress;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
 use App\Models\User;
@@ -14,6 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -111,10 +113,50 @@ class SuperAdminController extends Controller
                 isset($associatedSeedProfileIds[(int) $profile->profile_id]),
             ));
 
+        // New-officer account-creation requests (action_type=12)
+        $newOfficerRequests = ActionRequest::query()
+            ->where('action_type', 12)
+            ->orderByDesc('requested_at')
+            ->limit(300)
+            ->get(['request_id', 'action', 'payload', 'requested_at']);
+
+        $newOfficerApprovalMap = Approval::query()
+            ->whereIn('request', $newOfficerRequests->pluck('request_id')->all())
+            ->get(['request', 'is_rejected'])
+            ->keyBy('request');
+
+        $newOfficerRows = $newOfficerRequests->map(function (ActionRequest $r) use ($newOfficerApprovalMap) {
+            $payload = (array) ($r->payload ?? []);
+            $parts   = array_map('trim', explode('|', (string) $r->action));
+            $name    = trim(($parts[1] ?? '').' '.($parts[3] ?? '').' '.($parts[2] ?? ''));
+
+            $approval = $newOfficerApprovalMap->get((int) $r->request_id);
+            $status   = $this->resolveApprovalStatus($approval);
+
+            return [
+                'request_id'        => (int) $r->request_id,
+                'name'              => $name !== '' ? $name : 'Unknown',
+                'email'             => (string) ($payload['email'] ?? ''),
+                'organization_name' => (string) ($payload['organization_name'] ?? ''),
+                'organization_id'   => (int) ($payload['organization_id'] ?? 0),
+                'position'          => (string) ($payload['position'] ?? ''),
+                'contact_number'    => (string) ($payload['contact_number'] ?? ''),
+                'course'            => (string) ($payload['course'] ?? ''),
+                'year_level'        => (string) ($payload['year_level'] ?? ''),
+                'age'               => (int) ($payload['age'] ?? 0),
+                'sex'               => (string) ($payload['sex'] ?? ''),
+                'requested_at'      => $r->requested_at,
+                'status'            => $status,
+                'status_label'      => ucfirst($status),
+                'can_decide'        => $status === 'pending',
+            ];
+        })->values();
+
         return view('pages.sidebar.superadmin-profile-requests', [
-            'title' => 'Profile Match Requests',
-            'rows' => $rows,
-            'seedProfiles' => $seedProfiles,
+            'title'           => 'Profile Match Requests',
+            'rows'            => $rows,
+            'seedProfiles'    => $seedProfiles,
+            'newOfficerRows'  => $newOfficerRows,
         ]);
     }
 
@@ -268,10 +310,19 @@ class SuperAdminController extends Controller
                 ->values();
         }
 
+        $profileIds = $profileResults->pluck('profile_id')->map(fn ($id) => (int) $id)->all();
+        $userEmailByProfileId = User::query()
+            ->whereIn('profile', $profileIds)
+            ->get(['profile', 'user_email'])
+            ->keyBy(fn ($user) => (int) $user->profile)
+            ->map(fn ($user) => $user->user_email)
+            ->all();
+
         $profiles = $profileResults
             ->map(fn (Profile $profile) => $this->toSearchPayload(
                 $profile,
                 isset($associatedProfileIds[(int) $profile->profile_id]),
+                $userEmailByProfileId[(int) $profile->profile_id] ?? null,
             ));
 
         return response()->json([
@@ -411,6 +462,93 @@ class SuperAdminController extends Controller
             ),
             'stats' => $stats,
         ]);
+    }
+
+    public function decideOfficerAccountRequest(Request $request, int $requestId): JsonResponse
+    {
+        $actionRequest = ActionRequest::query()
+            ->where('action_type', 12)
+            ->findOrFail($requestId);
+
+        $validated = $request->validate([
+            'decision'  => ['required', 'string', Rule::in(['approve', 'reject'])],
+            'country'   => ['required_if:decision,approve', 'nullable', 'string', 'max:255'],
+            'province'  => ['required_if:decision,approve', 'nullable', 'string', 'max:255'],
+            'town'      => ['required_if:decision,approve', 'nullable', 'string', 'max:255'],
+            'barangay'  => ['required_if:decision,approve', 'nullable', 'string', 'max:255'],
+        ]);
+
+        if ($validated['decision'] === 'reject') {
+            Approval::query()->updateOrCreate(
+                ['request' => $requestId],
+                ['admin' => (int) $request->user()->getKey(), 'approved_at' => now(), 'is_rejected' => true],
+            );
+
+            return response()->json(['message' => 'Officer account request rejected.']);
+        }
+
+        $payload = (array) ($actionRequest->payload ?? []);
+
+        DB::transaction(function () use ($validated, $payload, $requestId, $request) {
+            $addr = profileAddress::create([
+                'country'  => $validated['country'],
+                'province' => $validated['province'],
+                'town'     => $validated['town'],
+                'barangay' => $validated['barangay'],
+            ]);
+
+            $profile = Profile::create([
+                'first_name'              => (string) ($payload['first_name'] ?? ''),
+                'middle_name'             => (string) ($payload['middle_name'] ?? ''),
+                'last_name'               => (string) ($payload['last_name'] ?? ''),
+                'contact_number'          => (string) ($payload['contact_number'] ?? ''),
+                'age'                     => (int) ($payload['age'] ?? 0),
+                'sex'                     => (string) ($payload['sex'] ?? ''),
+                'religion'                => (string) ($payload['religious_affiliation'] ?? ''),
+                'nationality'             => (string) ($payload['nationality'] ?? ''),
+                'birthday'                => (string) ($payload['birthday'] ?? ''),
+                'birthplace'              => (string) ($payload['birthplace'] ?? ''),
+                'course_year'             => trim(($payload['course'] ?? '').' - '.($payload['year_level'] ?? '')),
+                'occupation'              => 'Student',
+                'address'                 => (int) $addr->profile_address_id,
+                'position'                => (string) ($payload['position'] ?? ''),
+                'photo'                   => (string) ($payload['photo'] ?? ''),
+                'home_address'            => (string) ($payload['home_address'] ?? ''),
+                'parents_guardian'        => (string) ($payload['parents_guardian'] ?? ''),
+                'talents_hobbies'         => (string) ($payload['talents_hobbies'] ?? ''),
+                'financial_support'       => $payload['financial_support'] ?? [],
+                'scholar_provider'        => (string) ($payload['scholar_provider'] ?? ''),
+                'financial_support_other' => (string) ($payload['others_specify'] ?? ''),
+            ]);
+
+            $user = User::create([
+                'user_email'    => (string) ($payload['email'] ?? ''),
+                'user_password' => 'tAU100!!',
+                'user_type'     => 3,
+                'profile'       => (int) $profile->profile_id,
+                'profile_pending' => false,
+            ]);
+
+            $orgId = (int) ($payload['organization_id'] ?? 0);
+
+            $approvalRecord = Approval::query()->updateOrCreate(
+                ['request' => $requestId],
+                ['admin' => (int) $request->user()->getKey(), 'approved_at' => now(), 'is_rejected' => false],
+            );
+
+            DB::table('organization_officers')->insert([
+                'user'          => (int) $user->user_id,
+                'approval'      => (int) $approvalRecord->approval_id,
+                'organization'  => $orgId,
+                'role'          => 'officer',
+                'yearterm'      => null,
+                'member_since'  => now(),
+                'registered_at' => now(),
+                'reassigned_at' => now(),
+            ]);
+        });
+
+        return response()->json(['message' => 'Officer account created successfully.']);
     }
 
     public function decideProfileRequest(Request $request, int $requestId): JsonResponse
@@ -681,16 +819,17 @@ class SuperAdminController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function toSearchPayload(Profile $profile, bool $hasUser = false): array
+    private function toSearchPayload(Profile $profile, bool $hasUser = false, ?string $userEmail = null): array
     {
         return [
             'profile_id' => (int) $profile->profile_id,
-            'name' => trim(implode(' ', array_filter([
-                $profile->first_name,
-                $profile->middle_name,
-                $profile->last_name,
-            ]))),
+            'first_name' => (string) $profile->first_name,
+            'middle_name' => (string) $profile->middle_name,
+            'last_name' => (string) $profile->last_name,
             'occupation' => (string) $profile->occupation,
+            'course_year' => (string) $profile->course_year,
+            'sex' => (string) $profile->sex,
+            'user_email' => $userEmail,
             'has_user' => $hasUser,
         ];
     }

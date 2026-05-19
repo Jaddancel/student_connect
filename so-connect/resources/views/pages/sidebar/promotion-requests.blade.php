@@ -46,6 +46,7 @@
                             <tr class="border-b border-gray-100 dark:border-gray-800">
                                 <th class="px-5 py-4 font-semibold text-gray-700 dark:text-gray-300">Member</th>
                                 <th class="px-5 py-4 font-semibold text-gray-700 dark:text-gray-300">Organization</th>
+                                <th class="px-5 py-4 font-semibold text-gray-700 dark:text-gray-300">Type</th>
                                 <th class="px-5 py-4 font-semibold text-gray-700 dark:text-gray-300">Promotion</th>
                                 <th class="px-5 py-4 font-semibold text-gray-700 dark:text-gray-300">Source</th>
                                 <th class="px-5 py-4 font-semibold text-gray-700 dark:text-gray-300">Submitted</th>
@@ -59,11 +60,24 @@
                                     data-request-id="{{ $row['request_id'] }}">
                                     <td class="px-5 py-4 text-gray-800 dark:text-white/90 font-medium">{{ $row['requester_name'] }}</td>
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $row['organization_name'] }}</td>
+                                    <td class="px-5 py-4">
+                                        @if(($row['display_type'] ?? '') === 'new_officer')
+                                            <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-500/15 dark:text-purple-400">New Officer</span>
+                                        @else
+                                            <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">Role Change</span>
+                                        @endif
+                                    </td>
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">
-                                        {{ ucfirst($row['current_role']) }} → {{ ucfirst($row['requested_role']) }}
+                                        @if(($row['display_type'] ?? '') === 'new_officer')
+                                            New → Officer
+                                        @else
+                                            {{ ucfirst($row['current_role']) }} → {{ ucfirst($row['requested_role']) }}
+                                        @endif
                                     </td>
                                     <td class="px-5 py-4">
-                                        @if($row['member_initiated'])
+                                        @if(($row['display_type'] ?? '') === 'new_officer')
+                                            <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">Admin</span>
+                                        @elseif($row['member_initiated'])
                                             <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-400">Self-Request</span>
                                         @else
                                             <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">President</span>

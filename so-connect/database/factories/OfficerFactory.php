@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Models\Member;
 use App\Models\Officer;
+use App\Models\User;
 use App\Models\YearTerm;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -20,9 +20,9 @@ class OfficerFactory extends Factory
     public function definition(): array
     {
         return [
-            'member' => null,
-            'role' => null,
-            'yearterm' => YearTerm::query()->inRandomOrder()->first()?->getKey(),
+            'user'         => null,
+            'role'         => null,
+            'yearterm'     => YearTerm::query()->inRandomOrder()->first()?->getKey(),
             'organization' => null,
         ];
     }
@@ -30,10 +30,8 @@ class OfficerFactory extends Factory
     public function assignedToOrganization($orgKey): static
     {
         return $this->state(fn () => [
-            'member' => Member::factory()->officer()->create([
-                'organization' => $orgKey,
-            ])->getKey(),
-            'role' => 'officer',
+            'user'         => User::factory()->create()->getKey(),
+            'role'         => 'officer',
             'organization' => $orgKey,
         ]);
     }
@@ -41,10 +39,8 @@ class OfficerFactory extends Factory
     public function toLeadOrganization($orgKey): static
     {
         return $this->state(fn () => [
-            'member' => Member::factory()->officer()->create([
-                'organization' => $orgKey,
-            ])->getKey(),
-            'role' => 'president',
+            'user'         => User::factory()->create()->getKey(),
+            'role'         => 'president',
             'organization' => $orgKey,
         ]);
     }

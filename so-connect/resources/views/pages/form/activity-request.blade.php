@@ -104,7 +104,10 @@
                         <input type="text" id="projectActivity" name="projectActivity"
                             value="{{ old('projectActivity') }}"
                             placeholder="e.g. General Assembly, Sports Fest, Community Outreach"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('projectActivity') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                        @error('projectActivity')
+                            <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     {{-- Purpose of Activity --}}
@@ -114,7 +117,10 @@
                         </label>
                         <textarea id="purposed" name="purposed" rows="3"
                             placeholder="Describe the purpose of the activity"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">{{ old('purposed') }}</textarea>
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border {{ $errors->has('purposed') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">{{ old('purposed') }}</textarea>
+                        @error('purposed')
+                            <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     {{-- Date / Day / Time / Venue --}}
@@ -125,8 +131,12 @@
                             </label>
                             <input type="date" id="activityDate" name="date"
                                 value="{{ old('date') }}"
-                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
-                            <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Day of week will be auto-computed</p>
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('date') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            @error('date')
+                                <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                            @else
+                                <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Day of week will be auto-computed</p>
+                            @enderror
                         </div>
 
                         <div>
@@ -136,7 +146,10 @@
                             <input type="text" id="time" name="time"
                                 value="{{ old('time') }}"
                                 placeholder="e.g. 8:00 AM – 5:00 PM"
-                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('time') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            @error('time')
+                                <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <div class="sm:col-span-2">
@@ -146,7 +159,10 @@
                             <input type="text" id="placeAndVenue" name="placeAndVenue"
                                 value="{{ old('placeAndVenue') }}"
                                 placeholder="e.g. TAU Gymnasium"
-                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('placeAndVenue') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            @error('placeAndVenue')
+                                <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                            @enderror
                         </div>
                     </div>
 
@@ -197,7 +213,10 @@
                         <input type="text" id="presidentName" name="presidentName"
                             value="{{ old('presidentName', $presidentName) }}"
                             placeholder="Full name of the President"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('presidentName') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                        @error('presidentName')
+                            <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     <div>
@@ -205,9 +224,12 @@
                             Contact Number <span class="text-error-500">*</span>
                         </label>
                         <input type="text" id="presidentContactNo" name="presidentContactNo"
-                            value="{{ old('presidentContactNo') }}"
+                            value="{{ old('presidentContactNo', $presidentContact) }}"
                             placeholder="e.g. 09XX-XXX-XXXX"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('presidentContactNo') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                        @error('presidentContactNo')
+                            <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                        @enderror
                     </div>
                 </div>
             </div>
@@ -223,7 +245,7 @@
                             <input type="text" :name="'adviserRow[' + index + ']'"
                                 x-model="advisers[index]"
                                 :placeholder="'Adviser ' + (index + 1) + ' full name'"
-                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('adviserRow') || $errors->has('adviserRow.*') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                             <button type="button" @click="removeAdviser(index)"
                                 x-show="advisers.length > 1"
                                 class="flex-shrink-0 rounded-lg border border-error-200 p-2 text-error-500 transition hover:bg-error-50 dark:border-error-500/30 dark:hover:bg-error-500/10">
@@ -234,6 +256,9 @@
                         </div>
                     </template>
                 </div>
+                @error('adviserRow')
+                    <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                @enderror
                 <button type="button" @click="addAdviser()"
                     class="mt-2 flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

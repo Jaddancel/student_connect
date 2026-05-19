@@ -74,11 +74,13 @@ class ProfileMatchHelper
     {
         $query = trim($query);
 
+        $columns = ['profile_id', 'first_name', 'middle_name', 'last_name', 'occupation', 'course_year', 'sex'];
+
         if ($query === '') {
             return Profile::query()
                 ->orderByDesc('profile_id')
                 ->limit($limit)
-                ->get(['profile_id', 'first_name', 'middle_name', 'last_name', 'occupation']);
+                ->get($columns);
         }
 
         return Profile::query()
@@ -91,7 +93,7 @@ class ProfileMatchHelper
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->limit($limit)
-            ->get(['profile_id', 'first_name', 'middle_name', 'last_name', 'occupation']);
+            ->get($columns);
     }
 
     private static function normalizedFullName(string $firstName, string $middleName, string $lastName): string

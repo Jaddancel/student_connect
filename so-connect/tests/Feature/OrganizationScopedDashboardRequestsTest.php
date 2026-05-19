@@ -3,7 +3,6 @@
 use App\Models\Approval;
 use App\Models\Event;
 use App\Models\Event\EventDetail;
-use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Profile;
 use App\Models\Request as ActionRequest;
@@ -15,18 +14,12 @@ uses(RefreshDatabase::class);
 
 function assignOfficerRole(User $user, int $organizationId, string $role = 'officer'): void
 {
-    $member = Member::query()->create([
-        'organization' => $organizationId,
-        'approval' => null,
-        'user' => (int) $user->getKey(),
-        'member_since' => now(),
-    ]);
-
     DB::table('organization_officers')->insert([
-        'role' => $role,
-        'organization' => $organizationId,
-        'member' => $member->getKey(),
-        'yearterm' => null,
+        'role'          => $role,
+        'organization'  => $organizationId,
+        'user'          => (int) $user->getKey(),
+        'yearterm'      => null,
+        'member_since'  => now(),
         'registered_at' => now(),
         'reassigned_at' => now(),
     ]);
@@ -171,19 +164,14 @@ it('accepts membership as member only in the receiving organization', function (
         ])
         ->assertOk();
 
-    $newMembership = Member::query()
-        ->where('organization', (int) $receivingOrganization->getKey())
-        ->where('user', (int) $requester->getKey())
-        ->first();
-
-    expect($newMembership)->not()->toBeNull();
-
-    $this->assertDatabaseMissing('organization_officers', [
-        'member' => (int) $newMembership->getKey(),
+    $this->assertDatabaseHas('organization_officers', [
+        'user' => (int) $requester->getKey(),
         'organization' => (int) $receivingOrganization->getKey(),
+        'role' => 'member',
     ]);
 
     $this->assertDatabaseHas('organization_officers', [
+        'user' => (int) $requester->getKey(),
         'organization' => (int) $otherOrganization->getKey(),
     ]);
 });
@@ -242,11 +230,14 @@ it('approves type 7 member to officer role change', function () {
 
     assignOfficerRole($president, (int) $organization->getKey(), 'president');
 
-    $membership = Member::query()->create([
-        'organization' => (int) $organization->getKey(),
-        'approval' => null,
-        'user' => (int) $requester->getKey(),
-        'member_since' => now(),
+    DB::table('organization_officers')->insert([
+        'role'          => 'member',
+        'organization'  => (int) $organization->getKey(),
+        'user'          => (int) $requester->getKey(),
+        'yearterm'      => null,
+        'member_since'  => now(),
+        'registered_at' => now(),
+        'reassigned_at' => now(),
     ]);
 
     $roleChangeRequest = ActionRequest::query()->create([
@@ -263,7 +254,7 @@ it('approves type 7 member to officer role change', function () {
         ->assertOk();
 
     $this->assertDatabaseHas('organization_officers', [
-        'member' => (int) $membership->getKey(),
+        'user' => (int) $requester->getKey(),
         'organization' => (int) $organization->getKey(),
         'role' => 'officer',
     ]);
@@ -280,18 +271,12 @@ it('approves type 7 officer to president role change', function () {
 
     assignOfficerRole($president, (int) $organization->getKey(), 'president');
 
-    $membership = Member::query()->create([
-        'organization' => (int) $organization->getKey(),
-        'approval' => null,
-        'user' => (int) $requester->getKey(),
-        'member_since' => now(),
-    ]);
-
     DB::table('organization_officers')->insert([
-        'role' => 'officer',
-        'organization' => (int) $organization->getKey(),
-        'member' => (int) $membership->getKey(),
-        'yearterm' => null,
+        'role'          => 'officer',
+        'organization'  => (int) $organization->getKey(),
+        'user'          => (int) $requester->getKey(),
+        'yearterm'      => null,
+        'member_since'  => now(),
         'registered_at' => now(),
         'reassigned_at' => now(),
     ]);
@@ -310,7 +295,7 @@ it('approves type 7 officer to president role change', function () {
         ->assertOk();
 
     $this->assertDatabaseHas('organization_officers', [
-        'member' => (int) $membership->getKey(),
+        'user' => (int) $requester->getKey(),
         'organization' => (int) $organization->getKey(),
         'role' => 'president',
     ]);
@@ -358,4 +343,3 @@ it('auto-approves requests when a president creates them', function () {
 
     expect($event)->not()->toBeNull();
 });
-

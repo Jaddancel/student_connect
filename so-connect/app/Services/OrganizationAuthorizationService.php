@@ -15,14 +15,10 @@ class OrganizationAuthorizationService
             return [];
         }
 
-        return DB::table('members as m')
-            ->join('organization_officers as oo', function ($join) {
-                $join->on('oo.member', '=', 'm.member_id')
-                    ->on('oo.organization', '=', 'm.organization');
-            })
-            ->where('m.user', $userId)
-            ->whereIn('oo.role', ['officer', 'president'])
-            ->pluck('m.organization')
+        return DB::table('organization_officers')
+            ->where('user', $userId)
+            ->whereIn('role', ['officer', 'president'])
+            ->pluck('organization')
             ->map(fn ($organizationId) => (int) $organizationId)
             ->filter(fn ($organizationId) => $organizationId > 0)
             ->unique()
@@ -39,14 +35,10 @@ class OrganizationAuthorizationService
             return [];
         }
 
-        return DB::table('members as m')
-            ->join('organization_officers as oo', function ($join) {
-                $join->on('oo.member', '=', 'm.member_id')
-                    ->on('oo.organization', '=', 'm.organization');
-            })
-            ->where('m.user', $userId)
-            ->where('oo.role', 'president')
-            ->pluck('m.organization')
+        return DB::table('organization_officers')
+            ->where('user', $userId)
+            ->where('role', 'president')
+            ->pluck('organization')
             ->map(fn ($organizationId) => (int) $organizationId)
             ->filter(fn ($organizationId) => $organizationId > 0)
             ->unique()

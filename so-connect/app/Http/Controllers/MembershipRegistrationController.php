@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Approval;
-use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
@@ -47,7 +46,7 @@ class MembershipRegistrationController extends Controller
         $userId = (int) $request->user()->getKey();
         $organizationId = (int) $validated['organization_id'];
 
-        $isAlreadyMember = Member::query()
+        $isAlreadyMember = \Illuminate\Support\Facades\DB::table('organization_officers')
             ->where('user', $userId)
             ->where('organization', $organizationId)
             ->exists();

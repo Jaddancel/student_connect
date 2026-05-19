@@ -49,11 +49,11 @@
             {{-- ── SECTION 2 · BASIC INFORMATION ───────────────────────── --}}
             <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6"
                 x-data="{
-                    freshmanNumber: '',
-                    sophomoreNumber: '',
-                    juniorNumber: '',
-                    get total() { return (parseInt(this.freshmanNumber) || 0) + (parseInt(this.sophomoreNumber) || 0) + (parseInt(this.juniorNumber) || 0); },
-                    advisers: {{ Js::from(old('facultyAdvisers', [''])) }},
+                    freshman: {{ old('freshman', 0) }},
+                    sophomore: {{ old('sophomore', 0) }},
+                    junior: {{ old('junior', 0) }},
+                    get total() { return (parseInt(this.freshman) || 0) + (parseInt(this.sophomore) || 0) + (parseInt(this.junior) || 0); },
+                    advisers: {{ Js::from(old('nameOfAdviserRow', [''])) }},
                     addAdviser() { this.advisers.push(''); },
                     removeAdviser(i) { if (this.advisers.length > 1) this.advisers.splice(i, 1); }
                 }">
@@ -63,13 +63,13 @@
 
                     {{-- Organization --}}
                     <div>
-                        <label for="nameOfOrganization" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        <label for="organization" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Name of Organization <span class="text-error-500">*</span>
                         </label>
-                        @if (!$isAdmin && $organizations->count() > 1)
+                        @if ($organizations->count() > 1)
                             <select id="organization_id" name="organization_id"
                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90 mb-2"
-                                x-on:change="document.getElementById('nameOfOrganization').value = $event.target.options[$event.target.selectedIndex].dataset.name">
+                                x-on:change="document.getElementById('organization').value = $event.target.options[$event.target.selectedIndex].dataset.name">
                                 <option value="">Select organization</option>
                                 @foreach ($organizations as $org)
                                     <option value="{{ $org->organization_id }}"
@@ -79,29 +79,29 @@
                                     </option>
                                 @endforeach
                             </select>
-                        @elseif (!$isAdmin && $organizationId)
+                        @elseif ($organizationId)
                             <input type="hidden" name="organization_id" value="{{ $organizationId }}" />
                         @endif
-                        <input type="text" id="nameOfOrganization" name="nameOfOrganization"
+                        <input type="text" id="organization" name="organization"
                             placeholder="Name of student organization"
-                            value="{{ old('nameOfOrganization', $organizations->count() === 1 ? $organizations->first()->organization_name : '') }}"
-                            {{ !$isAdmin && $organizations->count() === 1 ? 'readonly' : '' }}
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90 {{ !$isAdmin && $organizations->count() === 1 ? 'bg-gray-50 dark:bg-gray-900/20' : '' }}" />
-                        @error('nameOfOrganization')
+                            value="{{ old('organization', $organizations->count() === 1 ? $organizations->first()->organization_name : '') }}"
+                            {{ $organizations->count() === 1 ? 'readonly' : '' }}
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('organization') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90 {{ $organizations->count() === 1 ? 'bg-gray-50 dark:bg-gray-900/20' : '' }}" />
+                        @error('organization')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                         @enderror
                     </div>
 
                     {{-- President --}}
                     <div>
-                        <label for="presidentName" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        <label for="name_of_president" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             President <span class="text-error-500">*</span>
                         </label>
-                        <input type="text" id="presidentName" name="presidentName"
+                        <input type="text" id="name_of_president" name="name_of_president"
                             placeholder="Full name of president"
-                            value="{{ old('presidentName', $presidentName) }}"
+                            value="{{ old('name_of_president', $presidentName) }}"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
-                        @error('presidentName')
+                        @error('name_of_president')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                         @enderror
                     </div>
@@ -114,7 +114,7 @@
                         <div class="space-y-2">
                             <template x-for="(adviser, index) in advisers" :key="index">
                                 <div class="flex gap-2 items-center">
-                                    <input type="text" :name="'facultyAdvisers[' + index + ']'"
+                                    <input type="text" :name="'nameOfAdviserRow[' + index + ']'"
                                         x-model="advisers[index]"
                                         :placeholder="'Adviser ' + (index + 1) + ' full name'"
                                         class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
@@ -135,18 +135,18 @@
                             </svg>
                             Add Adviser
                         </button>
-                        @error('facultyAdvisers')
+                        @error('nameOfAdviserRow')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                         @enderror
                     </div>
 
                     {{-- Date of 1st Recognition --}}
                     <div>
-                        <label for="recognitionDate" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        <label for="date" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Date of 1st Recognition
                         </label>
-                        <input type="date" id="recognitionDate" name="recognitionDate"
-                            value="{{ old('recognitionDate') }}"
+                        <input type="date" id="date" name="date"
+                            value="{{ old('date') }}"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                     </div>
 
@@ -155,27 +155,24 @@
                         <p class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">No. of Members</p>
                         <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
                             <div>
-                                <label for="freshmanNumber" class="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-500">Freshman</label>
-                                <input type="number" id="freshmanNumber" name="freshmanNumber" min="0"
+                                <label for="freshman" class="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-500">Freshman</label>
+                                <input type="number" id="freshman" name="freshman" min="0"
                                     placeholder="0"
-                                    value="{{ old('freshmanNumber') }}"
-                                    x-model="freshmanNumber"
+                                    x-model="freshman"
                                     class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                             </div>
                             <div>
-                                <label for="sophomoreNumber" class="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-500">Sophomore</label>
-                                <input type="number" id="sophomoreNumber" name="sophomoreNumber" min="0"
+                                <label for="sophomore" class="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-500">Sophomore</label>
+                                <input type="number" id="sophomore" name="sophomore" min="0"
                                     placeholder="0"
-                                    value="{{ old('sophomoreNumber') }}"
-                                    x-model="sophomoreNumber"
+                                    x-model="sophomore"
                                     class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                             </div>
                             <div>
-                                <label for="juniorNumber" class="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-500">Junior</label>
-                                <input type="number" id="juniorNumber" name="juniorNumber" min="0"
+                                <label for="junior" class="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-500">Junior</label>
+                                <input type="number" id="junior" name="junior" min="0"
                                     placeholder="0"
-                                    value="{{ old('juniorNumber') }}"
-                                    x-model="juniorNumber"
+                                    x-model="junior"
                                     class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                             </div>
                             <div>
@@ -201,25 +198,89 @@
             </div>
 
             {{-- ── SECTION 4 · WORKPLAN ─────────────────────────────────── --}}
-            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6"
+                x-data="{
+                    selectedWorkplanId: '{{ old('workplan_id', $defaultWorkplanId ?? '') }}',
+                    workplanActivities: {{ Js::from($workplanActivities) }},
+                    get currentActivities() {
+                        return this.workplanActivities[this.selectedWorkplanId] || [];
+                    }
+                }">
                 <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">III. Workplan</h3>
-                <p class="mb-3 text-xs text-gray-400 dark:text-gray-500">(Attach additional sheets if necessary)</p>
-                <textarea id="workplan" name="workplan" rows="8"
-                    placeholder="Describe the planned activities and workplan..."
-                    class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">{{ old('workplan') }}</textarea>
+
+                @if ($finalisedWorkplans->isEmpty())
+                    <p class="text-sm text-gray-500 dark:text-gray-400">No finalized workplans found for the current semester.</p>
+                @else
+                    <div class="mb-4">
+                        <label for="workplan_id" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Select Workplan
+                        </label>
+                        <select id="workplan_id" name="workplan_id"
+                            x-model="selectedWorkplanId"
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                            <option value="">— No workplan selected —</option>
+                            @foreach ($finalisedWorkplans as $wp)
+                                <option value="{{ $wp->workplan_id }}"
+                                    {{ old('workplan_id', $defaultWorkplanId) == $wp->workplan_id ? 'selected' : '' }}>
+                                    {{ $wp->semester?->name ?? 'Workplan #' . $wp->workplan_id }}
+                                    (finalized {{ $wp->finalized_at?->format('M d, Y') ?? 'N/A' }})
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div x-show="currentActivities.length > 0">
+                        <p class="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">Activities in selected workplan:</p>
+                        <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                            <table class="min-w-full text-sm">
+                                <thead class="bg-gray-50 dark:bg-gray-800">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Activity</th>
+                                        <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Target Date</th>
+                                        <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Resources</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="(activity, i) in currentActivities" :key="i">
+                                        <tr class="border-t border-gray-100 dark:border-gray-800">
+                                            <td class="px-4 py-2 text-gray-700 dark:text-gray-300" x-text="activity.title"></td>
+                                            <td class="px-4 py-2 text-gray-600 dark:text-gray-400" x-text="activity.date"></td>
+                                            <td class="px-4 py-2 text-gray-600 dark:text-gray-400" x-text="activity.resources"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <p x-show="currentActivities.length === 0 && selectedWorkplanId !== ''"
+                        class="text-sm text-gray-400 dark:text-gray-500 mt-2">No approved activities found for this workplan.</p>
+                @endif
             </div>
 
-            {{-- ── SECTION 5 · PRESIDENT ───────────────────────────────── --}}
+            {{-- ── SECTION 5 · PRESIDENT SIGNATORY ─────────────────────── --}}
             <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
                 <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">President</h3>
 
-                <div>
-                    <label for="president_name_display" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                        Signature over Printed Name
-                    </label>
-                    <input type="text" id="president_name_display" disabled
-                        value="{{ old('presidentName', $presidentName) }}"
-                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/20 dark:text-gray-400" />
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label for="name_of_president_sig" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Printed Name
+                        </label>
+                        <input type="text" id="name_of_president_sig" disabled
+                            value="{{ old('name_of_president', $presidentName) }}"
+                            class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/20 dark:text-gray-400" />
+                    </div>
+                    <div>
+                        <label for="signaturePresident" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Signature <span class="text-error-500">*</span>
+                        </label>
+                        <input type="file" id="signaturePresident" name="signaturePresident"
+                            accept="image/jpeg,image/png"
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                        @error('signaturePresident')
+                            <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                        @enderror
+                    </div>
                 </div>
             </div>
 
@@ -229,58 +290,27 @@
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                        <label for="adviserLeft" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        <label for="nameOfAdviser1" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Adviser
                         </label>
-                        <input type="text" id="adviserLeft" name="adviserLeft"
+                        <input type="text" id="nameOfAdviser1" name="nameOfAdviser1"
                             placeholder="Adviser name"
-                            value="{{ old('adviserLeft') }}"
+                            value="{{ old('nameOfAdviser1') }}"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                     </div>
                     <div>
-                        <label for="adviserRight" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        <label for="nameOfAdviser2" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Adviser
                         </label>
-                        <input type="text" id="adviserRight" name="adviserRight"
+                        <input type="text" id="nameOfAdviser2" name="nameOfAdviser2"
                             placeholder="Adviser name"
-                            value="{{ old('adviserRight') }}"
+                            value="{{ old('nameOfAdviser2') }}"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                     </div>
                 </div>
             </div>
 
-            {{-- ── SECTION 7 · APPROVAL (Admin only) ───────────────────── --}}
-            @if ($isAdmin)
-                <div class="rounded-2xl border border-brand-200 bg-brand-50/50 p-5 dark:border-brand-800 dark:bg-brand-900/10 lg:p-6">
-                    <div class="mb-4 flex items-center gap-2">
-                        <h3 class="border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Approval</h3>
-                        <span class="rounded bg-brand-100 px-1.5 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-900/30 dark:text-brand-400">Admin only</span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                            <label for="chair" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                                Chair, Student Organizations
-                            </label>
-                            <input type="text" id="chair" name="chair"
-                                placeholder="Name of chair"
-                                value="{{ old('chair') }}"
-                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
-                        </div>
-                        <div>
-                            <label for="director" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                                Director, Student Services and Development
-                            </label>
-                            <input type="text" id="director" name="director"
-                                placeholder="Name of director"
-                                value="{{ old('director') }}"
-                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
-                        </div>
-                    </div>
-                </div>
-            @endif
-
-            {{-- ── SECTION 8 · SUBMIT ───────────────────────────────────── --}}
+            {{-- ── SECTION 7 · SUBMIT ───────────────────────────────────── --}}
             <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
                 <div class="flex justify-end gap-3">
                     <button type="reset"
@@ -289,7 +319,7 @@
                     </button>
                     <button type="submit"
                         class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">
-                        {{ $isAdmin ? 'Submit & Auto-Approve' : 'Submit for Approval' }}
+                        Submit for Approval
                     </button>
                 </div>
             </div>

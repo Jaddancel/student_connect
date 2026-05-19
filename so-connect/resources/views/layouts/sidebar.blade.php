@@ -213,6 +213,11 @@
                                                         new
                                                     </span>
                                                 @endif
+                                                @if (($item['path'] ?? '') === '/documents' && !empty($newDocumentCount))
+                                                    <span class="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-500 px-1.5 text-[10px] font-semibold text-white">
+                                                        {{ $newDocumentCount > 99 ? '99+' : $newDocumentCount }}
+                                                    </span>
+                                                @endif
                                             </span>
                                         </a>
                                     @endif

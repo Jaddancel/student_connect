@@ -242,16 +242,14 @@ class PolicySecurityRequestController extends Controller
             ->count();
 
         $officerQuery = \DB::table('organization_officers');
-        $memberQuery = \DB::table('members');
 
         if ($presidentOrganizationIds !== null) {
             $officerQuery->whereIn('organization', $presidentOrganizationIds);
-            $memberQuery->whereIn('organization', $presidentOrganizationIds);
         }
 
         $adminsCount = (int) (clone $officerQuery)->where('role', 'president')->count();
         $officersCount = (int) (clone $officerQuery)->where('role', 'officer')->count();
-        $membershipsCount = (int) $memberQuery->count();
+        $membershipsCount = (int) (clone $officerQuery)->where('role', 'member')->count();
 
         return response()->json([
             'data' => [

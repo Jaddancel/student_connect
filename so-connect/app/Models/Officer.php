@@ -21,7 +21,10 @@ class Officer extends Model
 
     protected $fillable = [
         'role',
-        'member',
+        'organization',
+        'user',
+        'approval',
+        'member_since',
         'yearterm',
     ];
 
@@ -30,17 +33,23 @@ class Officer extends Model
         return [
             self::CREATED_AT => 'datetime',
             self::UPDATED_AT => 'datetime',
+            'member_since' => 'datetime',
         ];
     }
 
-    public function member()
+    public function user()
     {
-        return $this->belongsTo(Member::class, 'member', 'member_id');
+        return $this->belongsTo(User::class, 'user', 'user_id');
     }
 
-    public function organizationOfOfficer()
+    public function organization()
     {
-        return $this->belongsToMany(Organization::class, 'organization', 'organization_id');
+        return $this->belongsTo(Organization::class, 'organization', 'organization_id');
+    }
+
+    public function approval()
+    {
+        return $this->belongsTo(Approval::class, 'approval', 'approval_id');
     }
 
     public function yearTerm()

@@ -7,7 +7,6 @@ use App\Models\Approval;
 use App\Models\Event;
 use App\Models\Event\EventDetail;
 use App\Models\EventPlan;
-use App\Models\Member;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
 use Illuminate\Support\Facades\DB;
@@ -48,20 +47,16 @@ class RequestApprovalService
             [$targetOrganizationId, $targetUserId] = $this->resolveMembershipDetails($actionRequest);
 
             if ($targetOrganizationId > 0 && $targetUserId > 0) {
-                $membership = Member::query()->firstOrCreate(
-                    [
-                        'organization' => $targetOrganizationId,
-                        'user' => $targetUserId,
-                    ],
-                    [
-                        'member_since' => now(),
-                    ]
-                );
-
                 DB::table('organization_officers')
-                    ->where('member', (int) $membership->getKey())
+                    ->where('user', $targetUserId)
                     ->where('organization', $targetOrganizationId)
+                    ->whereIn('role', ['officer', 'president'])
                     ->delete();
+
+                DB::table('organization_officers')->updateOrInsert(
+                    ['user' => $targetUserId, 'organization' => $targetOrganizationId],
+                    ['role' => 'member', 'member_since' => now(), 'registered_at' => now(), 'reassigned_at' => now()]
+                );
             }
         }
 
@@ -69,52 +64,32 @@ class RequestApprovalService
             [$targetUserId, $targetOrganizationId, $currentRole] = $this->resolveRoleChangeDetails($actionRequest);
 
             if ($targetOrganizationId > 0 && $targetUserId > 0) {
-                $membership = Member::query()->firstOrCreate(
-                    [
-                        'organization' => $targetOrganizationId,
-                        'user' => $targetUserId,
-                    ],
-                    [
-                        'member_since' => now(),
-                    ]
-                );
-
                 if ($currentRole === 'member') {
                     DB::table('organization_officers')->updateOrInsert(
-                        [
-                            'member' => (int) $membership->getKey(),
-                            'organization' => $targetOrganizationId,
-                        ],
-                        [
-                            'role' => 'officer',
-                            'yearterm' => null,
-                            'registered_at' => now(),
-                            'reassigned_at' => now(),
-                        ]
+                        ['user' => $targetUserId, 'organization' => $targetOrganizationId],
+                        ['role' => 'officer', 'yearterm' => null, 'registered_at' => now(), 'reassigned_at' => now()]
                     );
                 }
 
                 if ($currentRole === 'officer') {
                     DB::table('organization_officers')
-                        ->where('member', (int) $membership->getKey())
+                        ->where('user', $targetUserId)
                         ->where('organization', $targetOrganizationId)
-                        ->update([
-                            'role' => 'president',
-                            'reassigned_at' => now(),
-                        ]);
+                        ->update(['role' => 'president', 'reassigned_at' => now()]);
 
                     $hasPresidentRole = DB::table('organization_officers')
-                        ->where('member', (int) $membership->getKey())
+                        ->where('user', $targetUserId)
                         ->where('organization', $targetOrganizationId)
                         ->where('role', 'president')
                         ->exists();
 
                     if (! $hasPresidentRole) {
                         DB::table('organization_officers')->insert([
-                            'member' => (int) $membership->getKey(),
+                            'user' => $targetUserId,
                             'organization' => $targetOrganizationId,
                             'role' => 'president',
                             'yearterm' => null,
+                            'member_since' => now(),
                             'registered_at' => now(),
                             'reassigned_at' => now(),
                         ]);

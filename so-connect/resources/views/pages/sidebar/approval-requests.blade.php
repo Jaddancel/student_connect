@@ -76,12 +76,21 @@
                                     <td class="px-4 py-3 text-sm">
                                         @if ($row['can_decide'])
                                             <div class="flex items-center gap-2">
-                                                <button type="button"
-                                                    class="inline-flex items-center rounded-lg bg-success-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-success-700"
-                                                    data-approval-action="approve"
-                                                    data-request-id="{{ $row['request_id'] }}">
-                                                    Approve
-                                                </button>
+                                                @if (($row['action_type'] ?? 0) === 3 && ($row['form_id'] ?? 0) === $orgRecognitionFormId && $orgRecognitionFormId > 0)
+                                                    <button type="button"
+                                                        class="inline-flex items-center rounded-lg bg-success-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-success-700"
+                                                        data-approval-action="approve-with-signatures"
+                                                        data-request-id="{{ $row['request_id'] }}">
+                                                        Approve
+                                                    </button>
+                                                @else
+                                                    <button type="button"
+                                                        class="inline-flex items-center rounded-lg bg-success-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-success-700"
+                                                        data-approval-action="approve"
+                                                        data-request-id="{{ $row['request_id'] }}">
+                                                        Approve
+                                                    </button>
+                                                @endif
                                                 <button type="button"
                                                     class="inline-flex items-center rounded-lg bg-error-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-error-700"
                                                     data-approval-action="reject"
@@ -101,6 +110,58 @@
             @endif
         </div>
     </div>
+
+    {{-- ── ORG RECOGNITION APPROVAL MODAL ─────────────────────────────── --}}
+    <div id="org-recognition-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
+        <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
+            <h3 class="mb-1 text-base font-semibold text-gray-800 dark:text-white/90">Approve Application for Recognition/Renewal</h3>
+            <p class="mb-5 text-xs text-gray-500 dark:text-gray-400">Please fill in the approval details before confirming.</p>
+
+            <div class="space-y-4">
+                <div>
+                    <label for="modal-chair" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        Chair, Student Organizations <span class="text-error-500">*</span>
+                    </label>
+                    <input type="text" id="modal-chair" placeholder="Full name"
+                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                </div>
+                <div>
+                    <label for="modal-sig-chair" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        Chair Signature (Recommending Approval) <span class="text-error-500">*</span>
+                    </label>
+                    <input type="file" id="modal-sig-chair" accept="image/jpeg,image/png"
+                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                </div>
+                <div>
+                    <label for="modal-director" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        Director, Student Services and Development <span class="text-error-500">*</span>
+                    </label>
+                    <input type="text" id="modal-director" placeholder="Full name"
+                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                </div>
+                <div>
+                    <label for="modal-sig-director" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        Director Signature (Approved) <span class="text-error-500">*</span>
+                    </label>
+                    <input type="file" id="modal-sig-director" accept="image/jpeg,image/png"
+                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                </div>
+
+                <p id="modal-error" class="hidden text-xs text-error-500"></p>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" id="modal-cancel"
+                    class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                    Cancel
+                </button>
+                <button type="button" id="modal-confirm"
+                    class="rounded-lg bg-success-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-success-700">
+                    Confirm Approval
+                </button>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -108,6 +169,14 @@
         document.addEventListener('DOMContentLoaded', () => {
             const feedback = document.getElementById('approval-request-feedback');
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+            const modal = document.getElementById('org-recognition-modal');
+            const modalCancel = document.getElementById('modal-cancel');
+            const modalConfirm = document.getElementById('modal-confirm');
+            const modalError = document.getElementById('modal-error');
+            let pendingRequestId = null;
+            let pendingButton = null;
+            let pendingRow = null;
 
             const setFeedback = (message, type = 'info') => {
                 feedback.classList.remove('hidden', 'border', 'border-success-300', 'border-error-300',
@@ -122,16 +191,98 @@
                 feedback.textContent = message;
             };
 
+            const openModal = (requestId, button, row) => {
+                pendingRequestId = requestId;
+                pendingButton = button;
+                pendingRow = row;
+                document.getElementById('modal-chair').value = '';
+                document.getElementById('modal-director').value = '';
+                document.getElementById('modal-sig-chair').value = '';
+                document.getElementById('modal-sig-director').value = '';
+                modalError.classList.add('hidden');
+                modalError.textContent = '';
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            };
+
+            const closeModal = () => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                if (pendingButton) pendingButton.disabled = false;
+                if (pendingRow) pendingRow.classList.remove('opacity-60');
+                pendingRequestId = null;
+                pendingButton = null;
+                pendingRow = null;
+            };
+
+            modalCancel?.addEventListener('click', closeModal);
+
+            modal?.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+
+            modalConfirm?.addEventListener('click', async () => {
+                const chair = document.getElementById('modal-chair').value.trim();
+                const director = document.getElementById('modal-director').value.trim();
+                const sigChair = document.getElementById('modal-sig-chair').files[0];
+                const sigDirector = document.getElementById('modal-sig-director').files[0];
+
+                if (!chair || !director || !sigChair || !sigDirector) {
+                    modalError.textContent = 'All fields are required.';
+                    modalError.classList.remove('hidden');
+                    return;
+                }
+
+                modalConfirm.disabled = true;
+                modalError.classList.add('hidden');
+
+                const formData = new FormData();
+                formData.append('chair', chair);
+                formData.append('director', director);
+                formData.append('signatureChair', sigChair);
+                formData.append('signatureDirector', sigDirector);
+                formData.append('_token', csrfToken);
+
+                try {
+                    const response = await fetch(`/api/requests/${pendingRequestId}/approve-with-signatures`, {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json' },
+                        body: formData,
+                    });
+
+                    const payload = await response.json().catch(() => ({}));
+
+                    if (!response.ok) {
+                        throw new Error(payload?.message || 'Unable to submit approval.');
+                    }
+
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                    setFeedback(payload?.message || 'Request approved successfully.');
+                    window.location.reload();
+                } catch (error) {
+                    modalError.textContent = error instanceof Error ? error.message : 'Unable to submit approval.';
+                    modalError.classList.remove('hidden');
+                    modalConfirm.disabled = false;
+                }
+            });
+
             document.querySelectorAll('[data-approval-action]').forEach((button) => {
                 button.addEventListener('click', async () => {
                     const requestId = button.getAttribute('data-request-id');
                     const decision = button.getAttribute('data-approval-action');
 
-                    if (!requestId || !decision) {
+                    if (!requestId || !decision) return;
+
+                    const row = document.getElementById(`approval-row-${requestId}`);
+
+                    if (decision === 'approve-with-signatures') {
+                        row?.classList.add('opacity-60');
+                        button.disabled = true;
+                        openModal(requestId, button, row);
                         return;
                     }
 
-                    const row = document.getElementById(`approval-row-${requestId}`);
                     row?.classList.add('opacity-60');
                     button.disabled = true;
 
@@ -143,9 +294,7 @@
                                 'Accept': 'application/json',
                                 'X-CSRF-TOKEN': csrfToken,
                             },
-                            body: JSON.stringify({
-                                decision
-                            }),
+                            body: JSON.stringify({ decision }),
                         });
 
                         const payload = await response.json().catch(() => ({}));
@@ -157,8 +306,7 @@
                         setFeedback(payload?.message || 'Decision submitted successfully.');
                         window.location.reload();
                     } catch (error) {
-                        setFeedback(error instanceof Error ? error.message :
-                            'Unable to submit decision.', 'error');
+                        setFeedback(error instanceof Error ? error.message : 'Unable to submit decision.', 'error');
                         button.disabled = false;
                         row?.classList.remove('opacity-60');
                     }

@@ -35,6 +35,7 @@
                     <table class="w-full text-left text-sm">
                         <thead>
                             <tr class="border-b border-gray-100 dark:border-gray-800">
+                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Type</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Organization</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Requester</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Plan Title</th>
@@ -46,10 +47,23 @@
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                             @foreach ($pending as $row)
                                 <tr x-data="{ rejectOpen: false }" class="transition hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                    <td class="px-6 py-4">
+                                        @if ($row['plan']?->isEventRequest())
+                                            <span class="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-500/15 dark:text-brand-400">Event Creation</span>
+                                        @else
+                                            <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">Event Plan</span>
+                                        @endif
+                                    </td>
                                     <td class="px-6 py-4 font-medium text-gray-800 dark:text-white/90">{{ $row['org_name'] }}</td>
                                     <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ $row['requester_name'] }}</td>
                                     <td class="px-6 py-4 text-gray-800 dark:text-white/80">
                                         {{ $row['plan']?->title ?? '—' }}
+                                        @if ($row['plan']?->isEventRequest())
+                                            <p class="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+                                                {{ $row['plan']->event_location }}
+                                                &middot; {{ $row['plan']->event_start_time?->format('M d, Y g:i A') }}
+                                            </p>
+                                        @endif
                                     </td>
                                     <td class="px-6 py-4 text-gray-600 dark:text-gray-400">
                                         @if ($row['plan']?->target_date)

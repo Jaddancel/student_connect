@@ -31,7 +31,7 @@ class Dashboard extends Controller
     {
         $user = auth()->user();
 
-        $organizationIds = DB::table('members')
+        $organizationIds = DB::table('organization_officers')
             ->where('user', (int) $user->getKey())
             ->pluck('organization')
             ->map(fn ($id) => (int) $id)

@@ -19,9 +19,7 @@ class DashboardSearchHelper
         $items[] = ['name' => 'Profile', 'path' => '/profile', 'icon' => 'user-profile', 'category' => 'Account', 'keywords' => 'user personal info account'];
 
         // Officer/President forms
-        $isOfficerOrPresident = $user->memberships()
-            ->whereHas('officers', fn ($q) => $q->whereIn('role', ['president', 'officer']))
-            ->exists();
+        $isOfficerOrPresident = $user->officers()->whereIn('role', ['officer', 'president'])->exists();
 
         if ($isOfficerOrPresident) {
             $items[] = ['name' => 'Event Plans', 'path' => '/event-plans', 'icon' => 'calendar', 'category' => 'Organization', 'keywords' => 'event plans activities calendar submit'];
