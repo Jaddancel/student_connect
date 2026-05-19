@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AdminOfficerCreationController;
 use App\Http\Controllers\Admin\AdminWorkplanController;
 use App\Http\Controllers\Admin\EventPlanRequestController;
 use App\Http\Controllers\Admin\JointStatementRequestController;
+use App\Http\Controllers\Admin\ProjectRequestController;
 use App\Http\Controllers\Admin\SemesterController;
 use App\Http\Controllers\Admin\TemplateManagerController;
 use App\Http\Controllers\DocumentController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\AccomplishmentReportController;
 use App\Http\Controllers\ActivityRequestController;
 use App\Http\Controllers\FinancialReportController;
 use App\Http\Controllers\OrganizationRecognitionController;
+use App\Http\Controllers\ProjectRequestController as UserProjectRequestController;
 use App\Http\Controllers\WorkplanController;
 use App\Http\Controllers\EventPlanController;
 use App\Http\Controllers\JointStatementController;
@@ -75,6 +77,10 @@ Route::post('/login', Login::class)->middleware('guest');
 Route::post('/signup', Register::class)->middleware('guest');
 Route::post('/logout', Logout::class)->middleware('auth');
 
+Route::post('/events', [EventController::class, 'store'])
+    ->middleware('auth')
+    ->name('events.create');
+
 // Auth pages.
 
 Route::get('/login', [UserController::class, 'loginPage'])->name('login');
@@ -85,6 +91,19 @@ Route::get('/calendar', function () {
     $isOfficerOrPresident = Gate::forUser($user)->allows('access-dashboard', 'officer')
         || Gate::forUser($user)->allows('access-dashboard', 'president');
     $canRequestEvent = $isOfficerOrPresident;
+    $profileRow = DB::table('users as u')
+        ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+        ->where('u.user_id', (int) $user->getKey())
+        ->select(['p.first_name', 'p.middle_name', 'p.last_name', 'p.contact_number'])
+        ->first();
+
+    $presidentName = $profileRow ? trim(implode(' ', array_filter([
+        $profileRow->first_name,
+        $profileRow->middle_name,
+        $profileRow->last_name,
+    ]))) : '';
+
+    $presidentContact = $profileRow?->contact_number ?? '';
 
     $eventRequestOrganizations = collect();
     $lockedOrgIds = [];
@@ -120,6 +139,8 @@ Route::get('/calendar', function () {
         'canRequestEvent' => $canRequestEvent,
         'eventRequestOrganizations' => $eventRequestOrganizations,
         'lockedOrgIds' => $lockedOrgIds,
+        'presidentName' => $presidentName,
+        'presidentContact' => $presidentContact,
     ]);
 })->middleware('auth')->name('calendar');
 
@@ -196,6 +217,11 @@ Route::middleware(['auth', 'officer.or.admin'])->group(function () {
     Route::post('/forms/activity-request', [ActivityRequestController::class, 'store'])
         ->name('activity-request.store');
 
+    Route::get('/forms/project-request', [UserProjectRequestController::class, 'index'])
+        ->name('project-request');
+    Route::post('/forms/project-request', [UserProjectRequestController::class, 'store'])
+        ->name('project-request.store');
+
     Route::get('/forms/workplan/{workplan_id}', [WorkplanController::class, 'review'])
         ->whereNumber('workplan_id')
         ->name('workplan.review');
@@ -235,6 +261,12 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/event-plan-requests/{requestId}/decide', [EventPlanRequestController::class, 'decide'])
         ->whereNumber('requestId')
         ->name('admin.event-plan-requests.decide');
+
+    Route::get('/admin/project-requests', [ProjectRequestController::class, 'index'])
+        ->name('admin.project-requests.index');
+    Route::post('/admin/project-requests/{requestId}/decide', [ProjectRequestController::class, 'decide'])
+        ->whereNumber('requestId')
+        ->name('admin.project-requests.decide');
 
     Route::get('/admin/joint-statement-requests', [JointStatementRequestController::class, 'index'])
         ->name('admin.joint-statement-requests.index');

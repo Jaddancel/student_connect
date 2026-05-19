@@ -5,61 +5,79 @@
 
     <div class="space-y-6">
 
-        @if(session('success'))
-            <div class="rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm font-medium text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400">
+        @if (session('success'))
+            <div
+                class="rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm font-medium text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400">
                 {{ session('success') }}
             </div>
         @endif
-        @if(session('status'))
-            <div class="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm font-medium text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-400">
+        @if (session('status'))
+            <div
+                class="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm font-medium text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-400">
                 {{ session('status') }}
             </div>
         @endif
 
-        <div class="rounded-2xl border border-gray-200 bg-palette-lime-pale p-5 shadow-[inset_0_4px_0_var(--color-palette-lime)] dark:border-gray-800 dark:bg-white/[0.03] dark:shadow-[inset_0_4px_0_rgb(165_255_91_/_0.3)] lg:p-6">
-            <h2 class="text-base font-bold text-gray-900 dark:text-white uppercase tracking-wide text-center">Republic of the Philippines</h2>
-            <p class="text-center text-sm font-semibold text-gray-800 dark:text-white/90 mt-0.5">TARLAC AGRICULTURAL UNIVERSITY</p>
+        <div
+            class="rounded-2xl border border-gray-200 bg-palette-lime-pale p-5 shadow-[inset_0_4px_0_var(--color-palette-lime)] dark:border-gray-800 dark:bg-white/[0.03] dark:shadow-[inset_0_4px_0_rgb(165_255_91_/_0.3)] lg:p-6">
+            <h2 class="text-base font-bold text-gray-900 dark:text-white uppercase tracking-wide text-center">Republic of the
+                Philippines</h2>
+            <p class="text-center text-sm font-semibold text-gray-800 dark:text-white/90 mt-0.5">TARLAC AGRICULTURAL
+                UNIVERSITY</p>
             <p class="text-center text-xs text-gray-500 dark:text-gray-400">Camiling, Tarlac</p>
-            <p class="text-center text-sm font-medium text-gray-700 dark:text-gray-300 mt-2">OFFICE OF STUDENT SERVICES AND DEVELOPMENT</p>
+            <p class="text-center text-sm font-medium text-gray-700 dark:text-gray-300 mt-2">OFFICE OF STUDENT SERVICES AND
+                DEVELOPMENT</p>
             <p class="text-center text-xs text-gray-500 dark:text-gray-400">Student Development Unit</p>
-            <p class="text-center text-base font-bold text-gray-900 dark:text-white mt-3 tracking-widest uppercase">Request for Organizational Meeting / Services / Projects / Activities</p>
+            <p class="text-center text-base font-bold text-gray-900 dark:text-white mt-3 tracking-widest uppercase">Request
+                for Organizational Meeting / Services / Projects / Activities</p>
         </div>
 
-        <form action="{{ route('activity-request.store') }}" method="POST"
-            class="space-y-6"
-            x-data="{
-                orgId: '{{ $organizations->first()?->organization_id ?? '' }}',
-                orgName: '{{ addslashes($organizations->first()?->organization_name ?? '') }}',
-                onOrgChange(el) {
-                    const opt = el.options[el.selectedIndex];
-                    this.orgName = opt ? opt.dataset.name : '';
-                },
-                facilities: {{ Js::from(old('facilitiesOrEquipmentToBeUsedRow', ['', ''])) }},
-                addFacility() {
-                    if (this.facilities.length < 10) this.facilities.push('');
-                },
-                removeFacility(i) {
-                    if (this.facilities.length > 1) this.facilities.splice(i, 1);
-                },
-                advisers: {{ Js::from(old('adviserRow', [''])) }},
-                addAdviser() {
-                    this.advisers.push('');
-                },
-                removeAdviser(i) {
-                    if (this.advisers.length > 1) this.advisers.splice(i, 1);
-                },
-            }">
+        <form action="{{ route('activity-request.store') }}" method="POST" class="space-y-6" x-data="{
+            orgId: '{{ $organizations->first()?->organization_id ?? '' }}',
+            orgName: '{{ addslashes($organizations->first()?->organization_name ?? '') }}',
+            onOrgChange(el) {
+                const opt = el.options[el.selectedIndex];
+                this.orgName = opt ? opt.dataset.name : '';
+            },
+            facilities: {{ Js::from(old('facilitiesOrEquipmentToBeUsedRow', ['', ''])) }},
+            addFacility() {
+                if (this.facilities.length < 10) this.facilities.push('');
+            },
+            removeFacility(i) {
+                if (this.facilities.length > 1) this.facilities.splice(i, 1);
+            },
+            advisers: {{ Js::from(old('adviserRow', [''])) }},
+            addAdviser() {
+                this.advisers.push('');
+            },
+            removeAdviser(i) {
+                if (this.advisers.length > 1) this.advisers.splice(i, 1);
+            },
+            activityTypes: {{ Js::from(old('activityTypes', [])) }},
+            activityTypeOther: {{ Js::from(old('activityTypeOther', '')) }},
+            areaScope: {{ Js::from(old('areaScope', '')) }},
+            areaScopeOther: {{ Js::from(old('areaScopeOther', '')) }},
+            sponsor: {{ Js::from(old('sponsor', '')) }},
+            sponsorOther: {{ Js::from(old('sponsorOther', '')) }},
+            extensionServices: {{ Js::from(old('extensionServices', '')) }},
+        }">
             @csrf
 
-            @if($errors->any())
-                <div class="rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
-                    @foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach
+            @if ($errors->any())
+                <div
+                    class="rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
+                    @foreach ($errors->all() as $error)
+                        <p>{{ $error }}</p>
+                    @endforeach
                 </div>
             @endif
 
             {{-- SECTION 1 · ORGANIZATION & DATE --}}
-            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Organization Details</h3>
+            <div
+                class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3
+                    class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">
+                    Organization Details</h3>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-1">
                     {{-- Organization --}}
@@ -67,38 +85,44 @@
                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Name of Organization <span class="text-error-500">*</span>
                         </label>
-                        @if($organizations->count() > 1)
+                        @if ($organizations->count() > 1)
                             <select name="organization_id"
                                 @change="onOrgChange($el); $el.form.querySelector('[name=organization]').value = orgName"
                                 x-init="orgId = '{{ old('organization_id', $organizations->first()?->organization_id ?? '') }}'"
                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
-                                @foreach($organizations as $org)
-                                    <option value="{{ $org->organization_id }}"
-                                        data-name="{{ $org->organization_name }}"
+                                @foreach ($organizations as $org)
+                                    <option value="{{ $org->organization_id }}" data-name="{{ $org->organization_name }}"
                                         @selected(old('organization_id', $organizations->first()?->organization_id) == $org->organization_id)>
                                         {{ $org->organization_name }}
                                     </option>
                                 @endforeach
                             </select>
-                            <input type="hidden" name="organization" x-bind:value="orgName" value="{{ old('organization', $organizations->first()?->organization_name ?? '') }}" />
+                            <input type="hidden" name="organization" x-bind:value="orgName"
+                                value="{{ old('organization', $organizations->first()?->organization_name ?? '') }}" />
                         @else
-                            <input type="text" name="organization" value="{{ old('organization', $organizations->first()?->organization_name ?? '') }}"
+                            <input type="text" name="organization"
+                                value="{{ old('organization', $organizations->first()?->organization_name ?? '') }}"
                                 class="dark:bg-dark-900 shadow-theme-xs h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900/50 dark:text-white/70"
                                 readonly />
-                            <input type="hidden" name="organization_id" value="{{ $organizations->first()?->organization_id ?? '' }}" />
+                            <input type="hidden" name="organization_id"
+                                value="{{ $organizations->first()?->organization_id ?? '' }}" />
                         @endif
                     </div>
                 </div>
             </div>
 
             {{-- SECTION 2 · ACTIVITY DETAILS --}}
-            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Activity Details</h3>
+            <div
+                class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3
+                    class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">
+                    Activity Details</h3>
 
                 <div class="space-y-4">
                     {{-- Nature of Project/Activity --}}
                     <div>
-                        <label for="projectActivity" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        <label for="projectActivity"
+                            class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Nature of Project / Activity <span class="text-error-500">*</span>
                         </label>
                         <input type="text" id="projectActivity" name="projectActivity"
@@ -115,8 +139,7 @@
                         <label for="purposed" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Purpose of Activity <span class="text-error-500">*</span>
                         </label>
-                        <textarea id="purposed" name="purposed" rows="3"
-                            placeholder="Describe the purpose of the activity"
+                        <textarea id="purposed" name="purposed" rows="3" placeholder="Describe the purpose of the activity"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border {{ $errors->has('purposed') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">{{ old('purposed') }}</textarea>
                         @error('purposed')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
@@ -126,11 +149,11 @@
                     {{-- Date / Day / Time / Venue --}}
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <div>
-                            <label for="activityDate" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            <label for="activityDate"
+                                class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                 Date <span class="text-error-500">*</span>
                             </label>
-                            <input type="date" id="activityDate" name="date"
-                                value="{{ old('date') }}"
+                            <input type="date" id="activityDate" name="date" value="{{ old('date') }}"
                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('date') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                             @error('date')
                                 <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
@@ -143,8 +166,7 @@
                             <label for="time" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                 Time <span class="text-error-500">*</span>
                             </label>
-                            <input type="text" id="time" name="time"
-                                value="{{ old('time') }}"
+                            <input type="text" id="time" name="time" value="{{ old('time') }}"
                                 placeholder="e.g. 8:00 AM – 5:00 PM"
                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('time') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                             @error('time')
@@ -153,12 +175,12 @@
                         </div>
 
                         <div class="sm:col-span-2">
-                            <label for="placeAndVenue" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            <label for="placeAndVenue"
+                                class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                 Place / Venue <span class="text-error-500">*</span>
                             </label>
                             <input type="text" id="placeAndVenue" name="placeAndVenue"
-                                value="{{ old('placeAndVenue') }}"
-                                placeholder="e.g. TAU Gymnasium"
+                                value="{{ old('placeAndVenue') }}" placeholder="e.g. TAU Gymnasium"
                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('placeAndVenue') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                             @error('placeAndVenue')
                                 <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
@@ -175,24 +197,23 @@
                             <template x-for="(item, index) in facilities" :key="index">
                                 <div class="flex gap-2 items-center">
                                     <input type="text" :name="'facilitiesOrEquipmentToBeUsedRow[' + index + ']'"
-                                        x-model="facilities[index]"
-                                        placeholder="e.g. Projector, Sound System, Chairs"
+                                        x-model="facilities[index]" placeholder="e.g. Projector, Sound System, Chairs"
                                         class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
-                                    <button type="button" @click="removeFacility(index)"
-                                        x-show="facilities.length > 1"
+                                    <button type="button" @click="removeFacility(index)" x-show="facilities.length > 1"
                                         class="flex-shrink-0 rounded-lg border border-error-200 p-2 text-error-500 transition hover:bg-error-50 dark:border-error-500/30 dark:hover:bg-error-500/10">
                                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M6 18L18 6M6 6l12 12" />
                                         </svg>
                                     </button>
                                 </div>
                             </template>
                         </div>
-                        <button type="button" @click="addFacility()"
-                            x-show="facilities.length < 10"
+                        <button type="button" @click="addFacility()" x-show="facilities.length < 10"
                             class="mt-2 flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 4v16m8-8H4" />
                             </svg>
                             Add Facility / Equipment
                         </button>
@@ -201,18 +222,22 @@
             </div>
 
             {{-- SECTION 3 · PRESIDENT --}}
-            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">President Information</h3>
-                <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">Activity report will be submitted on: <span class="font-medium text-gray-700 dark:text-gray-300">End of the 1st Semester</span></p>
+            <div
+                class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3
+                    class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">
+                    President Information</h3>
+                <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">Activity report will be submitted on: <span
+                        class="font-medium text-gray-700 dark:text-gray-300">End of the 1st Semester</span></p>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                        <label for="presidentName" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        <label for="presidentName"
+                            class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             President Name <span class="text-error-500">*</span>
                         </label>
                         <input type="text" id="presidentName" name="presidentName"
-                            value="{{ old('presidentName', $presidentName) }}"
-                            placeholder="Full name of the President"
+                            value="{{ old('presidentName', $presidentName) }}" placeholder="Full name of the President"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('presidentName') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         @error('presidentName')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
@@ -220,12 +245,12 @@
                     </div>
 
                     <div>
-                        <label for="presidentContactNo" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        <label for="presidentContactNo"
+                            class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Contact Number <span class="text-error-500">*</span>
                         </label>
                         <input type="text" id="presidentContactNo" name="presidentContactNo"
-                            value="{{ old('presidentContactNo', $presidentContact) }}"
-                            placeholder="e.g. 09XX-XXX-XXXX"
+                            value="{{ old('presidentContactNo', $presidentContact) }}" placeholder="e.g. 09XX-XXX-XXXX"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('presidentContactNo') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         @error('presidentContactNo')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
@@ -235,22 +260,26 @@
             </div>
 
             {{-- SECTION 4 · ADVISERS --}}
-            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-1 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Faculty Adviser/s</h3>
-                <p class="mb-4 text-xs text-gray-500 dark:text-gray-400 pl-4">As the adviser/s of this student organization, I/we promise to attend the proposed activity and will strictly observe the diligence of a good father/mother over our students (loco parentis role) to ensure their safety.</p>
+            <div
+                class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3
+                    class="mb-1 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">
+                    Faculty Adviser/s</h3>
+                <p class="mb-4 text-xs text-gray-500 dark:text-gray-400 pl-4">As the adviser/s of this student
+                    organization, I/we promise to attend the proposed activity and will strictly observe the diligence of a
+                    good father/mother over our students (loco parentis role) to ensure their safety.</p>
 
                 <div class="space-y-2">
                     <template x-for="(adviser, index) in advisers" :key="index">
                         <div class="flex gap-2 items-center">
-                            <input type="text" :name="'adviserRow[' + index + ']'"
-                                x-model="advisers[index]"
+                            <input type="text" :name="'adviserRow[' + index + ']'" x-model="advisers[index]"
                                 :placeholder="'Adviser ' + (index + 1) + ' full name'"
                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('adviserRow') || $errors->has('adviserRow.*') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
-                            <button type="button" @click="removeAdviser(index)"
-                                x-show="advisers.length > 1"
+                            <button type="button" @click="removeAdviser(index)" x-show="advisers.length > 1"
                                 class="flex-shrink-0 rounded-lg border border-error-200 p-2 text-error-500 transition hover:bg-error-50 dark:border-error-500/30 dark:hover:bg-error-500/10">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </button>
                         </div>
@@ -269,21 +298,124 @@
             </div>
 
             {{-- SECTION 5 · COLLEGE DEAN (optional) --}}
-            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <h3 class="mb-1 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">College Dean</h3>
-                <p class="mb-4 text-xs text-gray-500 dark:text-gray-400 pl-4">For College-based Student Organizations and Student Councils only.</p>
+            <div
+                class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3
+                    class="mb-1 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">
+                    College Dean</h3>
+                <p class="mb-4 text-xs text-gray-500 dark:text-gray-400 pl-4">For College-based Student Organizations and
+                    Student Councils only.</p>
 
                 <div>
                     <label for="collegeDean" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                         College Dean Name <span class="text-xs font-normal text-gray-400 ml-1">(optional)</span>
                     </label>
-                    <input type="text" id="collegeDean" name="collegeDean"
-                        value="{{ old('collegeDean') }}"
+                    <input type="text" id="collegeDean" name="collegeDean" value="{{ old('collegeDean') }}"
                         placeholder="Full name of the College Dean"
                         class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                 </div>
+            </div>
 
-                <div class="mt-6 flex justify-end gap-3">
+            <div
+                class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3
+                    class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">
+                    Additional Request Details</h3>
+
+                <div class="space-y-6">
+                    <div>
+                        <p class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-400">Activity Types</p>
+                        <div
+                            class="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/30">
+                            @foreach (['Seminar', 'Clean Up Drive', 'Donation', 'Conference', 'Workshop'] as $activityType)
+                                <label class="flex cursor-pointer items-center gap-3">
+                                    <input type="checkbox" name="activityTypes[]" value="{{ $activityType }}"
+                                        x-model="activityTypes" @checked(in_array($activityType, (array) old('activityTypes', []), true))
+                                        class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ $activityType }}</span>
+                                </label>
+                            @endforeach
+
+                            <div class="space-y-2">
+                                <label class="flex cursor-pointer items-center gap-3">
+                                    <input type="checkbox" name="activityTypes[]" value="others" x-model="activityTypes"
+                                        @checked(in_array('others', (array) old('activityTypes', []), true))
+                                        class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">Others</span>
+                                </label>
+                                <div x-show="activityTypes.includes('others')" x-transition class="pl-7">
+                                    <input type="text" name="activityTypeOther"
+                                        value="{{ old('activityTypeOther') }}" placeholder="Specify other activity type"
+                                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label for="areaScope"
+                                class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Area
+                                Scope</label>
+                            <select id="areaScope" name="areaScope" x-model="areaScope"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                                <option value="">Select area scope</option>
+                                <option value="Local" @selected(old('areaScope') === 'Local')>Local</option>
+                                <option value="Provincial" @selected(old('areaScope') === 'Provincial')>Provincial</option>
+                                <option value="Regional" @selected(old('areaScope') === 'Regional')>Regional</option>
+                                <option value="National" @selected(old('areaScope') === 'National')>National</option>
+                                <option value="International" @selected(old('areaScope') === 'International')>International</option>
+                                <option value="others" @selected(old('areaScope') === 'others')>Others</option>
+                            </select>
+                            <div x-show="areaScope === 'others'" x-transition class="mt-2">
+                                <input type="text" name="areaScopeOther" value="{{ old('areaScopeOther') }}"
+                                    placeholder="Specify area scope"
+                                    class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="sponsor"
+                                class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Sponsor</label>
+                            <select id="sponsor" name="sponsor" x-model="sponsor"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                                <option value="">Select sponsor</option>
+                                <option value="N/A" @selected(old('sponsor') === 'N/A')>N/A</option>
+                                <option value="SSC" @selected(old('sponsor') === 'SSC')>SSC</option>
+                                <option value="Admin" @selected(old('sponsor') === 'Admin')>Admin</option>
+                                <option value="others" @selected(old('sponsor') === 'others')>Others</option>
+                            </select>
+                            <div x-show="sponsor === 'others'" x-transition class="mt-2">
+                                <input type="text" name="sponsorOther" value="{{ old('sponsorOther') }}"
+                                    placeholder="Specify sponsor"
+                                    class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-400">Extension Services</p>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="flex cursor-pointer items-center gap-2">
+                                <input type="radio" name="extensionServices" value="yes"
+                                    x-model="extensionServices" @checked(old('extensionServices') === 'yes')
+                                    class="h-4 w-4 border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                                <span class="text-sm text-gray-700 dark:text-gray-300">Yes</span>
+                            </label>
+                            <label class="flex cursor-pointer items-center gap-2">
+                                <input type="radio" name="extensionServices" value="no"
+                                    x-model="extensionServices" @checked(old('extensionServices') === 'no')
+                                    class="h-4 w-4 border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                                <span class="text-sm text-gray-700 dark:text-gray-300">No</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <div class="mt-2 flex justify-end gap-3">
                     <button type="reset"
                         class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
                         Clear

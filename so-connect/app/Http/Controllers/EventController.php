@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Event;
+use App\Models\Event\EventDetail;
 use App\Models\EventPlan;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
 use App\Models\Semester;
-use App\Models\User;
 use App\Models\Workplan;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -95,6 +97,24 @@ class EventController extends Controller
             'resources_needed' => ['nullable', 'string', 'max:5000'],
             'persons_responsible' => ['nullable', 'array'],
             'persons_responsible.*' => ['integer'],
+            'purpose_of_activity' => ['nullable', 'string', 'max:1000'],
+            'time_of_activity' => ['nullable', 'string', 'max:100'],
+            'place_venue' => ['nullable', 'string', 'max:255'],
+            'university_facilities' => ['nullable', 'array'],
+            'university_facilities.*' => ['string', 'max:255'],
+            'president_name' => ['nullable', 'string', 'max:255'],
+            'president_contact' => ['nullable', 'string', 'max:50'],
+            'faculty_advisers' => ['nullable', 'array'],
+            'faculty_advisers.*' => ['string', 'max:255'],
+            'college_dean' => ['nullable', 'string', 'max:255'],
+            'activity_types' => ['nullable', 'array'],
+            'activity_types.*' => ['string', 'max:100'],
+            'activity_types_other' => ['nullable', 'string', 'max:255'],
+            'area_scope' => ['nullable', 'string', 'max:100'],
+            'area_scope_other' => ['nullable', 'string', 'max:255'],
+            'sponsor' => ['nullable', 'string', 'max:100'],
+            'sponsor_other' => ['nullable', 'string', 'max:255'],
+            'extension_services' => ['nullable', 'in:yes,no'],
         ]);
 
         $userId = (int) $user->getKey();
@@ -150,6 +170,21 @@ class EventController extends Controller
             'title' => $validated['title'],
             'target_date' => $validated['target_date'],
             'resources_needed' => $validated['resources_needed'] ?? null,
+            'purpose_of_activity' => $validated['purpose_of_activity'] ?? null,
+            'time_of_activity' => $validated['time_of_activity'] ?? null,
+            'place_venue' => $validated['place_venue'] ?? null,
+            'university_facilities' => array_values(array_filter($validated['university_facilities'] ?? [], fn ($value) => filled($value))),
+            'president_name' => $validated['president_name'] ?? null,
+            'president_contact' => $validated['president_contact'] ?? null,
+            'faculty_advisers' => array_values(array_filter($validated['faculty_advisers'] ?? [], fn ($value) => filled($value))),
+            'college_dean' => $validated['college_dean'] ?? null,
+            'activity_types' => array_values(array_filter($validated['activity_types'] ?? [], fn ($value) => filled($value))),
+            'activity_types_other' => $validated['activity_types_other'] ?? null,
+            'area_scope' => $validated['area_scope'] ?? null,
+            'area_scope_other' => $validated['area_scope_other'] ?? null,
+            'sponsor' => $validated['sponsor'] ?? null,
+            'sponsor_other' => $validated['sponsor_other'] ?? null,
+            'extension_services' => isset($validated['extension_services']) ? $validated['extension_services'] === 'yes' : null,
             'persons_responsible' => $validated['persons_responsible'] ?? [],
             'status' => 'pending',
             'request_id' => (int) $actionRequest->getKey(),
@@ -163,12 +198,39 @@ class EventController extends Controller
             ],
         ]);
 
-        app(\App\Services\RequestApprovalService::class)->autoApproveIfPresident($actionRequest, $userId);
-
         return response()->json([
             'message' => 'Event plan submitted successfully.',
             'request_id' => (int) $actionRequest->getKey(),
         ], 201);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'organization_id' => ['required', 'integer', Rule::exists('organizations', 'organization_id')],
+            'event_name' => ['required', 'string', 'max:255'],
+            'event_start_time' => ['required', 'date'],
+            'event_end_time' => ['required', 'date', 'after_or_equal:event_start_time'],
+            'event_desc_text' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $user = $request->user();
+
+        $eventDetail = EventDetail::create([
+            'name' => $validated['event_name'],
+            'desc_text' => $validated['event_desc_text'] ?? null,
+            'start_time' => $validated['event_start_time'],
+            'end_time' => $validated['event_end_time'],
+            'location' => null,
+        ]);
+
+        Event::create([
+            'creator' => (int) $user->getKey(),
+            'event_detail' => (int) $eventDetail->getKey(),
+            'organization' => (int) $validated['organization_id'],
+        ]);
+
+        return back()->with('success', 'Event created successfully.');
     }
 
     public function organizationOfficers(int $organizationId): JsonResponse

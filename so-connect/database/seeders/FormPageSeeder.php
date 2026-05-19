@@ -17,6 +17,7 @@ class FormPageSeeder extends Seeder
         $this->seedWorkplan();
         $this->seedFinancialReport();
         $this->seedActivityRequest();
+        $this->seedProjectRequest();
     }
 
     private function seedStudentLeaderDirectory(): void
@@ -237,7 +238,7 @@ class FormPageSeeder extends Seeder
                 'name'          => 'Request for Organizational Meeting/Services/Projects/Activities',
                 'is_active'     => true,
                 'is_published'  => true,
-                'sidebar_group' => ['president', 'admin'],
+                'sidebar_group' => [],
             ]
         );
 
@@ -254,6 +255,42 @@ class FormPageSeeder extends Seeder
             ['field_key' => 'presidentContactNo',               'field_label' => 'President Contact Number',           'field_type' => 'text',     'is_required' => true],
             ['field_key' => 'adviserRow',                       'field_label' => 'Faculty Advisers',                   'field_type' => 'textarea', 'is_required' => true],
             ['field_key' => 'collegeDean',                      'field_label' => 'College Dean',                       'field_type' => 'text',     'is_required' => false],
+            ['field_key' => 'activityTypes',                    'field_label' => 'Activity Types',                     'field_type' => 'checkbox',  'is_required' => false],
+            ['field_key' => 'areaScope',                        'field_label' => 'Area Scope',                         'field_type' => 'select',    'is_required' => false],
+            ['field_key' => 'sponsor',                          'field_label' => 'Sponsor',                            'field_type' => 'select',    'is_required' => false],
+            ['field_key' => 'extensionServices',                'field_label' => 'Extension Services',                 'field_type' => 'radio',     'is_required' => false],
+        ];
+
+        $keys = array_column($fields, 'field_key');
+
+        foreach ($fields as $order => $field) {
+            FormDescription::updateOrCreate(
+                ['form_id' => $form->id, 'field_key' => $field['field_key']],
+                array_merge($field, ['field_order' => $order + 1])
+            );
+        }
+
+        FormDescription::where('form_id', $form->id)->whereNotIn('field_key', $keys)->delete();
+    }
+
+    private function seedProjectRequest(): void
+    {
+        $form = Form::updateOrCreate(
+            ['route_name' => 'project-request'],
+            [
+                'name'          => 'Letter of Intent / Project Request',
+                'is_active'     => true,
+                'is_published'  => true,
+                'sidebar_group' => ['president'],
+            ]
+        );
+
+        $fields = [
+            ['field_key' => 'organization',      'field_label' => 'Organization',       'field_type' => 'text',     'is_required' => true],
+            ['field_key' => 'projectTitle',      'field_label' => 'Project Title',      'field_type' => 'text',     'is_required' => true],
+            ['field_key' => 'natureOfProject',   'field_label' => 'Nature of Project',  'field_type' => 'text',     'is_required' => true],
+            ['field_key' => 'projectArea',       'field_label' => 'Project Area',       'field_type' => 'text',     'is_required' => true],
+            ['field_key' => 'letterOfIntent',    'field_label' => 'Letter of Intent',   'field_type' => 'textarea', 'is_required' => true],
         ];
 
         $keys = array_column($fields, 'field_key');

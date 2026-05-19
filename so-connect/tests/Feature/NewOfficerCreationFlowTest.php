@@ -5,7 +5,6 @@ use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Organization;
 use App\Models\Profile;
-use App\Models\Profile\profileAddress;
 use App\Models\Request as ActionRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -300,6 +299,16 @@ it('edit profile link is absent from navbar for user_type 2 and 3 but present fo
     $this->actingAs($superadmin)->get(route('superadmin.profile-requests'))->assertSee('Edit profile');
     $this->actingAs($adminUser)->get(route('admin-dashboard'))->assertDontSee('Edit profile');
     $this->actingAs($officer)->get(route('officer-dashboard'))->assertDontSee('Edit profile');
+});
+
+it('officer dashboard includes a quick link to the student leader directory form', function () {
+    [$officer, ] = makeOfficerWithOrg('officer-dashboard-link@example.test');
+
+    $this->actingAs($officer)
+        ->get(route('officer-dashboard'))
+        ->assertOk()
+        ->assertSee('Directory of Student Leader')
+        ->assertSee(route('student-leader-directory'), false);
 });
 
 it('activity-request form prefills presidentContactNo from profile', function () {

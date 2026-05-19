@@ -9,7 +9,6 @@ use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class ActivityRequestController extends Controller
 {
@@ -75,6 +74,14 @@ class ActivityRequestController extends Controller
             'placeAndVenue'                     => ['required', 'string', 'max:255'],
             'facilitiesOrEquipmentToBeUsedRow'  => ['nullable', 'array', 'max:10'],
             'facilitiesOrEquipmentToBeUsedRow.*'=> ['nullable', 'string', 'max:255'],
+            'activityTypes'                     => ['nullable', 'array'],
+            'activityTypes.*'                   => ['string'],
+            'activityTypeOther'                 => ['nullable', 'string', 'max:255'],
+            'areaScope'                         => ['nullable', 'string', 'max:100'],
+            'areaScopeOther'                    => ['nullable', 'string', 'max:255'],
+            'sponsor'                           => ['nullable', 'string', 'max:100'],
+            'sponsorOther'                      => ['nullable', 'string', 'max:255'],
+            'extensionServices'                 => ['nullable', 'in:yes,no'],
             'presidentName'                     => ['required', 'string', 'max:255'],
             'presidentContactNo'                => ['required', 'string', 'max:50'],
             'adviserRow'                        => ['required', 'array', 'min:1'],
@@ -103,6 +110,13 @@ class ActivityRequestController extends Controller
             'time'                             => $validated['time'],
             'placeAndVenue'                    => $validated['placeAndVenue'],
             'facilitiesOrEquipmentToBeUsedRow' => $facilities,
+            'activityTypes'                    => array_values(array_filter($validated['activityTypes'] ?? [], fn ($v) => filled($v))),
+            'activityTypeOther'                => $validated['activityTypeOther'] ?? '',
+            'areaScope'                        => $validated['areaScope'] ?? '',
+            'areaScopeOther'                   => $validated['areaScopeOther'] ?? '',
+            'sponsor'                          => $validated['sponsor'] ?? '',
+            'sponsorOther'                     => $validated['sponsorOther'] ?? '',
+            'extensionServices'                => $validated['extensionServices'] ?? '',
             'presidentName'                    => $validated['presidentName'],
             'presidentContactNo'               => $validated['presidentContactNo'],
             'adviserRow'                       => $advisers,

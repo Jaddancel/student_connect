@@ -2,15 +2,21 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Mail\EventApprovedMail;
 use App\Http\Controllers\Controller;
 use App\Models\Approval;
 use App\Models\Event;
 use App\Models\Event\EventDetail;
 use App\Models\EventPlan;
+use App\Models\Form;
+use App\Models\FormSubmission;
 use App\Models\Request as ActionRequest;
+use App\Models\User;
+use App\Services\DocumentGenerationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 
 class EventPlanRequestController extends Controller
@@ -144,6 +150,37 @@ class EventPlanRequestController extends Controller
                 EventPlan::query()
                     ->where('event_plan_id', $plan->parent_plan_id)
                     ->update(['event_id' => $eventId]);
+
+                $requester = User::query()->find((int) $plan->created_by);
+                if ($requester?->user_email) {
+                    try {
+                        Mail::to($requester->user_email)
+                            ->send(new EventApprovedMail($plan, $this->resolveUserName((int) $plan->created_by)));
+                    } catch (\Throwable) {
+                    }
+                }
+
+                $roForm = Form::query()->where('route_name', 'activity-request')->first();
+                if ($roForm) {
+                    try {
+                        $submission = FormSubmission::query()->create([
+                            'form_id' => (int) $roForm->getKey(),
+                            'organization_id' => (int) $plan->organization_id,
+                            'submitted_by' => (int) $plan->created_by,
+                            'payload' => $this->buildRoPayloadFromPlan($plan),
+                            'submitted_at' => now(),
+                        ]);
+
+                        app(DocumentGenerationService::class)->createDocumentGenerationRequest(
+                            (int) $plan->organization_id,
+                            (int) $submission->getKey(),
+                            (int) $roForm->getKey(),
+                            (int) $plan->created_by,
+                        );
+                    } catch (\Throwable) {
+                        // Request queued; skip if the form or template is not ready yet.
+                    }
+                }
             } elseif ($plan) {
                 $plan->update(['status' => $isApproved ? 'approved' : 'rejected']);
             }
@@ -152,5 +189,58 @@ class EventPlanRequestController extends Controller
         $message = $isApproved ? 'Event plan approved successfully.' : 'Event plan rejected.';
 
         return redirect()->route('admin.event-plan-requests.index')->with('success', $message);
+    }
+
+    private function buildRoPayloadFromPlan(EventPlan $plan): array
+    {
+        $targetDate = $plan->target_date;
+
+        $organizationName = DB::table('organizations as o')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->where('o.organization_id', (int) $plan->organization_id)
+            ->select(DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name"))
+            ->value('organization_name') ?? 'Unknown Organization';
+
+        return [
+            'date' => $targetDate instanceof \DateTimeInterface ? $targetDate->format('Y-m-d') : '',
+            'organization' => $organizationName,
+            'projectActivity' => (string) ($plan->title ?? ''),
+            'purposed' => (string) ($plan->purpose_of_activity ?? ''),
+            'dayOfTheWeek' => $targetDate instanceof \DateTimeInterface ? $targetDate->format('l') : '',
+            'time' => (string) ($plan->time_of_activity ?? ''),
+            'placeAndVenue' => (string) ($plan->place_venue ?? ''),
+            'facilitiesOrEquipmentToBeUsedRow' => array_values(array_filter((array) ($plan->university_facilities ?? []), fn ($value) => filled($value))),
+            'activityTypes' => array_values(array_filter((array) ($plan->activity_types ?? []), fn ($value) => filled($value))),
+            'activityTypeOther' => (string) ($plan->activity_types_other ?? ''),
+            'areaScope' => (string) ($plan->area_scope ?? ''),
+            'areaScopeOther' => (string) ($plan->area_scope_other ?? ''),
+            'sponsor' => (string) ($plan->sponsor ?? ''),
+            'sponsorOther' => (string) ($plan->sponsor_other ?? ''),
+            'extensionServices' => $plan->extension_services === null ? '' : ($plan->extension_services ? 'yes' : 'no'),
+            'presidentName' => (string) ($plan->president_name ?? ''),
+            'presidentContactNo' => (string) ($plan->president_contact ?? ''),
+            'adviserRow' => array_values(array_filter((array) ($plan->faculty_advisers ?? []), fn ($value) => filled($value))),
+            'collegeDean' => (string) ($plan->college_dean ?? ''),
+            'organization_id' => (int) $plan->organization_id,
+        ];
+    }
+
+    private function resolveUserName(int $userId): string
+    {
+        $profileRow = DB::table('users as u')
+            ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+            ->where('u.user_id', $userId)
+            ->select(['p.first_name', 'p.middle_name', 'p.last_name'])
+            ->first();
+
+        if (! $profileRow) {
+            return 'Officer';
+        }
+
+        return trim(implode(' ', array_filter([
+            $profileRow->first_name,
+            $profileRow->middle_name,
+            $profileRow->last_name,
+        ]))) ?: 'Officer';
     }
 }

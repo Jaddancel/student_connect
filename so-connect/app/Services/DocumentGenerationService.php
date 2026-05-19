@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Mail\DocumentGeneratedMail;
 use App\Helpers\FormTemplateHelper;
 use App\Models\Document;
 use App\Models\FormSubmission;
@@ -10,6 +11,7 @@ use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
 use App\Models\Template;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use PhpOffice\PhpWord\TemplateProcessor;
@@ -233,7 +235,7 @@ class DocumentGenerationService
                 'link' => $generatedPdfRelativePath,
             ]);
 
-            return GeneratedDocument::query()->create([
+            $generatedDocument = GeneratedDocument::query()->create([
                 'form_submission_id' => (int) $submission->getKey(),
                 'template_id' => (int) $template->getKey(),
                 'request_id' => $requestId,
@@ -244,6 +246,24 @@ class DocumentGenerationService
                 'status' => 'generated',
                 'generated_at' => now(),
             ]);
+
+            $submission->loadMissing(['submitter', 'organization.detail', 'form']);
+            $recipientEmail = $submission->submitter?->user_email;
+
+            if (is_string($recipientEmail) && $recipientEmail !== '') {
+                try {
+                    Mail::to($recipientEmail)->send(
+                        new DocumentGeneratedMail(
+                            (string) ($submission->form?->name ?? 'Form'),
+                            (string) ($submission->organization?->detail?->name ?? 'Organization'),
+                        )
+                    );
+                } catch (\Throwable $throwable) {
+                    report($throwable);
+                }
+            }
+
+            return $generatedDocument;
         } catch (\Throwable $throwable) {
             if ($preprocessedTemplatePath !== null) {
                 @unlink($preprocessedTemplatePath);

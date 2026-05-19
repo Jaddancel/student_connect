@@ -80,6 +80,7 @@ class MenuHelper
                 'items' => [
                     ['icon' => 'task', 'name' => 'Promotion Requests', 'path' => '/promotion-requests'],
                     ['icon' => 'task', 'name' => 'Event Plan Requests', 'path' => '/admin/event-plan-requests'],
+                    ['icon' => 'forms', 'name' => 'Project Requests', 'path' => '/admin/project-requests'],
                     ['icon' => 'forms', 'name' => 'Joint Statements', 'path' => '/admin/joint-statement-requests'],
                 ],
             ];
@@ -115,6 +116,7 @@ class MenuHelper
 
             $publishedForms = \App\Models\Form::whereNotNull('route_name')
                 ->where('is_published', true)
+                ->whereJsonLength('sidebar_group', '>', 0)
                 ->orderBy('name')
                 ->get(['id', 'name', 'route_name', 'sidebar_group']);
 
