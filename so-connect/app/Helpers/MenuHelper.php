@@ -76,6 +76,7 @@ class MenuHelper
                     ['icon' => 'pages',    'name' => 'Posts',              'path' => '/posts'],
                     ['icon' => 'forms',    'name' => 'Template Manager',   'path' => '/admin/templates'],
                     ['icon' => 'calendar', 'name' => 'Semester Management','path' => '/admin/semesters'],
+                    ['icon' => 'tables',  'name' => 'Export Data',        'path' => '/admin/export'],
                 ],
             ];
 

@@ -3,12 +3,16 @@
 namespace App\Providers;
 
 use App\Faker\FilipinoPersonProvider;
+use App\Listeners\LogAuthActivity;
 use App\Models\Officer;
 use App\Models\User;
 use App\Policies\RolePolicy;
 use App\Services\OrganizationAuthorizationService;
 use Faker\Generator as FakerGenerator;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -30,6 +34,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Event::listen([Login::class, Logout::class], LogAuthActivity::class);
+
         Gate::policy(Officer::class, RolePolicy::class);
 
         View::composer('*', function (\Illuminate\View\View $view) {

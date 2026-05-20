@@ -343,6 +343,17 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->whereNumber('id')
         ->name('admin.scoring.update');
 
+    Route::get('/admin/export', [ExportController::class, 'adminIndex'])
+        ->name('admin.export');
+    Route::get('/admin/export/org-data/json', [ExportController::class, 'adminExportOrgDataJson'])
+        ->name('admin.export.org-data.json');
+    Route::get('/admin/export/org-data/print', [ExportController::class, 'adminExportOrgDataPrint'])
+        ->name('admin.export.org-data.print');
+    Route::get('/admin/export/request-records/json', [ExportController::class, 'adminExportRequestRecordsJson'])
+        ->name('admin.export.request-records.json');
+    Route::get('/admin/export/request-records/print', [ExportController::class, 'adminExportRequestRecordsPrint'])
+        ->name('admin.export.request-records.print');
+
     Route::get('/admin/officers/create', [AdminOfficerCreationController::class, 'create'])
         ->name('admin.officers.create');
     Route::post('/admin/officers/create', [AdminOfficerCreationController::class, 'store'])
@@ -436,6 +447,14 @@ Route::get('/superadmin/export/request-records/json', [ExportController::class, 
 Route::get('/superadmin/export/request-records/print', [ExportController::class, 'exportRequestRecordsPrint'])
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.export.request-records.print');
+
+Route::get('/superadmin/export/login-logs/json', [ExportController::class, 'exportLoginLogsJson'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export.login-logs.json');
+
+Route::get('/superadmin/export/login-logs/print', [ExportController::class, 'exportLoginLogsPrint'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export.login-logs.print');
 
 Route::get('/superadmin/data-sync', [SuperAdminController::class, 'dataSyncPage'])
     ->middleware(['auth', 'superadmin'])
