@@ -4,577 +4,517 @@
     <x-common.page-breadcrumb pageTitle="{{ $isEdit ? 'Edit Organization Score' : 'Score Organization' }}" />
 
     @php
-        $defaults = [
-            'ss_seminar_college' => 0,
-            'ss_seminar_univ' => 0,
-            'ss_activities_related' => 0,
-            'ss_activities_not_related' => 0,
-            'ss_donation_cash' => 0,
-            'ss_donation_kinds' => 0,
-            'ss_cosponsor' => 0,
-            'ss_cosponsor_count' => 2,
-            'ss_income' => 0,
-            'ap_other_orgs_pts' => 0,
-            'ap_rep_level' => 0,
-            'ap_ssc_osa_activities' => 0,
-            'ap_ssc_seminars' => 0,
-            'ap_other_seminars' => 0,
-            'ap_osa_seminars' => 0,
-            'ap_ssc_meeting' => 0,
-            'ap_ssc_help' => 0,
-            'aw_group_level' => 0,
-            'aw_individual_level' => 0,
-            'es_groups' => 0,
-            'tangible_auto' => 0,
-            'adm_documents' => 0,
-            'adm_meetings' => 0,
-            'adm_leadership' => 0,
-            'adm_transparency' => 0,
-        ];
-
-        $payload = array_merge($defaults, (array) ($payload ?? []));
+        $pv = fn (string $key) => (int) ($payload[$key] ?? 0);
         $oldPayload = old('payload');
         if (is_array($oldPayload)) {
-            $payload = array_merge($payload, $oldPayload);
+            foreach ($oldPayload as $k => $v) {
+                $payload[$k] = $v;
+            }
         }
-        $payload['tangible_auto'] = (int) old('payload.tangible_auto', $hasApprovedProjects ? 1 : 0);
-
-        $pj = $payload;
-
-        $incomeOptions = [
-            0 => '0',
-            500 => '500-999',
-            1000 => '1000-1499',
-            1500 => '1500-1999',
-            2000 => '2000-2499',
-            2500 => '2500-2999',
-            3000 => '3000-3499',
-            3500 => '3500-3999',
-            4000 => '4000-4499',
-            4500 => '4500-4999',
-            5000 => '5000+',
-        ];
-
-        $donationKindOptions = [0, 2, 4, 6, 8, 10];
     @endphp
 
-    <div class="space-y-6" x-data="scoringForm({{ Js::from($pj) }})">
-        @if ($errors->any())
-            <div
-                class="rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
-                {{ $errors->first() }}
-            </div>
-        @endif
+    <div class="space-y-5">
 
-        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-            <div class="flex flex-wrap items-center justify-between gap-3">
+        {{-- Header card --}}
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="flex flex-wrap items-center gap-3">
                 <div>
                     <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ $organizationName }}</h3>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Semester: {{ $semester->name }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $semester->name }}</p>
                 </div>
-                <a href="{{ route('admin.scoring.index', ['semester_id' => $semester->semester_id]) }}"
-                    class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-900/20">
-                    Back to list
-                </a>
             </div>
         </div>
 
+        @if ($errors->any())
+            <div
+                class="rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
+                @foreach ($errors->all() as $error)
+                    <p>{{ $error }}</p>
+                @endforeach
+            </div>
+        @endif
+
         <form method="POST"
             action="{{ $isEdit ? route('admin.scoring.update', $score->organization_score_id) : route('admin.scoring.store') }}"
-            class="space-y-6">
+            class="space-y-5"
+            x-data="{
+                cat1_seminar_college:        {{ $pv('cat1_seminar_college') }},
+                cat1_seminar_univ:           {{ $pv('cat1_seminar_univ') }},
+                cat1_activities_related:     {{ $pv('cat1_activities_related') }},
+                cat1_activities_not_related: {{ $pv('cat1_activities_not_related') }},
+                cat1_donation_cash:          {{ $pv('cat1_donation_cash') }},
+                cat1_donation_kinds:         {{ $pv('cat1_donation_kinds') }},
+                cat1_cosponsor_pts:          {{ $pv('cat1_cosponsor_pts') }},
+                cat1_income:                 {{ $pv('cat1_income') }},
+
+                cat2_other_orgs:             {{ $pv('cat2_other_orgs') }},
+                cat2_rep_local:              {{ $pv('cat2_rep_local') }},
+                cat2_rep_provincial:         {{ $pv('cat2_rep_provincial') }},
+                cat2_rep_regional:           {{ $pv('cat2_rep_regional') }},
+                cat2_rep_national:           {{ $pv('cat2_rep_national') }},
+                cat2_rep_international:      {{ $pv('cat2_rep_international') }},
+                cat2_ssc_osa_activities:     {{ $pv('cat2_ssc_osa_activities') }},
+                cat2_ssc_seminars:           {{ $pv('cat2_ssc_seminars') }},
+                cat2_other_seminars:         {{ $pv('cat2_other_seminars') }},
+                cat2_osa_seminars:           {{ $pv('cat2_osa_seminars') }},
+                cat2_ssc_meeting_rep:        {{ $pv('cat2_ssc_meeting_rep') }},
+                cat2_ssc_meeting_proxy:      {{ $pv('cat2_ssc_meeting_proxy') }},
+                cat2_help_ssc_osa:           {{ $pv('cat2_help_ssc_osa') }},
+                cat2_help_others:            {{ $pv('cat2_help_others') }},
+
+                cat3_group_intl:             {{ $pv('cat3_group_intl') }},
+                cat3_group_national:         {{ $pv('cat3_group_national') }},
+                cat3_group_regional:         {{ $pv('cat3_group_regional') }},
+                cat3_group_provincial:       {{ $pv('cat3_group_provincial') }},
+                cat3_group_local:            {{ $pv('cat3_group_local') }},
+                cat3_individual_intl:        {{ $pv('cat3_individual_intl') }},
+                cat3_individual_national:    {{ $pv('cat3_individual_national') }},
+                cat3_individual_regional:    {{ $pv('cat3_individual_regional') }},
+                cat3_individual_provincial:  {{ $pv('cat3_individual_provincial') }},
+                cat3_individual_local:       {{ $pv('cat3_individual_local') }},
+
+                cat4_extension_groups:       {{ $pv('cat4_extension_groups') }},
+
+                cat5_tangible_projects:      {{ $pv('cat5_tangible_projects') }},
+
+                cat6_documents:              {{ $pv('cat6_documents') }},
+                cat6_meetings:               {{ $pv('cat6_meetings') }},
+                cat6_leadership:             {{ $pv('cat6_leadership') }},
+                cat6_transparency:           {{ $pv('cat6_transparency') }},
+
+                n(v) { return Math.max(0, parseInt(v) || 0); },
+
+                get cat1_total() {
+                    return Math.min(100,
+                        this.n(this.cat1_seminar_college) * 10 +
+                        this.n(this.cat1_seminar_univ) * 15 +
+                        this.n(this.cat1_activities_related) * 10 +
+                        this.n(this.cat1_activities_not_related) * 7 +
+                        this.n(this.cat1_donation_cash) * 2 +
+                        this.n(this.cat1_donation_kinds) * 10 +
+                        this.n(this.cat1_cosponsor_pts) +
+                        this.n(this.cat1_income)
+                    );
+                },
+                get cat2_total() {
+                    return Math.min(100,
+                        this.n(this.cat2_other_orgs) * 10 +
+                        this.n(this.cat2_rep_local) * 2 +
+                        this.n(this.cat2_rep_provincial) * 3 +
+                        this.n(this.cat2_rep_regional) * 5 +
+                        this.n(this.cat2_rep_national) * 7 +
+                        this.n(this.cat2_rep_international) * 10 +
+                        this.n(this.cat2_ssc_osa_activities) * 10 +
+                        this.n(this.cat2_ssc_seminars) * 10 +
+                        this.n(this.cat2_other_seminars) * 7 +
+                        this.n(this.cat2_osa_seminars) * 5 +
+                        this.n(this.cat2_ssc_meeting_rep) * 2 +
+                        this.n(this.cat2_ssc_meeting_proxy) * 1 +
+                        this.n(this.cat2_help_ssc_osa) * 5 +
+                        this.n(this.cat2_help_others) * 3
+                    );
+                },
+                get cat3_total() {
+                    return Math.min(50,
+                        this.n(this.cat3_group_intl) * 20 +
+                        this.n(this.cat3_group_national) * 15 +
+                        this.n(this.cat3_group_regional) * 10 +
+                        this.n(this.cat3_group_provincial) * 7 +
+                        this.n(this.cat3_group_local) * 5 +
+                        this.n(this.cat3_individual_intl) * 15 +
+                        this.n(this.cat3_individual_national) * 10 +
+                        this.n(this.cat3_individual_regional) * 7 +
+                        this.n(this.cat3_individual_provincial) * 5 +
+                        this.n(this.cat3_individual_local) * 3
+                    );
+                },
+                get cat4_total() {
+                    return Math.min(100, this.n(this.cat4_extension_groups) * 10);
+                },
+                get cat5_total() {
+                    return Math.min(100, this.n(this.cat5_tangible_projects) * 100);
+                },
+                get cat6_total() {
+                    return Math.min(100,
+                        this.n(this.cat6_documents) * 50 +
+                        this.n(this.cat6_meetings) * 25 +
+                        this.n(this.cat6_leadership) * 15 +
+                        this.n(this.cat6_transparency) * 10
+                    );
+                },
+                get grand_total() {
+                    return this.cat1_total + this.cat2_total + this.cat3_total + this.cat4_total + this.cat5_total + this.cat6_total;
+                },
+            }">
             @csrf
-            @if ($isEdit)
-                @method('PUT')
-            @endif
+            @if ($isEdit) @method('PUT') @endif
 
             <input type="hidden" name="organization_id" value="{{ $organization->organization_id }}" />
             <input type="hidden" name="semester_id" value="{{ $semester->semester_id }}" />
-            <input type="hidden" name="payload[tangible_auto]" value="{{ $hasApprovedProjects ? 1 : 0 }}"
-                x-bind:value="tangible_auto ? 1 : 0" />
 
-            <div
-                class="sticky top-4 z-10 rounded-2xl border border-gray-200 bg-white/90 p-4 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-950/80">
-                <div class="flex flex-wrap items-center justify-between gap-4">
-                    <div class="flex flex-wrap items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
-                        <div class="flex items-center gap-2">
-                            <span class="font-semibold text-gray-700 dark:text-gray-200">Sole</span>
-                            <span><span x-text="sole"></span>/100</span>
-                            <div class="h-1.5 w-20 rounded-full bg-gray-200 dark:bg-gray-800">
-                                <div class="h-1.5 rounded-full bg-brand-500"
-                                    :style="`width: ${Math.min(100, (sole / 100) * 100)}%`"></div>
-                            </div>
+            {{-- CATEGORY I --}}
+            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Category I — Sole Activities</h3>
+                            <p class="text-xs text-gray-400 dark:text-gray-500">Max 100 pts</p>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <span class="font-semibold text-gray-700 dark:text-gray-200">Active</span>
-                            <span><span x-text="active"></span>/100</span>
-                            <div class="h-1.5 w-20 rounded-full bg-gray-200 dark:bg-gray-800">
-                                <div class="h-1.5 rounded-full bg-success-500"
-                                    :style="`width: ${Math.min(100, (active / 100) * 100)}%`"></div>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="font-semibold text-gray-700 dark:text-gray-200">Awards</span>
-                            <span><span x-text="awards"></span>/50</span>
-                            <div class="h-1.5 w-20 rounded-full bg-gray-200 dark:bg-gray-800">
-                                <div class="h-1.5 rounded-full bg-warning-500"
-                                    :style="`width: ${Math.min(100, (awards / 50) * 100)}%`"></div>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="font-semibold text-gray-700 dark:text-gray-200">Ext</span>
-                            <span><span x-text="extension"></span>/100</span>
-                            <div class="h-1.5 w-20 rounded-full bg-gray-200 dark:bg-gray-800">
-                                <div class="h-1.5 rounded-full bg-indigo-500"
-                                    :style="`width: ${Math.min(100, (extension / 100) * 100)}%`"></div>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="font-semibold text-gray-700 dark:text-gray-200">Tangible</span>
-                            <span><span x-text="tangiblePts"></span>/100</span>
-                            <div class="h-1.5 w-20 rounded-full bg-gray-200 dark:bg-gray-800">
-                                <div class="h-1.5 rounded-full bg-emerald-500"
-                                    :style="`width: ${Math.min(100, (tangiblePts / 100) * 100)}%`"></div>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="font-semibold text-gray-700 dark:text-gray-200">Admin</span>
-                            <span><span x-text="admin"></span>/100</span>
-                            <div class="h-1.5 w-20 rounded-full bg-gray-200 dark:bg-gray-800">
-                                <div class="h-1.5 rounded-full bg-error-500"
-                                    :style="`width: ${Math.min(100, (admin / 100) * 100)}%`"></div>
-                            </div>
-                        </div>
+                        <span class="text-base font-bold text-brand-600 dark:text-brand-400" x-text="cat1_total + ' / 100'"></span>
                     </div>
-                    <div class="text-sm font-semibold text-gray-800 dark:text-white/90">
-                        Total: <span x-text="total.toFixed(2)"></span> / 100
-                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[540px] text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
+                                <th class="px-6 py-2.5 text-left font-semibold">Indicator</th>
+                                <th class="px-4 py-2.5 text-center font-semibold w-24">Pts/Instance</th>
+                                <th class="px-4 py-2.5 text-center font-semibold w-28">Instances</th>
+                                <th class="px-4 py-2.5 text-right font-semibold w-24">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50 dark:divide-gray-800/60">
+                            @php
+                            $cat1rows = [
+                                ['cat1_seminar_college',        'Seminars – College Level (≥15 members)',              10,  false],
+                                ['cat1_seminar_univ',           'Seminars – University Level (≥30 members)',           15,  false],
+                                ['cat1_activities_related',     'Activities Related to Org (≥15 members)',             10,  false],
+                                ['cat1_activities_not_related', 'Activities Not Related to Org (≥15 members)',          7,  false],
+                                ['cat1_donation_cash',          'Donation – Cash (per ₱200)',                           2,  true],
+                                ['cat1_donation_kinds',         'Donation – In Kind (binary 0/1)',                     10,  true],
+                                ['cat1_cosponsor_pts',          'Co-sponsorship Points (pre-computed)',                 1,  false],
+                                ['cat1_income',                 'Income Generated (per ₱500)',                          1,  true],
+                            ];
+                            @endphp
+                            @foreach ($cat1rows as [$field, $label, $ppi, $manual])
+                                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                    <td class="px-6 py-3 text-gray-700 dark:text-gray-300">
+                                        {{ $label }}
+                                        @if ($manual)
+                                            <span class="ml-1 text-xs text-gray-400">(manual)</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{{ $ppi }}</td>
+                                    <td class="px-4 py-3 text-center">
+                                        <input type="number" name="payload[{{ $field }}]"
+                                            x-model="{{ $field }}" min="0"
+                                            class="h-8 w-20 rounded-lg border border-gray-300 bg-transparent px-2 text-center text-sm text-gray-800 focus:border-brand-400 focus:ring-1 focus:ring-brand-400 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                    </td>
+                                    <td class="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300"
+                                        x-text="n({{ $field }}) * {{ $ppi }}"></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/[0.02]">
+                                <td colspan="3" class="px-6 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400">Category I Total (capped at 100)</td>
+                                <td class="px-4 py-3 text-right font-bold text-brand-600 dark:text-brand-400" x-text="cat1_total"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </div>
 
-            {{-- Section 1 - Sole Sponsorship --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Sole Sponsorship of
-                        Programs/Activities</h3>
-                    <span class="text-xs text-gray-400">Max 100 pts</span>
-                </div>
-                <div class="mt-4 space-y-3">
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Seminar/Workshop (College)</p>
-                        <select name="payload[ss_seminar_college]" x-model="ss_seminar_college"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            @foreach (range(0, 10) as $i)
-                                <option value="{{ $i }}">{{ $i }}</option>
-                            @endforeach
-                        </select>
-                        <span class="text-xs text-gray-500" x-text="Number(ss_seminar_college || 0) * 10 + ' pts'"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Seminar/Workshop (University)</p>
-                        <select name="payload[ss_seminar_univ]" x-model="ss_seminar_univ"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            @foreach (range(0, 10) as $i)
-                                <option value="{{ $i }}">{{ $i }}</option>
-                            @endforeach
-                        </select>
-                        <span class="text-xs text-gray-500" x-text="Number(ss_seminar_univ || 0) * 15 + ' pts'"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Activities Related to Course</p>
-                        <select name="payload[ss_activities_related]" x-model="ss_activities_related"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            @foreach (range(0, 10) as $i)
-                                <option value="{{ $i }}">{{ $i }}</option>
-                            @endforeach
-                        </select>
-                        <span class="text-xs text-gray-500"
-                            x-text="Number(ss_activities_related || 0) * 10 + ' pts'"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Activities Not Related to Course</p>
-                        <select name="payload[ss_activities_not_related]" x-model="ss_activities_not_related"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            @foreach (range(0, 10) as $i)
-                                <option value="{{ $i }}">{{ $i }}</option>
-                            @endforeach
-                        </select>
-                        <span class="text-xs text-gray-500"
-                            x-text="Number(ss_activities_not_related || 0) * 7 + ' pts'"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Donation (Cash)</p>
-                        <select name="payload[ss_donation_cash]" x-model="ss_donation_cash"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            @foreach (range(0, 10) as $i)
-                                <option value="{{ $i }}">{{ $i }}</option>
-                            @endforeach
-                        </select>
-                        <span class="text-xs text-gray-500" x-text="Number(ss_donation_cash || 0) * 2 + ' pts'"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Donation (In Kinds)</p>
-                        <select name="payload[ss_donation_kinds]" x-model="ss_donation_kinds"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            @foreach ($donationKindOptions as $value)
-                                <option value="{{ $value }}">{{ $value }}</option>
-                            @endforeach
-                        </select>
-                        <span class="text-xs text-gray-500" x-text="Number(ss_donation_kinds || 0) + ' pts'"></span>
-                    </div>
-
-                    <div class="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900/40">
-                        <label class="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
-                            <input type="checkbox" name="payload[ss_cosponsor]" value="1" x-model="ss_cosponsor"
-                                @checked(!empty($payload['ss_cosponsor']))
-                                class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
-                            Co-sponsored with another organization
-                        </label>
-                        <div x-show="ss_cosponsor" x-cloak
-                            class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                            <p class="text-sm text-gray-700 dark:text-gray-300">Number of orgs involved</p>
-                            <select name="payload[ss_cosponsor_count]" x-model="ss_cosponsor_count"
-                                class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                                @foreach (range(2, 10) as $i)
-                                    <option value="{{ $i }}">{{ $i }}</option>
-                                @endforeach
-                            </select>
-                            <span class="text-xs text-gray-500"
-                                x-text="ss_cosponsor ? Math.floor(10 / Math.max(2, Number(ss_cosponsor_count || 2))) + ' pts' : '0 pts'"></span>
+            {{-- CATEGORY II --}}
+            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Category II — Active Participation</h3>
+                            <p class="text-xs text-gray-400 dark:text-gray-500">Max 100 pts</p>
                         </div>
+                        <span class="text-base font-bold text-brand-600 dark:text-brand-400" x-text="cat2_total + ' / 100'"></span>
                     </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Income Generated</p>
-                        <select name="payload[ss_income]" x-model="ss_income"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            @foreach ($incomeOptions as $value => $label)
-                                <option value="{{ $value }}">{{ $label }}</option>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[540px] text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
+                                <th class="px-6 py-2.5 text-left font-semibold">Indicator</th>
+                                <th class="px-4 py-2.5 text-center font-semibold w-24">Pts/Instance</th>
+                                <th class="px-4 py-2.5 text-center font-semibold w-28">Instances</th>
+                                <th class="px-4 py-2.5 text-right font-semibold w-24">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50 dark:divide-gray-800/60">
+                            @php
+                            $cat2rows = [
+                                ['cat2_other_orgs',          'Activities co-sponsored by other orgs',                10, false],
+                                ['cat2_rep_local',           'Representative – Local scope',                         2,  false],
+                                ['cat2_rep_provincial',      'Representative – Provincial scope',                    3,  false],
+                                ['cat2_rep_regional',        'Representative – Regional scope',                      5,  false],
+                                ['cat2_rep_national',        'Representative – National scope',                      7,  false],
+                                ['cat2_rep_international',   'Representative – International scope',                10,  false],
+                                ['cat2_ssc_osa_activities',  'SSC/OSA-sponsored activities',                        10,  false],
+                                ['cat2_ssc_seminars',        'SSC-sponsored seminars',                              10,  false],
+                                ['cat2_other_seminars',      'Other org seminars/conferences',                       7,  false],
+                                ['cat2_osa_seminars',        'OSA/Admin seminars',                                   5,  false],
+                                ['cat2_ssc_meeting_rep',     'SSC meeting – Representative',                         2,  true],
+                                ['cat2_ssc_meeting_proxy',   'SSC meeting – Proxy',                                  1,  true],
+                                ['cat2_help_ssc_osa',        'Preparation/help for SSC/OSA',                         5,  false],
+                                ['cat2_help_others',         'Preparation/help for other orgs',                      3,  false],
+                            ];
+                            @endphp
+                            @foreach ($cat2rows as [$field, $label, $ppi, $manual])
+                                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                    <td class="px-6 py-3 text-gray-700 dark:text-gray-300">
+                                        {{ $label }}
+                                        @if ($manual)
+                                            <span class="ml-1 text-xs text-gray-400">(manual)</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{{ $ppi }}</td>
+                                    <td class="px-4 py-3 text-center">
+                                        <input type="number" name="payload[{{ $field }}]"
+                                            x-model="{{ $field }}" min="0"
+                                            class="h-8 w-20 rounded-lg border border-gray-300 bg-transparent px-2 text-center text-sm text-gray-800 focus:border-brand-400 focus:ring-1 focus:ring-brand-400 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                    </td>
+                                    <td class="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300"
+                                        x-text="n({{ $field }}) * {{ $ppi }}"></td>
+                                </tr>
                             @endforeach
-                        </select>
-                        <span class="text-xs text-gray-500"
-                            x-text="Math.floor(Number(ss_income || 0) / 500) + ' pts'"></span>
-                    </div>
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/[0.02]">
+                                <td colspan="3" class="px-6 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400">Category II Total (capped at 100)</td>
+                                <td class="px-4 py-3 text-right font-bold text-brand-600 dark:text-brand-400" x-text="cat2_total"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </div>
 
-            {{-- Section 2 - Active Participation --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Active Participation</h3>
-                    <span class="text-xs text-gray-400">Max 100 pts</span>
+            {{-- CATEGORY III --}}
+            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Category III — Awards & Recognition</h3>
+                            <p class="text-xs text-gray-400 dark:text-gray-500">Max 50 pts</p>
+                        </div>
+                        <span class="text-base font-bold text-brand-600 dark:text-brand-400" x-text="cat3_total + ' / 50'"></span>
+                    </div>
                 </div>
-                <div class="mt-4 space-y-3">
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Participants in other organizations</p>
-                        <select name="payload[ap_other_orgs_pts]" x-model="ap_other_orgs_pts"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            @foreach (range(0, 10) as $i)
-                                <option value="{{ $i }}">{{ $i }}</option>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[540px] text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
+                                <th class="px-6 py-2.5 text-left font-semibold">Indicator</th>
+                                <th class="px-4 py-2.5 text-center font-semibold w-24">Pts/Instance</th>
+                                <th class="px-4 py-2.5 text-center font-semibold w-28">Instances</th>
+                                <th class="px-4 py-2.5 text-right font-semibold w-24">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50 dark:divide-gray-800/60">
+                            @php
+                            $cat3rows = [
+                                ['cat3_group_intl',           'Group Award – International',   20],
+                                ['cat3_group_national',       'Group Award – National',        15],
+                                ['cat3_group_regional',       'Group Award – Regional',        10],
+                                ['cat3_group_provincial',     'Group Award – Provincial',       7],
+                                ['cat3_group_local',          'Group Award – Local',            5],
+                                ['cat3_individual_intl',      'Individual Award – International', 15],
+                                ['cat3_individual_national',  'Individual Award – National',    10],
+                                ['cat3_individual_regional',  'Individual Award – Regional',     7],
+                                ['cat3_individual_provincial','Individual Award – Provincial',   5],
+                                ['cat3_individual_local',     'Individual Award – Local',        3],
+                            ];
+                            @endphp
+                            @foreach ($cat3rows as [$field, $label, $ppi])
+                                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                    <td class="px-6 py-3 text-gray-700 dark:text-gray-300">{{ $label }}</td>
+                                    <td class="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{{ $ppi }}</td>
+                                    <td class="px-4 py-3 text-center">
+                                        <input type="number" name="payload[{{ $field }}]"
+                                            x-model="{{ $field }}" min="0"
+                                            class="h-8 w-20 rounded-lg border border-gray-300 bg-transparent px-2 text-center text-sm text-gray-800 focus:border-brand-400 focus:ring-1 focus:ring-brand-400 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                    </td>
+                                    <td class="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300"
+                                        x-text="n({{ $field }}) * {{ $ppi }}"></td>
+                                </tr>
                             @endforeach
-                        </select>
-                        <span class="text-xs text-gray-500" x-text="Number(ap_other_orgs_pts || 0) + ' pts'"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Representative level</p>
-                        <select name="payload[ap_rep_level]" x-model="ap_rep_level"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            <option value="0">None</option>
-                            <option value="2">Local</option>
-                            <option value="4">Provincial</option>
-                            <option value="6">Regional</option>
-                            <option value="8">National</option>
-                            <option value="10">International</option>
-                        </select>
-                        <span class="text-xs text-gray-500" x-text="Number(ap_rep_level || 0) + ' pts'"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">SSC-OSA activities</p>
-                        <label class="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
-                            <input type="checkbox" name="payload[ap_ssc_osa_activities]" value="1"
-                                x-model="ap_ssc_osa_activities" @checked(!empty($payload['ap_ssc_osa_activities']))
-                                class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
-                            Participated
-                        </label>
-                        <span class="text-xs text-gray-500" x-text="ap_ssc_osa_activities ? '10 pts' : '0 pts'"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">SSC seminars</p>
-                        <label class="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
-                            <input type="checkbox" name="payload[ap_ssc_seminars]" value="1"
-                                x-model="ap_ssc_seminars" @checked(!empty($payload['ap_ssc_seminars']))
-                                class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
-                            Participated
-                        </label>
-                        <span class="text-xs text-gray-500" x-text="ap_ssc_seminars ? '10 pts' : '0 pts'"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Other seminars</p>
-                        <label class="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
-                            <input type="checkbox" name="payload[ap_other_seminars]" value="1"
-                                x-model="ap_other_seminars" @checked(!empty($payload['ap_other_seminars']))
-                                class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
-                            Participated
-                        </label>
-                        <span class="text-xs text-gray-500" x-text="ap_other_seminars ? '7 pts' : '0 pts'"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">OSA seminars</p>
-                        <label class="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
-                            <input type="checkbox" name="payload[ap_osa_seminars]" value="1"
-                                x-model="ap_osa_seminars" @checked(!empty($payload['ap_osa_seminars']))
-                                class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
-                            Participated
-                        </label>
-                        <span class="text-xs text-gray-500" x-text="ap_osa_seminars ? '5 pts' : '0 pts'"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">SSC meeting attendance</p>
-                        <select name="payload[ap_ssc_meeting]" x-model="ap_ssc_meeting"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            <option value="0">None</option>
-                            <option value="1">Proxy</option>
-                            <option value="2">Authorized Rep</option>
-                        </select>
-                        <span class="text-xs text-gray-500" x-text="Number(ap_ssc_meeting || 0) + ' pts'"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Help rendered</p>
-                        <select name="payload[ap_ssc_help]" x-model="ap_ssc_help"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            <option value="0">None</option>
-                            <option value="3">Others</option>
-                            <option value="5">SSC-OSA</option>
-                        </select>
-                        <span class="text-xs text-gray-500" x-text="Number(ap_ssc_help || 0) + ' pts'"></span>
-                    </div>
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/[0.02]">
+                                <td colspan="3" class="px-6 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400">Category III Total (capped at 50)</td>
+                                <td class="px-4 py-3 text-right font-bold text-brand-600 dark:text-brand-400" x-text="cat3_total"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </div>
 
-            {{-- Section 3 - Awards --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Awards / Achievements</h3>
-                    <span class="text-xs text-gray-400">Max 50 pts</span>
+            {{-- CATEGORY IV --}}
+            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Category IV — Extension Services</h3>
+                            <p class="text-xs text-gray-400 dark:text-gray-500">Max 100 pts</p>
+                        </div>
+                        <span class="text-base font-bold text-brand-600 dark:text-brand-400" x-text="cat4_total + ' / 100'"></span>
+                    </div>
                 </div>
-                <div class="mt-4 space-y-3">
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Group award level</p>
-                        <select name="payload[aw_group_level]" x-model="aw_group_level"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            <option value="0">None</option>
-                            <option value="3">Local</option>
-                            <option value="5">Provincial</option>
-                            <option value="7">Regional</option>
-                            <option value="10">National</option>
-                            <option value="20">International</option>
-                        </select>
-                        <span class="text-xs text-gray-500" x-text="Number(aw_group_level || 0) + ' pts'"></span>
-                    </div>
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Individual award level</p>
-                        <select name="payload[aw_individual_level]" x-model="aw_individual_level"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            <option value="0">None</option>
-                            <option value="1">Local</option>
-                            <option value="2">Provincial</option>
-                            <option value="5">Regional</option>
-                            <option value="7">National</option>
-                            <option value="10">International</option>
-                        </select>
-                        <span class="text-xs text-gray-500" x-text="Number(aw_individual_level || 0) + ' pts'"></span>
-                    </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[540px] text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
+                                <th class="px-6 py-2.5 text-left font-semibold">Indicator</th>
+                                <th class="px-4 py-2.5 text-center font-semibold w-24">Pts/Instance</th>
+                                <th class="px-4 py-2.5 text-center font-semibold w-28">Instances</th>
+                                <th class="px-4 py-2.5 text-right font-semibold w-24">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50 dark:divide-gray-800/60">
+                            <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                <td class="px-6 py-3 text-gray-700 dark:text-gray-300">Extension Service Groups (≥10 members)</td>
+                                <td class="px-4 py-3 text-center text-gray-500 dark:text-gray-400">10</td>
+                                <td class="px-4 py-3 text-center">
+                                    <input type="number" name="payload[cat4_extension_groups]"
+                                        x-model="cat4_extension_groups" min="0"
+                                        class="h-8 w-20 rounded-lg border border-gray-300 bg-transparent px-2 text-center text-sm text-gray-800 focus:border-brand-400 focus:ring-1 focus:ring-brand-400 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                </td>
+                                <td class="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300"
+                                    x-text="n(cat4_extension_groups) * 10"></td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/[0.02]">
+                                <td colspan="3" class="px-6 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400">Category IV Total (capped at 100)</td>
+                                <td class="px-4 py-3 text-right font-bold text-brand-600 dark:text-brand-400" x-text="cat4_total"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </div>
 
-            {{-- Section 4 - Extension Services --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Extension Services / Community
-                        Outreach</h3>
-                    <span class="text-xs text-gray-400">Max 100 pts</span>
+            {{-- CATEGORY V --}}
+            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Category V — Tangible Projects</h3>
+                            <p class="text-xs text-gray-400 dark:text-gray-500">Max 100 pts (×100 per project, capped)</p>
+                        </div>
+                        <span class="text-base font-bold text-brand-600 dark:text-brand-400" x-text="cat5_total + ' / 100'"></span>
+                    </div>
                 </div>
-                <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                    <p class="text-sm text-gray-700 dark:text-gray-300">Groups with at least 10 members</p>
-                    <select name="payload[es_groups]" x-model="es_groups"
-                        class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                        @foreach (range(0, 10) as $i)
-                            <option value="{{ $i }}">{{ $i }}</option>
-                        @endforeach
-                    </select>
-                    <span class="text-xs text-gray-500" x-text="Number(es_groups || 0) * 10 + ' pts'"></span>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[540px] text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
+                                <th class="px-6 py-2.5 text-left font-semibold">Indicator</th>
+                                <th class="px-4 py-2.5 text-center font-semibold w-24">Pts/Instance</th>
+                                <th class="px-4 py-2.5 text-center font-semibold w-28">Instances</th>
+                                <th class="px-4 py-2.5 text-right font-semibold w-24">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50 dark:divide-gray-800/60">
+                            <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                <td class="px-6 py-3 text-gray-700 dark:text-gray-300">Approved Tangible Projects</td>
+                                <td class="px-4 py-3 text-center text-gray-500 dark:text-gray-400">100</td>
+                                <td class="px-4 py-3 text-center">
+                                    <input type="number" name="payload[cat5_tangible_projects]"
+                                        x-model="cat5_tangible_projects" min="0"
+                                        class="h-8 w-20 rounded-lg border border-gray-300 bg-transparent px-2 text-center text-sm text-gray-800 focus:border-brand-400 focus:ring-1 focus:ring-brand-400 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                </td>
+                                <td class="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300"
+                                    x-text="Math.min(100, n(cat5_tangible_projects) * 100)"></td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/[0.02]">
+                                <td colspan="3" class="px-6 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400">Category V Total (capped at 100)</td>
+                                <td class="px-4 py-3 text-right font-bold text-brand-600 dark:text-brand-400" x-text="cat5_total"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </div>
 
-            {{-- Section 5 - Tangible Projects --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Tangible Projects</h3>
-                    <span class="text-xs text-gray-400">Auto-calculated</span>
+            {{-- CATEGORY VI --}}
+            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Category VI — Administrative</h3>
+                            <p class="text-xs text-gray-400 dark:text-gray-500">Max 100 pts (binary fields: enter 1 for yes, 0 for no)</p>
+                        </div>
+                        <span class="text-base font-bold text-brand-600 dark:text-brand-400" x-text="cat6_total + ' / 100'"></span>
+                    </div>
                 </div>
-                <div class="mt-3">
-                    @if ($hasApprovedProjects)
-                        <span
-                            class="inline-flex items-center gap-2 rounded-full bg-success-50 px-3 py-1 text-xs font-medium text-success-700 dark:bg-success-500/15 dark:text-success-400">Auto-credited
-                            (20 pts)</span>
-                    @else
-                        <span
-                            class="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">No
-                            approved project requests found (0 pts)</span>
-                    @endif
-                </div>
-            </div>
-
-            {{-- Section 6 - Administrative Work --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Administrative Work (Deduction)
-                    </h3>
-                    <span class="text-xs text-gray-400">Max 100 pts</span>
-                </div>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Starts at 100. Select the level that applies to
-                    deduct accordingly.</p>
-                <div class="mt-4 space-y-3">
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Documents submitted</p>
-                        <select name="payload[adm_documents]" x-model="adm_documents"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            <option value="50">Full (50)</option>
-                            <option value="40">Minor Issues (40)</option>
-                            <option value="25">Moderate (25)</option>
-                            <option value="10">Major (10)</option>
-                            <option value="0">Non-compliant (0)</option>
-                        </select>
-                        <span class="text-xs text-gray-500" x-text="Number(adm_documents || 0) + ' pts'"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Meetings attended</p>
-                        <select name="payload[adm_meetings]" x-model="adm_meetings"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            <option value="25">Full (25)</option>
-                            <option value="15">Partial (15)</option>
-                            <option value="5">Minimal (5)</option>
-                            <option value="0">None (0)</option>
-                        </select>
-                        <span class="text-xs text-gray-500" x-text="Number(adm_meetings || 0) + ' pts'"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Leadership quality</p>
-                        <select name="payload[adm_leadership]" x-model="adm_leadership"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            <option value="15">Excellent (15)</option>
-                            <option value="10">Good (10)</option>
-                            <option value="5">Fair (5)</option>
-                            <option value="0">Poor (0)</option>
-                        </select>
-                        <span class="text-xs text-gray-500" x-text="Number(adm_leadership || 0) + ' pts'"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_120px]">
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Transparency</p>
-                        <select name="payload[adm_transparency]" x-model="adm_transparency"
-                            class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                            <option value="10">Full (10)</option>
-                            <option value="5">Partial (5)</option>
-                            <option value="0">None (0)</option>
-                        </select>
-                        <span class="text-xs text-gray-500" x-text="Number(adm_transparency || 0) + ' pts'"></span>
-                    </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[540px] text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
+                                <th class="px-6 py-2.5 text-left font-semibold">Indicator</th>
+                                <th class="px-4 py-2.5 text-center font-semibold w-24">Pts</th>
+                                <th class="px-4 py-2.5 text-center font-semibold w-28">Value (0/1)</th>
+                                <th class="px-4 py-2.5 text-right font-semibold w-24">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50 dark:divide-gray-800/60">
+                            @php
+                            $cat6rows = [
+                                ['cat6_documents',    'Required Documents Submitted',          50, false],
+                                ['cat6_meetings',     'General Meetings with Minutes (>30 min)',25, false],
+                                ['cat6_leadership',   'Leadership Training Participated',       15, true],
+                                ['cat6_transparency', 'Financial/Transparency Report Submitted',10, false],
+                            ];
+                            @endphp
+                            @foreach ($cat6rows as [$field, $label, $ppi, $manual])
+                                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                    <td class="px-6 py-3 text-gray-700 dark:text-gray-300">
+                                        {{ $label }}
+                                        @if ($manual)
+                                            <span class="ml-1 text-xs text-gray-400">(manual)</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{{ $ppi }}</td>
+                                    <td class="px-4 py-3 text-center">
+                                        <input type="number" name="payload[{{ $field }}]"
+                                            x-model="{{ $field }}" min="0" max="1"
+                                            class="h-8 w-20 rounded-lg border border-gray-300 bg-transparent px-2 text-center text-sm text-gray-800 focus:border-brand-400 focus:ring-1 focus:ring-brand-400 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                    </td>
+                                    <td class="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300"
+                                        x-text="Math.min(1, n({{ $field }})) * {{ $ppi }}"></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/[0.02]">
+                                <td colspan="3" class="px-6 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400">Category VI Total (capped at 100)</td>
+                                <td class="px-4 py-3 text-right font-bold text-brand-600 dark:text-brand-400" x-text="cat6_total"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </div>
 
-            <div class="flex flex-wrap items-center justify-end gap-2">
+            {{-- Grand Total --}}
+            <div class="rounded-2xl border-2 border-brand-300 bg-brand-50 p-5 dark:border-brand-700/50 dark:bg-brand-900/10">
+                <div class="flex items-center justify-between">
+                    <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">Grand Total</p>
+                    <p class="text-2xl font-bold text-brand-600 dark:text-brand-400" x-text="grand_total + ' / 550'"></p>
+                </div>
+                <div class="mt-3 h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                    <div class="h-full rounded-full bg-brand-500 transition-all duration-300"
+                        :style="'width:' + Math.min(100, Math.round(grand_total / 550 * 100)) + '%'"></div>
+                </div>
+                <p class="mt-1 text-right text-xs text-gray-400" x-text="Math.min(100, Math.round(grand_total / 550 * 100)) + '% of max'"></p>
+            </div>
+
+            {{-- Actions --}}
+            <div class="flex justify-end gap-3">
                 <a href="{{ route('admin.scoring.index', ['semester_id' => $semester->semester_id]) }}"
-                    class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-900/20">
+                    class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
                     Cancel
                 </a>
                 <button type="submit"
-                    class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+                    class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">
                     {{ $isEdit ? 'Update Score' : 'Save Score' }}
                 </button>
             </div>
         </form>
     </div>
-
-    <script>
-        function scoringForm(init) {
-            const toNum = (value) => Number(value || 0);
-            const toBool = (value) => Boolean(Number(value));
-
-            return {
-                ...init,
-                ss_cosponsor: toBool(init.ss_cosponsor),
-                ap_ssc_osa_activities: toBool(init.ap_ssc_osa_activities),
-                ap_ssc_seminars: toBool(init.ap_ssc_seminars),
-                ap_other_seminars: toBool(init.ap_other_seminars),
-                ap_osa_seminars: toBool(init.ap_osa_seminars),
-                tangible_auto: toBool(init.tangible_auto),
-                get sole() {
-                    const cospts = this.ss_cosponsor ?
-                        Math.floor(10 / Math.max(2, toNum(this.ss_cosponsor_count || 2))) :
-                        0;
-                    return Math.min(100,
-                        toNum(this.ss_seminar_college) * 10 +
-                        toNum(this.ss_seminar_univ) * 15 +
-                        toNum(this.ss_activities_related) * 10 +
-                        toNum(this.ss_activities_not_related) * 7 +
-                        toNum(this.ss_donation_cash) * 2 +
-                        toNum(this.ss_donation_kinds) +
-                        cospts +
-                        Math.floor(toNum(this.ss_income) / 500)
-                    );
-                },
-                get active() {
-                    return Math.min(100,
-                        toNum(this.ap_other_orgs_pts) +
-                        toNum(this.ap_rep_level) +
-                        (this.ap_ssc_osa_activities ? 10 : 0) +
-                        (this.ap_ssc_seminars ? 10 : 0) +
-                        (this.ap_other_seminars ? 7 : 0) +
-                        (this.ap_osa_seminars ? 5 : 0) +
-                        toNum(this.ap_ssc_meeting) +
-                        toNum(this.ap_ssc_help)
-                    );
-                },
-                get awards() {
-                    return Math.min(50, toNum(this.aw_group_level) + toNum(this.aw_individual_level));
-                },
-                get extension() {
-                    return Math.min(100, toNum(this.es_groups) * 10);
-                },
-                get tangiblePts() {
-                    return this.tangible_auto ? 100 : 0;
-                },
-                get admin() {
-                    return toNum(this.adm_documents) +
-                        toNum(this.adm_meetings) +
-                        toNum(this.adm_leadership) +
-                        toNum(this.adm_transparency);
-                },
-                get total() {
-                    return Number((
-                        (this.sole / 100 * 20) +
-                        (this.active / 100 * 20) +
-                        (this.awards / 50 * 5) +
-                        (this.extension / 100 * 15) +
-                        (this.tangiblePts / 100 * 20) +
-                        (this.admin / 100 * 20)
-                    ).toFixed(2));
-                },
-            };
-        }
-    </script>
 @endsection

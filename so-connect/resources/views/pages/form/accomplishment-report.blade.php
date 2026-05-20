@@ -39,6 +39,9 @@
                 events: {{ Js::from($events) }},
                 title: '',
                 date: '',
+                eventId: '',
+                activityType: '{{ old('activity_type', '') }}',
+                membersAttended: '{{ old('members_attended', '') }}',
                 hasRewards: {{ old('has_rewards') ? 'true' : 'false' }},
                 advisers: {{ Js::from(old('adviserRow', [''])) }},
                 addAdviser() { this.advisers.push(''); },
@@ -51,12 +54,19 @@
                     this.orgName = opt ? opt.dataset.name : '';
                     this.title = '';
                     this.date = '';
+                    this.eventId = '';
+                    this.activityType = '';
                 },
                 onEventSelect(eventId) {
                     const ev = this.filteredEvents.find(e => String(e.event_id) === String(eventId));
                     if (ev) {
                         this.title = ev.title;
                         this.date = ev.date ?? '';
+                        this.eventId = String(ev.event_id);
+                        this.activityType = (ev.activity_types && ev.activity_types.length > 0) ? ev.activity_types[0] : '';
+                    } else {
+                        this.eventId = '';
+                        this.activityType = '';
                     }
                 },
             }">
@@ -135,7 +145,7 @@
                     <div>
                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Event
-                            <span class="ml-1 text-xs font-normal text-gray-400">(select to auto-fill title and date)</span>
+                            <span class="ml-1 text-xs font-normal text-gray-400">(select to auto-fill title, date, and activity type)</span>
                         </label>
                         <select @change="onEventSelect($el.value)"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
@@ -144,9 +154,31 @@
                                 <option :value="ev.event_id" x-text="ev.title"></option>
                             </template>
                         </select>
+                        <input type="hidden" name="event_id" x-bind:value="eventId" />
                         <p class="mt-1 text-xs text-gray-400 dark:text-gray-500" x-show="filteredEvents.length === 0">
                             No events found for this organization.
                         </p>
+                    </div>
+
+                    {{-- Activity Type --}}
+                    <div>
+                        <label for="activity_type" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Activity Type
+                        </label>
+                        <select id="activity_type" name="activity_type" x-model="activityType"
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('activity_type') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                            <option value="">— Select activity type (optional) —</option>
+                            <option value="Seminar">Seminar</option>
+                            <option value="Clean Up Drive">Clean Up Drive</option>
+                            <option value="Conference">Conference</option>
+                            <option value="Workshop">Workshop</option>
+                            <option value="Preparation">Preparation</option>
+                            <option value="Meeting">Meeting</option>
+                            <option value="others">Others</option>
+                        </select>
+                        @error('activity_type')
+                            <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -236,11 +268,26 @@
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
+                        <label for="members_attended"
+                            class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Members Attended
+                        </label>
+                        <input type="number" id="members_attended" name="members_attended" min="0"
+                            x-model="membersAttended"
+                            value="{{ old('members_attended') }}"
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('members_attended') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                        @error('members_attended')
+                            <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div x-show="activityType === 'Meeting'" x-transition>
                         <label for="minutes_of_meeting"
                             class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Minutes of Meeting
                         </label>
                         <input type="number" id="minutes_of_meeting" name="minutes_of_meeting" min="0"
+                            :disabled="activityType !== 'Meeting'"
                             value="{{ old('minutes_of_meeting') }}"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('minutes_of_meeting') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         @error('minutes_of_meeting')
@@ -301,6 +348,7 @@
                                 <option value="Local" @selected(old('area_scope_of_award') === 'Local')>Local</option>
                                 <option value="Provincial" @selected(old('area_scope_of_award') === 'Provincial')>Provincial</option>
                                 <option value="Regional" @selected(old('area_scope_of_award') === 'Regional')>Regional</option>
+                                <option value="National" @selected(old('area_scope_of_award') === 'National')>National</option>
                                 <option value="International" @selected(old('area_scope_of_award') === 'International')>International</option>
                             </select>
                             @error('area_scope_of_award')

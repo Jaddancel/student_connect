@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AccomplishmentReportRequestController;
+use App\Http\Controllers\Admin\AdminAccountCreationController;
 use App\Http\Controllers\Admin\AdminOfficerCreationController;
 use App\Http\Controllers\Admin\AdminWorkplanController;
 use App\Http\Controllers\Admin\EventPlanRequestController;
@@ -471,6 +472,14 @@ Route::post('/superadmin/data-sync/import-file', [SuperAdminController::class, '
 Route::post('/superadmin/data-sync/import-api', [SuperAdminController::class, 'importFromApi'])
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.data-sync.import-api');
+
+Route::get('/superadmin/accounts/create', [AdminAccountCreationController::class, 'create'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.accounts.create');
+
+Route::post('/superadmin/accounts/create', [AdminAccountCreationController::class, 'store'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.accounts.store');
 
 Route::get('/superadmin/profiles', [SuperAdminController::class, 'profiles'])
     ->middleware(['auth', 'superadmin'])

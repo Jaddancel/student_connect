@@ -19,6 +19,7 @@ class FormSubmission extends Model
     protected $fillable = [
         'form_id',
         'organization_id',
+        'event_id',
         'submitted_by',
         'payload',
         'submitted_at',

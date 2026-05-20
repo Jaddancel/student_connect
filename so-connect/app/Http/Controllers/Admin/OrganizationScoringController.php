@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\OrganizationType;
 use App\Helpers\FormTemplateHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
@@ -15,6 +16,14 @@ use Illuminate\Validation\Rule;
 
 class OrganizationScoringController extends Controller
 {
+    private const CATEGORY_LABELS = [
+        OrganizationType::SOCIO_CIVIC             => 'Socio-Civic',
+        OrganizationType::RELIGIOUS               => 'Religious',
+        OrganizationType::FRATERNITIES_SORORITIES => 'Fraternities-Sororities',
+        OrganizationType::SPECIAL_INTEREST        => 'Special Interest',
+        OrganizationType::STUDENT_GOVERNMENT      => 'Student Government',
+    ];
+
     public function index(Request $request)
     {
         $semesters = Semester::query()->orderByDesc('starts_at')->get();
@@ -28,35 +37,47 @@ class OrganizationScoringController extends Controller
             ? $semesters->firstWhere('semester_id', $selectedSemesterId)
             : null;
 
-        $rows = collect();
+        $categoryFilter = $request->integer('category');
+        $groupedRows = collect();
 
         if ($selectedSemesterId) {
-            $organizations = DB::table('organizations as o')
+            $orgQuery = DB::table('organizations as o')
                 ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
-                ->select('o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as name"))
-                ->orderBy('name')
-                ->get();
+                ->where('o.organization_type', '!=', OrganizationType::UNIVERSITY_SANCTIONED)
+                ->select('o.organization_id', 'o.organization_type', DB::raw("COALESCE(od.name, 'Unknown Organization') as name"))
+                ->orderBy('o.organization_type')
+                ->orderBy('name');
+
+            if ($categoryFilter) {
+                $orgQuery->where('o.organization_type', $categoryFilter);
+            }
+
+            $organizations = $orgQuery->get();
 
             $scores = OrganizationScore::query()
                 ->where('semester_id', $selectedSemesterId)
                 ->get()
                 ->keyBy('organization_id');
 
-            $rows = $organizations->map(function ($organization) use ($scores) {
-                return [
-                    'organization_id' => (int) $organization->organization_id,
-                    'organization_name' => $organization->name,
-                    'score' => $scores->get($organization->organization_id),
-                ];
-            });
+            $rows = $organizations->map(fn ($organization) => [
+                'organization_id'   => (int) $organization->organization_id,
+                'organization_name' => $organization->name,
+                'organization_type' => (int) $organization->organization_type,
+                'score'             => $scores->get($organization->organization_id),
+            ]);
+
+            $groupedRows = $rows->groupBy('organization_type');
         }
 
         return view('pages.admin.scoring.index', [
-            'title' => 'Organization Scoring',
-            'semesters' => $semesters,
-            'selectedSemester' => $selectedSemester,
+            'title'              => 'Organization Scoring',
+            'semesters'          => $semesters,
+            'selectedSemester'   => $selectedSemester,
             'selectedSemesterId' => $selectedSemesterId,
-            'rows' => $rows,
+            'groupedRows'        => $groupedRows,
+            'categoryLabels'     => self::CATEGORY_LABELS,
+            'categoryFilter'     => $categoryFilter,
+            'rows'               => $groupedRows->flatten(1),
         ]);
     }
 
@@ -83,14 +104,13 @@ class OrganizationScoringController extends Controller
         $semester = Semester::query()->findOrFail($semesterId);
 
         return view('pages.admin.scoring.create', [
-            'title' => 'Score Organization',
-            'organization' => $organization,
+            'title'            => 'Score Organization',
+            'organization'     => $organization,
             'organizationName' => $organization->detail?->name ?? 'Unknown Organization',
-            'semester' => $semester,
-            'payload' => [],
-            'hasApprovedProjects' => $this->hasApprovedProjects($organizationId, $semester),
-            'score' => null,
-            'isEdit' => false,
+            'semester'         => $semester,
+            'payload'          => $this->computeAutoInstances($organizationId, $semester),
+            'score'            => null,
+            'isEdit'           => false,
         ]);
     }
 
@@ -99,7 +119,7 @@ class OrganizationScoringController extends Controller
         $validated = $this->validatePayload($request);
 
         $organizationId = (int) $validated['organization_id'];
-        $semesterId = (int) $validated['semester_id'];
+        $semesterId     = (int) $validated['semester_id'];
 
         $existing = OrganizationScore::query()
             ->where('organization_id', $organizationId)
@@ -110,20 +130,17 @@ class OrganizationScoringController extends Controller
             return redirect()->route('admin.scoring.edit', $existing->organization_score_id);
         }
 
-        $organization = Organization::query()->with('detail')->findOrFail($organizationId);
-        $semester = Semester::query()->findOrFail($semesterId);
-
         $payload = $this->normalizePayload($validated['payload'] ?? []);
-        $scores = $this->computeScores($payload, $this->hasApprovedProjects($organizationId, $semester));
+        $scores  = $this->computeScores($payload);
 
         OrganizationScore::query()->create([
-            'organization_id' => $organizationId,
-            'semester_id' => $semesterId,
-            'scored_by' => $request->user()?->user_id,
-            'payload' => $payload,
-            'raw_scores' => $scores,
-            'total_weighted_score' => $scores['total_weighted'],
-            'scored_at' => now(),
+            'organization_id'     => $organizationId,
+            'semester_id'         => $semesterId,
+            'scored_by'           => $request->user()?->user_id,
+            'payload'             => $payload,
+            'raw_scores'          => $scores,
+            'total_weighted_score' => $scores['total'],
+            'scored_at'           => now(),
         ]);
 
         return redirect()->route('admin.scoring.index', ['semester_id' => $semesterId])
@@ -132,25 +149,28 @@ class OrganizationScoringController extends Controller
 
     public function edit(int $id)
     {
-        $score = OrganizationScore::query()->findOrFail($id);
+        $score        = OrganizationScore::query()->findOrFail($id);
         $organization = Organization::query()->with('detail')->findOrFail($score->organization_id);
-        $semester = Semester::query()->findOrFail($score->semester_id);
+        $semester     = Semester::query()->findOrFail($score->semester_id);
+
+        $autoInstances  = $this->computeAutoInstances($score->organization_id, $semester);
+        $existingPayload = array_filter((array) ($score->payload ?? []), fn ($v) => $v !== null && $v !== '');
+        $mergedPayload  = array_merge($autoInstances, $existingPayload);
 
         return view('pages.admin.scoring.create', [
-            'title' => 'Edit Organization Score',
-            'organization' => $organization,
+            'title'            => 'Edit Organization Score',
+            'organization'     => $organization,
             'organizationName' => $organization->detail?->name ?? 'Unknown Organization',
-            'semester' => $semester,
-            'payload' => (array) ($score->payload ?? []),
-            'hasApprovedProjects' => $this->hasApprovedProjects($organization->organization_id, $semester),
-            'score' => $score,
-            'isEdit' => true,
+            'semester'         => $semester,
+            'payload'          => $mergedPayload,
+            'score'            => $score,
+            'isEdit'           => true,
         ]);
     }
 
     public function update(Request $request, int $id): RedirectResponse
     {
-        $score = OrganizationScore::query()->findOrFail($id);
+        $score     = OrganizationScore::query()->findOrFail($id);
         $validated = $this->validatePayload($request);
 
         if ((int) $validated['organization_id'] !== (int) $score->organization_id
@@ -160,17 +180,15 @@ class OrganizationScoringController extends Controller
                 ->withInput();
         }
 
-        $semester = Semester::query()->findOrFail($score->semester_id);
-
         $payload = $this->normalizePayload($validated['payload'] ?? []);
-        $scores = $this->computeScores($payload, $this->hasApprovedProjects($score->organization_id, $semester));
+        $scores  = $this->computeScores($payload);
 
         $score->fill([
-            'scored_by' => $request->user()?->user_id,
-            'payload' => $payload,
-            'raw_scores' => $scores,
-            'total_weighted_score' => $scores['total_weighted'],
-            'scored_at' => now(),
+            'scored_by'           => $request->user()?->user_id,
+            'payload'             => $payload,
+            'raw_scores'          => $scores,
+            'total_weighted_score' => $scores['total'],
+            'scored_at'           => now(),
         ]);
         $score->save();
 
@@ -211,29 +229,234 @@ class OrganizationScoringController extends Controller
                     ->all();
             }
 
-            $rows = $scores->map(function (OrganizationScore $score) use ($orgNames) {
-                return [
-                    'score' => $score,
-                    'org_name' => $orgNames[$score->organization_id] ?? 'Unknown Organization',
-                    'raw' => (array) ($score->raw_scores ?? []),
-                ];
-            });
+            $rows = $scores->map(fn (OrganizationScore $score) => [
+                'score'    => $score,
+                'org_name' => $orgNames[$score->organization_id] ?? 'Unknown Organization',
+                'raw'      => (array) ($score->raw_scores ?? []),
+            ]);
         }
 
         return view('pages.admin.scoring.rankings', [
-            'title' => 'Organization Rankings',
-            'semesters' => $semesters,
-            'selectedSemester' => $selectedSemester,
+            'title'              => 'Organization Rankings',
+            'semesters'          => $semesters,
+            'selectedSemester'   => $selectedSemester,
             'selectedSemesterId' => $selectedSemesterId,
-            'rows' => $rows,
+            'rows'               => $rows,
         ]);
     }
 
-    private function hasApprovedProjects(int $organizationId, Semester $semester): bool
+    private function computeAutoInstances(int $organizationId, Semester $semester): array
+    {
+        $semesterStart = $semester->starts_at;
+        $semesterEnd   = $semester->endsAt() ?? now();
+
+        $plans = DB::table('event_plans as ep')
+            ->join('requests as r', 'r.request_id', '=', 'ep.request_id')
+            ->join('approvals as a', 'a.request', '=', 'r.request_id')
+            ->where('ep.organization_id', $organizationId)
+            ->where('a.is_rejected', false)
+            ->whereNotNull('a.approved_at')
+            ->whereBetween('a.approved_at', [$semesterStart, $semesterEnd])
+            ->select([
+                'ep.event_plan_id', 'ep.event_id', 'ep.activity_types', 'ep.seminar_level',
+                'ep.related_to_organization', 'ep.extension_services',
+                'ep.sponsor', 'ep.cosponsor_count', 'ep.area_scope',
+            ])
+            ->get()
+            ->map(fn ($p) => [
+                'event_id'               => $p->event_id,
+                'activity_types'         => $p->activity_types ? json_decode($p->activity_types, true) : [],
+                'seminar_level'          => $p->seminar_level,
+                'related_to_organization'=> (bool) $p->related_to_organization,
+                'extension_services'     => (bool) $p->extension_services,
+                'sponsor'                => $p->sponsor,
+                'cosponsor_count'        => (int) ($p->cosponsor_count ?? 0),
+                'area_scope'             => $p->area_scope,
+            ]);
+
+        $arForm = Form::query()->where('route_name', 'accomplishment-report')->first();
+        $membersMap    = [];
+        $arMomTotal    = 0;
+        $hasAnyAr      = false;
+        $arRewardedRows = collect();
+
+        if ($arForm) {
+            $arRows = DB::table('form_submissions as fs')
+                ->where('fs.form_id', (int) $arForm->getKey())
+                ->where('fs.organization_id', $organizationId)
+                ->whereBetween('fs.submitted_at', [$semesterStart, $semesterEnd])
+                ->select(['fs.event_id', 'fs.payload'])
+                ->get();
+
+            foreach ($arRows as $ar) {
+                $p = is_string($ar->payload) ? json_decode($ar->payload, true) : (array) $ar->payload;
+                if ($ar->event_id) {
+                    $membersMap[(int) $ar->event_id] = (int) ($p['members_attended'] ?? 0);
+                }
+                $arMomTotal += (int) ($p['minutes_of_meeting'] ?? 0);
+                $hasAnyAr = true;
+                $arRewardedRows->push($p);
+            }
+        }
+
+        $getMembers = fn (array $plan): int => isset($plan['event_id']) ? ($membersMap[(int) $plan['event_id']] ?? 0) : 0;
+
+        // --- Category I ---
+        $c1_seminar_college = 0;
+        $c1_seminar_univ    = 0;
+        $c1_related         = 0;
+        $c1_not_related     = 0;
+        $c1_cosponsor_pts   = 0;
+
+        foreach ($plans as $plan) {
+            $types        = $plan['activity_types'];
+            $isSeminar    = in_array('Seminar', $types, true);
+            $isPrep       = in_array('Preparation', $types, true);
+            $members      = $getMembers($plan);
+            $relatedToOrg = $plan['related_to_organization'];
+
+            if ($isSeminar && $plan['seminar_level'] === 'College' && $members > 15) {
+                $c1_seminar_college++;
+            }
+            if ($isSeminar && $plan['seminar_level'] === 'University' && $members > 30) {
+                $c1_seminar_univ++;
+            }
+            if (! $isSeminar && ! $isPrep && $relatedToOrg && $members > 15) {
+                $c1_related++;
+            }
+            if (! $isSeminar && ! $isPrep && ! $relatedToOrg && $members > 15) {
+                $c1_not_related++;
+            }
+            if ($plan['sponsor'] === 'co-sponsors' && ! $relatedToOrg && $plan['cosponsor_count'] >= 2) {
+                $c1_cosponsor_pts += (int) floor(10 / $plan['cosponsor_count']);
+            }
+        }
+
+        // --- Category II ---
+        $c2_other_orgs = 0;
+        $c2_rep        = ['Local' => 0, 'Provincial' => 0, 'Regional' => 0, 'National' => 0, 'International' => 0];
+        $c2_ssc_osa    = 0;
+        $c2_ssc_sem    = 0;
+        $c2_other_sem  = 0;
+        $c2_osa_sem    = 0;
+        $c2_help_ssc   = 0;
+        $c2_help_other = 0;
+
+        foreach ($plans as $plan) {
+            $types        = $plan['activity_types'];
+            $isSeminar    = in_array('Seminar', $types, true);
+            $isConference = in_array('Conference', $types, true);
+            $isPrep       = in_array('Preparation', $types, true);
+            $sponsor      = $plan['sponsor'];
+            $scope        = $plan['area_scope'];
+
+            if (! $isSeminar && ! $isPrep && $sponsor === 'others') {
+                $c2_other_orgs++;
+            }
+            if (array_key_exists($scope, $c2_rep)) {
+                $c2_rep[$scope]++;
+            }
+            if ($sponsor === 'SSC') {
+                $c2_ssc_osa++;
+                if ($isSeminar) {
+                    $c2_ssc_sem++;
+                }
+            }
+            if (($isSeminar || $isConference) && $sponsor === 'others') {
+                $c2_other_sem++;
+            }
+            if ($isSeminar && $sponsor === 'Admin') {
+                $c2_osa_sem++;
+            }
+            if ($isPrep) {
+                if ($sponsor === 'SSC' || $sponsor === 'Admin') {
+                    $c2_help_ssc++;
+                } elseif ($sponsor === 'others') {
+                    $c2_help_other++;
+                }
+            }
+        }
+
+        // --- Category III (from approved ARs with rewards) ---
+        $c3 = [
+            'group'      => ['Local' => 0, 'Provincial' => 0, 'Regional' => 0, 'National' => 0, 'International' => 0],
+            'individual' => ['Local' => 0, 'Provincial' => 0, 'Regional' => 0, 'National' => 0, 'International' => 0],
+        ];
+
+        foreach ($arRewardedRows as $p) {
+            if (empty($p['has_rewards'])) {
+                continue;
+            }
+            $scope = $p['area_scope_of_award'] ?? '';
+            $type  = ($p['is_individual'] ?? '') === 'yes' ? 'individual' : 'group';
+            if (isset($c3[$type][$scope])) {
+                $c3[$type][$scope]++;
+            }
+        }
+
+        // --- Category IV ---
+        $c4_extension = 0;
+        foreach ($plans as $plan) {
+            if ($plan['extension_services'] && $getMembers($plan) > 10) {
+                $c4_extension++;
+            }
+        }
+
+        // --- Category V ---
+        $c5_tangible = $this->countApprovedProjects($organizationId, $semester);
+
+        // --- Category VI ---
+        $c6_documents    = $hasAnyAr ? 1 : 0;
+        $c6_meetings     = $arMomTotal > 30 ? 1 : 0;
+        $c6_transparency = $c6_documents;
+
+        return [
+            'cat1_seminar_college'         => $c1_seminar_college,
+            'cat1_seminar_univ'            => $c1_seminar_univ,
+            'cat1_activities_related'      => $c1_related,
+            'cat1_activities_not_related'  => $c1_not_related,
+            'cat1_donation_cash'           => 0,
+            'cat1_donation_kinds'          => 0,
+            'cat1_cosponsor_pts'           => $c1_cosponsor_pts,
+            'cat1_income'                  => 0,
+            'cat2_other_orgs'              => $c2_other_orgs,
+            'cat2_rep_local'               => $c2_rep['Local'],
+            'cat2_rep_provincial'          => $c2_rep['Provincial'],
+            'cat2_rep_regional'            => $c2_rep['Regional'],
+            'cat2_rep_national'            => $c2_rep['National'],
+            'cat2_rep_international'       => $c2_rep['International'],
+            'cat2_ssc_osa_activities'      => $c2_ssc_osa,
+            'cat2_ssc_seminars'            => $c2_ssc_sem,
+            'cat2_other_seminars'          => $c2_other_sem,
+            'cat2_osa_seminars'            => $c2_osa_sem,
+            'cat2_ssc_meeting_rep'         => 0,
+            'cat2_ssc_meeting_proxy'       => 0,
+            'cat2_help_ssc_osa'            => $c2_help_ssc,
+            'cat2_help_others'             => $c2_help_other,
+            'cat3_group_intl'              => $c3['group']['International'],
+            'cat3_group_national'          => $c3['group']['National'],
+            'cat3_group_regional'          => $c3['group']['Regional'],
+            'cat3_group_provincial'        => $c3['group']['Provincial'],
+            'cat3_group_local'             => $c3['group']['Local'],
+            'cat3_individual_intl'         => $c3['individual']['International'],
+            'cat3_individual_national'     => $c3['individual']['National'],
+            'cat3_individual_regional'     => $c3['individual']['Regional'],
+            'cat3_individual_provincial'   => $c3['individual']['Provincial'],
+            'cat3_individual_local'        => $c3['individual']['Local'],
+            'cat4_extension_groups'        => $c4_extension,
+            'cat5_tangible_projects'       => $c5_tangible,
+            'cat6_documents'               => $c6_documents,
+            'cat6_meetings'                => $c6_meetings,
+            'cat6_leadership'              => 0,
+            'cat6_transparency'            => $c6_transparency,
+        ];
+    }
+
+    private function countApprovedProjects(int $organizationId, Semester $semester): int
     {
         $formId = Form::query()->where('route_name', 'project-request')->value('id');
         if (! $formId) {
-            return false;
+            return 0;
         }
 
         $end = $semester->endsAt() ?? now();
@@ -246,149 +469,126 @@ class OrganizationScoringController extends Controller
             ->where('a.is_rejected', false)
             ->whereNotNull('a.approved_at')
             ->whereBetween('a.approved_at', [$semester->starts_at, $end])
-            ->exists();
+            ->count();
+    }
+
+    private function computeScores(array $payload): array
+    {
+        $get = fn (string $key): int => max(0, (int) ($payload[$key] ?? 0));
+
+        $cat1 = min(100,
+            $get('cat1_seminar_college') * 10 +
+            $get('cat1_seminar_univ') * 15 +
+            $get('cat1_activities_related') * 10 +
+            $get('cat1_activities_not_related') * 7 +
+            $get('cat1_donation_cash') * 2 +
+            $get('cat1_donation_kinds') * 10 +
+            $get('cat1_cosponsor_pts') +
+            $get('cat1_income')
+        );
+
+        $cat2 = min(100,
+            $get('cat2_other_orgs') * 10 +
+            $get('cat2_rep_local') * 2 +
+            $get('cat2_rep_provincial') * 3 +
+            $get('cat2_rep_regional') * 5 +
+            $get('cat2_rep_national') * 7 +
+            $get('cat2_rep_international') * 10 +
+            $get('cat2_ssc_osa_activities') * 10 +
+            $get('cat2_ssc_seminars') * 10 +
+            $get('cat2_other_seminars') * 7 +
+            $get('cat2_osa_seminars') * 5 +
+            $get('cat2_ssc_meeting_rep') * 2 +
+            $get('cat2_ssc_meeting_proxy') * 1 +
+            $get('cat2_help_ssc_osa') * 5 +
+            $get('cat2_help_others') * 3
+        );
+
+        $cat3 = min(50,
+            $get('cat3_group_intl') * 20 +
+            $get('cat3_group_national') * 15 +
+            $get('cat3_group_regional') * 10 +
+            $get('cat3_group_provincial') * 7 +
+            $get('cat3_group_local') * 5 +
+            $get('cat3_individual_intl') * 15 +
+            $get('cat3_individual_national') * 10 +
+            $get('cat3_individual_regional') * 7 +
+            $get('cat3_individual_provincial') * 5 +
+            $get('cat3_individual_local') * 3
+        );
+
+        $cat4 = min(100, $get('cat4_extension_groups') * 10);
+
+        $cat5 = min(100, $get('cat5_tangible_projects') * 100);
+
+        $cat6 = min(100,
+            $get('cat6_documents') * 50 +
+            $get('cat6_meetings') * 25 +
+            $get('cat6_leadership') * 15 +
+            $get('cat6_transparency') * 10
+        );
+
+        $total = $cat1 + $cat2 + $cat3 + $cat4 + $cat5 + $cat6;
+
+        return compact('cat1', 'cat2', 'cat3', 'cat4', 'cat5', 'cat6', 'total');
     }
 
     private function normalizePayload(array $payload): array
     {
-        $defaults = [
-            'ss_seminar_college' => 0,
-            'ss_seminar_univ' => 0,
-            'ss_activities_related' => 0,
-            'ss_activities_not_related' => 0,
-            'ss_donation_cash' => 0,
-            'ss_donation_kinds' => 0,
-            'ss_cosponsor' => 0,
-            'ss_cosponsor_count' => 2,
-            'ss_income' => 0,
-            'ap_other_orgs_pts' => 0,
-            'ap_rep_level' => 0,
-            'ap_ssc_osa_activities' => 0,
-            'ap_ssc_seminars' => 0,
-            'ap_other_seminars' => 0,
-            'ap_osa_seminars' => 0,
-            'ap_ssc_meeting' => 0,
-            'ap_ssc_help' => 0,
-            'aw_group_level' => 0,
-            'aw_individual_level' => 0,
-            'es_groups' => 0,
-            'tangible_auto' => 0,
-            'adm_documents' => 0,
-            'adm_meetings' => 0,
-            'adm_leadership' => 0,
-            'adm_transparency' => 0,
+        $keys = [
+            'cat1_seminar_college', 'cat1_seminar_univ', 'cat1_activities_related',
+            'cat1_activities_not_related', 'cat1_donation_cash', 'cat1_donation_kinds',
+            'cat1_cosponsor_pts', 'cat1_income',
+            'cat2_other_orgs', 'cat2_rep_local', 'cat2_rep_provincial', 'cat2_rep_regional',
+            'cat2_rep_national', 'cat2_rep_international', 'cat2_ssc_osa_activities',
+            'cat2_ssc_seminars', 'cat2_other_seminars', 'cat2_osa_seminars',
+            'cat2_ssc_meeting_rep', 'cat2_ssc_meeting_proxy', 'cat2_help_ssc_osa', 'cat2_help_others',
+            'cat3_group_intl', 'cat3_group_national', 'cat3_group_regional',
+            'cat3_group_provincial', 'cat3_group_local',
+            'cat3_individual_intl', 'cat3_individual_national', 'cat3_individual_regional',
+            'cat3_individual_provincial', 'cat3_individual_local',
+            'cat4_extension_groups',
+            'cat5_tangible_projects',
+            'cat6_documents', 'cat6_meetings', 'cat6_leadership', 'cat6_transparency',
         ];
 
-        $merged = array_merge($defaults, $payload);
-
-        foreach (['ss_cosponsor', 'ap_ssc_osa_activities', 'ap_ssc_seminars', 'ap_other_seminars', 'ap_osa_seminars', 'tangible_auto'] as $field) {
-            $merged[$field] = ! empty($merged[$field]) ? 1 : 0;
+        $normalized = [];
+        foreach ($keys as $key) {
+            $normalized[$key] = max(0, (int) ($payload[$key] ?? 0));
         }
 
-        return $merged;
-    }
-
-    private function computeScores(array $payload, bool $hasApprovedProjects): array
-    {
-        $getInt = fn (string $key): int => (int) ($payload[$key] ?? 0);
-        $getBool = fn (string $key): bool => ! empty($payload[$key]);
-
-        $cosponsorPts = 0;
-        if ($getBool('ss_cosponsor')) {
-            $count = max(2, (int) ($payload['ss_cosponsor_count'] ?? 2));
-            $cosponsorPts = (int) floor(10 / $count);
-        }
-
-        $sole = min(100,
-            $getInt('ss_seminar_college') * 10 +
-            $getInt('ss_seminar_univ') * 15 +
-            $getInt('ss_activities_related') * 10 +
-            $getInt('ss_activities_not_related') * 7 +
-            $getInt('ss_donation_cash') * 2 +
-            $getInt('ss_donation_kinds') +
-            $cosponsorPts +
-            (int) floor($getInt('ss_income') / 500)
-        );
-
-        $active = min(100,
-            $getInt('ap_other_orgs_pts') +
-            $getInt('ap_rep_level') +
-            ($getBool('ap_ssc_osa_activities') ? 10 : 0) +
-            ($getBool('ap_ssc_seminars') ? 10 : 0) +
-            ($getBool('ap_other_seminars') ? 7 : 0) +
-            ($getBool('ap_osa_seminars') ? 5 : 0) +
-            $getInt('ap_ssc_meeting') +
-            $getInt('ap_ssc_help')
-        );
-
-        $awards = min(50,
-            $getInt('aw_group_level') +
-            $getInt('aw_individual_level')
-        );
-
-        $extension = min(100, $getInt('es_groups') * 10);
-
-        $tangible = $hasApprovedProjects ? 100 : 0;
-
-        $admin =
-            $getInt('adm_documents') +
-            $getInt('adm_meetings') +
-            $getInt('adm_leadership') +
-            $getInt('adm_transparency');
-
-        $weighted = round(
-            ($sole / 100 * 20) +
-            ($active / 100 * 20) +
-            ($awards / 50 * 5) +
-            ($extension / 100 * 15) +
-            ($tangible / 100 * 20) +
-            ($admin / 100 * 20),
-            2
-        );
-
-        return [
-            'sole' => $sole,
-            'active' => $active,
-            'awards' => $awards,
-            'extension' => $extension,
-            'tangible' => $tangible,
-            'admin' => $admin,
-            'weighted' => $weighted,
-            'total_weighted' => $weighted,
-        ];
+        return $normalized;
     }
 
     private function validatePayload(Request $request): array
     {
-        return $request->validate([
+        $rules = [
             'organization_id' => ['required', 'integer', Rule::exists('organizations', 'organization_id')],
-            'semester_id' => ['required', 'integer', Rule::exists('semesters', 'semester_id')],
-            'payload' => ['nullable', 'array'],
-            'payload.ss_seminar_college' => ['nullable', 'integer', 'min:0', 'max:10'],
-            'payload.ss_seminar_univ' => ['nullable', 'integer', 'min:0', 'max:10'],
-            'payload.ss_activities_related' => ['nullable', 'integer', 'min:0', 'max:10'],
-            'payload.ss_activities_not_related' => ['nullable', 'integer', 'min:0', 'max:10'],
-            'payload.ss_donation_cash' => ['nullable', 'integer', 'min:0', 'max:10'],
-            'payload.ss_donation_kinds' => ['nullable', 'integer', 'min:0', 'max:10'],
-            'payload.ss_cosponsor' => ['nullable', 'boolean'],
-            'payload.ss_cosponsor_count' => ['nullable', 'integer', 'min:2', 'max:10'],
-            'payload.ss_income' => ['nullable', 'integer', 'min:0', 'max:5000'],
-            'payload.ap_other_orgs_pts' => ['nullable', 'integer', 'min:0', 'max:10'],
-            'payload.ap_rep_level' => ['nullable', 'integer', 'min:0', 'max:10'],
-            'payload.ap_ssc_osa_activities' => ['nullable', 'boolean'],
-            'payload.ap_ssc_seminars' => ['nullable', 'boolean'],
-            'payload.ap_other_seminars' => ['nullable', 'boolean'],
-            'payload.ap_osa_seminars' => ['nullable', 'boolean'],
-            'payload.ap_ssc_meeting' => ['nullable', 'integer', 'min:0', 'max:2'],
-            'payload.ap_ssc_help' => ['nullable', 'integer', 'min:0', 'max:5'],
-            'payload.aw_group_level' => ['nullable', 'integer', 'min:0', 'max:20'],
-            'payload.aw_individual_level' => ['nullable', 'integer', 'min:0', 'max:10'],
-            'payload.es_groups' => ['nullable', 'integer', 'min:0', 'max:10'],
-            'payload.tangible_auto' => ['nullable', 'boolean'],
-            'payload.adm_documents' => ['nullable', 'integer', 'min:0', 'max:50'],
-            'payload.adm_meetings' => ['nullable', 'integer', 'min:0', 'max:25'],
-            'payload.adm_leadership' => ['nullable', 'integer', 'min:0', 'max:15'],
-            'payload.adm_transparency' => ['nullable', 'integer', 'min:0', 'max:10'],
-        ]);
+            'semester_id'     => ['required', 'integer', Rule::exists('semesters', 'semester_id')],
+            'payload'         => ['nullable', 'array'],
+        ];
+
+        $intFields = [
+            'cat1_seminar_college', 'cat1_seminar_univ', 'cat1_activities_related',
+            'cat1_activities_not_related', 'cat1_donation_cash', 'cat1_donation_kinds',
+            'cat1_cosponsor_pts', 'cat1_income',
+            'cat2_other_orgs', 'cat2_rep_local', 'cat2_rep_provincial', 'cat2_rep_regional',
+            'cat2_rep_national', 'cat2_rep_international', 'cat2_ssc_osa_activities',
+            'cat2_ssc_seminars', 'cat2_other_seminars', 'cat2_osa_seminars',
+            'cat2_ssc_meeting_rep', 'cat2_ssc_meeting_proxy', 'cat2_help_ssc_osa', 'cat2_help_others',
+            'cat3_group_intl', 'cat3_group_national', 'cat3_group_regional',
+            'cat3_group_provincial', 'cat3_group_local',
+            'cat3_individual_intl', 'cat3_individual_national', 'cat3_individual_regional',
+            'cat3_individual_provincial', 'cat3_individual_local',
+            'cat4_extension_groups',
+            'cat5_tangible_projects',
+            'cat6_documents', 'cat6_meetings', 'cat6_leadership', 'cat6_transparency',
+        ];
+
+        foreach ($intFields as $field) {
+            $rules["payload.{$field}"] = ['nullable', 'integer', 'min:0'];
+        }
+
+        return $request->validate($rules);
     }
 }

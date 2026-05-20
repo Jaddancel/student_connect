@@ -50,17 +50,39 @@ class AccomplishmentReportController extends Controller
 
         $orgIds = $organizations->pluck('organization_id')->toArray();
 
+        $form = Form::query()->where('route_name', 'accomplishment-report')->first();
+        $usedEventIds = $form
+            ? DB::table('form_submissions')
+                ->where('form_id', (int) $form->getKey())
+                ->whereNotNull('event_id')
+                ->pluck('event_id')
+                ->map(fn ($id) => (int) $id)
+                ->all()
+            : [];
+
         $events = DB::table('events as e')
             ->join('event_details as ed', 'ed.event_detail_id', '=', 'e.event_detail')
+            ->leftJoin('event_plans as ep', 'ep.event_id', '=', 'e.event_id')
             ->whereIn('e.organization', $orgIds)
+            ->when(! empty($usedEventIds), fn ($q) => $q->whereNotIn('e.event_id', $usedEventIds))
             ->orderByDesc('ed.start_time')
             ->select([
                 'e.event_id',
                 'e.organization as org_id',
                 'ed.name as title',
                 DB::raw('DATE(ed.start_time) as date'),
+                'ep.activity_types',
+                'ep.seminar_level',
             ])
-            ->get();
+            ->get()
+            ->map(fn ($ev) => [
+                'event_id'       => $ev->event_id,
+                'org_id'         => $ev->org_id,
+                'title'          => $ev->title,
+                'date'           => $ev->date,
+                'activity_types' => $ev->activity_types ? json_decode($ev->activity_types, true) : [],
+                'seminar_level'  => $ev->seminar_level,
+            ]);
 
         return view('pages.form.accomplishment-report', [
             'title'         => 'Accomplishment Report',
@@ -91,11 +113,14 @@ class AccomplishmentReportController extends Controller
             'signature'       => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
             'adviserRow'      => ['nullable', 'array'],
             'adviserRow.*'    => ['nullable', 'string', 'max:255'],
+            'event_id'            => ['nullable', 'integer', 'min:1'],
+            'members_attended'    => ['nullable', 'integer', 'min:0'],
+            'activity_type'       => ['nullable', 'string', 'in:Seminar,Clean Up Drive,Conference,Workshop,Preparation,Meeting,others'],
             'has_rewards'         => ['nullable', 'boolean'],
             'is_individual'       => ['required_if:has_rewards,1', 'in:yes,no'],
-            'area_scope_of_award' => ['exclude_unless:has_rewards,1', 'required', 'in:Local,Provincial,Regional,International'],
-            'minutes_of_meeting'   => ['nullable', 'integer', 'min:0'],
-            'summary_of_expenses'  => ['nullable', 'numeric', 'min:0'],
+            'area_scope_of_award' => ['exclude_unless:has_rewards,1', 'required', 'in:Local,Provincial,Regional,National,International'],
+            'minutes_of_meeting'  => ['nullable', 'integer', 'min:0'],
+            'summary_of_expenses' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $organizationId = (int) $validated['organization_id'];
@@ -120,6 +145,8 @@ class AccomplishmentReportController extends Controller
             'adviserName'  => collect($validated['adviserRow'] ?? [])->filter()->values()->isNotEmpty()
                 ? '(' . collect($validated['adviserRow'])->filter()->map(fn($v) => '"' . $v . '"')->implode(', ') . ')'
                 : '',
+            'activity_type'       => $validated['activity_type'] ?? null,
+            'members_attended'    => isset($validated['members_attended']) ? (int) $validated['members_attended'] : null,
             'has_rewards'         => (bool) ($validated['has_rewards'] ?? false),
             'is_individual'       => $validated['is_individual'] ?? null,
             'area_scope_of_award' => $validated['area_scope_of_award'] ?? null,
@@ -158,6 +185,7 @@ class AccomplishmentReportController extends Controller
         $submission = FormSubmission::query()->create([
             'form_id'         => (int) $form->getKey(),
             'organization_id' => $organizationId,
+            'event_id'        => isset($validated['event_id']) ? (int) $validated['event_id'] : null,
             'submitted_by'    => $userId,
             'submitted_at'    => now(),
             'payload'         => $payload,

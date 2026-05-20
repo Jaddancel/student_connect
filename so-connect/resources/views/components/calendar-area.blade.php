@@ -61,6 +61,18 @@
     }
 
     $resolvedCanRequestEvent = (bool) $resolvedCanRequestEvent;
+
+    $allOrgsGrouped = \Illuminate\Support\Facades\DB::table('organizations as o')
+        ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+        ->where('o.organization_type', '!=', 5)
+        ->orderBy('o.organization_type')
+        ->orderBy('od.name')
+        ->get(['o.organization_id', 'o.organization_type', \Illuminate\Support\Facades\DB::raw("COALESCE(od.name, 'Unknown Organization') as name")])
+        ->groupBy('organization_type')
+        ->map(fn ($group) => $group->values())
+        ->toArray();
+
+    $orgTypeLabels = [1 => 'Socio-Civic', 2 => 'Religious', 3 => 'Fraternities-Sororities', 4 => 'Special Interest', 6 => 'Student Government'];
 @endphp
 
 <div>
@@ -173,12 +185,15 @@
                             removeAdviser(index) {
                                 if (this.advisers.length > 1) this.advisers.splice(index, 1);
                             },
-                            activityTypes: {{ Js::from(old('activity_types', [])) }},
-                            activityTypeOther: {{ Js::from(old('activity_types_other', '')) }},
+                            activityType: {{ Js::from(old('activity_type', '')) }},
+                            activityTypeOther: {{ Js::from(old('activity_type_other', '')) }},
+                            seminarLevel: {{ Js::from(old('seminar_level', '')) }},
                             areaScope: {{ Js::from(old('area_scope', '')) }},
                             areaScopeOther: {{ Js::from(old('area_scope_other', '')) }},
                             sponsor: {{ Js::from(old('sponsor', '')) }},
                             sponsorOther: {{ Js::from(old('sponsor_other', '')) }},
+                            cosponsorCount: 0,
+                            relatedToOrg: {{ old('related_to_organization') ? 'true' : 'false' }},
                             extensionServices: {{ Js::from(old('extension_services', '')) }},
                         }">
                         @csrf
@@ -433,41 +448,78 @@
                             class="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-800 dark:bg-white/[0.03]">
                             <h6
                                 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">
-                                Additional Request Details</h6>
+                                Event Type</h6>
 
                             <div class="space-y-6">
                                 <div>
-                                    <p class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-400">Activity Types
-                                    </p>
+                                    <p class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-400">Select one <span class="text-error-500">*</span></p>
                                     <div
                                         class="space-y-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900/30">
-                                        @foreach (['Seminar', 'Clean Up Drive', 'Donation', 'Conference', 'Workshop'] as $activityType)
+                                        @foreach (['Seminar', 'Clean Up Drive', 'Conference', 'Workshop', 'Preparation', 'Meeting'] as $type)
                                             <label class="flex cursor-pointer items-center gap-3">
-                                                <input type="checkbox" name="activity_types[]"
-                                                    value="{{ $activityType }}" x-model="activityTypes"
-                                                    @checked(in_array($activityType, (array) old('activity_types', []), true))
-                                                    class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                                                <input type="radio" name="activity_type"
+                                                    value="{{ $type }}" x-model="activityType" required
+                                                    class="h-4 w-4 border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
                                                 <span
-                                                    class="text-sm text-gray-700 dark:text-gray-300">{{ $activityType }}</span>
+                                                    class="text-sm text-gray-700 dark:text-gray-300">{{ $type }}</span>
                                             </label>
                                         @endforeach
 
                                         <div class="space-y-2">
                                             <label class="flex cursor-pointer items-center gap-3">
-                                                <input type="checkbox" name="activity_types[]" value="others"
-                                                    x-model="activityTypes" @checked(in_array('others', (array) old('activity_types', []), true))
-                                                    class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                                                <input type="radio" name="activity_type" value="others"
+                                                    x-model="activityType" required
+                                                    class="h-4 w-4 border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
                                                 <span class="text-sm text-gray-700 dark:text-gray-300">Others</span>
                                             </label>
-                                            <div x-show="activityTypes.includes('others')" x-transition
+                                            <div x-show="activityType === 'others'" x-transition
                                                 class="pl-7">
-                                                <input type="text" name="activity_types_other"
-                                                    value="{{ old('activity_types_other') }}"
+                                                <input type="text" name="activity_type_other"
+                                                    value="{{ old('activity_type_other') }}"
+                                                    :required="activityType === 'others'"
                                                     placeholder="Specify other activity type"
                                                     class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                                             </div>
                                         </div>
+                                        <div x-show="activityType === 'Seminar'" x-transition
+                                            class="mt-2 rounded-lg border border-brand-200 bg-brand-50/50 p-3 dark:border-brand-700/50 dark:bg-brand-500/5">
+                                            <p class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">Seminar Level <span class="text-error-500">*</span></p>
+                                            <div class="flex gap-6">
+                                                <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                                    <input type="radio" name="seminar_level" value="College"
+                                                        x-model="seminarLevel"
+                                                        :required="activityType === 'Seminar'"
+                                                        class="h-4 w-4 border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                                                    College Level
+                                                </label>
+                                                <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                                    <input type="radio" name="seminar_level" value="University"
+                                                        x-model="seminarLevel"
+                                                        :required="activityType === 'Seminar'"
+                                                        class="h-4 w-4 border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                                                    University Level
+                                                </label>
+                                            </div>
+                                        </div>
                                     </div>
+                                </div>
+
+                                {{-- Related to Organization --}}
+                                <div>
+                                    <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-400">
+                                        <input type="checkbox" name="related_to_organization" value="1"
+                                            x-model="relatedToOrg"
+                                            class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                                        Related to Organization?
+                                        <span class="relative group cursor-default ml-1">
+                                            <svg class="h-4 w-4 text-gray-400 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+                                            </svg>
+                                            <span class="pointer-events-none absolute left-1/2 bottom-full mb-1.5 -translate-x-1/2 w-56 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity dark:bg-gray-700 z-20 text-center">
+                                                Related to the organizations' scope of topic, course.
+                                            </span>
+                                        </span>
+                                    </label>
                                 </div>
 
                                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -475,7 +527,7 @@
                                         <label for="area-scope"
                                             class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Area
                                             Scope</label>
-                                        <select id="area-scope" name="area_scope" x-model="areaScope"
+                                        <select id="area-scope" name="area_scope" x-model="areaScope" required
                                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
                                             <option value="">Select area scope</option>
                                             <option value="Local" @selected(old('area_scope') === 'Local')>Local</option>
@@ -497,18 +549,36 @@
                                     <div>
                                         <label for="sponsor"
                                             class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Sponsor</label>
-                                        <select id="sponsor" name="sponsor" x-model="sponsor"
+                                        <select id="sponsor" name="sponsor" x-model="sponsor" required
                                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
                                             <option value="">Select sponsor</option>
                                             <option value="N/A" @selected(old('sponsor') === 'N/A')>N/A</option>
                                             <option value="SSC" @selected(old('sponsor') === 'SSC')>SSC</option>
                                             <option value="Admin" @selected(old('sponsor') === 'Admin')>Admin</option>
                                             <option value="others" @selected(old('sponsor') === 'others')>Others</option>
+                                            <option value="co-sponsors" @selected(old('sponsor') === 'co-sponsors')>Co-sponsors</option>
                                         </select>
                                         <div x-show="sponsor === 'others'" x-transition class="mt-2">
                                             <input type="text" name="sponsor_other"
                                                 value="{{ old('sponsor_other') }}" placeholder="Specify sponsor"
                                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                        </div>
+                                        <div x-show="sponsor === 'co-sponsors'" x-transition class="mt-2">
+                                            <input type="hidden" name="cosponsor_count" :value="cosponsorCount" />
+                                            <div class="max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900/30 space-y-2">
+                                                @foreach ($allOrgsGrouped as $typeId => $orgs)
+                                                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 pt-1">{{ $orgTypeLabels[$typeId] ?? 'Other' }}</p>
+                                                    @foreach ($orgs as $org)
+                                                        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                                                            <input type="checkbox" value="{{ $org->organization_id }}"
+                                                                @change="cosponsorCount = $el.closest('.max-h-48').querySelectorAll('input[type=checkbox]:checked').length"
+                                                                class="h-3.5 w-3.5 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                                                            {{ $org->name }}
+                                                        </label>
+                                                    @endforeach
+                                                @endforeach
+                                            </div>
+                                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" x-text="'Selected: ' + cosponsorCount + ' organization' + (cosponsorCount !== 1 ? 's' : '')"></p>
                                         </div>
                                     </div>
                                 </div>
@@ -520,7 +590,7 @@
                                         <label class="flex cursor-pointer items-center gap-2">
                                             <input type="radio" name="extension_services" value="yes"
                                                 x-model="extensionServices" @checked(old('extension_services') === 'yes')
-                                                class="h-4 w-4 border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                                                required class="h-4 w-4 border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
                                             <span class="text-sm text-gray-700 dark:text-gray-300">Yes</span>
                                         </label>
                                         <label class="flex cursor-pointer items-center gap-2">
