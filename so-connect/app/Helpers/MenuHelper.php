@@ -72,6 +72,7 @@ class MenuHelper
                 'items' => [
                     ['icon' => 'forms', 'name' => 'Template Manager', 'path' => '/admin/templates'],
                     ['icon' => 'calendar', 'name' => 'Semester Management', 'path' => '/admin/semesters'],
+                    ['icon' => 'pages', 'name' => 'Organization Posts', 'path' => '/admin/posts'],
                 ],
             ];
 

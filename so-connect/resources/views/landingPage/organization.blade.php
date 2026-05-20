@@ -168,6 +168,20 @@
                     </div>
                     <h2 class="mt-2 text-xl font-bold text-slate-800">{{ $post->title }}</h2>
                     <p class="mt-2 text-sm text-slate-600">{{ $post->excerpt }}</p>
+                    @if (! empty($post->body))
+                        <p class="mt-3 text-sm leading-7 text-slate-600">{!! nl2br(e($post->body)) !!}</p>
+                    @endif
+
+                    @if (! empty($post->gallery_images))
+                        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                            @foreach ($post->gallery_images as $galleryImage)
+                                <div class="overflow-hidden rounded-xl border border-emerald-100 bg-white shadow-sm">
+                                    <img src="{{ asset($galleryImage) }}" alt="{{ $post->title }} image" class="h-48 w-full object-cover" loading="lazy">
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
                     <p class="mt-3 text-xs font-semibold text-slate-500">Organization: {{ $organization['name'] }}</p>
                 </article>
             @empty

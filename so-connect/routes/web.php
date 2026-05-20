@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AdminOfficerCreationController;
 use App\Http\Controllers\Admin\AdminWorkplanController;
 use App\Http\Controllers\Admin\EventPlanRequestController;
 use App\Http\Controllers\Admin\JointStatementRequestController;
+use App\Http\Controllers\Admin\PostController;
 use App\Http\Controllers\Admin\SemesterController;
 use App\Http\Controllers\Admin\TemplateManagerController;
 use App\Http\Controllers\DocumentController;
@@ -244,6 +245,11 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
     Route::get('/admin/workplans', [AdminWorkplanController::class, 'index'])
         ->name('admin.workplans.index');
+
+    Route::get('/admin/posts', [PostController::class, 'index'])
+        ->name('admin.posts.index');
+    Route::post('/admin/posts', [PostController::class, 'store'])
+        ->name('admin.posts.store');
 
     Route::get('/admin/officers/create', [AdminOfficerCreationController::class, 'create'])
         ->name('admin.officers.create');

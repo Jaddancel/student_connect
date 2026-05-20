@@ -20,11 +20,13 @@ class Post extends Model
         'body',
         'tag',
         'image_path',
+        'gallery_images',
         'is_featured',
         'published_at',
     ];
 
     protected $casts = [
+        'gallery_images' => 'array',
         'is_featured' => 'bool',
         'published_at' => 'datetime',
     ];
