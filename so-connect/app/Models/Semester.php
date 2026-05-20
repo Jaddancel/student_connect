@@ -15,6 +15,7 @@ class Semester extends Model
 
     protected $fillable = [
         'name',
+        'semester_number',
         'starts_at',
         'vacation_days',
         'created_by',
@@ -25,6 +26,7 @@ class Semester extends Model
         return [
             'starts_at' => 'date',
             'vacation_days' => 'integer',
+            'semester_number' => 'integer',
         ];
     }
 
@@ -72,6 +74,17 @@ class Semester extends Model
     public function scopeUpcoming($query)
     {
         return $query->where('starts_at', '>', Carbon::today())->orderBy('starts_at');
+    }
+
+    /**
+     * Returns true if any semester has not yet started or is in its prep period.
+     * Used to gate creating a new school year — the cycle must be fully complete first.
+     */
+    public static function hasActiveOrUpcoming(): bool
+    {
+        return static::query()
+            ->get()
+            ->contains(fn (self $s) => $s->starts_at->isFuture() || $s->isCurrentlyActive());
     }
 
     /**
@@ -131,21 +144,20 @@ class Semester extends Model
     }
 
     /**
-     * Returns "1st", "2nd", or "summer" based on starts_at month.
-     * Aug–Dec = 1st, Jan–May = 2nd, Jun–Jul = summer.
+     * Returns "1st" or "2nd" based on semester_number, falling back to start month.
      */
     public function semesterLabel(): string
     {
-        $month = (int) $this->starts_at->format('n');
-
-        if ($month >= 8) {
+        if ($this->semester_number === 1) {
             return '1st';
         }
 
-        if ($month <= 5) {
+        if ($this->semester_number === 2) {
             return '2nd';
         }
 
-        return 'summer';
+        $month = (int) $this->starts_at->format('n');
+
+        return $month >= 8 ? '1st' : '2nd';
     }
 }

@@ -51,7 +51,9 @@
                         <a class="nav-link" href="#activity">Recent Activities</a>
                     </li>
                     <li class="nav-item ms-lg-3">
-                        <a class="nav-link btn btn-sm text-uppercase" href="{{ route('login') }}" style="padding: 8px 20px; border-radius: 20px; font-weight: 600; background-color: #C9A84C; color: white; transition: all 0.3s ease; display: inline-block;">Login / Sign Up</a>
+                        <a class="nav-link btn btn-sm text-uppercase" href="{{ route('login') }}"
+                            style="padding: 8px 20px; border-radius: 20px; font-weight: 600; background-color: #C9A84C; color: white; transition: all 0.3s ease; display: inline-block;">Login
+                            / Sign Up</a>
                     </li>
                 </ul>
             </div>
@@ -63,26 +65,28 @@
         <div class="container">
             <div class="masthead-subheading">Welcome to SO Connect!</div>
             <div class="masthead-heading text-uppercase">Find Your Community</div>
-            <a class="btn btn-primary btn-xl text-uppercase" href="#clusters">Explore Organizations</a>
+            <a class="btn btn-primary btn-xl text-uppercase" href="#categories">Explore Organizations</a>
         </div>
     </header>
-    <!-- Organization Clusters-->
-    <section class="page-section" id="clusters">
+    <!-- Organization Categories -->
+    <section class="page-section" id="categories">
         <div class="container">
             <div class="text-center">
-                <h2 class="section-heading text-uppercase">Organization Clusters</h2>
+                <h2 class="section-heading text-uppercase">Organization Categories</h2>
                 <h3 class="section-subheading text-muted">Discover the different avenues for student involvement on
-                    campus.</h3>
+                    campus. <em>Hover a card to browse organizations.</em></h3>
             </div>
             @php
-                $clusterMeta = [
+                $categoryMeta = [
                     1 => [
                         'icon' => 'hands-helping',
-                        'description' => 'Engage in community service, environmental advocacy, and social awareness campaigns.',
+                        'description' =>
+                            'Engage in community service, environmental advocacy, and social awareness campaigns.',
                     ],
                     2 => [
                         'icon' => 'praying-hands',
-                        'description' => 'Connect with faith-centered communities and events that nurture shared values.',
+                        'description' =>
+                            'Connect with faith-centered communities and events that nurture shared values.',
                     ],
                     3 => [
                         'icon' => 'user-friends',
@@ -98,29 +102,61 @@
                     ],
                     6 => [
                         'icon' => 'landmark',
-                        'description' => 'Lead student initiatives and represent your peers across university councils.',
+                        'description' =>
+                            'Lead student initiatives and represent your peers across university councils.',
                     ],
                 ];
             @endphp
-            <div class="row text-center">
+            <div class="row g-4">
                 @foreach ($organizationTypes as $typeKey => $typeName)
                     @if (!empty($organizationsByType[$typeKey]))
                         @php
-                            $meta = $clusterMeta[$typeKey] ?? [
+                            $meta = $categoryMeta[$typeKey] ?? [
                                 'icon' => 'users',
-                                'description' => 'Connect with student leaders, mentors, and campus-wide opportunities.',
+                                'description' =>
+                                    'Connect with student leaders, mentors, and campus-wide opportunities.',
                             ];
+                            $orgsInType = $organizationsByType[$typeKey];
                         @endphp
-                        <div class="col-md-6 col-lg-4 mb-4">
-                            <div class="cluster-card text-center">
-                                <div class="cluster-icon-wrap">
-                                    <span class="fa-stack fa-4x">
-                                        <i class="fas fa-circle fa-stack-2x text-primary"></i>
-                                        <i class="fas fa-{{ $meta['icon'] }} fa-stack-1x fa-inverse"></i>
-                                    </span>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="cat-flip">
+                                <div class="cat-flip-inner">
+
+                                    {{-- ── FRONT ── --}}
+                                    <div class="cat-face cat-face--front">
+                                        <span class="fa-stack fa-4x cat-icon-stack">
+                                            <i class="fas fa-circle fa-stack-2x cat-icon-circle"></i>
+                                            <i class="fas fa-{{ $meta['icon'] }} fa-stack-1x fa-inverse"></i>
+                                        </span>
+                                        <h4 class="cat-front-title">{{ $typeName }}</h4>
+                                        <p class="cat-front-desc">{{ $meta['description'] }}</p>
+                                        <span class="cat-count-badge">{{ count($orgsInType) }}
+                                            {{ count($orgsInType) === 1 ? 'organization' : 'organizations' }}</span>
+                                    </div>
+
+                                    {{-- ── BACK ── --}}
+                                    <div class="cat-face cat-face--back">
+                                        <div class="cat-back-header">
+                                            <i class="fas fa-{{ $meta['icon'] }} cat-back-icon"></i>
+                                            <span class="cat-back-label">{{ $typeName }}</span>
+                                        </div>
+                                        <div class="cat-org-list">
+                                            @foreach ($orgsInType as $org)
+                                                <a href="{{ route('organization-feed', ['organizationId' => $org['id'], 'slug' => $org['slug']]) }}"
+                                                    class="cat-org-link">
+                                                    <span class="cat-org-name">{{ $org['name'] }}</span>
+                                                    <svg class="cat-org-arrow" width="16" height="16"
+                                                        viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                                                        stroke-width="2.5" stroke-linecap="round"
+                                                        stroke-linejoin="round">
+                                                        <path d="M4 10h12M12 5l5 5-5 5" />
+                                                    </svg>
+                                                </a>
+                                            @endforeach
+                                        </div>
+                                    </div>
+
                                 </div>
-                                <h4 class="my-3">{{ $typeName }}</h4>
-                                <p class="text-muted">{{ $meta['description'] }}</p>
                             </div>
                         </div>
                     @endif
@@ -154,7 +190,10 @@
                                     <div class="feature-card-media">
                                         @if (!empty($organization['logo_url']))
                                             <img class="feature-card-image" src="{{ $organization['logo_url'] }}"
-                                                alt="{{ $organization['name'] }} logo" loading="lazy" />
+                                                alt="{{ $organization['name'] }} logo" loading="lazy"
+                                                onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+                                            <div class="feature-card-initials" style="display:none;">
+                                                {{ $orgInitials }}</div>
                                         @else
                                             <div class="feature-card-initials">{{ $orgInitials }}</div>
                                         @endif
@@ -192,11 +231,32 @@
                         @endphp
                         <div class="col-md-6 col-lg-4">
                             <article class="post-card">
-                                @if (!empty($post->image_path))
-                                    <div class="post-card-media">
-                                        <img src="{{ asset($post->image_path) }}" alt="{{ $post->title }}" loading="lazy" />
-                                    </div>
-                                @endif
+                                <div class="post-card-media">
+                                    @if (!empty($post->image_path))
+                                        <img src="{{ '/storage/' . $post->image_path }}" alt="{{ $post->title }}"
+                                            loading="lazy"
+                                            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+                                        <div class="img-placeholder" style="display:none;">
+                                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                                stroke-width="1.5">
+                                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                                <polyline points="21 15 16 10 5 21" />
+                                            </svg>
+                                            <span>Image unavailable</span>
+                                        </div>
+                                    @else
+                                        <div class="img-placeholder">
+                                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                                stroke-width="1.5">
+                                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                                <polyline points="21 15 16 10 5 21" />
+                                            </svg>
+                                            <span>No image</span>
+                                        </div>
+                                    @endif
+                                </div>
                                 <div class="post-card-body">
                                     <div class="post-card-meta">
                                         <span>{{ $post->tag ?? 'Update' }}</span>
@@ -228,7 +288,8 @@
                     <i class="fas fa-calendar-alt fa-2x events-icon"></i>
                 </div>
                 <h2 class="section-heading text-uppercase events-heading">Upcoming Events</h2>
-                <h3 class="section-subheading text-muted">Don't miss out on what's happening around the university.</h3>
+                <h3 class="section-subheading text-muted">Don't miss out on what's happening around the university.
+                </h3>
             </div>
             <div class="row text-center">
                 <!-- Event 1 -->
@@ -273,22 +334,31 @@
         </div>
     </section>
     <!-- Create Account / Login Section -->
-    <section class="page-section" id="auth" style="padding: 100px 0; background: linear-gradient(135deg, rgba(45, 106, 79, 0.85) 0%, rgba(26, 60, 46, 0.85) 100%), url('{{ asset('images/landing/BG1.jpg') }}') center/cover no-repeat; position: relative; overflow: hidden;">
-        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at top right, rgba(201, 168, 76, 0.1), transparent 50%); pointer-events: none;"></div>
+    <section class="page-section" id="auth"
+        style="padding: 100px 0; background: linear-gradient(135deg, rgba(45, 106, 79, 0.85) 0%, rgba(26, 60, 46, 0.85) 100%), url('{{ asset('images/landing/BG1.jpg') }}') center/cover no-repeat; position: relative; overflow: hidden;">
+        <div
+            style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at top right, rgba(201, 168, 76, 0.1), transparent 50%); pointer-events: none;">
+        </div>
         <div class="container" style="position: relative; z-index: 1;">
             <div class="row align-items-center">
                 <div class="col-lg-6 mx-auto text-center">
-                    <div style="background: white; padding: 60px 40px; border-radius: 15px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                    <div
+                        style="background: white; padding: 60px 40px; border-radius: 15px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
                         <i class="fas fa-sign-in-alt fa-3x" style="color: #2D6A4F; margin-bottom: 30px;"></i>
-                        <h2 class="section-heading text-uppercase mb-3" style="color: #1A3C2E;">Ready to Get Started?</h2>
-                        <p class="section-subheading text-muted mb-4">Join SO Connect today and become part of a thriving community of student organizations. Login to your account or create a new one to get access to all the exciting opportunities.</p>
+                        <h2 class="section-heading text-uppercase mb-3" style="color: #1A3C2E;">Ready to Get Started?
+                        </h2>
+                        <p class="section-subheading text-muted mb-4">Join SO Connect today and become part of a
+                            thriving community of student organizations. Login to your account or create a new one to
+                            get access to all the exciting opportunities.</p>
                         <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-                            <a href="{{ route('login') }}" class="btn btn-xl text-uppercase" style="background-color: #2D6A4F; border-color: #2D6A4F; padding: 15px 40px; font-weight: 600; color: white; transition: all 0.3s ease;">
+                            <a href="{{ route('login') }}" class="btn btn-xl text-uppercase"
+                                style="background-color: #2D6A4F; border-color: #2D6A4F; padding: 15px 40px; font-weight: 600; color: white; transition: all 0.3s ease;">
                                 <i class="fas fa-sign-in-alt" style="margin-right: 10px;"></i> Login
                             </a>
                         </div>
                         <p style="margin-top: 30px; color: #6c757d; font-size: 0.9rem;">
-                            Already have an account? <a href="{{ route('login') }}" style="color: #C9A84C; text-decoration: none; font-weight: 600;">Login here</a>
+                            Already have an account? <a href="{{ route('login') }}"
+                                style="color: #C9A84C; text-decoration: none; font-weight: 600;">Login here</a>
                         </p>
                     </div>
                 </div>
@@ -305,8 +375,10 @@
             <div class="row g-4">
                 <!-- Activity 1 -->
                 <div class="col-lg-4 col-md-6">
-                    <div class="activity-card" style="overflow: hidden; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
-                        <div style="background: linear-gradient(135deg, #2D6A4F 0%, #1A3C2E 100%); height: 200px; display: flex; align-items: center; justify-content: center;">
+                    <div class="activity-card"
+                        style="overflow: hidden; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+                        <div
+                            style="background: linear-gradient(135deg, #2D6A4F 0%, #1A3C2E 100%); height: 200px; display: flex; align-items: center; justify-content: center;">
                             <i class="fas fa-brain fa-5x" style="color: rgba(255,255,255,0.8);"></i>
                         </div>
                         <div style="padding: 20px;">
@@ -319,8 +391,10 @@
                 </div>
                 <!-- Activity 2 -->
                 <div class="col-lg-4 col-md-6">
-                    <div class="activity-card" style="overflow: hidden; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
-                        <div style="background: linear-gradient(135deg, #C9A84C 0%, #A68238 100%); height: 200px; display: flex; align-items: center; justify-content: center;">
+                    <div class="activity-card"
+                        style="overflow: hidden; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+                        <div
+                            style="background: linear-gradient(135deg, #C9A84C 0%, #A68238 100%); height: 200px; display: flex; align-items: center; justify-content: center;">
                             <i class="fas fa-handshake fa-5x" style="color: rgba(255,255,255,0.8);"></i>
                         </div>
                         <div style="padding: 20px;">
@@ -333,8 +407,10 @@
                 </div>
                 <!-- Activity 3 -->
                 <div class="col-lg-4 col-md-6">
-                    <div class="activity-card" style="overflow: hidden; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
-                        <div style="background: linear-gradient(135deg, #2D6A4F 0%, #40826d 100%); height: 200px; display: flex; align-items: center; justify-content: center;">
+                    <div class="activity-card"
+                        style="overflow: hidden; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+                        <div
+                            style="background: linear-gradient(135deg, #2D6A4F 0%, #40826d 100%); height: 200px; display: flex; align-items: center; justify-content: center;">
                             <i class="fas fa-certificate fa-5x" style="color: rgba(255,255,255,0.8);"></i>
                         </div>
                         <div style="padding: 20px;">
@@ -349,20 +425,26 @@
         </div>
     </section>
     <!-- Contact / Footer -->
-    <section class="page-section" id="contact" style="background: linear-gradient(135deg, #1A3C2E 0%, #2D6A4F 100%); position: relative; overflow: hidden;">
-        <div style="position: absolute; top: -50px; right: -50px; width: 300px; height: 300px; background: rgba(255,255,255,0.05); border-radius: 50%;"></div>
-        <div style="position: absolute; bottom: -80px; left: -80px; width: 400px; height: 400px; background: rgba(255,255,255,0.03); border-radius: 50%;"></div>
+    <section class="page-section" id="contact"
+        style="background: linear-gradient(135deg, #1A3C2E 0%, #2D6A4F 100%); position: relative; overflow: hidden;">
+        <div
+            style="position: absolute; top: -50px; right: -50px; width: 300px; height: 300px; background: rgba(255,255,255,0.05); border-radius: 50%;">
+        </div>
+        <div
+            style="position: absolute; bottom: -80px; left: -80px; width: 400px; height: 400px; background: rgba(255,255,255,0.03); border-radius: 50%;">
+        </div>
         <div class="container" style="position: relative; z-index: 1;">
             <div class="text-center">
-                <p style="color: rgba(255,255,255,0.9); font-size: 0.95rem; margin-bottom: 0;">&copy; 2026 SO Connect — Tarlac Agricultural University. All rights reserved.</p>
+                <p style="color: rgba(255,255,255,0.9); font-size: 0.95rem; margin-bottom: 0;">&copy; 2026 SO Connect —
+                    Tarlac Agricultural University. All rights reserved.</p>
             </div>
         </div>
     </section>
-        <!-- Bootstrap core JS-->
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js"></script>
-        <!-- Core theme JS-->
-        @vite(['resources/js/scripts.js'])
-        <script src="https://cdn.startbootstrap.com/sb-forms-latest.js"></script>
+    <!-- Bootstrap core JS-->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Core theme JS-->
+    @vite(['resources/js/scripts.js'])
+    <script src="https://cdn.startbootstrap.com/sb-forms-latest.js"></script>
 </body>
 
 </html>

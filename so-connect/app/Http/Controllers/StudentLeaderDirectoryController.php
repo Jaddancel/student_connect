@@ -57,7 +57,8 @@ class StudentLeaderDirectoryController extends Controller
             'contact_number'       => ['required', 'string', 'max:50'],
             'photo'                => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
             'organization_name'    => ['nullable', 'string', 'max:255'],
-            'faculty_advisers'     => ['nullable', 'string', 'max:255'],
+            'faculty_advisers'     => ['nullable', 'array'],
+            'faculty_advisers.*'   => ['nullable', 'string', 'max:255'],
             'age'                  => ['required', 'integer', 'min:1', 'max:99'],
             'sex'                  => ['required', 'string', 'in:Male,Female'],
             'religious_affiliation'=> ['nullable', 'string', 'max:255'],
@@ -125,7 +126,11 @@ class StudentLeaderDirectoryController extends Controller
             'position'              => $validated['position'],
             'contact_number'        => $validated['contact_number'],
             'photo'                 => $photoPath,
-            'faculty_advisers'      => $validated['faculty_advisers'] ?? '',
+            'faculty_advisers'      => (function () use ($validated) {
+                $rows = array_filter($validated['faculty_advisers'] ?? [], fn ($v) => trim($v) !== '');
+                if (empty($rows)) return '';
+                return '(' . implode(', ', array_map(fn ($v) => '"' . $v . '"', array_values($rows))) . ')';
+            })(),
             'age'                   => $validated['age'],
             'sex'                   => $validated['sex'],
             'religious_affiliation' => $validated['religious_affiliation'] ?? '',

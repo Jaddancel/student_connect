@@ -20,15 +20,32 @@
                         Preparation period ending {{ $endLabel }}
                     </p>
                     <p class="mt-0.5 text-sm text-warning-700 dark:text-warning-400">
-                        The preparation period for <strong>{{ $semName }}</strong> closes {{ $endLabel }}. Create the next semester now so officers can begin planning.
+                        The preparation period for <strong>{{ $semName }}</strong> closes {{ $endLabel }}. Once both semesters for this school year have concluded, you can start the next school year.
                     </p>
                 </div>
+            </div>
+        @endif
+
+        @if ($canStartNewYear && $semesters->isNotEmpty())
+            <div class="flex items-start gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 dark:border-brand-500/30 dark:bg-brand-500/10">
+                <svg class="mt-0.5 h-5 w-5 shrink-0 text-brand-600 dark:text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <p class="text-sm text-brand-700 dark:text-brand-300">
+                    Both semesters for the current school year have concluded. You can now start the next school year.
+                </p>
             </div>
         @endif
 
         @if (session('success'))
             <div class="rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm font-medium text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400">
                 {{ session('success') }}
+            </div>
+        @endif
+
+        @if (session('error'))
+            <div class="rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
+                {{ session('error') }}
             </div>
         @endif
 
@@ -40,44 +57,51 @@
             </div>
         @endif
 
-        {{-- Add Semester Form --}}
-        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6" x-data="{ open: false }">
+        {{-- Start New School Year Form --}}
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6"
+            x-data="{ open: {{ $canStartNewYear ? 'false' : 'false' }} }">
             <div class="flex items-center justify-between">
                 <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Semesters</h3>
-                <button type="button" @click="open = !open"
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-brand-300 px-3 py-1.5 text-xs font-medium text-brand-600 transition hover:bg-brand-50 dark:border-brand-700 dark:text-brand-400 dark:hover:bg-brand-900/20">
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Semester
-                </button>
+                @if ($canStartNewYear)
+                    <button type="button" @click="open = !open"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-brand-300 px-3 py-1.5 text-xs font-medium text-brand-600 transition hover:bg-brand-50 dark:border-brand-700 dark:text-brand-400 dark:hover:bg-brand-900/20">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Start New School Year
+                    </button>
+                @endif
             </div>
 
-            <div x-show="open" x-cloak class="mt-5 border-t border-gray-100 pt-5 dark:border-gray-800">
-                <form method="POST" action="{{ route('admin.semesters.store') }}" class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    @csrf
-                    <div>
-                        <label class="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-400">Semester Name <span class="text-error-500">*</span></label>
-                        <input type="text" name="name" placeholder="e.g. First Semester 2025-2026"
-                            class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                    </div>
-                    <div>
-                        <label class="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-400">Start Date <span class="text-error-500">*</span></label>
-                        <x-form.date-picker name="starts_at" placeholder="Select start date" id="new-semester-starts-at" />
-                    </div>
-                    <div>
-                        <label class="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-400">Preparation Days <span class="text-error-500">*</span></label>
-                        <input type="number" name="vacation_days" value="30" min="1" max="365"
-                            class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                    </div>
-                    <div class="flex justify-end sm:col-span-3">
-                        <button type="submit"
-                            class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
-                            Create Semester
-                        </button>
-                    </div>
-                </form>
-            </div>
+            @if ($canStartNewYear)
+                <div x-show="open" x-cloak class="mt-5 border-t border-gray-100 pt-5 dark:border-gray-800">
+                    <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">
+                        Set the start dates for both semesters. Names will be generated automatically based on the school year.
+                    </p>
+                    <form method="POST" action="{{ route('admin.semesters.store') }}" class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        @csrf
+                        <div>
+                            <label class="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-400">1st Semester Start Date <span class="text-error-500">*</span></label>
+                            <x-form.date-picker name="starts_at" placeholder="Select 1st sem start" id="new-semester-starts-at" />
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-400">2nd Semester Start Date <span class="text-error-500">*</span></label>
+                            <x-form.date-picker name="second_starts_at" placeholder="Select 2nd sem start" id="new-semester-second-starts-at" />
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-400">Preparation Days <span class="text-error-500">*</span></label>
+                            <input type="number" name="vacation_days" value="30" min="1" max="365"
+                                class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </div>
+                        <div class="flex justify-end sm:col-span-3">
+                            <button type="submit"
+                                class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+                                Create School Year
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            @endif
         </div>
 
         {{-- Semesters Table --}}

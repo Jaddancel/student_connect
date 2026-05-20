@@ -11,16 +11,18 @@ class SemesterSeeder extends Seeder
     {
         $semesters = [
             [
-                'name'          => 'First Semester 2025–2026',
-                'starts_at'     => '2025-08-25',
-                'vacation_days' => 30,
-                'created_by'    => null,
+                'name'            => 'First Semester 2025–2026',
+                'semester_number' => 1,
+                'starts_at'       => '2025-08-25',
+                'vacation_days'   => 30,
+                'created_by'      => null,
             ],
             [
-                'name'          => 'Second Semester 2025–2026',
-                'starts_at'     => '2026-01-22',
-                'vacation_days' => 30,
-                'created_by'    => null,
+                'name'            => 'Second Semester 2025–2026',
+                'semester_number' => 2,
+                'starts_at'       => '2026-01-22',
+                'vacation_days'   => 30,
+                'created_by'      => null,
             ],
         ];
 

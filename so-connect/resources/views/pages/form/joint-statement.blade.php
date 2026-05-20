@@ -61,8 +61,8 @@
                             Organization <span class="text-error-500">*</span>
                         </label>
                         <input type="text" id="organization" name="organization" placeholder="Name of student organization"
-                            value="{{ old('organization', $orgName) }}"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('organization') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            value="{{ old('organization', $orgName) }}" readonly
+                            class="dark:bg-dark-900 shadow-theme-xs h-11 w-full rounded-lg border {{ $errors->has('organization') ? 'border-error-500' : 'border-gray-300' }} cursor-not-allowed bg-gray-100 px-4 py-2.5 text-sm text-gray-500 placeholder:text-gray-400 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400" />
                         @error('organization')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                         @enderror
@@ -74,8 +74,8 @@
                         Category <span class="text-error-500">*</span>
                     </label>
                     <input type="text" id="category" name="category" placeholder="e.g. Academic, Cultural, Religious"
-                        value="{{ old('category') }}"
-                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('category') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                        value="{{ old('category', $orgCategory) }}" readonly
+                        class="dark:bg-dark-900 shadow-theme-xs h-11 w-full rounded-lg border {{ $errors->has('category') ? 'border-error-500' : 'border-gray-300' }} cursor-not-allowed bg-gray-100 px-4 py-2.5 text-sm text-gray-500 placeholder:text-gray-400 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400" />
                     @error('category')
                         <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                     @enderror
@@ -111,8 +111,8 @@
                             Full Name <span class="text-error-500">*</span>
                         </label>
                         <input type="text" id="president_name" name="president_name" placeholder="President's full name"
-                            value="{{ old('president_name', $presidentName) }}"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('president_name') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            value="{{ old('president_name', $presidentName) }}" readonly
+                            class="dark:bg-dark-900 shadow-theme-xs h-11 w-full rounded-lg border {{ $errors->has('president_name') ? 'border-error-500' : 'border-gray-300' }} cursor-not-allowed bg-gray-100 px-4 py-2.5 text-sm text-gray-500 placeholder:text-gray-400 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400" />
                         @error('president_name')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                         @enderror
@@ -124,8 +124,8 @@
                             Contact # <span class="text-error-500">*</span>
                         </label>
                         <input type="tel" id="president_contact" name="president_contact" placeholder="e.g. 09XX-XXX-XXXX"
-                            value="{{ old('president_contact', $presidentContact) }}"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('president_contact') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            value="{{ old('president_contact', $presidentContact) }}" readonly
+                            class="dark:bg-dark-900 shadow-theme-xs h-11 w-full rounded-lg border {{ $errors->has('president_contact') ? 'border-error-500' : 'border-gray-300' }} cursor-not-allowed bg-gray-100 px-4 py-2.5 text-sm text-gray-500 placeholder:text-gray-400 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400" />
                         @error('president_contact')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                         @enderror

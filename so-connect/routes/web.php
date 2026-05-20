@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AdminOfficerCreationController;
 use App\Http\Controllers\Admin\AdminWorkplanController;
 use App\Http\Controllers\Admin\EventPlanRequestController;
 use App\Http\Controllers\Admin\JointStatementRequestController;
+use App\Http\Controllers\Admin\OrganizationScoringController;
 use App\Http\Controllers\Admin\ProjectRequestController;
 use App\Http\Controllers\Admin\SemesterController;
 use App\Http\Controllers\Admin\TemplateManagerController;
@@ -26,6 +27,7 @@ use App\Http\Controllers\OrganizationRecognitionController;
 use App\Http\Controllers\ProjectRequestController as UserProjectRequestController;
 use App\Http\Controllers\WorkplanController;
 use App\Http\Controllers\EventPlanController;
+use App\Http\Controllers\PostController;
 use App\Http\Controllers\JointStatementController;
 use App\Http\Controllers\StudentLeaderDirectoryController;
 use App\Http\Controllers\RequestDecisionController;
@@ -251,6 +253,11 @@ Route::post('/forms/joint-statement', [JointStatementController::class, 'store']
 
 
 Route::middleware(['auth', 'admin'])->group(function () {
+    Route::get('/posts', [PostController::class, 'index'])->name('posts.index');
+    Route::post('/posts', [PostController::class, 'store'])->name('posts.store');
+    Route::patch('/posts/{postId}', [PostController::class, 'update'])->whereNumber('postId')->name('posts.update');
+    Route::delete('/posts/{postId}', [PostController::class, 'destroy'])->whereNumber('postId')->name('posts.destroy');
+
     Route::get('/admin/semesters', [SemesterController::class, 'index'])->name('admin.semesters.index');
     Route::post('/admin/semesters', [SemesterController::class, 'store'])->name('admin.semesters.store');
     Route::get('/admin/semesters/{semester}/edit', [SemesterController::class, 'edit'])->name('admin.semesters.edit');
@@ -279,6 +286,21 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
     Route::get('/admin/workplans', [AdminWorkplanController::class, 'index'])
         ->name('admin.workplans.index');
+
+    Route::get('/admin/scoring', [OrganizationScoringController::class, 'index'])
+        ->name('admin.scoring.index');
+    Route::get('/admin/scoring/rankings', [OrganizationScoringController::class, 'rankings'])
+        ->name('admin.scoring.rankings');
+    Route::get('/admin/scoring/create', [OrganizationScoringController::class, 'create'])
+        ->name('admin.scoring.create');
+    Route::post('/admin/scoring', [OrganizationScoringController::class, 'store'])
+        ->name('admin.scoring.store');
+    Route::get('/admin/scoring/{id}/edit', [OrganizationScoringController::class, 'edit'])
+        ->whereNumber('id')
+        ->name('admin.scoring.edit');
+    Route::put('/admin/scoring/{id}', [OrganizationScoringController::class, 'update'])
+        ->whereNumber('id')
+        ->name('admin.scoring.update');
 
     Route::get('/admin/officers/create', [AdminOfficerCreationController::class, 'create'])
         ->name('admin.officers.create');

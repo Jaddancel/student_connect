@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class MenuHelper
 {
@@ -71,18 +72,29 @@ class MenuHelper
             $menuGroups[] = [
                 'title' => 'Admin',
                 'items' => [
-                    ['icon' => 'forms', 'name' => 'Template Manager', 'path' => '/admin/templates'],
-                    ['icon' => 'calendar', 'name' => 'Semester Management', 'path' => '/admin/semesters'],
+                    ['icon' => 'pages',    'name' => 'Posts',              'path' => '/posts'],
+                    ['icon' => 'forms',    'name' => 'Template Manager',   'path' => '/admin/templates'],
+                    ['icon' => 'calendar', 'name' => 'Semester Management','path' => '/admin/semesters'],
                 ],
             ];
+
+            $badges = self::getAdminRequestBadges();
 
             $menuGroups[] = [
                 'title' => 'Requests',
                 'items' => [
-                    ['icon' => 'task', 'name' => 'Promotion Requests', 'path' => '/promotion-requests'],
-                    ['icon' => 'task', 'name' => 'Event Plan Requests', 'path' => '/admin/event-plan-requests'],
-                    ['icon' => 'forms', 'name' => 'Project Requests', 'path' => '/admin/project-requests'],
-                    ['icon' => 'forms', 'name' => 'Joint Statements', 'path' => '/admin/joint-statement-requests'],
+                    ['icon' => 'task',  'name' => 'Promotion Requests',   'path' => '/promotion-requests',         'badge' => $badges['promotion']],
+                    ['icon' => 'task',  'name' => 'Event Plan Requests',  'path' => '/admin/event-plan-requests',  'badge' => $badges['event_plans']],
+                    ['icon' => 'forms', 'name' => 'Project Requests',     'path' => '/admin/project-requests',     'badge' => $badges['project']],
+                    ['icon' => 'forms', 'name' => 'Joint Statements',     'path' => '/admin/joint-statement-requests', 'badge' => $badges['joint_statement']],
+                ],
+            ];
+
+            $menuGroups[] = [
+                'title' => 'Evaluation',
+                'items' => [
+                    ['icon' => 'charts', 'name' => 'Organization Scoring', 'path' => '/admin/scoring'],
+                    ['icon' => 'charts', 'name' => 'Rankings', 'path' => '/admin/scoring/rankings'],
                 ],
             ];
 
@@ -110,8 +122,9 @@ class MenuHelper
             $menuGroups[] = [
                 'title' => 'Organization',
                 'items' => [
-                    ['icon' => 'calendar', 'name' => 'Event Plans', 'path' => '/event-plans'],
-                    ['icon' => 'forms', 'name' => 'Joint Statement', 'path' => '/forms/joint-statement'],
+                    ['icon' => 'calendar', 'name' => 'Event Plans',          'path' => '/event-plans'],
+                    ['icon' => 'forms',    'name' => 'Joint Statement',      'path' => '/forms/joint-statement'],
+                    ['icon' => 'forms',    'name' => 'New Officer Form',      'path' => '/forms/student-leader-directory'],
                 ],
             ];
 
@@ -141,6 +154,47 @@ class MenuHelper
         }
 
         return $menuGroups;
+    }
+
+    private static function getAdminRequestBadges(): array
+    {
+        $approvedIds = DB::table('approvals')->select('request')->whereNotNull('request');
+
+        $promotionCount = DB::table('requests')
+            ->whereIn('action_type', [7, 11])
+            ->whereNotIn('request_id', $approvedIds)
+            ->count();
+
+        $eventPlanCount = DB::table('requests')
+            ->where('action_type', 10)
+            ->whereNotIn('request_id', $approvedIds)
+            ->count();
+
+        $projectFormId  = DB::table('forms')->where('route_name', 'project-request')->value('id');
+        $jointFormId    = DB::table('forms')->where('route_name', 'joint-statement')->value('id');
+
+        $projectCount = $projectFormId
+            ? DB::table('requests')
+                ->where('action_type', 3)
+                ->where('payload->form_id', (int) $projectFormId)
+                ->whereNotIn('request_id', $approvedIds)
+                ->count()
+            : 0;
+
+        $jointCount = $jointFormId
+            ? DB::table('requests')
+                ->where('action_type', 3)
+                ->where('payload->form_id', (int) $jointFormId)
+                ->whereNotIn('request_id', $approvedIds)
+                ->count()
+            : 0;
+
+        return [
+            'promotion'       => (int) $promotionCount,
+            'event_plans'     => (int) $eventPlanCount,
+            'project'         => (int) $projectCount,
+            'joint_statement' => (int) $jointCount,
+        ];
     }
 
     public static function isActive($path)

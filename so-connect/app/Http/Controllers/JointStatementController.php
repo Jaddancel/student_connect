@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\OrganizationType;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Services\DocumentGenerationService;
@@ -34,11 +35,16 @@ class JointStatementController extends Controller
         $orgId = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId)[0] ?? null;
 
         $orgName = '';
+        $orgCategory = '';
         if ($orgId) {
-            $orgName = DB::table('organizations as o')
+            $org = DB::table('organizations as o')
                 ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
                 ->where('o.organization_id', $orgId)
-                ->value('od.name') ?? '';
+                ->select(['od.name', 'o.organization_type'])
+                ->first();
+
+            $orgName = $org?->name ?? '';
+            $orgCategory = $org ? OrganizationType::label((int) $org->organization_type) : '';
         }
 
         return view('pages.form.joint-statement', [
@@ -46,6 +52,7 @@ class JointStatementController extends Controller
             'presidentName'    => $presidentName,
             'presidentContact' => $presidentContact,
             'orgName'          => $orgName,
+            'orgCategory'      => $orgCategory,
             'orgId'            => $orgId,
         ]);
     }

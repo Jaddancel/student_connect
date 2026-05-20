@@ -8,7 +8,6 @@ use App\Models\Workplan;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Validation\Rule;
 
 class SemesterController extends Controller
 {
@@ -46,63 +45,47 @@ class SemesterController extends Controller
             'title' => 'Semester Management',
             'semesters' => $semesters,
             'semesterWarning' => $semesterWarning,
+            'canStartNewYear' => ! Semester::hasActiveOrUpcoming(),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        if (Semester::hasActiveOrUpcoming()) {
+            return redirect()->route('admin.semesters.index')
+                ->with('error', 'A school year is already in progress. You can only start a new school year after both semesters have concluded.');
+        }
+
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:100'],
-            'starts_at' => ['required', 'date'],
-            'vacation_days' => ['required', 'integer', 'min:1', 'max:365'],
+            'starts_at'        => ['required', 'date'],
+            'second_starts_at' => ['required', 'date', 'after:starts_at'],
+            'vacation_days'    => ['required', 'integer', 'min:1', 'max:365'],
         ]);
 
-        $semester = Semester::query()->create([
-            'name' => $validated['name'],
-            'starts_at' => $validated['starts_at'],
-            'vacation_days' => (int) $validated['vacation_days'],
-            'created_by' => (int) $request->user()->getKey(),
+        $year      = (int) Carbon::parse($validated['starts_at'])->format('Y');
+        $nextYear  = $year + 1;
+        $schoolYear = "{$year}–{$nextYear}";
+        $createdBy = (int) $request->user()->getKey();
+        $vacDays   = (int) $validated['vacation_days'];
+
+        Semester::query()->create([
+            'name'            => "First Semester {$schoolYear}",
+            'semester_number' => 1,
+            'starts_at'       => $validated['starts_at'],
+            'vacation_days'   => $vacDays,
+            'created_by'      => $createdBy,
         ]);
 
-        $message = 'Semester created successfully.';
+        Semester::query()->create([
+            'name'            => "Second Semester {$schoolYear}",
+            'semester_number' => 2,
+            'starts_at'       => $validated['second_starts_at'],
+            'vacation_days'   => $vacDays,
+            'created_by'      => $createdBy,
+        ]);
 
-        $next = $this->nextSemesterSuggestion($semester);
-        $alreadyExists = Semester::query()
-            ->whereYear('starts_at', $next['starts_at']->year)
-            ->whereMonth('starts_at', $next['starts_at']->month)
-            ->exists();
-
-        if (! $alreadyExists) {
-            Semester::query()->create([
-                'name'         => $next['name'],
-                'starts_at'    => $next['starts_at']->toDateString(),
-                'vacation_days'=> $semester->vacation_days,
-                'created_by'   => (int) $request->user()->getKey(),
-            ]);
-            $nextName = $next['name'];
-            $message .= " The next semester \"{$nextName}\" was automatically created with a suggested date — you can adjust it anytime.";
-        }
-
-        return redirect()->route('admin.semesters.index')->with('success', $message);
-    }
-
-    private function nextSemesterSuggestion(Semester $semester): array
-    {
-        $month = (int) $semester->starts_at->format('n');
-        $year  = (int) $semester->starts_at->format('Y');
-
-        if ($month >= 8) {
-            $nextYear = $year + 1;
-            return [
-                'name'     => "Second Semester {$year}–{$nextYear}",
-                'starts_at' => Carbon::create($nextYear, 1, 22),
-            ];
-        }
-
-        return [
-            'name'     => 'First Semester ' . $year . '–' . ($year + 1),
-            'starts_at' => Carbon::create($year, 8, 25),
-        ];
+        return redirect()->route('admin.semesters.index')
+            ->with('success', "School year {$schoolYear} started. Both semesters have been created.");
     }
 
     public function edit(Semester $semester)
@@ -125,7 +108,6 @@ class SemesterController extends Controller
             ->exists();
 
         $rules = [
-            'name' => ['required', 'string', 'max:100'],
             'vacation_days' => ['required', 'integer', 'min:1', 'max:365'],
         ];
 
@@ -136,7 +118,6 @@ class SemesterController extends Controller
         $validated = $request->validate($rules);
 
         $data = [
-            'name' => $validated['name'],
             'vacation_days' => (int) $validated['vacation_days'],
         ];
 

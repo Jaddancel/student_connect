@@ -222,15 +222,35 @@
                         @enderror
                     </div>
 
-                    <div>
-                        <label for="faculty_advisers"
-                            class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                    <div x-data="{
+                        rows: {{ Js::from(array_values(array_filter((array) old('faculty_advisers', ['']), fn($v) => $v !== null))) }},
+                        addRow() { this.rows.push('') },
+                        removeRow(i) { if (this.rows.length > 1) this.rows.splice(i, 1) }
+                    }">
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Name of Faculty Advisers
                         </label>
-                        <input type="text" id="faculty_advisers" name="faculty_advisers"
-                            value="{{ old('faculty_advisers') }}"
-                            placeholder="Faculty adviser name(s)"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                        <div class="space-y-2">
+                            <template x-for="(row, i) in rows" :key="i">
+                                <div class="flex items-center gap-2">
+                                    <input type="text" name="faculty_advisers[]"
+                                        :value="row"
+                                        @input="rows[i] = $event.target.value"
+                                        placeholder="Faculty adviser name"
+                                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                    <button type="button" @click="removeRow(i)"
+                                        x-show="rows.length > 1"
+                                        class="shrink-0 rounded-lg border border-gray-300 p-2.5 text-gray-400 transition hover:border-error-400 hover:text-error-500 dark:border-gray-700 dark:text-gray-500">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                        <button type="button" @click="addRow()"
+                            class="mt-2 flex items-center gap-1.5 text-sm text-brand-500 transition hover:text-brand-600">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Add adviser
+                        </button>
                     </div>
                 </div>
             </div>
