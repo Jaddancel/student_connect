@@ -6,7 +6,6 @@ use App\Models\AccomplishmentMedia;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Semester;
-use App\Models\Template;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\Request;
@@ -174,31 +173,14 @@ class AccomplishmentReportController extends Controller
             ]);
         }
 
-        $template = Template::query()
-            ->where('form_id', $form->id)
-            ->where('is_active', true)
-            ->orderByDesc('version')
-            ->with(['mappings.field'])
-            ->first();
+        $documentGenerationService->createDocumentGenerationRequest(
+            $organizationId,
+            (int) $submission->getKey(),
+            (int) $form->getKey(),
+            $userId,
+        );
 
-        if (! $template) {
-            return redirect()->route('accomplishment-report')
-                ->with('status', 'Report submitted. No active template found — document not generated yet.');
-        }
-
-        try {
-            $documentGenerationService->generateFromSubmission(
-                $submission->fresh(['form']),
-                $template,
-                null,
-                $userId,
-            );
-
-            return redirect()->route('download-files')
-                ->with('success', 'Accomplishment report generated and is now available for download.');
-        } catch (\Throwable $e) {
-            return redirect()->route('accomplishment-report')
-                ->with('status', 'Report submitted, but document generation failed: '.$e->getMessage());
-        }
+        return redirect()->route('accomplishment-report')
+            ->with('success', 'Accomplishment report submitted and is pending admin review.');
     }
 }

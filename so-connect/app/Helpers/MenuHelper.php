@@ -64,6 +64,7 @@ class MenuHelper
                     ['icon' => 'charts', 'name' => 'Dashboard Builder', 'path' => '/superadmin/dashboard-builder'],
                     ['icon' => 'forms', 'name' => 'Request Types', 'path' => '/superadmin/request-types'],
                     ['icon' => 'forms', 'name' => 'Template Manager', 'path' => '/admin/templates'],
+                    ['icon' => 'tables', 'name' => 'Export Data', 'path' => '/superadmin/export'],
                 ],
             ];
         }
@@ -83,10 +84,14 @@ class MenuHelper
             $menuGroups[] = [
                 'title' => 'Requests',
                 'items' => [
-                    ['icon' => 'task',  'name' => 'Promotion Requests',   'path' => '/promotion-requests',         'badge' => $badges['promotion']],
-                    ['icon' => 'task',  'name' => 'Event Plan Requests',  'path' => '/admin/event-plan-requests',  'badge' => $badges['event_plans']],
-                    ['icon' => 'forms', 'name' => 'Project Requests',     'path' => '/admin/project-requests',     'badge' => $badges['project']],
-                    ['icon' => 'forms', 'name' => 'Joint Statements',     'path' => '/admin/joint-statement-requests', 'badge' => $badges['joint_statement']],
+                    ['icon' => 'task',  'name' => 'Promotion Requests',        'path' => '/promotion-requests',                    'badge' => $badges['promotion']],
+                    ['icon' => 'task',  'name' => 'Event Plan Requests',       'path' => '/admin/event-plan-requests',             'badge' => $badges['event_plans']],
+                    ['icon' => 'forms', 'name' => 'Project Requests',          'path' => '/admin/project-requests',                'badge' => $badges['project']],
+                    ['icon' => 'forms', 'name' => 'Joint Statements',          'path' => '/admin/joint-statement-requests',        'badge' => $badges['joint_statement']],
+                    ['icon' => 'forms', 'name' => 'Accomplishment Reports',    'path' => '/admin/accomplishment-report-requests',  'badge' => $badges['accomplishment_report']],
+                    ['icon' => 'forms', 'name' => 'Financial Reports',         'path' => '/admin/financial-report-requests',       'badge' => $badges['financial_report']],
+                    ['icon' => 'forms', 'name' => 'Recognition Applications',  'path' => '/admin/recognition-requests',            'badge' => $badges['recognition']],
+                    ['icon' => 'forms', 'name' => 'Workplan Submissions',      'path' => '/admin/workplan-requests',               'badge' => $badges['workplan']],
                 ],
             ];
 
@@ -170,30 +175,33 @@ class MenuHelper
             ->whereNotIn('request_id', $approvedIds)
             ->count();
 
-        $projectFormId  = DB::table('forms')->where('route_name', 'project-request')->value('id');
-        $jointFormId    = DB::table('forms')->where('route_name', 'joint-statement')->value('id');
+        $projectFormId             = DB::table('forms')->where('route_name', 'project-request')->value('id');
+        $jointFormId               = DB::table('forms')->where('route_name', 'joint-statement')->value('id');
+        $accomplishmentFormId      = DB::table('forms')->where('route_name', 'accomplishment-report')->value('id');
+        $financialFormId           = DB::table('forms')->where('route_name', 'financial-report')->value('id');
+        $recognitionFormId         = DB::table('forms')->where('route_name', 'organization-recognition')->value('id');
+        $workplanFormId            = DB::table('forms')->where('route_name', 'workplan')->value('id');
 
-        $projectCount = $projectFormId
-            ? DB::table('requests')
+        $pendingByForm = function (?int $formId) use ($approvedIds): int {
+            if (! $formId) {
+                return 0;
+            }
+            return (int) DB::table('requests')
                 ->where('action_type', 3)
-                ->where('payload->form_id', (int) $projectFormId)
+                ->where('payload->form_id', $formId)
                 ->whereNotIn('request_id', $approvedIds)
-                ->count()
-            : 0;
-
-        $jointCount = $jointFormId
-            ? DB::table('requests')
-                ->where('action_type', 3)
-                ->where('payload->form_id', (int) $jointFormId)
-                ->whereNotIn('request_id', $approvedIds)
-                ->count()
-            : 0;
+                ->count();
+        };
 
         return [
-            'promotion'       => (int) $promotionCount,
-            'event_plans'     => (int) $eventPlanCount,
-            'project'         => (int) $projectCount,
-            'joint_statement' => (int) $jointCount,
+            'promotion'            => (int) $promotionCount,
+            'event_plans'          => (int) $eventPlanCount,
+            'project'              => $pendingByForm($projectFormId ? (int) $projectFormId : null),
+            'joint_statement'      => $pendingByForm($jointFormId ? (int) $jointFormId : null),
+            'accomplishment_report' => $pendingByForm($accomplishmentFormId ? (int) $accomplishmentFormId : null),
+            'financial_report'     => $pendingByForm($financialFormId ? (int) $financialFormId : null),
+            'recognition'          => $pendingByForm($recognitionFormId ? (int) $recognitionFormId : null),
+            'workplan'             => $pendingByForm($workplanFormId ? (int) $workplanFormId : null),
         ];
     }
 

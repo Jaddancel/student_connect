@@ -53,7 +53,7 @@ class StudentLeaderDirectoryController extends Controller
             'semester'             => ['required', 'string', 'in:1st,2nd,summer'],
             'season'               => ['required', 'string', 'in:summer,fall'],
             'school_year'          => ['required', 'string', 'max:20'],
-            'position'             => ['required', 'string', 'max:255'],
+            'position'             => ['required', 'string', 'in:President,Treasurer,Auditor,Secretary,Others'],
             'contact_number'       => ['required', 'string', 'max:50'],
             'photo'                => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
             'organization_name'    => ['nullable', 'string', 'max:255'],

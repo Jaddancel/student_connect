@@ -1,13 +1,17 @@
 <?php
 
+use App\Http\Controllers\Admin\AccomplishmentReportRequestController;
 use App\Http\Controllers\Admin\AdminOfficerCreationController;
 use App\Http\Controllers\Admin\AdminWorkplanController;
 use App\Http\Controllers\Admin\EventPlanRequestController;
+use App\Http\Controllers\Admin\FinancialReportRequestController;
 use App\Http\Controllers\Admin\JointStatementRequestController;
 use App\Http\Controllers\Admin\OrganizationScoringController;
 use App\Http\Controllers\Admin\ProjectRequestController;
+use App\Http\Controllers\Admin\RecognitionRequestController;
 use App\Http\Controllers\Admin\SemesterController;
 use App\Http\Controllers\Admin\TemplateManagerController;
+use App\Http\Controllers\Admin\WorkplanRequestController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
@@ -32,6 +36,7 @@ use App\Http\Controllers\JointStatementController;
 use App\Http\Controllers\StudentLeaderDirectoryController;
 use App\Http\Controllers\RequestDecisionController;
 use App\Http\Controllers\SidebarMenuController;
+use App\Http\Controllers\ExportController;
 use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\DashboardSearchController;
 use App\Http\Controllers\UserController;
@@ -287,6 +292,42 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/workplans', [AdminWorkplanController::class, 'index'])
         ->name('admin.workplans.index');
 
+    Route::get('/admin/accomplishment-report-requests', [AccomplishmentReportRequestController::class, 'index'])
+        ->name('admin.accomplishment-report-requests.index');
+    Route::get('/admin/accomplishment-report-requests/{requestId}', [AccomplishmentReportRequestController::class, 'show'])
+        ->whereNumber('requestId')
+        ->name('admin.accomplishment-report-requests.show');
+    Route::post('/admin/accomplishment-report-requests/{requestId}/decide', [AccomplishmentReportRequestController::class, 'decide'])
+        ->whereNumber('requestId')
+        ->name('admin.accomplishment-report-requests.decide');
+
+    Route::get('/admin/financial-report-requests', [FinancialReportRequestController::class, 'index'])
+        ->name('admin.financial-report-requests.index');
+    Route::get('/admin/financial-report-requests/{requestId}', [FinancialReportRequestController::class, 'show'])
+        ->whereNumber('requestId')
+        ->name('admin.financial-report-requests.show');
+    Route::post('/admin/financial-report-requests/{requestId}/decide', [FinancialReportRequestController::class, 'decide'])
+        ->whereNumber('requestId')
+        ->name('admin.financial-report-requests.decide');
+
+    Route::get('/admin/recognition-requests', [RecognitionRequestController::class, 'index'])
+        ->name('admin.recognition-requests.index');
+    Route::get('/admin/recognition-requests/{requestId}', [RecognitionRequestController::class, 'show'])
+        ->whereNumber('requestId')
+        ->name('admin.recognition-requests.show');
+    Route::post('/admin/recognition-requests/{requestId}/decide', [RecognitionRequestController::class, 'decide'])
+        ->whereNumber('requestId')
+        ->name('admin.recognition-requests.decide');
+
+    Route::get('/admin/workplan-requests', [WorkplanRequestController::class, 'index'])
+        ->name('admin.workplan-requests.index');
+    Route::get('/admin/workplan-requests/{requestId}', [WorkplanRequestController::class, 'show'])
+        ->whereNumber('requestId')
+        ->name('admin.workplan-requests.show');
+    Route::post('/admin/workplan-requests/{requestId}/decide', [WorkplanRequestController::class, 'decide'])
+        ->whereNumber('requestId')
+        ->name('admin.workplan-requests.decide');
+
     Route::get('/admin/scoring', [OrganizationScoringController::class, 'index'])
         ->name('admin.scoring.index');
     Route::get('/admin/scoring/rankings', [OrganizationScoringController::class, 'rankings'])
@@ -375,6 +416,26 @@ Route::post('/superadmin/officer-account-requests/{requestId}/decision', [SuperA
     ->whereNumber('requestId')
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.officer-account-requests.decision');
+
+Route::get('/superadmin/export', [ExportController::class, 'index'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export');
+
+Route::get('/superadmin/export/org-data/json', [ExportController::class, 'exportOrgDataJson'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export.org-data.json');
+
+Route::get('/superadmin/export/org-data/print', [ExportController::class, 'exportOrgDataPrint'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export.org-data.print');
+
+Route::get('/superadmin/export/request-records/json', [ExportController::class, 'exportRequestRecordsJson'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export.request-records.json');
+
+Route::get('/superadmin/export/request-records/print', [ExportController::class, 'exportRequestRecordsPrint'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export.request-records.print');
 
 Route::get('/superadmin/data-sync', [SuperAdminController::class, 'dataSyncPage'])
     ->middleware(['auth', 'superadmin'])

@@ -1,0 +1,201 @@
+@extends('layouts.app')
+
+@section('content')
+    <x-common.page-breadcrumb pageTitle="Review Accomplishment Report" />
+
+    <div class="space-y-6 max-w-4xl">
+        @if ($errors->any())
+            <div class="rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
+                {{ $errors->first() }}
+            </div>
+        @endif
+
+        {{-- Meta --}}
+        <div class="rounded-2xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Organization</p>
+                    <p class="mt-1 text-gray-800 dark:text-white/90">{{ $orgName }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Submitted By</p>
+                    <p class="mt-1 text-gray-800 dark:text-white/90">{{ $requesterName }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Submitted At</p>
+                    <p class="mt-1 text-gray-800 dark:text-white/90">{{ \Illuminate\Support\Carbon::parse($actionRequest->requested_at)->format('M d, Y h:i A') }}</p>
+                </div>
+            </div>
+        </div>
+
+        @if ($submission)
+            @php $p = $submissionPayload; @endphp
+
+            {{-- Section I: Basic Info --}}
+            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">I. Activity Information</h3>
+                </div>
+                <div class="grid grid-cols-1 gap-x-6 gap-y-4 px-6 py-5 text-sm sm:grid-cols-2">
+                    <div>
+                        <p class="text-xs font-medium text-gray-400">Organization</p>
+                        <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['organization'] ?? '—' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-gray-400">School Year</p>
+                        <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['schoolYear'] ?? '—' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-gray-400">Activity Title</p>
+                        <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['title'] ?? '—' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-gray-400">Date</p>
+                        <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['date'] ?? '—' }}</p>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <p class="text-xs font-medium text-gray-400">Number of Participants</p>
+                        <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['people'] ?? '—' }}</p>
+                    </div>
+                    @if (!empty($p['problem']))
+                        <div class="sm:col-span-2">
+                            <p class="text-xs font-medium text-gray-400">Problems Encountered</p>
+                            <p class="mt-1 whitespace-pre-wrap text-gray-800 dark:text-white/90">{{ $p['problem'] }}</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Section II: Rewards --}}
+            @if (!empty($p['has_rewards']))
+                <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                    <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+                        <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">II. Awards / Recognition</h3>
+                    </div>
+                    <div class="grid grid-cols-1 gap-x-6 gap-y-4 px-6 py-5 text-sm sm:grid-cols-2">
+                        <div>
+                            <p class="text-xs font-medium text-gray-400">Type</p>
+                            <p class="mt-1 text-gray-800 dark:text-white/90">{{ ($p['is_individual'] ?? '') === 'yes' ? 'Individual' : 'Group' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium text-gray-400">Scope</p>
+                            <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['area_scope_of_award'] ?? '—' }}</p>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            {{-- Section III: Financials --}}
+            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">III. Statistics</h3>
+                </div>
+                <div class="grid grid-cols-1 gap-x-6 gap-y-4 px-6 py-5 text-sm sm:grid-cols-2">
+                    @if (isset($p['minutes_of_meeting']))
+                        <div>
+                            <p class="text-xs font-medium text-gray-400">Minutes of Meeting</p>
+                            <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['minutes_of_meeting'] }}</p>
+                        </div>
+                    @endif
+                    @if (isset($p['summary_of_expenses']))
+                        <div>
+                            <p class="text-xs font-medium text-gray-400">Summary of Expenses</p>
+                            <p class="mt-1 text-gray-800 dark:text-white/90">₱{{ number_format((float) $p['summary_of_expenses'], 2) }}</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Section IV: Signatory --}}
+            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">IV. Signatories</h3>
+                </div>
+                <div class="grid grid-cols-1 gap-x-6 gap-y-4 px-6 py-5 text-sm sm:grid-cols-2">
+                    <div>
+                        <p class="text-xs font-medium text-gray-400">Prepared By</p>
+                        <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['name'] ?? '—' }}</p>
+                        @if (!empty($p['signature']))
+                            <img src="{{ asset('storage/'.$p['signature']) }}" alt="Signature" class="mt-2 h-16 object-contain rounded border border-gray-200 dark:border-gray-700" />
+                        @endif
+                    </div>
+                    @if (!empty($p['adviserName']))
+                        <div>
+                            <p class="text-xs font-medium text-gray-400">Adviser</p>
+                            <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['adviserName'] }}</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            @if (!empty($p['photos']))
+                <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                    <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+                        <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Attached Photo</h3>
+                    </div>
+                    <div class="px-6 py-5">
+                        <img src="{{ asset('storage/'.$p['photos']) }}" alt="Activity Photo" class="max-h-64 rounded-xl border border-gray-200 object-contain dark:border-gray-700" />
+                    </div>
+                </div>
+            @endif
+        @else
+            <div class="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-400">
+                Submission data not found.
+            </div>
+        @endif
+
+        {{-- Decision Panel --}}
+        @if ($approval)
+            <div class="rounded-2xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <p class="text-sm font-semibold text-gray-700 dark:text-white/90">Decision</p>
+                <div class="mt-3 flex items-center gap-3">
+                    @if ($approval->is_rejected)
+                        <span class="inline-flex items-center rounded-full bg-error-50 px-3 py-1 text-sm font-medium text-error-700 dark:bg-error-500/15 dark:text-error-400">Rejected</span>
+                    @else
+                        <span class="inline-flex items-center rounded-full bg-success-50 px-3 py-1 text-sm font-medium text-success-700 dark:bg-success-500/15 dark:text-success-400">Approved</span>
+                    @endif
+                    @if ($approval->rejection_reason)
+                        <span class="text-sm text-gray-500 dark:text-gray-400">{{ $approval->rejection_reason }}</span>
+                    @endif
+                </div>
+            </div>
+        @else
+            <div x-data="{ rejectOpen: false }" class="rounded-2xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <p class="mb-4 text-sm font-semibold text-gray-700 dark:text-white/90">Decision</p>
+                <div class="flex flex-wrap gap-3">
+                    <form method="POST" action="{{ route('admin.accomplishment-report-requests.decide', $actionRequest->request_id) }}">
+                        @csrf
+                        <input type="hidden" name="decision" value="approve" />
+                        <button type="submit" class="rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white hover:bg-success-600">
+                            Approve
+                        </button>
+                    </form>
+
+                    <div>
+                        <button type="button" @click="rejectOpen = !rejectOpen"
+                            class="rounded-lg border border-error-300 px-4 py-2 text-sm font-medium text-error-600 hover:bg-error-50 dark:border-error-600 dark:text-error-400 dark:hover:bg-error-900/20">
+                            Reject
+                        </button>
+                        <div x-show="rejectOpen" x-cloak class="mt-3 w-full max-w-md">
+                            <form method="POST" action="{{ route('admin.accomplishment-report-requests.decide', $actionRequest->request_id) }}" class="space-y-3">
+                                @csrf
+                                <input type="hidden" name="decision" value="reject" />
+                                <textarea name="rejection_reason" rows="3" placeholder="Reason for rejection (optional)"
+                                    class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-2 focus:ring-brand-500/10 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
+                                <button type="submit" class="rounded-lg bg-error-500 px-4 py-2 text-sm font-medium text-white hover:bg-error-600">
+                                    Confirm Reject
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        <div class="pb-2">
+            <a href="{{ route('admin.accomplishment-report-requests.index') }}" class="text-sm text-brand-500 hover:underline">
+                ← Back to list
+            </a>
+        </div>
+    </div>
+@endsection

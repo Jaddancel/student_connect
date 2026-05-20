@@ -54,6 +54,7 @@ class DashboardSearchHelper
             $items[] = ['name' => 'Request Types', 'path' => '/superadmin/request-types', 'icon' => 'forms', 'category' => 'Superadmin', 'keywords' => 'action types configuration'];
             $items[] = ['name' => 'Template Manager', 'path' => '/admin/templates', 'icon' => 'forms', 'category' => 'Superadmin', 'keywords' => 'templates documents manage'];
             $items[] = ['name' => 'Data Sync', 'path' => '/superadmin/data-sync', 'icon' => 'tables', 'category' => 'Superadmin', 'keywords' => 'import export sync data'];
+            $items[] = ['name' => 'Export Data', 'path' => '/superadmin/export', 'icon' => 'tables', 'category' => 'Superadmin', 'keywords' => 'export json pdf org officers requests records'];
         }
 
         return $items;

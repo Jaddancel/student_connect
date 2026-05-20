@@ -7,7 +7,6 @@ use App\Models\FormSubmission;
 use App\Models\Workplan;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
-use App\Services\RequestApprovalService;
 use App\Services\WorkplanService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -82,7 +81,6 @@ class WorkplanController extends Controller
         Request $request,
         int $workplan_id,
         DocumentGenerationService $docService,
-        RequestApprovalService $approvalService,
         WorkplanService $workplanService,
     ) {
         $user = $request->user();
@@ -194,21 +192,14 @@ class WorkplanController extends Controller
             'payload' => $payload,
         ]);
 
-        $actionRequest = $docService->createDocumentGenerationRequest(
+        $docService->createDocumentGenerationRequest(
             (int) $workplan->organization_id,
             (int) $submission->getKey(),
             (int) $form->getKey(),
             $userId,
         );
 
-        try {
-            $approvalService->approve($actionRequest, $userId);
-        } catch (\Throwable $e) {
-            return redirect()->route('workplan.review', $workplan_id)
-                ->withErrors(['workplan' => 'PDF generation failed: '.$e->getMessage()]);
-        }
-
-        return redirect()->route('documents.index')
-            ->with('success', 'Workplan PDF generated successfully.');
+        return redirect()->route('workplan.review', $workplan_id)
+            ->with('success', 'Workplan submitted and is pending admin review.');
     }
 }

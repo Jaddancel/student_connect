@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Semester;
-use App\Models\Template;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\Request;
@@ -54,12 +53,35 @@ class FinancialReportController extends Controller
             ];
         }
 
+        $signatoryRows = DB::table('organization_officers as oo')
+            ->join('users as u', 'u.user_id', '=', 'oo.user')
+            ->join('profiles as p', 'p.profile_id', '=', 'u.profile')
+            ->whereIn('oo.organization', $orgIds)
+            ->whereIn('oo.position', ['Treasurer', 'Auditor'])
+            ->select([
+                'oo.organization',
+                'oo.position',
+                DB::raw("TRIM(CONCAT(p.first_name, ' ', COALESCE(NULLIF(p.middle_name,''),''), ' ', p.last_name)) as full_name"),
+            ])
+            ->get();
+
+        $orgSignatories = [];
+        foreach ($signatoryRows as $row) {
+            $orgId = (int) $row->organization;
+            if ($row->position === 'Treasurer') {
+                $orgSignatories[$orgId]['treasurer'] = $row->full_name;
+            } elseif ($row->position === 'Auditor') {
+                $orgSignatories[$orgId]['auditor'] = $row->full_name;
+            }
+        }
+
         return view('pages.form.financial-report', [
             'title'             => 'Financial Report',
             'isAdmin'           => $isAdmin,
             'organizations'     => $organizations,
             'currentSchoolYear' => Semester::currentSchoolYear(),
             'orgEvents'         => $orgEvents,
+            'orgSignatories'    => $orgSignatories,
         ]);
     }
 
@@ -212,31 +234,14 @@ class FinancialReportController extends Controller
             'payload'         => $payload,
         ]);
 
-        $template = Template::query()
-            ->where('form_id', $form->id)
-            ->where('is_active', true)
-            ->orderByDesc('version')
-            ->with(['mappings.field'])
-            ->first();
+        $documentGenerationService->createDocumentGenerationRequest(
+            $organizationId,
+            (int) $submission->getKey(),
+            (int) $form->getKey(),
+            $userId,
+        );
 
-        if (! $template) {
-            return redirect()->route('financial-report')
-                ->with('status', 'Report submitted. No active template found — document not generated yet.');
-        }
-
-        try {
-            $documentGenerationService->generateFromSubmission(
-                $submission->fresh(['form']),
-                $template,
-                null,
-                $userId,
-            );
-
-            return redirect()->route('download-files')
-                ->with('success', 'Financial report generated and is now available for download.');
-        } catch (\Throwable $e) {
-            return redirect()->route('financial-report')
-                ->with('status', 'Report submitted, but document generation failed: '.$e->getMessage());
-        }
+        return redirect()->route('financial-report')
+            ->with('success', 'Financial report submitted and is pending admin review.');
     }
 }

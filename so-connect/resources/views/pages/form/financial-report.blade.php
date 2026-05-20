@@ -55,12 +55,18 @@
                 orgName: '{{ addslashes(old('organization', $organizations->first()?->organization_name ?? '')) }}',
                 selectedOrgId: {{ (int) ($organizations->first()?->organization_id ?? 0) }},
                 orgEvents: {{ Js::from($orgEvents) }},
+                orgSignatories: {{ Js::from($orgSignatories) }},
                 get currentOrgEvents() { return this.orgEvents[this.selectedOrgId] || []; },
                 onOrgChange(el) {
                     const opt = el.options[el.selectedIndex];
                     this.orgName = opt ? opt.dataset.name : '';
                     this.selectedOrgId = opt ? parseInt(opt.value) : 0;
                     el.form.querySelector('[name=organization]').value = this.orgName;
+                    const sigs = this.orgSignatories[this.selectedOrgId] || {};
+                    const tEl = el.form.querySelector('#name_of_treasurer');
+                    const aEl = el.form.querySelector('#name_of_the_auditor');
+                    if (tEl && !tEl.dataset.userEdited) tEl.value = sigs.treasurer || '';
+                    if (aEl && !aEl.dataset.userEdited) aEl.value = sigs.auditor || '';
                 },
 
                 fundRows: {{ Js::from($fundRowsData) }},
@@ -344,8 +350,13 @@
                                 <label for="name_of_treasurer" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                     Full Name <span class="text-error-500">*</span>
                                 </label>
+                                @php
+                                    $firstOrgId = (int) ($organizations->first()?->organization_id ?? 0);
+                                    $defaultTreasurer = old('name_of_treasurer', $orgSignatories[$firstOrgId]['treasurer'] ?? '');
+                                @endphp
                                 <input type="text" id="name_of_treasurer" name="name_of_treasurer"
-                                    value="{{ old('name_of_treasurer') }}" placeholder="Treasurer's full name"
+                                    value="{{ $defaultTreasurer }}" placeholder="Treasurer's full name"
+                                    @input="$el.dataset.userEdited = '1'"
                                     class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-full rounded-lg border {{ $errors->has('name_of_treasurer') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-3 py-1.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                                 @error('name_of_treasurer')
                                     <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
@@ -389,8 +400,10 @@
                                 <label for="name_of_the_auditor" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                     Full Name <span class="text-error-500">*</span>
                                 </label>
+                                @php $defaultAuditor = old('name_of_the_auditor', $orgSignatories[$firstOrgId]['auditor'] ?? ''); @endphp
                                 <input type="text" id="name_of_the_auditor" name="name_of_the_auditor"
-                                    value="{{ old('name_of_the_auditor') }}" placeholder="Auditor's full name"
+                                    value="{{ $defaultAuditor }}" placeholder="Auditor's full name"
+                                    @input="$el.dataset.userEdited = '1'"
                                     class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-full rounded-lg border {{ $errors->has('name_of_the_auditor') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-3 py-1.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                                 @error('name_of_the_auditor')
                                     <p class="mt-1 text-xs text-error-500">{{ $message }}</p>

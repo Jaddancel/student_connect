@@ -54,17 +54,10 @@ class OrganizationFactory extends Factory
                 ])->getKey();
 
                 Officer::factory()->toLeadOrganization($organizationId)->create();
-                Officer::factory()->count(9)->assignedToOrganization($organizationId)->create();
-                for ($i = 0; $i < 20; $i++) {
-                    \Illuminate\Support\Facades\DB::table('organization_officers')->insert([
-                        'organization'  => $organizationId,
-                        'user'          => User::factory()->orgOfficer()->create()->getKey(),
-                        'role'          => 'member',
-                        'member_since'  => fake()->dateTimeBetween('-6 years', 'now'),
-                        'registered_at' => now(),
-                        'reassigned_at' => now(),
-                    ]);
-                }
+                Officer::factory()->asAuditor($organizationId)->create();
+                Officer::factory()->asSecretary($organizationId)->create();
+                Officer::factory()->asTreasurer($organizationId)->create();
+                Officer::factory()->count(6)->assignedToOrganization($organizationId)->create();
 
                 $organization->update([
                     'detail' => $detailId,

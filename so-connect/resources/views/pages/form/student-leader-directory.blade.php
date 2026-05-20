@@ -129,9 +129,15 @@
                         <label for="position" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Position <span class="text-error-500">*</span>
                         </label>
-                        <input type="text" id="position" name="position" placeholder="e.g. Secretary"
-                            value="{{ old('position') }}"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('position') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                        <select id="position" name="position"
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('position') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                            <option value="">Select position</option>
+                            <option value="President" @selected(old('position') === 'President')>President</option>
+                            <option value="Treasurer" @selected(old('position') === 'Treasurer')>Treasurer</option>
+                            <option value="Auditor" @selected(old('position') === 'Auditor')>Auditor</option>
+                            <option value="Secretary" @selected(old('position') === 'Secretary')>Secretary</option>
+                            <option value="Others" @selected(old('position') === 'Others')>Others</option>
+                        </select>
                         @error('position')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                         @enderror

@@ -32,6 +32,7 @@ class OfficerFactory extends Factory
         return $this->state(fn () => [
             'user'         => User::factory()->create()->getKey(),
             'role'         => 'officer',
+            'position'     => 'Others',
             'organization' => $orgKey,
         ]);
     }
@@ -41,7 +42,28 @@ class OfficerFactory extends Factory
         return $this->state(fn () => [
             'user'         => User::factory()->create()->getKey(),
             'role'         => 'president',
+            'position'     => 'President',
             'organization' => $orgKey,
         ]);
+    }
+
+    public function asPresident($orgKey): static
+    {
+        return $this->toLeadOrganization($orgKey)->state(['position' => 'President']);
+    }
+
+    public function asAuditor($orgKey): static
+    {
+        return $this->assignedToOrganization($orgKey)->state(['position' => 'Auditor']);
+    }
+
+    public function asSecretary($orgKey): static
+    {
+        return $this->assignedToOrganization($orgKey)->state(['position' => 'Secretary']);
+    }
+
+    public function asTreasurer($orgKey): static
+    {
+        return $this->assignedToOrganization($orgKey)->state(['position' => 'Treasurer']);
     }
 }

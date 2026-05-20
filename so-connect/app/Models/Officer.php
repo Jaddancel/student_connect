@@ -21,6 +21,7 @@ class Officer extends Model
 
     protected $fillable = [
         'role',
+        'position',
         'organization',
         'user',
         'approval',
@@ -70,5 +71,10 @@ class Officer extends Model
     public function approvals()
     {
         return $this->hasMany(Approval::class, 'admin', 'org_officer_id');
+    }
+
+    public function president()
+    {
+        return $this->hasOne(President::class, 'officer', 'org_officer_id');
     }
 }
