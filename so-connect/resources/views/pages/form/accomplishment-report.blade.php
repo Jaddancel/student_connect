@@ -40,8 +40,11 @@
                 title: '',
                 date: '',
                 eventId: '',
+                people: '{{ old('people', '') }}',
                 activityType: '{{ old('activity_type', '') }}',
                 membersAttended: '{{ old('members_attended', '') }}',
+                isSponsorSsc: {{ old('is_sponsor_ssc') ? 'true' : 'false' }},
+                repOrProxy: '{{ old('rep_or_proxy', '') }}',
                 hasRewards: {{ old('has_rewards') ? 'true' : 'false' }},
                 advisers: {{ Js::from(old('adviserRow', [''])) }},
                 addAdviser() { this.advisers.push(''); },
@@ -56,6 +59,8 @@
                     this.date = '';
                     this.eventId = '';
                     this.activityType = '';
+                    this.isSponsorSsc = false;
+                    this.repOrProxy = '';
                 },
                 onEventSelect(eventId) {
                     const ev = this.filteredEvents.find(e => String(e.event_id) === String(eventId));
@@ -64,9 +69,13 @@
                         this.date = ev.date ?? '';
                         this.eventId = String(ev.event_id);
                         this.activityType = (ev.activity_types && ev.activity_types.length > 0) ? ev.activity_types[0] : '';
+                        this.people = ev.people ?? '';
                     } else {
                         this.eventId = '';
                         this.activityType = '';
+                        this.people = '';
+                        this.isSponsorSsc = false;
+                        this.repOrProxy = '';
                     }
                 },
             }">
@@ -166,15 +175,15 @@
                             Activity Type
                         </label>
                         <select id="activity_type" name="activity_type" x-model="activityType"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('activity_type') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
-                            <option value="">— Select activity type (optional) —</option>
-                            <option value="Seminar">Seminar</option>
-                            <option value="Clean Up Drive">Clean Up Drive</option>
-                            <option value="Conference">Conference</option>
-                            <option value="Workshop">Workshop</option>
-                            <option value="Preparation">Preparation</option>
-                            <option value="Meeting">Meeting</option>
-                            <option value="others">Others</option>
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('activity_type') ? 'border-error-500' : 'border-gray-300' }} bg-white px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                            <option value="">— Select activity type —</option>
+                            <option value="Seminar" :selected="activityType === 'Seminar'">Seminar</option>
+                            <option value="Clean Up Drive" :selected="activityType === 'Clean Up Drive'">Clean Up Drive</option>
+                            <option value="Conference" :selected="activityType === 'Conference'">Conference</option>
+                            <option value="Workshop" :selected="activityType === 'Workshop'">Workshop</option>
+                            <option value="Preparation" :selected="activityType === 'Preparation'">Preparation</option>
+                            <option value="Meeting" :selected="activityType === 'Meeting'">Meeting</option>
+                            <option value="others" :selected="activityType === 'others'">Others</option>
                         </select>
                         @error('activity_type')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
@@ -214,7 +223,8 @@
                             Persons Involved <span class="text-error-500">*</span>
                         </label>
                         <textarea id="people" name="people" rows="3" placeholder="List all persons involved"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border {{ $errors->has('people') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">{{ old('people') }}</textarea>
+                            x-model="people"
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border {{ $errors->has('people') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90"></textarea>
                         @error('people')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                         @enderror
@@ -293,6 +303,35 @@
                         @error('minutes_of_meeting')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                         @enderror
+                    </div>
+
+                    <div x-show="activityType === 'Meeting'" x-transition class="space-y-3">
+                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-400">
+                            <input type="checkbox" name="is_sponsor_ssc" value="1" x-model="isSponsorSsc"
+                                :disabled="activityType !== 'Meeting'"
+                                class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-400 dark:border-gray-700" />
+                            Is Sponsor SSC?
+                        </label>
+                        <div>
+                            <p class="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-400">Attendance Role</p>
+                            <div class="flex gap-5">
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                    <input type="radio" name="rep_or_proxy" value="representative" x-model="repOrProxy"
+                                        :disabled="activityType !== 'Meeting'"
+                                        class="border-gray-300 text-brand-500 focus:ring-brand-400 dark:border-gray-700" />
+                                    Representative
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                    <input type="radio" name="rep_or_proxy" value="proxy" x-model="repOrProxy"
+                                        :disabled="activityType !== 'Meeting'"
+                                        class="border-gray-300 text-brand-500 focus:ring-brand-400 dark:border-gray-700" />
+                                    Proxy
+                                </label>
+                            </div>
+                            @error('rep_or_proxy')
+                                <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                            @enderror
+                        </div>
                     </div>
 
                     <div>

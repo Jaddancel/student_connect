@@ -13,6 +13,7 @@ use App\Services\WorkplanService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class EventPlanController extends Controller
 {
@@ -188,8 +189,6 @@ class EventPlanController extends Controller
             'persons_responsible'  => ['required', 'array', 'min:1'],
             'persons_responsible.*'=> ['integer'],
             'purpose_of_activity'  => ['required', 'string', 'max:1000'],
-            'time_of_activity'     => ['required', 'string', 'max:100'],
-            'place_venue'          => ['required', 'string', 'max:255'],
             'university_facilities'=> ['required', 'array', 'min:1'],
             'university_facilities.*'=> ['required', 'string', 'max:255'],
             'president_name'       => ['required', 'string', 'max:255'],
@@ -204,7 +203,7 @@ class EventPlanController extends Controller
             'area_scope_other'     => ['required_if:area_scope,others', 'nullable', 'string', 'max:255'],
             'sponsor'              => ['required', 'string', 'max:100'],
             'sponsor_other'        => ['required_if:sponsor,others', 'nullable', 'string', 'max:255'],
-            'cosponsor_count'      => ['required_if:sponsor,co-sponsors', 'nullable', 'integer', 'min:2'],
+            'cosponsor_count'      => ['required_if:sponsor,co-sponsors', 'nullable', 'integer', Rule::when($request->input('sponsor') === 'co-sponsors', ['min:2'])],
             'related_to_organization' => ['nullable', 'boolean'],
             'extension_services'   => ['required', 'in:yes,no'],
             'event_location'       => ['required', 'string', 'max:255'],
@@ -238,8 +237,6 @@ class EventPlanController extends Controller
             'target_date'            => $validated['target_date'],
             'resources_needed'       => $validated['resources_needed'] ?? null,
             'purpose_of_activity'    => $validated['purpose_of_activity'] ?? null,
-            'time_of_activity'       => $validated['time_of_activity'] ?? null,
-            'place_venue'            => $validated['place_venue'] ?? null,
             'university_facilities'  => array_values(array_filter($validated['university_facilities'] ?? [], fn ($value) => filled($value))),
             'president_name'         => $validated['president_name'] ?? null,
             'president_contact'      => $validated['president_contact'] ?? null,
@@ -316,8 +313,6 @@ class EventPlanController extends Controller
             'persons_responsible' => ['required', 'array', 'min:1'],
             'persons_responsible.*' => ['integer'],
             'purpose_of_activity' => ['required', 'string', 'max:1000'],
-            'time_of_activity' => ['required', 'string', 'max:100'],
-            'place_venue' => ['required', 'string', 'max:255'],
             'university_facilities' => ['required', 'array', 'min:1'],
             'university_facilities.*' => ['required', 'string', 'max:255'],
             'president_name' => ['required', 'string', 'max:255'],
@@ -332,7 +327,7 @@ class EventPlanController extends Controller
             'area_scope_other' => ['required_if:area_scope,others', 'nullable', 'string', 'max:255'],
             'sponsor' => ['required', 'string', 'max:100'],
             'sponsor_other' => ['required_if:sponsor,others', 'nullable', 'string', 'max:255'],
-            'cosponsor_count' => ['required_if:sponsor,co-sponsors', 'nullable', 'integer', 'min:2'],
+            'cosponsor_count' => ['required_if:sponsor,co-sponsors', 'nullable', 'integer', Rule::when($request->input('sponsor') === 'co-sponsors', ['min:2'])],
             'related_to_organization' => ['nullable', 'boolean'],
             'extension_services' => ['required', 'in:yes,no'],
         ]);
@@ -360,8 +355,6 @@ class EventPlanController extends Controller
             'target_date' => $validated['target_date'],
             'resources_needed' => $validated['resources_needed'] ?? null,
             'purpose_of_activity' => $validated['purpose_of_activity'] ?? null,
-            'time_of_activity' => $validated['time_of_activity'] ?? null,
-            'place_venue' => $validated['place_venue'] ?? null,
             'university_facilities' => array_values(array_filter($validated['university_facilities'] ?? [], fn ($value) => filled($value))),
             'president_name' => $validated['president_name'] ?? null,
             'president_contact' => $validated['president_contact'] ?? null,

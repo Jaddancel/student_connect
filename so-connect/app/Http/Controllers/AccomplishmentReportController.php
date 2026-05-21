@@ -18,7 +18,10 @@ class AccomplishmentReportController extends Controller
     {
         $user = $request->user();
         $userId = (int) $user->getKey();
-        $isAdmin = (int) $user->user_type === 2;
+
+        if ((int) $user->user_type === 2) {
+            abort(403);
+        }
 
         $profileRow = DB::table('users as u')
             ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
@@ -32,26 +35,18 @@ class AccomplishmentReportController extends Controller
             $profileRow->last_name,
         ]))) : '';
 
-        if ($isAdmin) {
-            $organizations = DB::table('organizations as o')
-                ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
-                ->select(['o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name")])
-                ->orderBy('od.name')
-                ->get();
-        } else {
-            $officerOrgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
-            $organizations = DB::table('organizations as o')
-                ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
-                ->whereIn('o.organization_id', $officerOrgIds)
-                ->select(['o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name")])
-                ->orderBy('od.name')
-                ->get();
-        }
+        $officerOrgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
+        $organizations = DB::table('organizations as o')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->whereIn('o.organization_id', $officerOrgIds)
+            ->select(['o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name")])
+            ->orderBy('od.name')
+            ->get();
 
         $orgIds = $organizations->pluck('organization_id')->toArray();
 
         $form = Form::query()->where('route_name', 'accomplishment-report')->first();
-        $usedEventIds = $form
+        $usedEventPlanIds = $form
             ? DB::table('form_submissions')
                 ->where('form_id', (int) $form->getKey())
                 ->whereNotNull('event_id')
@@ -60,33 +55,56 @@ class AccomplishmentReportController extends Controller
                 ->all()
             : [];
 
-        $events = DB::table('events as e')
-            ->join('event_details as ed', 'ed.event_detail_id', '=', 'e.event_detail')
-            ->leftJoin('event_plans as ep', 'ep.event_id', '=', 'e.event_id')
-            ->whereIn('e.organization', $orgIds)
-            ->when(! empty($usedEventIds), fn ($q) => $q->whereNotIn('e.event_id', $usedEventIds))
-            ->orderByDesc('ed.start_time')
+        $rawEvents = DB::table('event_plans as ep')
+            ->whereIn('ep.organization_id', $orgIds)
+            ->where('ep.status', 'approved')
+            ->when(! empty($usedEventPlanIds), fn ($q) => $q->whereNotIn('ep.event_plan_id', $usedEventPlanIds))
+            ->orderByDesc('ep.target_date')
             ->select([
-                'e.event_id',
-                'e.organization as org_id',
-                'ed.name as title',
-                DB::raw('DATE(ed.start_time) as date'),
+                DB::raw('ep.event_plan_id as event_id'),
+                'ep.organization_id as org_id',
+                'ep.title',
+                'ep.target_date as date',
                 'ep.activity_types',
                 'ep.seminar_level',
+                'ep.persons_responsible',
             ])
-            ->get()
-            ->map(fn ($ev) => [
-                'event_id'       => $ev->event_id,
-                'org_id'         => $ev->org_id,
-                'title'          => $ev->title,
-                'date'           => $ev->date,
-                'activity_types' => $ev->activity_types ? json_decode($ev->activity_types, true) : [],
-                'seminar_level'  => $ev->seminar_level,
-            ]);
+            ->get();
+
+        $allPersonIds = $rawEvents->flatMap(function ($ev) {
+            $ids = $ev->persons_responsible ? json_decode($ev->persons_responsible, true) : [];
+            return is_array($ids) ? array_map('intval', $ids) : [];
+        })->filter()->unique()->values()->all();
+
+        $personNames = [];
+        if (! empty($allPersonIds)) {
+            $personNames = DB::table('users as u')
+                ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+                ->whereIn('u.user_id', $allPersonIds)
+                ->select([
+                    'u.user_id',
+                    DB::raw("TRIM(CONCAT_WS(' ', p.first_name, p.middle_name, p.last_name)) as full_name"),
+                ])
+                ->get()
+                ->pluck('full_name', 'user_id')
+                ->all();
+        }
+
+        $events = $rawEvents->map(fn ($ev) => [
+            'event_id'       => $ev->event_id,
+            'org_id'         => $ev->org_id,
+            'title'          => $ev->title,
+            'date'           => $ev->date,
+            'activity_types' => $ev->activity_types ? json_decode($ev->activity_types, true) : [],
+            'seminar_level'  => $ev->seminar_level,
+            'people'         => collect($ev->persons_responsible ? json_decode($ev->persons_responsible, true) : [])
+                ->map(fn ($id) => $personNames[(int) $id] ?? null)
+                ->filter()
+                ->implode(', '),
+        ]);
 
         return view('pages.form.accomplishment-report', [
             'title'         => 'Accomplishment Report',
-            'isAdmin'       => $isAdmin,
             'organizations' => $organizations,
             'events'        => $events,
             'presidentName' => $presidentName,
@@ -98,7 +116,10 @@ class AccomplishmentReportController extends Controller
     {
         $user = $request->user();
         $userId = (int) $user->getKey();
-        $isAdmin = (int) $user->user_type === 2;
+
+        if ((int) $user->user_type === 2) {
+            abort(403);
+        }
 
         $validated = $request->validate([
             'organization_id' => ['required', 'integer', 'min:1'],
@@ -121,15 +142,15 @@ class AccomplishmentReportController extends Controller
             'area_scope_of_award' => ['exclude_unless:has_rewards,1', 'required', 'in:Local,Provincial,Regional,National,International'],
             'minutes_of_meeting'  => ['nullable', 'integer', 'min:0'],
             'summary_of_expenses' => ['nullable', 'numeric', 'min:0'],
+            'is_sponsor_ssc'      => ['nullable', 'boolean'],
+            'rep_or_proxy'        => ['nullable', 'string', 'in:representative,proxy', 'required_if:activity_type,Meeting'],
         ]);
 
         $organizationId = (int) $validated['organization_id'];
 
-        if (! $isAdmin) {
-            $officerOrgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
-            if (! in_array($organizationId, $officerOrgIds, true)) {
-                abort(403);
-            }
+        $officerOrgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
+        if (! in_array($organizationId, $officerOrgIds, true)) {
+            abort(403);
         }
 
         $sigDir = 'form-signatures/'.now()->format('Y/m');
@@ -152,6 +173,8 @@ class AccomplishmentReportController extends Controller
             'area_scope_of_award' => $validated['area_scope_of_award'] ?? null,
             'minutes_of_meeting'  => isset($validated['minutes_of_meeting']) ? (int) $validated['minutes_of_meeting'] : null,
             'summary_of_expenses' => isset($validated['summary_of_expenses']) ? (float) $validated['summary_of_expenses'] : null,
+            'is_sponsor_ssc'      => (bool) ($validated['is_sponsor_ssc'] ?? false),
+            'rep_or_proxy'        => $validated['rep_or_proxy'] ?? null,
         ];
 
         $photoCopyPath = null;

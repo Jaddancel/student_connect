@@ -91,7 +91,7 @@ Route::post('/events', [EventController::class, 'store'])
 
 // Auth pages.
 
-Route::get('/login', [UserController::class, 'loginPage'])->name('login');
+Route::get('/login', [UserController::class, 'loginPage'])->middleware('guest')->name('login');
 
 // calender pages
 Route::get('/calendar', function () {
@@ -480,6 +480,14 @@ Route::get('/superadmin/accounts/create', [AdminAccountCreationController::class
 Route::post('/superadmin/accounts/create', [AdminAccountCreationController::class, 'store'])
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.accounts.store');
+
+Route::get('/superadmin/scoring/audit', [OrganizationScoringController::class, 'audit'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('admin.scoring.audit');
+
+Route::get('/superadmin/scoring/audit/print', [OrganizationScoringController::class, 'auditPrint'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('admin.scoring.audit.print');
 
 Route::get('/superadmin/profiles', [SuperAdminController::class, 'profiles'])
     ->middleware(['auth', 'superadmin'])

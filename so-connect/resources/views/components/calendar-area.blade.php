@@ -322,28 +322,6 @@
                                         placeholder="Describe the purpose of the activity">{{ old('purpose_of_activity') }}</textarea>
                                 </div>
 
-                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                    <div>
-                                        <label for="time-of-activity"
-                                            class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Time
-                                            of Activity</label>
-                                        <input id="time-of-activity" name="time_of_activity" type="text"
-                                            value="{{ old('time_of_activity') }}"
-                                            placeholder="e.g. 8:00 AM - 5:00 PM"
-                                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                                    </div>
-
-                                    <div class="sm:col-span-1 lg:col-span-2">
-                                        <label for="place-venue"
-                                            class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Place
-                                            / Venue</label>
-                                        <input id="place-venue" name="place_venue" type="text"
-                                            value="{{ old('place_venue') }}"
-                                            placeholder="Venue or location of the activity"
-                                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                                    </div>
-                                </div>
-
                                 <div>
                                     <label
                                         class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">University
@@ -390,19 +368,17 @@
                                     <label for="president-name"
                                         class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">President
                                         Name</label>
-                                    <input id="president-name" name="president_name" type="text"
+                                    <input id="president-name" name="president_name" type="text" readonly
                                         value="{{ old('president_name', $resolvedPresidentName) }}"
-                                        placeholder="Full name of the President"
-                                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                        class="h-11 w-full rounded-lg border border-gray-300 bg-gray-100 px-4 py-2.5 text-sm text-gray-800 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-white/90" />
                                 </div>
                                 <div>
                                     <label for="president-contact"
                                         class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Contact
                                         Number</label>
-                                    <input id="president-contact" name="president_contact" type="text"
+                                    <input id="president-contact" name="president_contact" type="text" readonly
                                         value="{{ old('president_contact', $resolvedPresidentContact) }}"
-                                        placeholder="e.g. 09XX-XXX-XXXX"
-                                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                        class="h-11 w-full rounded-lg border border-gray-300 bg-gray-100 px-4 py-2.5 text-sm text-gray-800 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-white/90" />
                                 </div>
                             </div>
                         </div>
@@ -530,6 +506,7 @@
                                         <select id="area-scope" name="area_scope" x-model="areaScope" required
                                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
                                             <option value="">Select area scope</option>
+                                            <option value="none" @selected(old('area_scope') === 'none')>None</option>
                                             <option value="Local" @selected(old('area_scope') === 'Local')>Local</option>
                                             <option value="Provincial" @selected(old('area_scope') === 'Provincial')>Provincial</option>
                                             <option value="Regional" @selected(old('area_scope') === 'Regional')>Regional</option>
@@ -552,6 +529,7 @@
                                         <select id="sponsor" name="sponsor" x-model="sponsor" required
                                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
                                             <option value="">Select sponsor</option>
+                                            <option value="none" @selected(old('sponsor') === 'none')>None</option>
                                             <option value="N/A" @selected(old('sponsor') === 'N/A')>N/A</option>
                                             <option value="SSC" @selected(old('sponsor') === 'SSC')>SSC</option>
                                             <option value="Admin" @selected(old('sponsor') === 'Admin')>Admin</option>
@@ -609,7 +587,7 @@
                                 class="event-plan-close flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03]">
                                 Cancel
                             </button>
-                            <button type="button" id="submit-event-plan-btn"
+                            <button type="submit"
                                 class="bg-brand-500 hover:bg-brand-600 flex w-full justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-white sm:w-auto">
                                 Submit Event Plan
                             </button>

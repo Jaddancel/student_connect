@@ -59,7 +59,7 @@
 
         {{-- Start New School Year Form --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6"
-            x-data="{ open: {{ $canStartNewYear ? 'false' : 'false' }} }">
+            x-data="{ open: {{ $errors->any() && $canStartNewYear ? 'true' : 'false' }} }">
             <div class="flex items-center justify-between">
                 <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Semesters</h3>
                 @if ($canStartNewYear)
@@ -82,15 +82,15 @@
                         @csrf
                         <div>
                             <label class="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-400">1st Semester Start Date <span class="text-error-500">*</span></label>
-                            <x-form.date-picker name="starts_at" placeholder="Select 1st sem start" id="new-semester-starts-at" />
+                            <x-form.date-picker name="starts_at" placeholder="Select 1st sem start" id="new-semester-starts-at" defaultDate="{{ old('starts_at') }}" />
                         </div>
                         <div>
                             <label class="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-400">2nd Semester Start Date <span class="text-error-500">*</span></label>
-                            <x-form.date-picker name="second_starts_at" placeholder="Select 2nd sem start" id="new-semester-second-starts-at" />
+                            <x-form.date-picker name="second_starts_at" placeholder="Select 2nd sem start" id="new-semester-second-starts-at" defaultDate="{{ old('second_starts_at') }}" />
                         </div>
                         <div>
                             <label class="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-400">Preparation Days <span class="text-error-500">*</span></label>
-                            <input type="number" name="vacation_days" value="30" min="1" max="365"
+                            <input type="number" name="vacation_days" value="{{ old('vacation_days', 30) }}" min="1" max="365"
                                 class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                         </div>
                         <div class="flex justify-end sm:col-span-3">

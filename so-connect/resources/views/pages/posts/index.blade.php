@@ -16,17 +16,30 @@
         $orgNameMap = $orgs->mapWithKeys(fn($o) => [$o->organization_id => $o->org_name]);
     @endphp
 
+    @php
+        $hasFormErrors = $errors->any();
+        $oldEditPostId = old('edit_post_id');
+        $isOldEdit     = !empty($oldEditPostId);
+        $oldFormAction = $isOldEdit ? url('/posts/' . (int) $oldEditPostId) : route('posts.store');
+        $oldOrg        = old('organization', $orgs->first()?->organization_id ?? '');
+        $oldTitle      = old('title', '');
+        $oldExcerpt    = old('excerpt', '');
+        $oldBody       = old('body', '');
+        $oldTag        = old('tag', '');
+        $oldFeatured   = old('is_featured') ? 'true' : 'false';
+    @endphp
     <div x-data="{
         view: 'cards',
-        modalOpen: false,
-        editMode: false,
-        editFormAction: '{{ route('posts.store') }}',
-        fOrg: '{{ $orgs->first()?->organization_id ?? '' }}',
-        fTitle: '',
-        fExcerpt: '',
-        fBody: '',
-        fTag: '',
-        fFeatured: false,
+        modalOpen: {{ $hasFormErrors ? 'true' : 'false' }},
+        editMode: {{ $isOldEdit ? 'true' : 'false' }},
+        editPostId: '{{ $oldEditPostId ?? '' }}',
+        editFormAction: {{ Js::from($oldFormAction) }},
+        fOrg: {{ Js::from($oldOrg) }},
+        fTitle: {{ Js::from($oldTitle) }},
+        fExcerpt: {{ Js::from($oldExcerpt) }},
+        fBody: {{ Js::from($oldBody) }},
+        fTag: {{ Js::from($oldTag) }},
+        fFeatured: {{ $oldFeatured }},
         fHasImage: false,
         fHasVideo: false,
         /* media picker state */
@@ -34,9 +47,10 @@
         pickerSearch: '',
         selectedLibraryPath: '',
         selectedLibraryTitle: '',
-    
+
         openCreate() {
             this.editMode = false;
+            this.editPostId = '';
             this.editFormAction = '{{ route('posts.store') }}';
             this.fOrg = '{{ $orgs->first()?->organization_id ?? '' }}';
             this.fTitle = '';
@@ -54,6 +68,7 @@
 
         openEdit(post) {
             this.editMode = true;
+            this.editPostId = post.post_id;
             this.editFormAction = '/posts/' + post.post_id;
             this.fOrg = post.organization;
             this.fTitle = post.title;
@@ -473,6 +488,7 @@
                         class="space-y-3 px-5 py-3">
                         @csrf
                         <input type="hidden" name="_method" :value="editMode ? 'PATCH' : ''">
+                        <input type="hidden" name="edit_post_id" :value="editMode ? editPostId : ''">
 
                         {{-- Posting as --}}
                         <div>

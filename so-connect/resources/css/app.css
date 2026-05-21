@@ -1142,6 +1142,11 @@ pre[class*='language-'] {
   color-scheme: dark;
 }
 
+.dark select option {
+  background-color: #1d2939;
+  color: rgba(255, 255, 255, 0.9);
+}
+
 @media screen and (max-width: 525px) {
   .flatpickr-calendar.static {
     margin-right: -60px !important;

@@ -100,13 +100,16 @@ class OrganizationScoringController extends Controller
             return redirect()->route('admin.scoring.edit', $existing->organization_score_id);
         }
 
-        $organization = Organization::query()->with('detail')->findOrFail($organizationId);
+        $organization = Organization::query()->findOrFail($organizationId);
+        $organizationName = DB::table('organization_details')
+            ->where('organization_detail_id', $organization->getAttribute('detail'))
+            ->value('name') ?? 'Unknown Organization';
         $semester = Semester::query()->findOrFail($semesterId);
 
         return view('pages.admin.scoring.create', [
             'title'            => 'Score Organization',
             'organization'     => $organization,
-            'organizationName' => $organization->detail?->name ?? 'Unknown Organization',
+            'organizationName' => $organizationName,
             'semester'         => $semester,
             'payload'          => $this->computeAutoInstances($organizationId, $semester),
             'score'            => null,
@@ -150,7 +153,10 @@ class OrganizationScoringController extends Controller
     public function edit(int $id)
     {
         $score        = OrganizationScore::query()->findOrFail($id);
-        $organization = Organization::query()->with('detail')->findOrFail($score->organization_id);
+        $organization = Organization::query()->findOrFail($score->organization_id);
+        $organizationName = DB::table('organization_details')
+            ->where('organization_detail_id', $organization->getAttribute('detail'))
+            ->value('name') ?? 'Unknown Organization';
         $semester     = Semester::query()->findOrFail($score->semester_id);
 
         $autoInstances  = $this->computeAutoInstances($score->organization_id, $semester);
@@ -160,7 +166,7 @@ class OrganizationScoringController extends Controller
         return view('pages.admin.scoring.create', [
             'title'            => 'Edit Organization Score',
             'organization'     => $organization,
-            'organizationName' => $organization->detail?->name ?? 'Unknown Organization',
+            'organizationName' => $organizationName,
             'semester'         => $semester,
             'payload'          => $mergedPayload,
             'score'            => $score,
@@ -194,6 +200,79 @@ class OrganizationScoringController extends Controller
 
         return redirect()->route('admin.scoring.index', ['semester_id' => $score->semester_id])
             ->with('success', 'Organization score updated.');
+    }
+
+    public function audit(Request $request)
+    {
+        return $this->buildAuditView($request, 'pages.admin.scoring.audit');
+    }
+
+    public function auditPrint(Request $request)
+    {
+        return $this->buildAuditView($request, 'exports.scoring-audit-print');
+    }
+
+    private function buildAuditView(Request $request, string $view)
+    {
+        $manualFields = [
+            'cat1_donation_cash'  => 'Donation – Cash',
+            'cat1_donation_kinds' => 'Donation – In Kind',
+            'cat6_leadership'     => 'Leadership Training',
+        ];
+
+        $semesters = Semester::query()->orderByDesc('starts_at')->get();
+        $semesterFilter = $request->integer('semester_id') ?: null;
+
+        $scoresQuery = OrganizationScore::query()->orderByDesc('scored_at');
+        if ($semesterFilter) {
+            $scoresQuery->where('semester_id', $semesterFilter);
+        }
+        $scores = $scoresQuery->get();
+
+        $orgNames = DB::table('organizations as o')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->select('o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as name"))
+            ->pluck('name', 'organization_id');
+
+        $semesterNames = $semesters->pluck('name', 'semester_id');
+
+        $scorerNames = collect();
+        $scorerIds = $scores->pluck('scored_by')->filter()->unique()->values();
+        if ($scorerIds->isNotEmpty()) {
+            $scorerNames = DB::table('users as u')
+                ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+                ->whereIn('u.user_id', $scorerIds)
+                ->select('u.user_id', DB::raw("CONCAT(p.first_name, ' ', p.last_name) as full_name"))
+                ->pluck('full_name', 'user_id');
+        }
+
+        $rows = $scores->map(function ($score) use ($orgNames, $semesterNames, $scorerNames, $manualFields) {
+            $payload    = (array) ($score->payload ?? []);
+            $usedManual = [];
+            foreach ($manualFields as $key => $label) {
+                if (($payload[$key] ?? 0) > 0) {
+                    $usedManual[] = $label;
+                }
+            }
+
+            return [
+                'id'          => $score->organization_score_id,
+                'org_name'    => $orgNames[$score->organization_id] ?? 'Unknown',
+                'semester'    => $semesterNames[$score->semester_id] ?? '—',
+                'total'       => $score->total_weighted_score,
+                'scored_at'   => $score->scored_at,
+                'scorer_name' => $scorerNames[$score->scored_by] ?? '—',
+                'manual_used' => $usedManual,
+            ];
+        });
+
+        return view($view, [
+            'title'          => 'Scoring Audit Log',
+            'rows'           => $rows,
+            'semesters'      => $semesters,
+            'semesterFilter' => $semesterFilter,
+            'fieldLabels'    => $manualFields,
+        ]);
     }
 
     public function rankings(Request $request)
@@ -264,7 +343,7 @@ class OrganizationScoringController extends Controller
             ])
             ->get()
             ->map(fn ($p) => [
-                'event_id'               => $p->event_id,
+                'event_plan_id'          => (int) $p->event_plan_id,
                 'activity_types'         => $p->activity_types ? json_decode($p->activity_types, true) : [],
                 'seminar_level'          => $p->seminar_level,
                 'related_to_organization'=> (bool) $p->related_to_organization,
@@ -275,10 +354,12 @@ class OrganizationScoringController extends Controller
             ]);
 
         $arForm = Form::query()->where('route_name', 'accomplishment-report')->first();
-        $membersMap    = [];
-        $arMomTotal    = 0;
-        $hasAnyAr      = false;
-        $arRewardedRows = collect();
+        $membersMap         = [];
+        $arMomTotal         = 0;
+        $hasAnyAr           = false;
+        $arRewardedRows     = collect();
+        $c2_ssc_meeting_rep   = 0;
+        $c2_ssc_meeting_proxy = 0;
 
         if ($arForm) {
             $arRows = DB::table('form_submissions as fs')
@@ -296,10 +377,58 @@ class OrganizationScoringController extends Controller
                 $arMomTotal += (int) ($p['minutes_of_meeting'] ?? 0);
                 $hasAnyAr = true;
                 $arRewardedRows->push($p);
+
+                $isMeeting    = ($p['activity_type'] ?? '') === 'Meeting';
+                $isSscSponsor = ! empty($p['is_sponsor_ssc']);
+                $rop          = $p['rep_or_proxy'] ?? null;
+                if ($isMeeting && $isSscSponsor && $rop === 'representative') {
+                    $c2_ssc_meeting_rep++;
+                }
+                if ($isMeeting && $isSscSponsor && $rop === 'proxy') {
+                    $c2_ssc_meeting_proxy++;
+                }
             }
         }
 
-        $getMembers = fn (array $plan): int => isset($plan['event_id']) ? ($membersMap[(int) $plan['event_id']] ?? 0) : 0;
+        $getMembers = fn (array $plan): int => ($membersMap[(int) ($plan['event_id'] ?? 0)] ?? 0);
+
+        // --- Income Generated (auto from approved financial reports) ---
+        $c1_income = 0;
+        $frForm = Form::query()->where('route_name', 'financial-report')->first();
+        if ($frForm) {
+            $frFormId = (int) $frForm->getKey();
+            $frSubmissions = DB::table('form_submissions as fs')
+                ->where('fs.form_id', $frFormId)
+                ->where('fs.organization_id', $organizationId)
+                ->whereBetween('fs.submitted_at', [$semesterStart, $semesterEnd])
+                ->select(['fs.form_submission_id', 'fs.payload'])
+                ->get();
+
+            if ($frSubmissions->isNotEmpty()) {
+                $submissionIds = $frSubmissions->pluck('form_submission_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all();
+
+                $approvedSubIds = DB::table('requests as r')
+                    ->join('approvals as a', 'a.request', '=', 'r.request_id')
+                    ->where('r.action_type', FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION)
+                    ->where('r.organization_id', $organizationId)
+                    ->where('a.is_rejected', false)
+                    ->whereNotNull('a.approved_at')
+                    ->get(['r.payload'])
+                    ->map(fn ($row) => (int) ((is_string($row->payload) ? json_decode($row->payload, true) : (array) $row->payload)['submission_id'] ?? 0))
+                    ->filter(fn ($id) => in_array($id, $submissionIds, true))
+                    ->all();
+
+                foreach ($frSubmissions as $sub) {
+                    if (! in_array((int) $sub->form_submission_id, $approvedSubIds, true)) {
+                        continue;
+                    }
+                    $p = is_string($sub->payload) ? json_decode($sub->payload, true) : (array) $sub->payload;
+                    $c1_income += (int) floor((float) ($p['cashOnHand'] ?? 0) / 500);
+                }
+            }
+        }
 
         // --- Category I ---
         $c1_seminar_college = 0;
@@ -418,7 +547,7 @@ class OrganizationScoringController extends Controller
             'cat1_donation_cash'           => 0,
             'cat1_donation_kinds'          => 0,
             'cat1_cosponsor_pts'           => $c1_cosponsor_pts,
-            'cat1_income'                  => 0,
+            'cat1_income'                  => $c1_income,
             'cat2_other_orgs'              => $c2_other_orgs,
             'cat2_rep_local'               => $c2_rep['Local'],
             'cat2_rep_provincial'          => $c2_rep['Provincial'],
@@ -429,8 +558,8 @@ class OrganizationScoringController extends Controller
             'cat2_ssc_seminars'            => $c2_ssc_sem,
             'cat2_other_seminars'          => $c2_other_sem,
             'cat2_osa_seminars'            => $c2_osa_sem,
-            'cat2_ssc_meeting_rep'         => 0,
-            'cat2_ssc_meeting_proxy'       => 0,
+            'cat2_ssc_meeting_rep'         => $c2_ssc_meeting_rep,
+            'cat2_ssc_meeting_proxy'       => $c2_ssc_meeting_proxy,
             'cat2_help_ssc_osa'            => $c2_help_ssc,
             'cat2_help_others'             => $c2_help_other,
             'cat3_group_intl'              => $c3['group']['International'],

@@ -207,8 +207,10 @@ class EventPlanRequestController extends Controller
             'projectActivity' => (string) ($plan->title ?? ''),
             'purposed' => (string) ($plan->purpose_of_activity ?? ''),
             'dayOfTheWeek' => $targetDate instanceof \DateTimeInterface ? $targetDate->format('l') : '',
-            'time' => (string) ($plan->time_of_activity ?? ''),
-            'placeAndVenue' => (string) ($plan->place_venue ?? ''),
+            'time' => $plan->event_start_time && $plan->event_end_time
+                ? $plan->event_start_time->format('g:i A') . ' - ' . $plan->event_end_time->format('g:i A')
+                : '',
+            'placeAndVenue' => (string) ($plan->event_location ?? ''),
             'facilitiesOrEquipmentToBeUsedRow' => array_values(array_filter((array) ($plan->university_facilities ?? []), fn ($value) => filled($value))),
             'activityTypes' => array_values(array_filter((array) ($plan->activity_types ?? []), fn ($value) => filled($value))),
             'activityTypeOther' => (string) ($plan->activity_types_other ?? ''),

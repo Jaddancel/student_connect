@@ -23,8 +23,6 @@ class EventPlan extends Model
         'target_date',
         'resources_needed',
         'purpose_of_activity',
-        'time_of_activity',
-        'place_venue',
         'university_facilities',
         'president_name',
         'president_contact',
@@ -56,8 +54,6 @@ class EventPlan extends Model
         return [
             'target_date' => 'date',
             'purpose_of_activity' => 'string',
-            'time_of_activity' => 'string',
-            'place_venue' => 'string',
             'university_facilities' => 'array',
             'president_name' => 'string',
             'president_contact' => 'string',

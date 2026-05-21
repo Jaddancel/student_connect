@@ -61,10 +61,12 @@ class MenuHelper
                 'items' => [
                     ['icon' => 'dashboard', 'name' => 'System Dashboard', 'path' => '/superadmin/dashboard'],
                     ['icon' => 'user-profile', 'name' => 'Profile Manager', 'path' => '/superadmin/profiles'],
+                    ['icon' => 'user-profile', 'name' => 'Create Admin', 'path' => '/superadmin/accounts/create'],
                     ['icon' => 'charts', 'name' => 'Dashboard Builder', 'path' => '/superadmin/dashboard-builder'],
                     ['icon' => 'forms', 'name' => 'Request Types', 'path' => '/superadmin/request-types'],
                     ['icon' => 'forms', 'name' => 'Template Manager', 'path' => '/admin/templates'],
                     ['icon' => 'tables', 'name' => 'Export Data', 'path' => '/superadmin/export'],
+                    ['icon' => 'charts', 'name' => 'Score Audit', 'path' => '/superadmin/scoring/audit'],
                 ],
             ];
         }

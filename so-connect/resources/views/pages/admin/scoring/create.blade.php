@@ -145,6 +145,55 @@
                 get grand_total() {
                     return this.cat1_total + this.cat2_total + this.cat3_total + this.cat4_total + this.cat5_total + this.cat6_total;
                 },
+
+                // Manual-input modal
+                modalOpen: false,
+                modalField: '',
+                modalLabel: '',
+                modalType: '',
+                modalDivisor: 1,
+                modalDesc: '',
+                modalBasis: {},
+                modalBinaryOn: false,
+                modalConfig: {
+                    cat1_donation_cash:  { label: 'Donation – Cash',        type: 'pesos',  divisor: 200, desc: 'Enter total cash donated in pesos. Instances = floor(₱ ÷ 200).' },
+                    cat1_donation_kinds: { label: 'Donation – In Kind',     type: 'binary',               desc: 'Check if the organization donated in kind.' },
+                    cat6_leadership:     { label: 'Leadership Training',    type: 'binary',               desc: 'Check if the organization participated in leadership training.' },
+                },
+                openModal(field) {
+                    const cfg = this.modalConfig[field];
+                    this.modalField   = field;
+                    this.modalLabel   = cfg.label;
+                    this.modalType    = cfg.type;
+                    this.modalDivisor = cfg.divisor || 1;
+                    this.modalDesc    = cfg.desc;
+                    if (this.modalBasis[field] !== undefined) {
+                        if (cfg.type === 'binary') this.modalBinaryOn = !!this.modalBasis[field];
+                    } else {
+                        const cur = this.n(this[field]);
+                        if (cfg.type === 'pesos') {
+                            this.modalBasis[field] = String(cur * (cfg.divisor || 1));
+                        } else if (cfg.type === 'count') {
+                            this.modalBasis[field] = String(cur);
+                        } else {
+                            this.modalBinaryOn = cur === 1;
+                            this.modalBasis[field] = cur;
+                        }
+                    }
+                    this.modalOpen = true;
+                    this.$nextTick(() => { const el = this.$el.querySelector('.modal-autofocus'); if (el) el.focus(); });
+                },
+                get modalPreview() {
+                    if (this.modalType === 'binary') return this.modalBinaryOn ? 1 : 0;
+                    const raw = Math.max(0, parseInt(this.modalBasis[this.modalField] ?? 0) || 0);
+                    return this.modalType === 'pesos' ? Math.floor(raw / this.modalDivisor) : raw;
+                },
+                applyModal() {
+                    const instances = this.modalPreview;
+                    if (this.modalType === 'binary') this.modalBasis[this.modalField] = instances;
+                    this[this.modalField] = instances;
+                    this.modalOpen = false;
+                },
             }">
             @csrf
             @if ($isEdit) @method('PUT') @endif
@@ -183,22 +232,32 @@
                                 ['cat1_donation_cash',          'Donation – Cash (per ₱200)',                           2,  true],
                                 ['cat1_donation_kinds',         'Donation – In Kind (binary 0/1)',                     10,  true],
                                 ['cat1_cosponsor_pts',          'Co-sponsorship Points (pre-computed)',                 1,  false],
-                                ['cat1_income',                 'Income Generated (per ₱500)',                          1,  true],
+                                ['cat1_income',                 'Income Generated (per ₱500)',                          1,  false],
                             ];
                             @endphp
                             @foreach ($cat1rows as [$field, $label, $ppi, $manual])
-                                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02] {{ $manual ? 'cursor-pointer ring-1 ring-inset ring-brand-200/60 dark:ring-brand-700/40' : '' }}"
+                                    @if ($manual) @click="openModal('{{ $field }}')" @endif>
                                     <td class="px-6 py-3 text-gray-700 dark:text-gray-300">
                                         {{ $label }}
                                         @if ($manual)
-                                            <span class="ml-1 text-xs text-gray-400">(manual)</span>
+                                            <span class="ml-1 text-xs text-brand-500 dark:text-brand-400">(click to enter)</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{{ $ppi }}</td>
                                     <td class="px-4 py-3 text-center">
-                                        <input type="number" name="payload[{{ $field }}]"
-                                            x-model="{{ $field }}" min="0"
-                                            class="h-8 w-20 rounded-lg border border-gray-300 bg-transparent px-2 text-center text-sm text-gray-800 focus:border-brand-400 focus:ring-1 focus:ring-brand-400 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                        @if ($manual)
+                                            <div class="flex items-center justify-center gap-1.5 select-none">
+                                                <span class="min-w-[2rem] text-center font-medium text-gray-800 dark:text-white/90"
+                                                      x-text="{{ $field }}"></span>
+                                                <svg class="h-3.5 w-3.5 text-brand-400 dark:text-brand-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/></svg>
+                                                <input type="hidden" name="payload[{{ $field }}]" x-model="{{ $field }}" />
+                                            </div>
+                                        @else
+                                            <input type="number" name="payload[{{ $field }}]"
+                                                x-model="{{ $field }}" min="0"
+                                                class="h-8 w-20 rounded-lg border border-gray-300 bg-transparent px-2 text-center text-sm text-gray-800 focus:border-brand-400 focus:ring-1 focus:ring-brand-400 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300"
                                         x-text="n({{ $field }}) * {{ $ppi }}"></td>
@@ -249,20 +308,15 @@
                                 ['cat2_ssc_seminars',        'SSC-sponsored seminars',                              10,  false],
                                 ['cat2_other_seminars',      'Other org seminars/conferences',                       7,  false],
                                 ['cat2_osa_seminars',        'OSA/Admin seminars',                                   5,  false],
-                                ['cat2_ssc_meeting_rep',     'SSC meeting – Representative',                         2,  true],
-                                ['cat2_ssc_meeting_proxy',   'SSC meeting – Proxy',                                  1,  true],
+                                ['cat2_ssc_meeting_rep',     'SSC meeting – Representative',                         2,  false],
+                                ['cat2_ssc_meeting_proxy',   'SSC meeting – Proxy',                                  1,  false],
                                 ['cat2_help_ssc_osa',        'Preparation/help for SSC/OSA',                         5,  false],
                                 ['cat2_help_others',         'Preparation/help for other orgs',                      3,  false],
                             ];
                             @endphp
                             @foreach ($cat2rows as [$field, $label, $ppi, $manual])
                                 <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                                    <td class="px-6 py-3 text-gray-700 dark:text-gray-300">
-                                        {{ $label }}
-                                        @if ($manual)
-                                            <span class="ml-1 text-xs text-gray-400">(manual)</span>
-                                        @endif
-                                    </td>
+                                    <td class="px-6 py-3 text-gray-700 dark:text-gray-300">{{ $label }}</td>
                                     <td class="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{{ $ppi }}</td>
                                     <td class="px-4 py-3 text-center">
                                         <input type="number" name="payload[{{ $field }}]"
@@ -463,18 +517,28 @@
                             ];
                             @endphp
                             @foreach ($cat6rows as [$field, $label, $ppi, $manual])
-                                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02] {{ $manual ? 'cursor-pointer ring-1 ring-inset ring-brand-200/60 dark:ring-brand-700/40' : '' }}"
+                                    @if ($manual) @click="openModal('{{ $field }}')" @endif>
                                     <td class="px-6 py-3 text-gray-700 dark:text-gray-300">
                                         {{ $label }}
                                         @if ($manual)
-                                            <span class="ml-1 text-xs text-gray-400">(manual)</span>
+                                            <span class="ml-1 text-xs text-brand-500 dark:text-brand-400">(click to enter)</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{{ $ppi }}</td>
                                     <td class="px-4 py-3 text-center">
-                                        <input type="number" name="payload[{{ $field }}]"
-                                            x-model="{{ $field }}" min="0" max="1"
-                                            class="h-8 w-20 rounded-lg border border-gray-300 bg-transparent px-2 text-center text-sm text-gray-800 focus:border-brand-400 focus:ring-1 focus:ring-brand-400 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                        @if ($manual)
+                                            <div class="flex items-center justify-center gap-1.5 select-none">
+                                                <span class="min-w-[2rem] text-center font-medium text-gray-800 dark:text-white/90"
+                                                      x-text="{{ $field }}"></span>
+                                                <svg class="h-3.5 w-3.5 text-brand-400 dark:text-brand-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/></svg>
+                                                <input type="hidden" name="payload[{{ $field }}]" x-model="{{ $field }}" />
+                                            </div>
+                                        @else
+                                            <input type="number" name="payload[{{ $field }}]"
+                                                x-model="{{ $field }}" min="0" max="1"
+                                                class="h-8 w-20 rounded-lg border border-gray-300 bg-transparent px-2 text-center text-sm text-gray-800 focus:border-brand-400 focus:ring-1 focus:ring-brand-400 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300"
                                         x-text="Math.min(1, n({{ $field }})) * {{ $ppi }}"></td>
@@ -502,6 +566,48 @@
                         :style="'width:' + Math.min(100, Math.round(grand_total / 550 * 100)) + '%'"></div>
                 </div>
                 <p class="mt-1 text-right text-xs text-gray-400" x-text="Math.min(100, Math.round(grand_total / 550 * 100)) + '% of max'"></p>
+            </div>
+
+            {{-- Manual Input Modal --}}
+            <div x-show="modalOpen" x-cloak
+                 class="fixed inset-0 z-50 flex items-center justify-center p-4"
+                 @keydown.escape.window="modalOpen = false">
+                <div class="absolute inset-0 bg-black/40" @click="modalOpen = false"></div>
+                <div class="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900" @click.stop>
+                    <h3 class="text-base font-semibold text-gray-800 dark:text-white/90" x-text="modalLabel"></h3>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" x-text="modalDesc"></p>
+
+                    <div x-show="modalType === 'pesos'" class="mt-4">
+                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Total Amount (₱)</label>
+                        <input type="number" min="0" x-model="modalBasis[modalField]"
+                               class="modal-autofocus w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-brand-400 focus:ring-1 focus:ring-brand-400 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800 dark:text-white/90" />
+                        <p class="mt-2 text-xs text-gray-400">
+                            = <span class="font-semibold text-gray-700 dark:text-gray-200" x-text="modalPreview"></span> instance(s)
+                        </p>
+                    </div>
+
+                    <div x-show="modalType === 'binary'" class="mt-4 flex items-center gap-3">
+                        <button type="button" @click="modalBinaryOn = !modalBinaryOn"
+                                :class="modalBinaryOn ? 'bg-brand-500' : 'bg-gray-200 dark:bg-gray-700'"
+                                class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors">
+                            <span :class="modalBinaryOn ? 'translate-x-6' : 'translate-x-1'"
+                                  class="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform"></span>
+                        </button>
+                        <span class="text-sm text-gray-700 dark:text-gray-300"
+                              x-text="modalBinaryOn ? 'Yes — counts as 1' : 'No — counts as 0'"></span>
+                    </div>
+
+                    <div class="mt-6 flex justify-end gap-3">
+                        <button type="button" @click="modalOpen = false"
+                                class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                            Cancel
+                        </button>
+                        <button type="button" @click="applyModal()"
+                                class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+                            Apply
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {{-- Actions --}}

@@ -235,21 +235,21 @@
                             <div class="sm:col-span-2">
                                 <label
                                     class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Title</label>
-                                <input type="text" name="title" value="{{ $plan->title }}" required
+                                <input type="text" name="title" value="{{ old('title', $plan->title) }}" required
                                     class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90" />
                             </div>
                             <div>
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Target
                                     Date</label>
                                 <input type="date" name="target_date"
-                                    value="{{ $plan->target_date?->format('Y-m-d') }}" required
+                                    value="{{ old('target_date', $plan->target_date?->format('Y-m-d')) }}" required
                                     class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90" />
                             </div>
                             <div class="sm:col-span-2">
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Resources
                                     Needed <span class="text-error-500">*</span></label>
                                 <textarea name="resources_needed" rows="2"
-                                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90">{{ $plan->resources_needed }}</textarea>
+                                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90">{{ old('resources_needed', $plan->resources_needed) }}</textarea>
                             </div>
                             <div class="sm:col-span-2">
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
@@ -288,22 +288,6 @@
                                     class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
                                     placeholder="Describe the purpose of the activity">{{ old('purpose_of_activity', $plan->purpose_of_activity ?? '') }}</textarea>
                             </div>
-                            <div>
-                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Time of
-                                    Activity <span class="text-error-500">*</span></label>
-                                <input type="text" name="time_of_activity" required
-                                    value="{{ old('time_of_activity', $plan->time_of_activity ?? '') }}"
-                                    class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
-                                    placeholder="e.g. 8:00 AM - 5:00 PM" />
-                            </div>
-                            <div>
-                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Place /
-                                    Venue <span class="text-error-500">*</span></label>
-                                <input type="text" name="place_venue" required
-                                    value="{{ old('place_venue', $plan->place_venue ?? '') }}"
-                                    class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
-                                    placeholder="Venue or location of the activity" />
-                            </div>
                             <div class="sm:col-span-2">
                                 <label
                                     class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">University
@@ -341,18 +325,16 @@
                                 <label
                                     class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">President
                                     Name <span class="text-error-500">*</span></label>
-                                <input type="text" name="president_name" required
+                                <input type="text" name="president_name" required readonly
                                     value="{{ old('president_name', $resolvedPresidentName) }}"
-                                    class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
-                                    placeholder="Full name of the President" />
+                                    class="h-9 w-full rounded-lg border border-gray-300 bg-gray-100 px-3 text-sm text-gray-800 cursor-not-allowed dark:border-gray-600 dark:bg-gray-800/50 dark:text-white/90" />
                             </div>
                             <div>
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Contact
                                     Number <span class="text-error-500">*</span></label>
-                                <input type="text" name="president_contact" required
+                                <input type="text" name="president_contact" required readonly
                                     value="{{ old('president_contact', $resolvedPresidentContact) }}"
-                                    class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
-                                    placeholder="e.g. 09XX-XXX-XXXX" />
+                                    class="h-9 w-full rounded-lg border border-gray-300 bg-gray-100 px-3 text-sm text-gray-800 cursor-not-allowed dark:border-gray-600 dark:bg-gray-800/50 dark:text-white/90" />
                             </div>
                             <div class="sm:col-span-2">
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Faculty
@@ -453,6 +435,7 @@
                                 <select name="area_scope" x-model="areaScope"
                                     class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90">
                                     <option value="">Select area scope</option>
+                                    <option value="none" @selected(old('area_scope', $plan->area_scope ?? '') === 'none')>None</option>
                                     <option value="Local" @selected(old('area_scope', $plan->area_scope ?? '') === 'Local')>Local</option>
                                     <option value="Provincial" @selected(old('area_scope', $plan->area_scope ?? '') === 'Provincial')>Provincial</option>
                                     <option value="Regional" @selected(old('area_scope', $plan->area_scope ?? '') === 'Regional')>Regional</option>
@@ -473,6 +456,7 @@
                                 <select name="sponsor" x-model="sponsor"
                                     class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90">
                                     <option value="">Select sponsor</option>
+                                    <option value="none" @selected(old('sponsor', $plan->sponsor ?? '') === 'none')>None</option>
                                     <option value="N/A" @selected(old('sponsor', $plan->sponsor ?? '') === 'N/A')>N/A</option>
                                     <option value="SSC" @selected(old('sponsor', $plan->sponsor ?? '') === 'SSC')>SSC</option>
                                     <option value="Admin" @selected(old('sponsor', $plan->sponsor ?? '') === 'Admin')>Admin</option>
@@ -697,22 +681,6 @@
                                     class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
                                     placeholder="Describe the purpose of the activity">{{ old('purpose_of_activity', $plan->purpose_of_activity ?? '') }}</textarea>
                             </div>
-                            <div>
-                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Time of
-                                    Activity <span class="text-error-500">*</span></label>
-                                <input type="text" name="time_of_activity" required
-                                    value="{{ old('time_of_activity', $plan->time_of_activity ?? '') }}"
-                                    class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
-                                    placeholder="e.g. 8:00 AM - 5:00 PM" />
-                            </div>
-                            <div>
-                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Place /
-                                    Venue <span class="text-error-500">*</span></label>
-                                <input type="text" name="place_venue" required
-                                    value="{{ old('place_venue', $plan->place_venue ?? '') }}"
-                                    class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
-                                    placeholder="Venue or location of the activity" />
-                            </div>
                             <div class="sm:col-span-2">
                                 <label
                                     class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">University
@@ -750,18 +718,16 @@
                                 <label
                                     class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">President
                                     Name <span class="text-error-500">*</span></label>
-                                <input type="text" name="president_name" required
+                                <input type="text" name="president_name" required readonly
                                     value="{{ old('president_name', $resolvedPresidentName) }}"
-                                    class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
-                                    placeholder="Full name of the President" />
+                                    class="h-9 w-full rounded-lg border border-gray-300 bg-gray-100 px-3 text-sm text-gray-800 cursor-not-allowed dark:border-gray-600 dark:bg-gray-800/50 dark:text-white/90" />
                             </div>
                             <div>
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Contact
                                     Number <span class="text-error-500">*</span></label>
-                                <input type="text" name="president_contact" required
+                                <input type="text" name="president_contact" required readonly
                                     value="{{ old('president_contact', $resolvedPresidentContact) }}"
-                                    class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
-                                    placeholder="e.g. 09XX-XXX-XXXX" />
+                                    class="h-9 w-full rounded-lg border border-gray-300 bg-gray-100 px-3 text-sm text-gray-800 cursor-not-allowed dark:border-gray-600 dark:bg-gray-800/50 dark:text-white/90" />
                             </div>
                             <div class="sm:col-span-2">
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Faculty
@@ -862,6 +828,7 @@
                                 <select name="area_scope" x-model="areaScope"
                                     class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90">
                                     <option value="">Select area scope</option>
+                                    <option value="none" @selected(old('area_scope', $plan->area_scope ?? '') === 'none')>None</option>
                                     <option value="Local" @selected(old('area_scope', $plan->area_scope ?? '') === 'Local')>Local</option>
                                     <option value="Provincial" @selected(old('area_scope', $plan->area_scope ?? '') === 'Provincial')>Provincial</option>
                                     <option value="Regional" @selected(old('area_scope', $plan->area_scope ?? '') === 'Regional')>Regional</option>
@@ -882,6 +849,7 @@
                                 <select name="sponsor" x-model="sponsor"
                                     class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90">
                                     <option value="">Select sponsor</option>
+                                    <option value="none" @selected(old('sponsor', $plan->sponsor ?? '') === 'none')>None</option>
                                     <option value="N/A" @selected(old('sponsor', $plan->sponsor ?? '') === 'N/A')>N/A</option>
                                     <option value="SSC" @selected(old('sponsor', $plan->sponsor ?? '') === 'SSC')>SSC</option>
                                     <option value="Admin" @selected(old('sponsor', $plan->sponsor ?? '') === 'Admin')>Admin</option>
