@@ -156,9 +156,7 @@
                 modalBasis: {},
                 modalBinaryOn: false,
                 modalConfig: {
-                    cat1_donation_cash:  { label: 'Donation – Cash',        type: 'pesos',  divisor: 200, desc: 'Enter total cash donated in pesos. Instances = floor(₱ ÷ 200).' },
-                    cat1_donation_kinds: { label: 'Donation – In Kind',     type: 'binary',               desc: 'Check if the organization donated in kind.' },
-                    cat6_leadership:     { label: 'Leadership Training',    type: 'binary',               desc: 'Check if the organization participated in leadership training.' },
+                    cat6_leadership: { label: 'Leadership Training', type: 'binary', desc: 'Check if the organization participated in leadership training.' },
                 },
                 openModal(field) {
                     const cfg = this.modalConfig[field];
@@ -224,24 +222,27 @@
                         </thead>
                         <tbody class="divide-y divide-gray-50 dark:divide-gray-800/60">
                             @php
+                            // [field, label, pts-per-instance, manual (click-to-enter), auto (computed)]
                             $cat1rows = [
-                                ['cat1_seminar_college',        'Seminars – College Level (≥15 members)',              10,  false],
-                                ['cat1_seminar_univ',           'Seminars – University Level (≥30 members)',           15,  false],
-                                ['cat1_activities_related',     'Activities Related to Org (≥15 members)',             10,  false],
-                                ['cat1_activities_not_related', 'Activities Not Related to Org (≥15 members)',          7,  false],
-                                ['cat1_donation_cash',          'Donation – Cash (per ₱200)',                           2,  true],
-                                ['cat1_donation_kinds',         'Donation – In Kind (binary 0/1)',                     10,  true],
-                                ['cat1_cosponsor_pts',          'Co-sponsorship Points (pre-computed)',                 1,  false],
-                                ['cat1_income',                 'Income Generated (per ₱500)',                          1,  false],
+                                ['cat1_seminar_college',        'Seminars – College Level (≥15 members)',              10,  false, false],
+                                ['cat1_seminar_univ',           'Seminars – University Level (≥30 members)',           15,  false, false],
+                                ['cat1_activities_related',     'Activities Related to Org (≥15 members)',             10,  false, false],
+                                ['cat1_activities_not_related', 'Activities Not Related to Org (≥15 members)',          7,  false, false],
+                                ['cat1_donation_cash',          'Donation – Cash (≥₱200, per approved project)',        2,  false, false],
+                                ['cat1_donation_kinds',         'Donation – In Kind (per in-kind row)',                10,  false, false],
+                                ['cat1_cosponsor_pts',          'Co-sponsorship Points (pre-computed)',                 1,  false, false],
+                                ['cat1_income',                 'Income Generated (per ₱500)',                          1,  false, false],
                             ];
                             @endphp
-                            @foreach ($cat1rows as [$field, $label, $ppi, $manual])
-                                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02] {{ $manual ? 'cursor-pointer ring-1 ring-inset ring-brand-200/60 dark:ring-brand-700/40' : '' }}"
+                            @foreach ($cat1rows as [$field, $label, $ppi, $manual, $auto])
+                                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02] {{ $manual ? 'cursor-pointer ring-1 ring-inset ring-brand-200/60 dark:ring-brand-700/40' : '' }} {{ $auto ? 'bg-success-50/30 dark:bg-success-500/5' : '' }}"
                                     @if ($manual) @click="openModal('{{ $field }}')" @endif>
                                     <td class="px-6 py-3 text-gray-700 dark:text-gray-300">
                                         {{ $label }}
                                         @if ($manual)
                                             <span class="ml-1 text-xs text-brand-500 dark:text-brand-400">(click to enter)</span>
+                                        @elseif ($auto)
+                                            <span class="ml-1.5 inline-flex items-center rounded-full bg-success-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success-700 dark:bg-success-500/15 dark:text-success-400">Auto</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{{ $ppi }}</td>
@@ -251,6 +252,12 @@
                                                 <span class="min-w-[2rem] text-center font-medium text-gray-800 dark:text-white/90"
                                                       x-text="{{ $field }}"></span>
                                                 <svg class="h-3.5 w-3.5 text-brand-400 dark:text-brand-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/></svg>
+                                                <input type="hidden" name="payload[{{ $field }}]" x-model="{{ $field }}" />
+                                            </div>
+                                        @elseif ($auto)
+                                            <div class="flex items-center justify-center gap-1.5 select-none">
+                                                <span class="min-w-[2rem] text-center font-semibold text-success-700 dark:text-success-400"
+                                                      x-text="{{ $field }}"></span>
                                                 <input type="hidden" name="payload[{{ $field }}]" x-model="{{ $field }}" />
                                             </div>
                                         @else

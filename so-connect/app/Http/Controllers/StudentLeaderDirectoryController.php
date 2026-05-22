@@ -8,23 +8,17 @@ use App\Models\Request as ActionRequest;
 use App\Models\Semester;
 use App\Models\Template;
 use App\Services\DocumentGenerationService;
-use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class StudentLeaderDirectoryController extends Controller
 {
     public function index(Request $request)
     {
-        $user   = $request->user();
-        $userId = (int) $user->getKey();
-
-        $officerOrgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
-
         $organizations = DB::table('organizations as o')
             ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
-            ->whereIn('o.organization_id', $officerOrgIds)
             ->select(['o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name")])
             ->orderBy('od.name')
             ->get();
@@ -32,17 +26,17 @@ class StudentLeaderDirectoryController extends Controller
         $currentSemester = Semester::current();
 
         return view('pages.form.student-leader-directory', [
-            'title'              => 'Directory of Student Leader',
-            'organizations'      => $organizations,
-            'currentSchoolYear'  => Semester::currentSchoolYear(),
-            'currentSemester'    => $currentSemester?->semesterLabel() ?? '',
+            'title'             => 'Directory of Student Leader',
+            'organizations'     => $organizations,
+            'currentSchoolYear' => Semester::currentSchoolYear(),
+            'currentSemester'   => $currentSemester?->semesterLabel() ?? '',
         ]);
     }
 
     public function store(Request $request, DocumentGenerationService $documentGenerationService)
     {
         $user   = $request->user();
-        $userId = (int) $user->getKey();
+        $userId = $user ? (int) $user->getKey() : 0;
 
         $validated = $request->validate([
             'first_name'           => ['required', 'string', 'max:100'],
@@ -77,14 +71,11 @@ class StudentLeaderDirectoryController extends Controller
             'others_specify'       => ['nullable', 'string', 'max:255'],
             'date_filed'           => ['required', 'date'],
             'signature'            => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            'password'             => ['required', 'string', 'min:8', 'confirmed'],
+            'password_confirmation' => ['required', 'string'],
         ]);
 
         $organizationId = (int) $validated['organization_id'];
-
-        $officerOrgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
-        if (! in_array($organizationId, $officerOrgIds, true)) {
-            abort(403, 'You are not an officer of the selected organization.');
-        }
 
         $orgName = $validated['organization_name'] ?? DB::table('organizations as o')
             ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
@@ -148,6 +139,7 @@ class StudentLeaderDirectoryController extends Controller
             'others_specify'        => $validated['others_specify'] ?? '',
             'date_filed'            => $validated['date_filed'],
             'signature'             => $signaturePath,
+            'password'              => Hash::make($validated['password']),
         ];
 
         // Create the promotion request (action_type=11) for admin approval
@@ -155,7 +147,7 @@ class StudentLeaderDirectoryController extends Controller
             'action'       => "0|{$organizationId}|new_officer",
             'action_type'  => 11,
             'payload'      => $payload,
-            'user'         => $userId,
+            'user'         => $userId > 0 ? $userId : null,
             'requested_at' => now(),
         ]);
 
@@ -166,7 +158,7 @@ class StudentLeaderDirectoryController extends Controller
             $submission = FormSubmission::query()->create([
                 'form_id'         => (int) $form->getKey(),
                 'organization_id' => $organizationId,
-                'submitted_by'    => $userId,
+                'submitted_by'    => $userId > 0 ? $userId : null,
                 'submitted_at'    => now(),
                 'payload'         => array_merge($payload, [
                     'name' => trim(implode(' ', array_filter([
@@ -190,7 +182,7 @@ class StudentLeaderDirectoryController extends Controller
                         $submission->fresh(['form']),
                         $template,
                         null,
-                        $userId,
+                        $userId > 0 ? $userId : null,
                     );
                 } catch (\Throwable) {
                     // Document generation failure does not block the promotion request
@@ -198,7 +190,7 @@ class StudentLeaderDirectoryController extends Controller
             }
         }
 
-        return redirect()->route('student-leader-directory')
-            ->with('success', 'New officer request submitted. Awaiting admin approval.');
+        return redirect()->route('signup')
+            ->with('success', 'Your directory submission has been received. Awaiting admin approval.');
     }
 }

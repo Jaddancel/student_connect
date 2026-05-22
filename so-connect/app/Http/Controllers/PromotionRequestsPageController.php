@@ -49,6 +49,8 @@ class PromotionRequestsPageController extends Controller
                     [$organizationId] = $this->parseNewOfficerAction($actionRequest->action);
                     $payload = (array) ($actionRequest->payload ?? []);
 
+                    $photoPath = (string) ($payload['photo'] ?? '');
+
                     return [
                         'request_id'      => (int) $actionRequest->request_id,
                         'target_user_id'  => 0,
@@ -59,6 +61,32 @@ class PromotionRequestsPageController extends Controller
                         'member_initiated' => false,
                         'display_type'    => 'new_officer',
                         'payload_name'    => trim(($payload['first_name'] ?? '').' '.($payload['last_name'] ?? '')),
+                        'review_payload'  => [
+                            'photo_url'            => $photoPath ? Storage::url($photoPath) : null,
+                            'email'                => $payload['email'] ?? '',
+                            'position'             => $payload['position'] ?? '',
+                            'contact_number'       => $payload['contact_number'] ?? '',
+                            'age'                  => $payload['age'] ?? '',
+                            'sex'                  => $payload['sex'] ?? '',
+                            'religious_affiliation' => $payload['religious_affiliation'] ?? '',
+                            'nationality'          => $payload['nationality'] ?? '',
+                            'birthday'             => $payload['birthday'] ?? '',
+                            'birthplace'           => $payload['birthplace'] ?? '',
+                            'present_address'      => $payload['present_address'] ?? '',
+                            'home_address'         => $payload['home_address'] ?? '',
+                            'parents_guardian'     => $payload['parents_guardian'] ?? '',
+                            'course'               => $payload['course'] ?? '',
+                            'year_level'           => $payload['year_level'] ?? '',
+                            'talents_hobbies'      => $payload['talents_hobbies'] ?? '',
+                            'financial_support'    => $payload['financial_support'] ?? [],
+                            'scholar_provider'     => $payload['scholar_provider'] ?? '',
+                            'others_specify'       => $payload['others_specify'] ?? '',
+                            'faculty_advisers'     => $payload['faculty_advisers'] ?? '',
+                            'semester'             => $payload['semester'] ?? '',
+                            'season'               => $payload['season'] ?? '',
+                            'school_year'          => $payload['school_year'] ?? '',
+                            'date_filed'           => $payload['date_filed'] ?? '',
+                        ],
                     ];
                 }
 
@@ -78,6 +106,7 @@ class PromotionRequestsPageController extends Controller
                     'member_initiated' => (bool) (((array) ($actionRequest->payload ?? []))['member_initiated'] ?? false),
                     'display_type'    => 'role_change',
                     'payload_name'    => null,
+                    'review_payload'  => null,
                 ];
             })
             ->filter()

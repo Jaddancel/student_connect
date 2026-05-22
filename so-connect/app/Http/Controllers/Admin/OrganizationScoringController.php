@@ -215,9 +215,7 @@ class OrganizationScoringController extends Controller
     private function buildAuditView(Request $request, string $view)
     {
         $manualFields = [
-            'cat1_donation_cash'  => 'Donation – Cash',
-            'cat1_donation_kinds' => 'Donation – In Kind',
-            'cat6_leadership'     => 'Leadership Training',
+            'cat6_leadership' => 'Leadership Training',
         ];
 
         $semesters = Semester::query()->orderByDesc('starts_at')->get();
@@ -534,6 +532,50 @@ class OrganizationScoringController extends Controller
         // --- Category V ---
         $c5_tangible = $this->countApprovedProjects($organizationId, $semester);
 
+        // --- Donation (auto from approved project requests) ---
+        $c1_donation_cash  = 0;
+        $c1_donation_kinds = 0;
+
+        $prFormId = Form::query()->where('route_name', 'project-request')->value('id');
+        if ($prFormId) {
+            $end = $semester->endsAt() ?? now();
+
+            // Collect submission IDs of approved project requests for this org+semester
+            $approvedSubmissionIds = DB::table('requests as r')
+                ->join('approvals as a', 'a.request', '=', 'r.request_id')
+                ->where('r.organization_id', $organizationId)
+                ->where('r.action_type', FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION)
+                ->where('r.payload->form_id', (string) (int) $prFormId)
+                ->where('a.is_rejected', false)
+                ->whereNotNull('a.approved_at')
+                ->whereBetween('a.approved_at', [$semesterStart, $end])
+                ->pluck('r.payload')
+                ->map(fn ($p) => (int) ((is_string($p) ? json_decode($p, true) : (array) $p)['submission_id'] ?? 0))
+                ->filter(fn ($id) => $id > 0)
+                ->all();
+
+            if (! empty($approvedSubmissionIds)) {
+                $prSubs = DB::table('form_submissions')
+                    ->whereIn('form_submission_id', $approvedSubmissionIds)
+                    ->pluck('payload');
+
+                foreach ($prSubs as $raw) {
+                    $p = is_string($raw) ? json_decode($raw, true) : (array) $raw;
+                    if (! ($p['is_donation'] ?? false)) {
+                        continue;
+                    }
+                    if ((float) ($p['donation_amount'] ?? 0) > 200) {
+                        $c1_donation_cash++;
+                    }
+                    $inKinds = $p['in_kinds'] ?? [];
+                    if (is_string($inKinds)) {
+                        $inKinds = json_decode($inKinds, true) ?? [];
+                    }
+                    $c1_donation_kinds += count(array_filter((array) $inKinds, fn ($v) => trim((string) $v) !== ''));
+                }
+            }
+        }
+
         // --- Category VI ---
         $c6_documents    = $hasAnyAr ? 1 : 0;
         $c6_meetings     = $arMomTotal > 30 ? 1 : 0;
@@ -544,8 +586,8 @@ class OrganizationScoringController extends Controller
             'cat1_seminar_univ'            => $c1_seminar_univ,
             'cat1_activities_related'      => $c1_related,
             'cat1_activities_not_related'  => $c1_not_related,
-            'cat1_donation_cash'           => 0,
-            'cat1_donation_kinds'          => 0,
+            'cat1_donation_cash'           => $c1_donation_cash,
+            'cat1_donation_kinds'          => $c1_donation_kinds,
             'cat1_cosponsor_pts'           => $c1_cosponsor_pts,
             'cat1_income'                  => $c1_income,
             'cat2_other_orgs'              => $c2_other_orgs,

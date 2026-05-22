@@ -10,14 +10,18 @@ use App\Models\Event\EventDetail;
 use App\Models\EventPlan;
 use App\Models\Form;
 use App\Models\FormSubmission;
+use App\Models\Profile;
+use App\Models\Profile\profileAddress;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
+use App\Models\User;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -192,17 +196,61 @@ class RequestDecisionController extends Controller
 
         if ($this->isNewOfficerRequest($actionType) && $validated['decision'] === 'approve') {
             $payload = (array) ($actionRequest->payload ?? []);
-            $firstName  = (string) ($payload['first_name'] ?? '');
-            $lastName   = (string) ($payload['last_name'] ?? '');
-            $middleName = (string) ($payload['middle_name'] ?? '');
 
-            ActionRequest::query()->create([
-                'action'       => "0|{$firstName}|{$lastName}|{$middleName}|0",
-                'action_type'  => 12,
-                'payload'      => array_merge($payload, ['original_request_id' => (int) $actionRequest->getKey()]),
-                'user'         => null,
-                'requested_at' => now(),
-            ]);
+            DB::transaction(function () use ($payload, $approval) {
+                $addr = profileAddress::create([
+                    'country'  => 'Philippines',
+                    'province' => '',
+                    'town'     => '',
+                    'barangay' => (string) ($payload['present_address'] ?? ''),
+                ]);
+
+                $profile = Profile::create([
+                    'first_name'              => (string) ($payload['first_name'] ?? ''),
+                    'middle_name'             => (string) ($payload['middle_name'] ?? ''),
+                    'last_name'               => (string) ($payload['last_name'] ?? ''),
+                    'contact_number'          => (string) ($payload['contact_number'] ?? ''),
+                    'age'                     => (int)    ($payload['age'] ?? 0),
+                    'sex'                     => (string) ($payload['sex'] ?? ''),
+                    'religion'                => (string) ($payload['religious_affiliation'] ?? ''),
+                    'nationality'             => (string) ($payload['nationality'] ?? ''),
+                    'birthday'                => (string) ($payload['birthday'] ?? ''),
+                    'birthplace'              => (string) ($payload['birthplace'] ?? ''),
+                    'course_year'             => trim(($payload['course'] ?? '') . ' - ' . ($payload['year_level'] ?? '')),
+                    'occupation'              => 'Student',
+                    'address'                 => (int) $addr->profile_address_id,
+                    'position'                => (string) ($payload['position'] ?? ''),
+                    'photo'                   => (string) ($payload['photo'] ?? ''),
+                    'home_address'            => (string) ($payload['home_address'] ?? ''),
+                    'parents_guardian'        => (string) ($payload['parents_guardian'] ?? ''),
+                    'talents_hobbies'         => (string) ($payload['talents_hobbies'] ?? ''),
+                    'financial_support'       => $payload['financial_support'] ?? [],
+                    'scholar_provider'        => (string) ($payload['scholar_provider'] ?? ''),
+                    'financial_support_other' => (string) ($payload['others_specify'] ?? ''),
+                ]);
+
+                $newUser = User::create([
+                    'user_email'      => (string) ($payload['email'] ?? ''),
+                    'user_password'   => (string) ($payload['password'] ?? Hash::make(Str::random(16))),
+                    'user_type'       => 3,
+                    'profile'         => (int) $profile->profile_id,
+                    'profile_pending' => false,
+                ]);
+
+                $orgId = (int) ($payload['organization_id'] ?? 0);
+                if ($orgId > 0) {
+                    DB::table('organization_officers')->insert([
+                        'user'          => (int) $newUser->user_id,
+                        'approval'      => (int) $approval->approval_id,
+                        'organization'  => $orgId,
+                        'role'          => 'officer',
+                        'yearterm'      => null,
+                        'member_since'  => now(),
+                        'registered_at' => now(),
+                        'reassigned_at' => now(),
+                    ]);
+                }
+            });
         }
 
         if ($this->isEventPlanRequest($actionType, $systemKey)) {

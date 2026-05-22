@@ -1,16 +1,14 @@
-@extends('layouts.app')
+@extends('layouts.directory-layout')
 
 @section('content')
-    <x-common.page-breadcrumb pageTitle="Directory of Student Leader" />
-
     <div class="space-y-6">
 
         {{-- ── FORM HEADER ─────────────────────────────────────────────── --}}
         <div class="rounded-2xl border border-gray-200 bg-palette-lime-pale p-5 shadow-[inset_0_4px_0_var(--color-palette-lime)] dark:border-gray-800 dark:bg-white/[0.03] dark:shadow-[inset_0_4px_0_rgb(165_255_91_/_0.3)] lg:p-6">
             <div class="mb-1 text-center">
-                <h2 class="text-xl font-bold uppercase tracking-widest text-gray-900 dark:text-white">
+                <h1 class="text-xl font-bold uppercase tracking-widest text-gray-900 dark:text-white">
                     Directory of Student Leader
-                </h2>
+                </h1>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     Complete all fields accurately. Fields marked <span class="text-error-500">*</span> are required.
                 </p>
@@ -510,6 +508,84 @@
                 </div>
             </div>
 
+            {{-- ── ACCOUNT SETUP ────────────────────────────────────────── --}}
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6"
+                x-data="directoryPasswordTools()">
+                <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Account Setup</h3>
+
+                <div class="space-y-4">
+                    {{-- Password --}}
+                    <div>
+                        <label for="password" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Password <span class="text-error-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <input :type="showPassword ? 'text' : 'password'" id="password" name="password"
+                                x-model="password"
+                                placeholder="Create a secure password"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('password') ? 'border-error-500' : 'border-gray-300' }} bg-transparent py-2.5 pl-4 pr-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            <button type="button" @click="showPassword = !showPassword"
+                                class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+                                <svg x-show="!showPassword" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <svg x-show="showPassword" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            </button>
+                        </div>
+                        @error('password')
+                            <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                        @enderror
+
+                        {{-- Strength indicator --}}
+                        <div class="mt-2 space-y-1" x-show="password.length > 0">
+                            <div class="flex items-center gap-2 text-xs" :class="minLength ? 'text-success-600 dark:text-success-400' : 'text-gray-400 dark:text-gray-500'">
+                                <svg x-show="minLength" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                <svg x-show="!minLength" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg>
+                                <span>At least 8 characters</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs" :class="hasUpper ? 'text-success-600 dark:text-success-400' : 'text-gray-400 dark:text-gray-500'">
+                                <svg x-show="hasUpper" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                <svg x-show="!hasUpper" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg>
+                                <span>One uppercase letter</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs" :class="hasLower ? 'text-success-600 dark:text-success-400' : 'text-gray-400 dark:text-gray-500'">
+                                <svg x-show="hasLower" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                <svg x-show="!hasLower" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg>
+                                <span>One lowercase letter</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs" :class="hasNumber ? 'text-success-600 dark:text-success-400' : 'text-gray-400 dark:text-gray-500'">
+                                <svg x-show="hasNumber" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                <svg x-show="!hasNumber" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg>
+                                <span>One number</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs" :class="hasSpecial ? 'text-success-600 dark:text-success-400' : 'text-gray-400 dark:text-gray-500'">
+                                <svg x-show="hasSpecial" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                <svg x-show="!hasSpecial" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg>
+                                <span>One special character (!@#$%...)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Confirm Password --}}
+                    <div>
+                        <label for="password_confirmation" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Confirm Password <span class="text-error-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <input :type="showConfirm ? 'text' : 'password'" id="password_confirmation" name="password_confirmation"
+                                x-model="confirmPassword"
+                                placeholder="Re-enter your password"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('password_confirmation') ? 'border-error-500' : 'border-gray-300' }} bg-transparent py-2.5 pl-4 pr-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            <button type="button" @click="showConfirm = !showConfirm"
+                                class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+                                <svg x-show="!showConfirm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <svg x-show="showConfirm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            </button>
+                        </div>
+                        <p x-show="confirmPassword.length > 0 && !passwordsMatch" class="mt-1 text-xs text-error-500">Passwords do not match.</p>
+                        <p x-show="confirmPassword.length > 0 && passwordsMatch" class="mt-1 text-xs text-success-600 dark:text-success-400">Passwords match.</p>
+                    </div>
+                </div>
+            </div>
+
             {{-- ── SECTION 3 · SUBMISSION ───────────────────────────────── --}}
             <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:items-end">
@@ -517,14 +593,12 @@
                     {{-- Date Filed --}}
                     <div>
                         <label for="date_filed" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                            Date Filed <span class="text-error-500">*</span>
+                            Date Filed
                         </label>
                         <input type="date" id="date_filed" name="date_filed"
-                            value="{{ old('date_filed') }}"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('date_filed') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
-                        @error('date_filed')
-                            <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
-                        @enderror
+                            value="{{ old('date_filed', now()->toDateString()) }}"
+                            readonly
+                            class="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900/50 dark:text-white/60 cursor-not-allowed" />
                     </div>
 
                     {{-- Signature --}}
@@ -578,3 +652,23 @@
         </form>
     </div>
 @endsection
+
+@push('scripts')
+<script>
+window.directoryPasswordTools = function () {
+    return {
+        password: '',
+        confirmPassword: '',
+        showPassword: false,
+        showConfirm: false,
+        get minLength()   { return this.password.length >= 8; },
+        get hasUpper()    { return /[A-Z]/.test(this.password); },
+        get hasLower()    { return /[a-z]/.test(this.password); },
+        get hasNumber()   { return /[0-9]/.test(this.password); },
+        get hasSpecial()  { return /[^A-Za-z0-9]/.test(this.password); },
+        get allMet()      { return this.minLength && this.hasUpper && this.hasLower && this.hasNumber && this.hasSpecial; },
+        get passwordsMatch() { return this.confirmPassword !== '' && this.password === this.confirmPassword; },
+    };
+};
+</script>
+@endpush

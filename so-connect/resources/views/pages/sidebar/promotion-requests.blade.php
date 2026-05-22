@@ -1,9 +1,14 @@
 @extends('layouts.app')
 
 @section('content')
-    <x-common.page-breadcrumb pageTitle="Promotion Requests" />
+    <x-common.page-breadcrumb pageTitle="Account Creation Request" />
 
-    <div class="space-y-6">
+    <div class="space-y-6" x-data="{
+        reviewOpen: false,
+        current: null,
+        open(row) { this.current = row; this.reviewOpen = true; },
+        close() { this.reviewOpen = false; this.current = null; }
+    }">
 
         {{-- Flash --}}
         @if(session('success'))
@@ -99,14 +104,10 @@
                                         <div class="flex items-center gap-2 flex-wrap">
                                             @if($row['can_decide'])
                                                 <button type="button"
-                                                    onclick="decideRequest({{ $row['request_id'] }}, 'approve', this)"
-                                                    class="inline-flex items-center rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-600">
-                                                    Approve
-                                                </button>
-                                                <button type="button"
-                                                    onclick="decideRequest({{ $row['request_id'] }}, 'reject', this)"
-                                                    class="inline-flex items-center rounded-lg border border-error-300 px-3 py-1.5 text-xs font-medium text-error-600 transition hover:bg-error-50 dark:border-error-500/40 dark:text-error-400 dark:hover:bg-error-500/10">
-                                                    Reject
+                                                    @click="open({{ Js::from(['request_id' => $row['request_id'], 'display_type' => $row['display_type'], 'requester_name' => $row['requester_name'], 'organization_name' => $row['organization_name'], 'current_role' => $row['current_role'], 'requested_role' => $row['requested_role'], 'member_initiated' => $row['member_initiated'], 'review_payload' => $row['review_payload']]) }})"
+                                                    class="inline-flex items-center gap-1.5 rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-600/40 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                    Review
                                                 </button>
                                             @endif
 
@@ -128,13 +129,185 @@
 
     </div>
 
+        {{-- Review Modal --}}
+        <div x-show="reviewOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+            x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+            class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4"
+            @click.self="close()"
+            @keydown.escape.window="close()">
+
+            <div x-show="reviewOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+                class="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-gray-900">
+
+                {{-- Modal header --}}
+                <div class="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white" x-text="current?.requester_name ?? '—'"></h2>
+                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                            <span x-text="current?.organization_name ?? ''"></span>
+                            <template x-if="current?.display_type === 'role_change'">
+                                <span> &mdash; <span x-text="current?.current_role ?? ''"></span> → <span x-text="current?.requested_role ?? ''"></span></span>
+                            </template>
+                        </p>
+                    </div>
+                    <button type="button" @click="close()" class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+
+                {{-- Modal body --}}
+                <div class="px-6 py-5">
+
+                    {{-- New Officer details --}}
+                    <template x-if="current?.display_type === 'new_officer' && current?.review_payload">
+                        <div class="space-y-5">
+
+                            {{-- Photo + identity --}}
+                            <div class="flex items-start gap-4">
+                                <template x-if="current.review_payload.photo_url">
+                                    <img :src="current.review_payload.photo_url" alt="Photo" class="h-24 w-20 shrink-0 rounded-lg object-cover border border-gray-200 dark:border-gray-700" />
+                                </template>
+                                <template x-if="!current.review_payload.photo_url">
+                                    <div class="flex h-24 w-20 shrink-0 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 text-xs text-gray-400 dark:border-gray-700 dark:bg-gray-800">No photo</div>
+                                </template>
+                                <div class="min-w-0 flex-1 space-y-1.5 text-sm">
+                                    <div><span class="font-medium text-gray-700 dark:text-gray-300">Email:</span> <span class="text-gray-600 dark:text-gray-400" x-text="current.review_payload.email"></span></div>
+                                    <div><span class="font-medium text-gray-700 dark:text-gray-300">Position:</span> <span class="text-gray-600 dark:text-gray-400" x-text="current.review_payload.position"></span></div>
+                                    <div><span class="font-medium text-gray-700 dark:text-gray-300">Organization:</span> <span class="text-gray-600 dark:text-gray-400" x-text="current.organization_name"></span></div>
+                                    <div><span class="font-medium text-gray-700 dark:text-gray-300">Semester:</span> <span class="text-gray-600 dark:text-gray-400" x-text="(current.review_payload.semester ?? '') + ' — ' + (current.review_payload.school_year ?? '')"></span></div>
+                                </div>
+                            </div>
+
+                            <div class="h-px bg-gray-100 dark:bg-gray-800"></div>
+
+                            {{-- Basic info grid --}}
+                            <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Age</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.review_payload.age || '—'"></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Sex</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.review_payload.sex || '—'"></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Birthday</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.review_payload.birthday || '—'"></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Birthplace</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.review_payload.birthplace || '—'"></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Nationality</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.review_payload.nationality || '—'"></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Religion</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.review_payload.religious_affiliation || '—'"></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Contact Number</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.review_payload.contact_number || '—'"></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Parents / Guardian</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.review_payload.parents_guardian || '—'"></p>
+                                </div>
+                                <div class="col-span-2">
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Present Address</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.review_payload.present_address || '—'"></p>
+                                </div>
+                                <div class="col-span-2">
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Home Address</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.review_payload.home_address || '—'"></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Course</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.review_payload.course || '—'"></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Year Level</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.review_payload.year_level || '—'"></p>
+                                </div>
+                                <div class="col-span-2">
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Talents / Hobbies</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.review_payload.talents_hobbies || '—'"></p>
+                                </div>
+                                <div class="col-span-2">
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Financial Support</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90"
+                                        x-text="Array.isArray(current.review_payload.financial_support) ? current.review_payload.financial_support.join(', ') || '—' : (current.review_payload.financial_support || '—')"></p>
+                                </div>
+                                <div class="col-span-2" x-show="current.review_payload.faculty_advisers">
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Faculty Advisers</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.review_payload.faculty_advisers"></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Date Filed</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.review_payload.date_filed || '—'"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    {{-- Role Change details --}}
+                    <template x-if="current?.display_type === 'role_change'">
+                        <div class="space-y-4 text-sm">
+                            <div class="grid grid-cols-2 gap-x-6 gap-y-3">
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Member</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.requester_name"></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Organization</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.organization_name"></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Current Role</p>
+                                    <p class="mt-0.5 capitalize text-gray-800 dark:text-white/90" x-text="current.current_role"></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Requested Role</p>
+                                    <p class="mt-0.5 capitalize text-gray-800 dark:text-white/90" x-text="current.requested_role"></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Source</p>
+                                    <p class="mt-0.5 text-gray-800 dark:text-white/90" x-text="current.member_initiated ? 'Self-Request' : 'President'"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                </div>
+
+                {{-- Modal footer --}}
+                <div class="sticky bottom-0 flex justify-end gap-3 border-t border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
+                    <button type="button" @click="close()"
+                        class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                        Cancel
+                    </button>
+                    <button type="button"
+                        @click="decideRequest(current.request_id, 'reject', $el); close()"
+                        class="rounded-lg border border-error-300 px-4 py-2 text-sm font-medium text-error-600 transition hover:bg-error-50 dark:border-error-500/40 dark:text-error-400 dark:hover:bg-error-500/10">
+                        Reject
+                    </button>
+                    <button type="button"
+                        @click="decideRequest(current.request_id, 'approve', $el); close()"
+                        class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600">
+                        Approve
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
     <script>
         function decideRequest(requestId, decision, btn) {
-            if (!confirm(decision === 'approve' ? 'Approve this promotion request?' : 'Reject this promotion request?')) return;
-
-            const row = btn.closest('tr');
-            btn.disabled = true;
-            btn.textContent = '...';
+            const rows = document.querySelectorAll('#promotion-requests-table tr[data-request-id="' + requestId + '"]');
 
             fetch('/api/requests/' + requestId + '/decision', {
                 method: 'POST',
@@ -147,13 +320,10 @@
             .then(r => r.json())
             .then(data => {
                 if (data.message) {
-                    // Refresh the page to reflect new status and show "Review Draft" if applicable
                     window.location.reload();
                 }
             })
             .catch(() => {
-                btn.disabled = false;
-                btn.textContent = decision === 'approve' ? 'Approve' : 'Reject';
                 alert('Request failed. Please try again.');
             });
         }

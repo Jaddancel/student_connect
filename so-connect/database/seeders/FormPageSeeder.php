@@ -278,7 +278,7 @@ class FormPageSeeder extends Seeder
         $form = Form::updateOrCreate(
             ['route_name' => 'project-request'],
             [
-                'name'          => 'Letter of Intent / Project Request',
+                'name'          => 'Project Request',
                 'is_active'     => true,
                 'is_published'  => true,
                 'sidebar_group' => ['president'],

@@ -5,44 +5,6 @@
         <div class="col-span-12">
             <div
                 class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03]">
-                <div class="h-1 w-full bg-gradient-to-r from-palette-lime via-palette-lime-light to-palette-lime-pale"></div>
-
-                <div class="p-5 lg:p-6">
-                    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div class="flex items-start gap-3">
-                            <div
-                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-palette-lime-pale dark:bg-palette-lime/10">
-                                <svg class="h-4.5 w-4.5 text-gray-700 dark:text-palette-lime" fill="none"
-                                    viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Directory of Student
-                                    Leader</h3>
-                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Open the student leader directory
-                                    form from your dashboard.</p>
-                            </div>
-                        </div>
-
-                        <a href="{{ route('student-leader-directory') }}"
-                            class="inline-flex items-center gap-1.5 rounded-lg border border-palette-lime bg-palette-lime-pale px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-palette-lime dark:border-palette-lime/30 dark:bg-palette-lime/10 dark:text-palette-lime dark:hover:bg-palette-lime/20">
-                            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                stroke-width="2.5">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M13.5 6H5.25A2.25 2.25 0 003 8.25v7.5A2.25 2.25 0 005.25 18h8.25m0-12l-4.5 4.5m4.5-4.5v4.5m0-4.5H18a2.25 2.25 0 012.25 2.25V15" />
-                            </svg>
-                            Open Form
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-span-12">
-            <div
-                class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03]">
 
                 {{-- Lime gradient top stripe --}}
                 <div class="h-1 w-full bg-gradient-to-r from-palette-lime via-palette-lime-light to-palette-lime-pale">

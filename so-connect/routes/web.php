@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\AccomplishmentReportController;
+use App\Http\Controllers\ActivityRequestController;
 use App\Http\Controllers\Admin\AccomplishmentReportRequestController;
 use App\Http\Controllers\Admin\AdminAccountCreationController;
 use App\Http\Controllers\Admin\AdminOfficerCreationController;
@@ -13,42 +15,43 @@ use App\Http\Controllers\Admin\RecognitionRequestController;
 use App\Http\Controllers\Admin\SemesterController;
 use App\Http\Controllers\Admin\TemplateManagerController;
 use App\Http\Controllers\Admin\WorkplanRequestController;
-use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\Register;
 use App\Http\Controllers\Dashboard;
+use App\Http\Controllers\DashboardSearchController;
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\EventPlanController;
+use App\Http\Controllers\ExportController;
+use App\Http\Controllers\FinancialReportController;
+use App\Http\Controllers\JointStatementController;
 use App\Http\Controllers\LandingPage;
 use App\Http\Controllers\MembershipRegistrationController;
 use App\Http\Controllers\OrganizationController;
-use App\Http\Controllers\PolicySecurityRequestController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\PromotionRequestsPageController;
-use App\Http\Controllers\AccomplishmentReportController;
-use App\Http\Controllers\ActivityRequestController;
-use App\Http\Controllers\FinancialReportController;
 use App\Http\Controllers\OrganizationRecognitionController;
-use App\Http\Controllers\ProjectRequestController as UserProjectRequestController;
-use App\Http\Controllers\WorkplanController;
-use App\Http\Controllers\EventPlanController;
+use App\Http\Controllers\PolicySecurityRequestController;
 use App\Http\Controllers\PostController;
-use App\Http\Controllers\JointStatementController;
-use App\Http\Controllers\StudentLeaderDirectoryController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProjectRequestController as UserProjectRequestController;
+use App\Http\Controllers\PromotionRequestsPageController;
 use App\Http\Controllers\RequestDecisionController;
 use App\Http\Controllers\SidebarMenuController;
-use App\Http\Controllers\ExportController;
+use App\Http\Controllers\StudentLeaderDirectoryController;
 use App\Http\Controllers\SuperAdminController;
-use App\Http\Controllers\DashboardSearchController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\WorkplanController;
 use App\Http\Resources\ActionRequestResource;
 use App\Http\Resources\ApprovalResource;
 use App\Http\Resources\UserResource;
 use App\Models\Approval;
 use App\Models\Organization;
 use App\Models\Request;
+use App\Models\Semester;
 use App\Models\User;
+use App\Models\Workplan;
 use App\Services\OrganizationAuthorizationService;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -129,9 +132,9 @@ Route::get('/calendar', function () {
             ->unique('organization_id')
             ->values();
 
-        $activeSemester = \App\Models\Semester::currentlyActive();
+        $activeSemester = Semester::currentlyActive();
         if ($activeSemester && $eventRequestOrganizations->isNotEmpty()) {
-            $lockedOrgIds = \App\Models\Workplan::query()
+            $lockedOrgIds = Workplan::query()
                 ->where('semester_id', $activeSemester->semester_id)
                 ->whereIn('organization_id', $eventRequestOrganizations->pluck('organization_id'))
                 ->whereIn('status', ['finalized', 'archived'])
@@ -248,15 +251,14 @@ Route::middleware(['auth', 'officer.or.admin'])->group(function () {
 });
 
 Route::get('/forms/student-leader-directory', [StudentLeaderDirectoryController::class, 'index'])
-    ->middleware(['auth', 'role.officer'])->name('student-leader-directory');
+    ->name('student-leader-directory');
 Route::post('/forms/student-leader-directory', [StudentLeaderDirectoryController::class, 'store'])
-    ->middleware(['auth', 'role.officer'])->name('student-leader-directory.store');
+    ->name('student-leader-directory.store');
 
 Route::get('/forms/joint-statement', [JointStatementController::class, 'index'])
     ->middleware(['auth', 'role.officer'])->name('joint-statement');
 Route::post('/forms/joint-statement', [JointStatementController::class, 'store'])
     ->middleware(['auth', 'role.officer'])->name('joint-statement.store');
-
 
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/posts', [PostController::class, 'index'])->name('posts.index');
@@ -507,6 +509,7 @@ Route::get('/profile', function () {
     if ($user && ! $user->profile()->exists()) {
         return redirect()->route('profile.create');
     }
+
     return view('pages.profile', ['title' => 'Profile']);
 })->middleware('auth')->name('profile');
 
@@ -548,9 +551,8 @@ Route::get('/signin', function () {
     return view('pages.auth.signin', ['title' => 'Sign In']);
 })->name('signin');
 
-Route::get('/signup', function () {
-    return view('pages.auth.signup', ['title' => 'Sign Up']);
-})->middleware('guest')->name('signup');
+Route::get('/signup', [StudentLeaderDirectoryController::class, 'index'])
+    ->middleware('guest')->name('signup');
 
 // ui elements pages
 Route::get('/alerts', function () {
@@ -821,4 +823,4 @@ Route::get('/api/dashboard-search', [DashboardSearchController::class, 'index'])
 Route::get('/api/superadmin/data/export', [SuperAdminController::class, 'apiExport']);
 
 Route::post('/api/superadmin/data/import', [SuperAdminController::class, 'apiImport'])
-    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
+    ->withoutMiddleware([VerifyCsrfToken::class]);

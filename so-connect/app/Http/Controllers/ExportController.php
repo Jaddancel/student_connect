@@ -235,7 +235,7 @@ class ExportController extends Controller
 
         foreach ($allRequests as $req) {
             $row = [
-                'user_id'      => $req->user,
+                'user_id'      => $req->user !== null ? $req->user : 'Guest',
                 'org_id'       => $req->organization_id,
                 'request_time' => optional($req->requested_at)->toDateTimeString(),
                 'request_type' => optional($req->requestType)->name ?? 'Unknown',

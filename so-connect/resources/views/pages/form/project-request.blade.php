@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-    <x-common.page-breadcrumb pageTitle="Letter of Intent / Project Request" />
+    <x-common.page-breadcrumb pageTitle="Project Request" />
 
     <div class="space-y-6">
         @if (session('success'))
@@ -30,12 +30,90 @@
             <p class="mt-2 text-center text-sm font-medium text-gray-700 dark:text-gray-300">OFFICE OF STUDENT SERVICES AND
                 DEVELOPMENT</p>
             <p class="text-center text-xs text-gray-500 dark:text-gray-400">Student Development Unit</p>
-            <p class="mt-3 text-center text-base font-bold uppercase tracking-widest text-gray-900 dark:text-white">Letter
-                of Intent / Project Request</p>
+            <p class="mt-3 text-center text-base font-bold uppercase tracking-widest text-gray-900 dark:text-white">Project
+                Request</p>
         </div>
 
-        <form action="{{ route('project-request.store') }}" method="POST" class="space-y-6">
+        <form action="{{ route('project-request.store') }}" method="POST" class="space-y-6"
+            x-data="{
+                isDonation: {{ old('is_donation') ? 'true' : 'false' }},
+                inKinds: {{ Js::from(array_values(array_filter((array) old('in_kinds', ['']), fn($v) => $v !== null))) }},
+                addKind() { this.inKinds.push('') },
+                removeKind(i) { if (this.inKinds.length > 1) this.inKinds.splice(i, 1) }
+            }">
             @csrf
+
+            {{-- Project Type --}}
+            <div
+                class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <h3
+                    class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">
+                    Project Type</h3>
+
+                <div class="flex flex-wrap gap-4">
+                    <label class="flex cursor-pointer items-center gap-2.5">
+                        <input type="radio" name="is_donation" value="0"
+                            :checked="!isDonation"
+                            @change="isDonation = false"
+                            class="h-4 w-4 border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Project</span>
+                    </label>
+                    <label class="flex cursor-pointer items-center gap-2.5">
+                        <input type="radio" name="is_donation" value="1"
+                            :checked="isDonation"
+                            @change="isDonation = true"
+                            class="h-4 w-4 border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Donation</span>
+                    </label>
+                </div>
+
+                {{-- Donation Amount --}}
+                <div x-show="isDonation" x-transition class="mt-4">
+                    <label for="donation_amount" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        Expected Donation Amount (₱) <span class="text-error-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-sm text-gray-500 dark:text-gray-400">₱</span>
+                        <input type="number" id="donation_amount" name="donation_amount"
+                            value="{{ old('donation_amount') }}"
+                            min="0" step="0.01"
+                            placeholder="0.00"
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('donation_amount') ? 'border-error-500' : 'border-gray-300' }} bg-transparent py-2.5 pr-4 pl-8 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                    </div>
+                    @error('donation_amount')
+                        <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                {{-- In-Kinds Beneficiaries --}}
+                <div x-show="isDonation" x-transition class="mt-4">
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        In-Kind Beneficiaries
+                        <span class="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">(optional — each row counts toward scoring)</span>
+                    </label>
+                    <div class="space-y-2">
+                        <template x-for="(row, i) in inKinds" :key="i">
+                            <div class="flex items-center gap-2">
+                                <input type="text" name="in_kinds[]"
+                                    :value="row"
+                                    @input="inKinds[i] = $event.target.value"
+                                    placeholder="Beneficiary name or description"
+                                    class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                <button type="button" @click="removeKind(i)"
+                                    x-show="inKinds.length > 1"
+                                    class="shrink-0 rounded-lg border border-gray-300 p-2.5 text-gray-400 transition hover:border-error-400 hover:text-error-500 dark:border-gray-700 dark:text-gray-500">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                    <button type="button" @click="addKind()"
+                        class="mt-2 flex items-center gap-1.5 text-sm text-brand-500 transition hover:text-brand-600">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Add beneficiary
+                    </button>
+                </div>
+            </div>
 
             <div
                 class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">

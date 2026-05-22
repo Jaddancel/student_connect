@@ -48,7 +48,7 @@ class ProjectRequestController extends Controller
         }
 
         return view('pages.form.project-request', [
-            'title' => 'Letter of Intent / Project Request',
+            'title' => 'Project Request',
             'isAdmin' => $isAdmin,
             'organizations' => $organizations,
             'presidentName' => $presidentName,
@@ -67,11 +67,15 @@ class ProjectRequestController extends Controller
         $isAdmin = (int) $user->user_type === 2;
 
         $validated = $request->validate([
-            'organization_id' => ['required', 'integer', 'min:1'],
-            'projectTitle' => ['required', 'string', 'max:255'],
-            'natureOfProject' => ['required', 'string', 'max:255'],
-            'projectArea' => ['required', 'string', 'max:255'],
-            'letterOfIntent' => ['required', 'string', 'max:10000'],
+            'organization_id'  => ['required', 'integer', 'min:1'],
+            'projectTitle'     => ['required', 'string', 'max:255'],
+            'natureOfProject'  => ['required', 'string', 'max:255'],
+            'projectArea'      => ['required', 'string', 'max:255'],
+            'letterOfIntent'   => ['required', 'string', 'max:10000'],
+            'is_donation'      => ['nullable', 'in:0,1'],
+            'donation_amount'  => ['nullable', 'numeric', 'min:0'],
+            'in_kinds'         => ['nullable', 'array'],
+            'in_kinds.*'       => ['nullable', 'string', 'max:255'],
         ]);
 
         $organizationId = (int) $validated['organization_id'];
@@ -95,13 +99,21 @@ class ProjectRequestController extends Controller
             ->select(['o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name")])
             ->value('organization_name') ?? 'Unknown Organization';
 
+        $isDonation = (int) ($validated['is_donation'] ?? 0) === 1;
+        $inKinds = $isDonation
+            ? array_values(array_filter($validated['in_kinds'] ?? [], fn ($v) => trim((string) $v) !== ''))
+            : [];
+
         $payload = [
             'organization_id' => $organizationId,
-            'organization' => $organizationName,
-            'projectTitle' => $validated['projectTitle'],
+            'organization'    => $organizationName,
+            'projectTitle'    => $validated['projectTitle'],
             'natureOfProject' => $validated['natureOfProject'],
-            'projectArea' => $validated['projectArea'],
-            'letterOfIntent' => $validated['letterOfIntent'],
+            'projectArea'     => $validated['projectArea'],
+            'letterOfIntent'  => $validated['letterOfIntent'],
+            'is_donation'     => $isDonation,
+            'donation_amount' => $isDonation ? (float) ($validated['donation_amount'] ?? 0) : null,
+            'in_kinds'        => $inKinds,
         ];
 
         $submission = FormSubmission::query()->create([
