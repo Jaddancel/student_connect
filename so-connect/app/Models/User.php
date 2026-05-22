@@ -32,6 +32,7 @@ class User extends Authenticatable
         'profile',
         'profile_pending',
         'user_created_at',
+        'documents_last_seen_at',
     ];
 
     public $timestamps = false;
@@ -70,9 +71,9 @@ class User extends Authenticatable
         return $this->belongsTo(Profile::class, 'profile', 'profile_id');
     }
 
-    public function memberships()
+    public function officers()
     {
-        return $this->hasMany(Member::class, 'user', 'user_id');
+        return $this->hasMany(Officer::class, 'user', 'user_id');
     }
 
     public function documents()

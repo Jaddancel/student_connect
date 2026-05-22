@@ -62,7 +62,7 @@
         :class="(!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen) ?
         'xl:justify-center' :
         'justify-start'">
-        <a href="/">
+        <a href="{{ route('dashboard') }}">
             <img x-show="$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen"
                 class="dark:hidden" src="/images/logo/logo.svg" alt="Logo" width="150" height="40" />
             <img x-show="$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen"
@@ -185,7 +185,8 @@
                                         </div>
                                     @else
                                         <!-- Simple Menu Item -->
-                                        <a href="{{ $item['path'] }}" class="menu-item group"
+                                        @php $badgeCount = (int) ($item['badge'] ?? 0); @endphp
+                                        <a href="{{ $item['path'] }}" class="menu-item group relative"
                                             :class="[
                                                 isActive('{{ $item['path'] }}') ? 'menu-item-active' :
                                                 'menu-item-inactive',
@@ -195,22 +196,39 @@
                                                 'justify-start'
                                             ]">
 
-                                            <!-- Icon -->
-                                            <span
+                                            <!-- Icon + collapsed badge dot -->
+                                            <span class="relative"
                                                 :class="isActive('{{ $item['path'] }}') ? 'menu-item-icon-active' :
                                                     'menu-item-icon-inactive'">
                                                 {!! MenuHelper::getIconSvg($item['icon']) !!}
+                                                @if ($badgeCount > 0)
+                                                    <span x-show="!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen"
+                                                        class="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                                                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-orange-500"></span>
+                                                    </span>
+                                                @endif
                                             </span>
 
                                             <!-- Text -->
                                             <span
                                                 x-show="$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen"
-                                                class="menu-item-text flex items-center gap-2">
+                                                class="menu-item-text flex items-center gap-2 w-full">
                                                 {{ $item['name'] }}
                                                 @if (!empty($item['new']))
                                                     <span
                                                         class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-brand-500 text-white">
                                                         new
+                                                    </span>
+                                                @endif
+                                                @if ($badgeCount > 0)
+                                                    <span class="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1.5 text-[10px] font-bold text-white shadow-sm">
+                                                        {{ $badgeCount > 99 ? '99+' : $badgeCount }}
+                                                    </span>
+                                                @endif
+                                                @if (($item['path'] ?? '') === '/documents' && !empty($newDocumentCount))
+                                                    <span class="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-500 px-1.5 text-[10px] font-semibold text-white">
+                                                        {{ $newDocumentCount > 99 ? '99+' : $newDocumentCount }}
                                                     </span>
                                                 @endif
                                             </span>

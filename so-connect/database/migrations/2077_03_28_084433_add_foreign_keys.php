@@ -20,13 +20,7 @@ return new class extends Migration
             $table->foreign('address')->references('profile_address_id')->on('profile_addresses')->onDelete('set null');
         });
 
-        Schema::table('members', function (Blueprint $table) {
-            $table->foreign('user')->references('user_id')->on('users')->onDelete('set null');
-            $table->foreign('approval')->references('approval_id')->on('approvals')->onDelete('set null');
-        });
-
         Schema::table('organization_officers', function (Blueprint $table) {
-            $table->foreign('member')->references('member_id')->on('members')->onDelete('set null');
             $table->foreign('yearterm')->references('year_term_code')->on('year_term_master')->onDelete('set null');
             $table->foreign('organization')->references('organization_id')->on('organizations')->onDelete('set null');
         });
@@ -64,9 +58,6 @@ return new class extends Migration
         // works even if FK names changed between migration revisions.
         $this->dropForeignKeyIfExists('users', 'profile');
         $this->dropForeignKeyIfExists('profiles', 'address');
-        $this->dropForeignKeyIfExists('members', 'user');
-        $this->dropForeignKeyIfExists('members', 'approval');
-        $this->dropForeignKeyIfExists('organization_officers', 'member');
         $this->dropForeignKeyIfExists('organization_officers', 'yearterm');
         $this->dropForeignKeyIfExists('organization_officers', 'organization');
         $this->dropForeignKeyIfExists('organizations', 'officer');

@@ -15,13 +15,11 @@ class Form extends Model
     /** @use HasFactory<\Database\Factories\FormFactory> */
     use HasFactory;
 
-    public const ROLE_LEVEL_MEMBER = 'member';
     public const ROLE_LEVEL_OFFICER = 'officer';
     public const ROLE_LEVEL_PRESIDENT = 'president';
     public const ROLE_LEVEL_SUPERADMIN = 'superadmin';
 
     public const SIDEBAR_GROUP_OPTIONS = [
-        self::ROLE_LEVEL_MEMBER,
         self::ROLE_LEVEL_OFFICER,
         self::ROLE_LEVEL_PRESIDENT,
         self::ROLE_LEVEL_SUPERADMIN,
@@ -38,6 +36,7 @@ class Form extends Model
         'created_by',
         'is_active',
         'is_published',
+        'route_name',
     ];
 
     protected function casts(): array
@@ -52,7 +51,6 @@ class Form extends Model
     public static function sidebarGroupOptions(): array
     {
         return [
-            self::ROLE_LEVEL_MEMBER => 'Member',
             self::ROLE_LEVEL_OFFICER => 'Officer',
             self::ROLE_LEVEL_PRESIDENT => 'President',
             self::ROLE_LEVEL_SUPERADMIN => 'Super Admin',

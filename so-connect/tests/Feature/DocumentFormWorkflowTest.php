@@ -6,7 +6,6 @@ use App\Models\Form\FormDescription;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\GeneratedDocument;
-use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
@@ -48,17 +47,12 @@ function createDocumentWorkflowUserWithProfile(string $email): User
 
 function assignDocumentWorkflowOfficerRole(User $user, int $organizationId, string $role = 'officer'): void
 {
-    $member = Member::query()->create([
-        'organization' => $organizationId,
-        'approval' => null,
-        'user' => (int) $user->getKey(),
-        'member_since' => now(),
-    ]);
     DB::table('organization_officers')->insert([
-        'role' => $role,
-        'organization' => $organizationId,
-        'member' => $member->getKey(),
-        'yearterm' => null,
+        'role'          => $role,
+        'organization'  => $organizationId,
+        'user'          => (int) $user->getKey(),
+        'yearterm'      => null,
+        'member_since'  => now(),
         'registered_at' => now(),
         'reassigned_at' => now(),
     ]);

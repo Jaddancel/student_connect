@@ -20,9 +20,32 @@ class Profile extends Model
         'first_name',
         'last_name',
         'middle_name',
+        'contact_number',
+        'age',
+        'sex',
+        'religion',
+        'nationality',
+        'birthday',
+        'course_year',
         'occupation',
         'address',
+        'position',
+        'photo',
+        'birthplace',
+        'home_address',
+        'parents_guardian',
+        'talents_hobbies',
+        'financial_support',
+        'scholar_provider',
+        'financial_support_other',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'financial_support' => 'array',
+        ];
+    }
 
     public function user()
     {
@@ -31,6 +54,6 @@ class Profile extends Model
 
     public function addressOfUser()
     {
-        return $this->hasOne(profileAddress::class, 'address', 'profile_address_id');
+        return $this->belongsTo(profileAddress::class, 'address', 'profile_address_id');
     }
 }

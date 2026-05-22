@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ProfileMatchHelper;
-use App\Models\DashboardWidget;
 use App\Models\Approval;
+use App\Models\DashboardWidget;
 use App\Models\Profile;
+use App\Models\Profile\profileAddress;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
 use App\Models\User;
@@ -14,12 +15,134 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SuperAdminController extends Controller
 {
+    public function monitoringDashboard()
+    {
+        $totalUsers = DB::table('users')->where('user_type', '>', 1)->count();
+
+        $totalOrganizations = DB::table('organizations')->count();
+
+        $pendingProfileRequests = DB::table('requests as r')
+            ->where('r.action_type', 9)
+            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))
+                ->from('approvals as a')
+                ->whereColumn('a.request', 'r.request_id'))
+            ->count();
+
+        $pendingOfficerRequests = DB::table('requests as r')
+            ->where('r.action_type', 12)
+            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))
+                ->from('approvals as a')
+                ->whereColumn('a.request', 'r.request_id'))
+            ->count();
+
+        $userGrowthRaw = DB::table('users')
+            ->where('user_type', '>', 1)
+            ->where('user_created_at', '>=', now()->subMonths(12)->startOfMonth())
+            ->selectRaw("DATE_FORMAT(user_created_at, '%Y-%m') as month, COUNT(*) as total")
+            ->groupBy('month')
+            ->orderBy('month')
+            ->pluck('total', 'month');
+
+        $userGrowthLabels = [];
+        $userGrowthData   = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $key              = now()->subMonths($i)->format('Y-m');
+            $userGrowthLabels[] = now()->subMonths($i)->format('M Y');
+            $userGrowthData[]   = (int) ($userGrowthRaw[$key] ?? 0);
+        }
+
+        $requestsRaw = DB::table('requests')
+            ->where('requested_at', '>=', now()->subMonths(6)->startOfMonth())
+            ->selectRaw("DATE_FORMAT(requested_at, '%Y-%m') as month, COUNT(*) as total")
+            ->groupBy('month')
+            ->orderBy('month')
+            ->pluck('total', 'month');
+
+        $approvalsRaw = DB::table('approvals')
+            ->where('approved_at', '>=', now()->subMonths(6)->startOfMonth())
+            ->selectRaw("DATE_FORMAT(approved_at, '%Y-%m') as month, COUNT(*) as total")
+            ->groupBy('month')
+            ->orderBy('month')
+            ->pluck('total', 'month');
+
+        $activityLabels    = [];
+        $activityRequests  = [];
+        $activityApprovals = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $key                 = now()->subMonths($i)->format('Y-m');
+            $activityLabels[]    = now()->subMonths($i)->format('M Y');
+            $activityRequests[]  = (int) ($requestsRaw[$key] ?? 0);
+            $activityApprovals[] = (int) ($approvalsRaw[$key] ?? 0);
+        }
+
+        $workplanStats      = DB::table('workplans')
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+        $workplansActive    = (int) ($workplanStats['active']    ?? 0);
+        $workplansFinalized = (int) ($workplanStats['finalized'] ?? 0);
+        $workplansArchived  = (int) ($workplanStats['archived']  ?? 0);
+
+        $actionTypeLabels = [
+            1 => 'Activity Request', 2 => 'Accomplishment Report',
+            3 => 'Financial Report',  4 => 'Org Recognition',
+            5 => 'Joint Statement',   6 => 'Project Request',
+            9 => 'Profile Match',    11 => 'Event Plan',
+            12 => 'Officer Account',
+        ];
+
+        $recentActivity = DB::table('requests as r')
+            ->leftJoin('approvals as a', 'a.request', '=', 'r.request_id')
+            ->leftJoin('users as u', 'u.user_id', '=', 'r.user')
+            ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+            ->leftJoin('organizations as o', 'o.organization_id', '=', 'r.organization_id')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->orderByDesc('r.requested_at')
+            ->limit(15)
+            ->get([
+                'r.request_id',
+                'r.action_type',
+                'r.requested_at',
+                DB::raw("COALESCE(p.first_name, '') as first_name"),
+                DB::raw("COALESCE(p.last_name, '')  as last_name"),
+                DB::raw("COALESCE(u.user_email, 'Unknown') as user_email"),
+                DB::raw("COALESCE(od.name, '') as organization_name"),
+                'a.is_rejected',
+                'a.approved_at',
+            ])
+            ->map(function ($row) use ($actionTypeLabels) {
+                $row->action_label   = $actionTypeLabels[(int) $row->action_type] ?? 'Request #'.$row->action_type;
+                $row->status         = is_null($row->is_rejected) ? 'pending' : ($row->is_rejected ? 'rejected' : 'approved');
+                $row->requester_name = trim($row->first_name.' '.$row->last_name) ?: $row->user_email;
+
+                return $row;
+            });
+
+        return view('pages.dashboard.superadmin', [
+            'title'                  => 'System Dashboard',
+            'totalUsers'             => $totalUsers,
+            'totalOrganizations'     => $totalOrganizations,
+            'pendingProfileRequests' => $pendingProfileRequests,
+            'pendingOfficerRequests' => $pendingOfficerRequests,
+            'workplansActive'        => $workplansActive,
+            'workplansFinalized'     => $workplansFinalized,
+            'workplansArchived'      => $workplansArchived,
+            'userGrowthLabels'       => $userGrowthLabels,
+            'userGrowthData'         => $userGrowthData,
+            'activityLabels'         => $activityLabels,
+            'activityRequests'       => $activityRequests,
+            'activityApprovals'      => $activityApprovals,
+            'recentActivity'         => $recentActivity,
+        ]);
+    }
+
     public function profileRequests()
     {
         $profileRequestTypeId = (int) app(\App\Services\RequestTypeService::class)
@@ -111,10 +234,50 @@ class SuperAdminController extends Controller
                 isset($associatedSeedProfileIds[(int) $profile->profile_id]),
             ));
 
+        // New-officer account-creation requests (action_type=12)
+        $newOfficerRequests = ActionRequest::query()
+            ->where('action_type', 12)
+            ->orderByDesc('requested_at')
+            ->limit(300)
+            ->get(['request_id', 'action', 'payload', 'requested_at']);
+
+        $newOfficerApprovalMap = Approval::query()
+            ->whereIn('request', $newOfficerRequests->pluck('request_id')->all())
+            ->get(['request', 'is_rejected'])
+            ->keyBy('request');
+
+        $newOfficerRows = $newOfficerRequests->map(function (ActionRequest $r) use ($newOfficerApprovalMap) {
+            $payload = (array) ($r->payload ?? []);
+            $parts   = array_map('trim', explode('|', (string) $r->action));
+            $name    = trim(($parts[1] ?? '').' '.($parts[3] ?? '').' '.($parts[2] ?? ''));
+
+            $approval = $newOfficerApprovalMap->get((int) $r->request_id);
+            $status   = $this->resolveApprovalStatus($approval);
+
+            return [
+                'request_id'        => (int) $r->request_id,
+                'name'              => $name !== '' ? $name : 'Unknown',
+                'email'             => (string) ($payload['email'] ?? ''),
+                'organization_name' => (string) ($payload['organization_name'] ?? ''),
+                'organization_id'   => (int) ($payload['organization_id'] ?? 0),
+                'position'          => (string) ($payload['position'] ?? ''),
+                'contact_number'    => (string) ($payload['contact_number'] ?? ''),
+                'course'            => (string) ($payload['course'] ?? ''),
+                'year_level'        => (string) ($payload['year_level'] ?? ''),
+                'age'               => (int) ($payload['age'] ?? 0),
+                'sex'               => (string) ($payload['sex'] ?? ''),
+                'requested_at'      => $r->requested_at,
+                'status'            => $status,
+                'status_label'      => ucfirst($status),
+                'can_decide'        => $status === 'pending',
+            ];
+        })->values();
+
         return view('pages.sidebar.superadmin-profile-requests', [
-            'title' => 'Profile Match Requests',
-            'rows' => $rows,
-            'seedProfiles' => $seedProfiles,
+            'title'           => 'Profile Match Requests',
+            'rows'            => $rows,
+            'seedProfiles'    => $seedProfiles,
+            'newOfficerRows'  => $newOfficerRows,
         ]);
     }
 
@@ -268,10 +431,19 @@ class SuperAdminController extends Controller
                 ->values();
         }
 
+        $profileIds = $profileResults->pluck('profile_id')->map(fn ($id) => (int) $id)->all();
+        $userEmailByProfileId = User::query()
+            ->whereIn('profile', $profileIds)
+            ->get(['profile', 'user_email'])
+            ->keyBy(fn ($user) => (int) $user->profile)
+            ->map(fn ($user) => $user->user_email)
+            ->all();
+
         $profiles = $profileResults
             ->map(fn (Profile $profile) => $this->toSearchPayload(
                 $profile,
                 isset($associatedProfileIds[(int) $profile->profile_id]),
+                $userEmailByProfileId[(int) $profile->profile_id] ?? null,
             ));
 
         return response()->json([
@@ -413,6 +585,93 @@ class SuperAdminController extends Controller
         ]);
     }
 
+    public function decideOfficerAccountRequest(Request $request, int $requestId): JsonResponse
+    {
+        $actionRequest = ActionRequest::query()
+            ->where('action_type', 12)
+            ->findOrFail($requestId);
+
+        $validated = $request->validate([
+            'decision'  => ['required', 'string', Rule::in(['approve', 'reject'])],
+            'country'   => ['required_if:decision,approve', 'nullable', 'string', 'max:255'],
+            'province'  => ['required_if:decision,approve', 'nullable', 'string', 'max:255'],
+            'town'      => ['required_if:decision,approve', 'nullable', 'string', 'max:255'],
+            'barangay'  => ['required_if:decision,approve', 'nullable', 'string', 'max:255'],
+        ]);
+
+        if ($validated['decision'] === 'reject') {
+            Approval::query()->updateOrCreate(
+                ['request' => $requestId],
+                ['admin' => (int) $request->user()->getKey(), 'approved_at' => now(), 'is_rejected' => true],
+            );
+
+            return response()->json(['message' => 'Officer account request rejected.']);
+        }
+
+        $payload = (array) ($actionRequest->payload ?? []);
+
+        DB::transaction(function () use ($validated, $payload, $requestId, $request) {
+            $addr = profileAddress::create([
+                'country'  => $validated['country'],
+                'province' => $validated['province'],
+                'town'     => $validated['town'],
+                'barangay' => $validated['barangay'],
+            ]);
+
+            $profile = Profile::create([
+                'first_name'              => (string) ($payload['first_name'] ?? ''),
+                'middle_name'             => (string) ($payload['middle_name'] ?? ''),
+                'last_name'               => (string) ($payload['last_name'] ?? ''),
+                'contact_number'          => (string) ($payload['contact_number'] ?? ''),
+                'age'                     => (int) ($payload['age'] ?? 0),
+                'sex'                     => (string) ($payload['sex'] ?? ''),
+                'religion'                => (string) ($payload['religious_affiliation'] ?? ''),
+                'nationality'             => (string) ($payload['nationality'] ?? ''),
+                'birthday'                => (string) ($payload['birthday'] ?? ''),
+                'birthplace'              => (string) ($payload['birthplace'] ?? ''),
+                'course_year'             => trim(($payload['course'] ?? '').' - '.($payload['year_level'] ?? '')),
+                'occupation'              => 'Student',
+                'address'                 => (int) $addr->profile_address_id,
+                'position'                => (string) ($payload['position'] ?? ''),
+                'photo'                   => (string) ($payload['photo'] ?? ''),
+                'home_address'            => (string) ($payload['home_address'] ?? ''),
+                'parents_guardian'        => (string) ($payload['parents_guardian'] ?? ''),
+                'talents_hobbies'         => (string) ($payload['talents_hobbies'] ?? ''),
+                'financial_support'       => $payload['financial_support'] ?? [],
+                'scholar_provider'        => (string) ($payload['scholar_provider'] ?? ''),
+                'financial_support_other' => (string) ($payload['others_specify'] ?? ''),
+            ]);
+
+            $user = User::create([
+                'user_email'    => (string) ($payload['email'] ?? ''),
+                'user_password' => 'tAU100!!',
+                'user_type'     => 3,
+                'profile'       => (int) $profile->profile_id,
+                'profile_pending' => false,
+            ]);
+
+            $orgId = (int) ($payload['organization_id'] ?? 0);
+
+            $approvalRecord = Approval::query()->updateOrCreate(
+                ['request' => $requestId],
+                ['admin' => (int) $request->user()->getKey(), 'approved_at' => now(), 'is_rejected' => false],
+            );
+
+            DB::table('organization_officers')->insert([
+                'user'          => (int) $user->user_id,
+                'approval'      => (int) $approvalRecord->approval_id,
+                'organization'  => $orgId,
+                'role'          => 'officer',
+                'yearterm'      => null,
+                'member_since'  => now(),
+                'registered_at' => now(),
+                'reassigned_at' => now(),
+            ]);
+        });
+
+        return response()->json(['message' => 'Officer account created successfully.']);
+    }
+
     public function decideProfileRequest(Request $request, int $requestId): JsonResponse
     {
         $validated = $request->validate([
@@ -483,6 +742,57 @@ class SuperAdminController extends Controller
                 ? 'Profile request approved and linked successfully.'
                 : 'Profile request rejected.',
         ]);
+    }
+
+    public function profiles()
+    {
+        return view('pages.sidebar.superadmin-profiles', ['title' => 'Profile Manager']);
+    }
+
+    public function editProfile(int $id)
+    {
+        $profile = Profile::findOrFail($id);
+        $user = $profile->user()->first();
+
+        if ($user && (int) $user->user_type === 1) {
+            abort(403, 'Cannot edit a superadmin profile.');
+        }
+
+        return view('pages.sidebar.superadmin-profile-edit', [
+            'title' => 'Edit Profile',
+            'profile' => $profile,
+            'linkedUser' => $user,
+        ]);
+    }
+
+    public function updateProfile(Request $request, int $id)
+    {
+        $profile = Profile::findOrFail($id);
+        $user = $profile->user()->first();
+
+        if ($user && (int) $user->user_type === 1) {
+            abort(403, 'Cannot edit a superadmin profile.');
+        }
+
+        $validated = $request->validate([
+            'first_name'     => ['required', 'string', 'max:255'],
+            'last_name'      => ['required', 'string', 'max:255'],
+            'middle_name'    => ['nullable', 'string', 'max:255'],
+            'contact_number' => ['nullable', 'string', 'digits:10', 'starts_with:9'],
+            'age'            => ['nullable', 'integer', 'min:1', 'max:120'],
+            'sex'            => ['nullable', 'in:Male,Female'],
+            'religion'       => ['nullable', 'string', 'max:255'],
+            'nationality'    => ['nullable', 'string', 'max:255'],
+            'birthday'       => ['nullable', 'date', 'before:today'],
+            'course_year'    => ['nullable', 'string', 'max:255'],
+            'occupation'     => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $profile->update($validated);
+
+        return redirect()
+            ->route('superadmin.profiles.edit', $id)
+            ->with('status', 'Profile updated successfully.');
     }
 
     public function dataSyncPage()
@@ -630,16 +940,17 @@ class SuperAdminController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function toSearchPayload(Profile $profile, bool $hasUser = false): array
+    private function toSearchPayload(Profile $profile, bool $hasUser = false, ?string $userEmail = null): array
     {
         return [
             'profile_id' => (int) $profile->profile_id,
-            'name' => trim(implode(' ', array_filter([
-                $profile->first_name,
-                $profile->middle_name,
-                $profile->last_name,
-            ]))),
+            'first_name' => (string) $profile->first_name,
+            'middle_name' => (string) $profile->middle_name,
+            'last_name' => (string) $profile->last_name,
             'occupation' => (string) $profile->occupation,
+            'course_year' => (string) $profile->course_year,
+            'sex' => (string) $profile->sex,
+            'user_email' => $userEmail,
             'has_user' => $hasUser,
         ];
     }

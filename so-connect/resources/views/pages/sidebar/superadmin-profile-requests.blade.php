@@ -228,6 +228,121 @@
                 </div>
             @endif
         </div>
+
+        {{-- New Officer Account Creation Requests (action_type=12) --}}
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <div class="mb-4">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">New Officer Account Requests</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    Review new officer submissions approved by admin. Assign an address to complete account creation.
+                </p>
+            </div>
+
+            @if ($newOfficerRows->isEmpty())
+                <p class="text-sm text-gray-500 dark:text-gray-400">No pending officer account requests.</p>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr class="border-b border-gray-100 dark:border-gray-800">
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Name</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Email</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Organization</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Submitted</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($newOfficerRows as $row)
+                                <tr class="border-b border-gray-100 align-top dark:border-gray-800"
+                                    id="officer-request-row-{{ $row['request_id'] }}">
+                                    <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                        <p class="font-medium">{{ $row['name'] }}</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $row['position'] }}</p>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{{ $row['email'] }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{{ $row['organization_name'] }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                        {{ \Illuminate\Support\Carbon::parse($row['requested_at'])->format('M d, Y') }}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm">
+                                        <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $row['status'] === 'approved' ? 'bg-success-100 text-success-700 dark:bg-success-500/15 dark:text-success-400' : ($row['status'] === 'rejected' ? 'bg-error-100 text-error-700 dark:bg-error-500/15 dark:text-error-400' : 'bg-warning-100 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400') }}">
+                                            {{ $row['status_label'] }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm">
+                                        @if ($row['can_decide'])
+                                            <div x-data="officerAccountDecision({{ $row['request_id'] }}, @js($row))">
+                                                <button type="button"
+                                                    class="inline-flex items-center rounded-lg border border-brand-300 px-3 py-2 text-xs font-medium text-brand-700 transition hover:bg-brand-50 dark:border-brand-500/30 dark:text-brand-400"
+                                                    @click="openModal()">
+                                                    Review
+                                                </button>
+
+                                                <div x-show="showModal" x-cloak
+                                                    class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 px-4 py-6"
+                                                    @click.self="closeModal()" @keydown.escape.window="closeModal()">
+                                                    <div class="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+                                                        x-transition>
+                                                        <div class="mb-4 flex items-start justify-between gap-3">
+                                                            <h4 class="text-base font-semibold text-gray-800 dark:text-white/90">
+                                                                New Officer Account — Request #{{ $row['request_id'] }}
+                                                            </h4>
+                                                            <button type="button"
+                                                                class="rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                                                                @click="closeModal()">Close</button>
+                                                        </div>
+
+                                                        <dl class="mb-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                                                            <div><dt class="text-gray-500">Name</dt><dd class="font-medium text-gray-800 dark:text-gray-200">{{ $row['name'] }}</dd></div>
+                                                            <div><dt class="text-gray-500">Email</dt><dd class="font-medium text-gray-800 dark:text-gray-200">{{ $row['email'] }}</dd></div>
+                                                            <div><dt class="text-gray-500">Organization</dt><dd class="font-medium text-gray-800 dark:text-gray-200">{{ $row['organization_name'] }}</dd></div>
+                                                            <div><dt class="text-gray-500">Position</dt><dd class="font-medium text-gray-800 dark:text-gray-200">{{ $row['position'] }}</dd></div>
+                                                            <div><dt class="text-gray-500">Contact</dt><dd class="font-medium text-gray-800 dark:text-gray-200">{{ $row['contact_number'] }}</dd></div>
+                                                            <div><dt class="text-gray-500">Age / Sex</dt><dd class="font-medium text-gray-800 dark:text-gray-200">{{ $row['age'] }} / {{ $row['sex'] }}</dd></div>
+                                                            <div class="col-span-2"><dt class="text-gray-500">Course / Year</dt><dd class="font-medium text-gray-800 dark:text-gray-200">{{ $row['course'] }} - {{ $row['year_level'] }}</dd></div>
+                                                        </dl>
+
+                                                        <p class="mb-3 text-xs font-semibold text-gray-700 dark:text-gray-300">Assign Address</p>
+                                                        <div class="grid grid-cols-2 gap-3">
+                                                            <input type="text" x-model="country" placeholder="Country *"
+                                                                class="dark:bg-dark-900 h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90" />
+                                                            <input type="text" x-model="province" placeholder="Province *"
+                                                                class="dark:bg-dark-900 h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90" />
+                                                            <input type="text" x-model="town" placeholder="Town / City *"
+                                                                class="dark:bg-dark-900 h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90" />
+                                                            <input type="text" x-model="barangay" placeholder="Barangay *"
+                                                                class="dark:bg-dark-900 h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90" />
+                                                        </div>
+
+                                                        <p x-show="errorMsg" x-text="errorMsg" class="mt-2 text-xs text-error-600 dark:text-error-400"></p>
+
+                                                        <div class="mt-4 flex items-center gap-2">
+                                                            <button type="button"
+                                                                class="inline-flex items-center rounded-lg bg-success-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-success-700 disabled:opacity-60"
+                                                                :disabled="submitting"
+                                                                @click="submitDecision('approve')"
+                                                                x-text="submitting ? 'Processing...' : 'Approve & Create Account'"></button>
+                                                            <button type="button"
+                                                                class="inline-flex items-center rounded-lg bg-error-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-error-700 disabled:opacity-60"
+                                                                :disabled="submitting"
+                                                                @click="submitDecision('reject')">Reject</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @else
+                                            <span class="text-xs text-gray-500 dark:text-gray-400">No action required</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
     </div>
 @endsection
 
@@ -453,6 +568,78 @@
                     } catch (error) {
                         setFeedback(error instanceof Error ? error.message : 'Unable to submit decision.', 'error');
                         row?.classList.remove('opacity-60');
+                    }
+                },
+            });
+
+            const officerAccountDecisionBaseEndpoint = @json(url('/superadmin/officer-account-requests'));
+
+            window.officerAccountDecision = (requestId, row) => ({
+                requestId,
+                row,
+                showModal: false,
+                submitting: false,
+                country: '',
+                province: '',
+                town: '',
+                barangay: '',
+                errorMsg: '',
+
+                openModal() {
+                    this.showModal = true;
+                    this.errorMsg = '';
+                },
+
+                closeModal() {
+                    this.showModal = false;
+                    this.errorMsg = '';
+                },
+
+                async submitDecision(decision) {
+                    if (decision === 'approve' && (!this.country || !this.province || !this.town || !this.barangay)) {
+                        this.errorMsg = 'All address fields are required to approve.';
+                        return;
+                    }
+
+                    this.submitting = true;
+                    this.errorMsg = '';
+
+                    const rowEl = document.getElementById(`officer-request-row-${this.requestId}`);
+                    rowEl?.classList.add('opacity-60');
+
+                    try {
+                        const body = { decision };
+                        if (decision === 'approve') {
+                            body.country  = this.country;
+                            body.province = this.province;
+                            body.town     = this.town;
+                            body.barangay = this.barangay;
+                        }
+
+                        const response = await fetch(`${officerAccountDecisionBaseEndpoint}/${this.requestId}/decision`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Accept: 'application/json',
+                                'X-CSRF-TOKEN': csrfToken,
+                            },
+                            body: JSON.stringify(body),
+                        });
+
+                        const payload = await response.json().catch(() => ({}));
+
+                        if (!response.ok) {
+                            throw new Error(payload?.message || 'Unable to submit decision.');
+                        }
+
+                        setFeedback(payload?.message || 'Decision submitted successfully.');
+                        this.closeModal();
+                        window.location.reload();
+                    } catch (error) {
+                        this.errorMsg = error instanceof Error ? error.message : 'Unable to submit decision.';
+                        rowEl?.classList.remove('opacity-60');
+                    } finally {
+                        this.submitting = false;
                     }
                 },
             });

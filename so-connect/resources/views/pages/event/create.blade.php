@@ -1,4 +1,6 @@
-<x-dashboard-layout>
+@extends('layouts.fullscreen-layout')
+
+@section('content')
     <div class="container mx-auto lg:w-2/4 p-4 px-6 rounded-box bg-base-100">
         <h1 class="text-xl text-black font-bold my-3">Create Event</h1>
 
@@ -48,5 +50,4 @@
             <button type="submit" class="block sm:hidden btn btn-primary text-white">Submit</button>
         </form>
     </div>
-
-</x-dashboard-layout>
+@endsection

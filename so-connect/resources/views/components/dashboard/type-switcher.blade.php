@@ -1,14 +1,7 @@
 @php
     use Illuminate\Support\HtmlString;
 
-    $isPresident =
-        auth()
-            ->user()
-                ?->memberships()
-            ->whereHas('officers', function ($query) {
-                $query->where('role', 'president');
-            })
-            ->exists() ?? false;
+    $isPresident = auth()->user()?->officers()->where('role', 'president')->exists() ?? false;
 
     $isAdmin = (int) (auth()->user()?->user_type ?? 0) === 2;
 

@@ -6,7 +6,7 @@ use App\Helpers\FormTemplateHelper;
 use App\Models\Approval;
 use App\Models\Event;
 use App\Models\Event\EventDetail;
-use App\Models\Member;
+use App\Models\EventPlan;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
 use Illuminate\Support\Facades\DB;
@@ -47,20 +47,16 @@ class RequestApprovalService
             [$targetOrganizationId, $targetUserId] = $this->resolveMembershipDetails($actionRequest);
 
             if ($targetOrganizationId > 0 && $targetUserId > 0) {
-                $membership = Member::query()->firstOrCreate(
-                    [
-                        'organization' => $targetOrganizationId,
-                        'user' => $targetUserId,
-                    ],
-                    [
-                        'member_since' => now(),
-                    ]
-                );
-
                 DB::table('organization_officers')
-                    ->where('member', (int) $membership->getKey())
+                    ->where('user', $targetUserId)
                     ->where('organization', $targetOrganizationId)
+                    ->whereIn('role', ['officer', 'president'])
                     ->delete();
+
+                DB::table('organization_officers')->updateOrInsert(
+                    ['user' => $targetUserId, 'organization' => $targetOrganizationId],
+                    ['role' => 'member', 'member_since' => now(), 'registered_at' => now(), 'reassigned_at' => now()]
+                );
             }
         }
 
@@ -68,52 +64,32 @@ class RequestApprovalService
             [$targetUserId, $targetOrganizationId, $currentRole] = $this->resolveRoleChangeDetails($actionRequest);
 
             if ($targetOrganizationId > 0 && $targetUserId > 0) {
-                $membership = Member::query()->firstOrCreate(
-                    [
-                        'organization' => $targetOrganizationId,
-                        'user' => $targetUserId,
-                    ],
-                    [
-                        'member_since' => now(),
-                    ]
-                );
-
                 if ($currentRole === 'member') {
                     DB::table('organization_officers')->updateOrInsert(
-                        [
-                            'member' => (int) $membership->getKey(),
-                            'organization' => $targetOrganizationId,
-                        ],
-                        [
-                            'role' => 'officer',
-                            'yearterm' => null,
-                            'registered_at' => now(),
-                            'reassigned_at' => now(),
-                        ]
+                        ['user' => $targetUserId, 'organization' => $targetOrganizationId],
+                        ['role' => 'officer', 'yearterm' => null, 'registered_at' => now(), 'reassigned_at' => now()]
                     );
                 }
 
                 if ($currentRole === 'officer') {
                     DB::table('organization_officers')
-                        ->where('member', (int) $membership->getKey())
+                        ->where('user', $targetUserId)
                         ->where('organization', $targetOrganizationId)
-                        ->update([
-                            'role' => 'president',
-                            'reassigned_at' => now(),
-                        ]);
+                        ->update(['role' => 'president', 'reassigned_at' => now()]);
 
                     $hasPresidentRole = DB::table('organization_officers')
-                        ->where('member', (int) $membership->getKey())
+                        ->where('user', $targetUserId)
                         ->where('organization', $targetOrganizationId)
                         ->where('role', 'president')
                         ->exists();
 
                     if (! $hasPresidentRole) {
                         DB::table('organization_officers')->insert([
-                            'member' => (int) $membership->getKey(),
+                            'user' => $targetUserId,
                             'organization' => $targetOrganizationId,
                             'role' => 'president',
                             'yearterm' => null,
+                            'member_since' => now(),
                             'registered_at' => now(),
                             'reassigned_at' => now(),
                         ]);
@@ -142,6 +118,15 @@ class RequestApprovalService
             }
         }
 
+        if ($this->isEventPlanRequest($actionType, $systemKey)) {
+            $payload = (array) ($actionRequest->payload ?? []);
+            $eventPlanId = (int) ($payload['event_plan_id'] ?? 0);
+
+            if ($eventPlanId > 0) {
+                EventPlan::query()->where('event_plan_id', $eventPlanId)->update(['status' => 'approved']);
+            }
+        }
+
         return $approval;
     }
 
@@ -158,6 +143,10 @@ class RequestApprovalService
             : $actionRequest->requestType()->first();
 
         if ((string) ($requestType?->system_key ?? '') === RequestType::SYSTEM_KEY_PROFILE_MATCH) {
+            return false;
+        }
+
+        if ($this->isEventPlanRequest($requestActionType, (string) ($requestType?->system_key ?? ''))) {
             return false;
         }
 
@@ -201,6 +190,10 @@ class RequestApprovalService
 
         if ($this->isEventRequest($actionType, $systemKey)) {
             return $this->parseEventAction($actionRequest->action)[0] ?: null;
+        }
+
+        if ($this->isEventPlanRequest($actionType, $systemKey)) {
+            return $payloadOrganizationId > 0 ? $payloadOrganizationId : null;
         }
 
         if ($this->isDocumentGenerationRequest($actionType, $systemKey)
@@ -346,6 +339,11 @@ class RequestApprovalService
     private function isEventRequest(int $actionType, string $systemKey): bool
     {
         return $actionType === 2 || $systemKey === RequestType::SYSTEM_KEY_EVENT;
+    }
+
+    private function isEventPlanRequest(int $actionType, string $systemKey): bool
+    {
+        return $actionType === 10 || $systemKey === RequestType::SYSTEM_KEY_EVENT_PLAN;
     }
 
     private function isDocumentGenerationRequest(int $actionType, string $systemKey): bool

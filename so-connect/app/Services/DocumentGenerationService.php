@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Mail\DocumentGeneratedMail;
 use App\Helpers\FormTemplateHelper;
 use App\Models\Document;
 use App\Models\FormSubmission;
@@ -10,6 +11,7 @@ use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
 use App\Models\Template;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use PhpOffice\PhpWord\TemplateProcessor;
@@ -139,12 +141,14 @@ class DocumentGenerationService
             ->where('form_id', $formId)
             ->where(function ($q) use ($organizationId) {
                 if ($organizationId > 0) {
-                    $q->where('organization_id', $organizationId);
+                    $q->where('organization_id', $organizationId)
+                        ->orWhereNull('organization_id');
                 } else {
                     $q->whereNull('organization_id');
                 }
             })
             ->where('is_active', true)
+            ->orderByRaw('CASE WHEN organization_id IS NOT NULL THEN 0 ELSE 1 END')
             ->orderByDesc('version')
             ->with(['mappings.field'])
             ->first();
@@ -164,7 +168,7 @@ class DocumentGenerationService
     public function generateFromSubmission(
         FormSubmission $submission,
         Template $template,
-        int $requestId,
+        ?int $requestId,
         int $generatedByUserId,
     ): GeneratedDocument {
         $disk = (string) config('documents.disk', 'public');
@@ -176,7 +180,7 @@ class DocumentGenerationService
 
         $templateAbsolutePath = Storage::disk($disk)->path($templatePath);
 
-        $mappings = $template->mappings()->get();
+        $mappings = $template->mappings()->with('field')->get();
 
         $missingRequiredFields = FormTemplateHelper::missingRequiredFields($mappings, (array) $submission->payload);
 
@@ -185,6 +189,15 @@ class DocumentGenerationService
         }
 
         $replacementMap = FormTemplateHelper::buildReplacementMap($mappings, (array) $submission->payload);
+
+        // Collect placeholder keys whose FormDescription field_type is 'file' (image upload).
+        $imagePlaceholderKeys = $mappings
+            ->filter(fn ($m) => ($m->field?->field_type ?? '') === 'file')
+            ->map(fn ($m) => FormTemplateHelper::normalizeFieldKey(
+                (string) ($m->placeholder_key ?: $m->field_key)
+            ))
+            ->flip()
+            ->all();
 
         $generatedDocxRelativePath = $this->nextGeneratedDocxPath((int) $submission->getKey());
         $generatedDocxAbsolutePath = Storage::disk($disk)->path($generatedDocxRelativePath);
@@ -197,8 +210,15 @@ class DocumentGenerationService
             $preprocessedTemplatePath = $this->preprocessTemplateDocx($templateAbsolutePath);
             $processor = new TemplateProcessor($preprocessedTemplatePath);
 
-            foreach ($replacementMap as $fieldKey => $value) {
-                $processor->setValue($fieldKey, $value);
+            foreach ($replacementMap as $placeholderKey => $value) {
+                if (isset($imagePlaceholderKeys[$placeholderKey]) && $value !== '') {
+                    $absoluteImagePath = Storage::disk($disk)->path($value);
+                    if (is_file($absoluteImagePath)) {
+                        $processor->setImageValue($placeholderKey, ['path' => $absoluteImagePath, 'ratio' => true]);
+                        continue;
+                    }
+                }
+                $processor->setValue($placeholderKey, $value);
             }
 
             $processor->saveAs($generatedDocxAbsolutePath);
@@ -215,7 +235,7 @@ class DocumentGenerationService
                 'link' => $generatedPdfRelativePath,
             ]);
 
-            return GeneratedDocument::query()->create([
+            $generatedDocument = GeneratedDocument::query()->create([
                 'form_submission_id' => (int) $submission->getKey(),
                 'template_id' => (int) $template->getKey(),
                 'request_id' => $requestId,
@@ -226,6 +246,24 @@ class DocumentGenerationService
                 'status' => 'generated',
                 'generated_at' => now(),
             ]);
+
+            $submission->loadMissing(['submitter', 'organization.detail', 'form']);
+            $recipientEmail = $submission->submitter?->user_email;
+
+            if (is_string($recipientEmail) && $recipientEmail !== '') {
+                try {
+                    Mail::to($recipientEmail)->send(
+                        new DocumentGeneratedMail(
+                            (string) ($submission->form?->name ?? 'Form'),
+                            (string) ($submission->organization?->detail?->name ?? 'Organization'),
+                        )
+                    );
+                } catch (\Throwable $throwable) {
+                    report($throwable);
+                }
+            }
+
+            return $generatedDocument;
         } catch (\Throwable $throwable) {
             if ($preprocessedTemplatePath !== null) {
                 @unlink($preprocessedTemplatePath);

@@ -18,6 +18,7 @@ class Approval extends Model
         'request',
         'admin',
         'is_rejected',
+        'rejection_reason',
     ];
 
     protected function casts(): array
@@ -35,8 +36,8 @@ class Approval extends Model
         return $this->belongsTo(Officer::class, 'admin', 'org_officer_id');
     }
 
-    public function membershipApproval()
+    public function officerApproval()
     {
-        return $this->belongsTo(Member::class, 'approval', 'approval_id');
+        return $this->hasOne(Officer::class, 'approval', 'approval_id');
     }
 }

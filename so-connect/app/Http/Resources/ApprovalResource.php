@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources;
 
-use App\Models\Member;
 use App\Models\Request as RequestModel;
 use App\Models\User;
 use App\Http\Resources\ActionRequestResource;
@@ -20,8 +19,7 @@ class ApprovalResource extends JsonResource
     public function toArray(HttpRequest $request): array
     {
         $approvingOfficer = $this->adminThatApproved;
-        $approvingMember = $approvingOfficer ? Member::query()->find($approvingOfficer->member) : null;
-        $approvingUser = $approvingMember ? User::query()->find($approvingMember->user) : null;
+        $approvingUser = $approvingOfficer ? User::query()->find($approvingOfficer->user) : null;
 
         return [
             'id' => $this->approval_id,

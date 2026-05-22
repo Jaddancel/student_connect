@@ -31,19 +31,12 @@ class UserFactory extends Factory
         return [
             'user_email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
-            'user_password' => static::$password ??= Hash::make('password'),
+            'user_password' => static::$password ??= Hash::make('tAU100!!'),
             'remember_token' => Str::random(10),
-            'user_type' => 4,
+            'user_type' => 3,
             'profile' => Profile::factory()->create()->profile_id,
             'profile_pending' => false,
         ];
-    }
-
-    public function regular()
-    {
-        return $this->state(fn (array $attributes) => [
-            'user_type' => 4,
-        ]);
     }
 
     public function orgOfficer()
@@ -70,15 +63,7 @@ class UserFactory extends Factory
     public function superadminWithoutRoles()
     {
         return $this->superadmin()->afterCreating(function (User $user) {
-            $memberIds = $user->memberships()->pluck('member_id');
-
-            if ($memberIds->isNotEmpty()) {
-                DB::table('organization_officers')
-                    ->whereIn('member', $memberIds->all())
-                    ->delete();
-            }
-
-            $user->memberships()->delete();
+            $user->officers()->delete();
         });
     }
 
@@ -90,15 +75,7 @@ class UserFactory extends Factory
     public function adminWithoutRoles()
     {
         return $this->admin()->afterCreating(function (User $user) {
-            $memberIds = $user->memberships()->pluck('member_id');
-
-            if ($memberIds->isNotEmpty()) {
-                DB::table('organization_officers')
-                    ->whereIn('member', $memberIds->all())
-                    ->delete();
-            }
-
-            $user->memberships()->delete();
+            $user->officers()->delete();
         });
     }
 
@@ -120,7 +97,7 @@ class UserFactory extends Factory
     public function whoAppliesForRequest($org)
     {
         return $this->state(fn (array $attributes) => [
-            'user_type' => 4,
+            'user_type' => 3,
         ])->afterCreating(function (User $user) use ($org) {
             $userId = $user->getKey();
             Request::create([
@@ -134,7 +111,7 @@ class UserFactory extends Factory
     public function randomOrgRequest()
     {
         return $this->state(fn (array $attributes) => [
-            'user_type' => 4,
+            'user_type' => 3,
         ])->afterCreating(function (User $user) {
             $org = Organization::query()->inRandomOrder()->value('organization_id');
 

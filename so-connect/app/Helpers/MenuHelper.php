@@ -2,9 +2,8 @@
 
 namespace App\Helpers;
 
-use App\Models\Form;
-use App\Models\RequestType;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class MenuHelper
 {
@@ -45,162 +44,168 @@ class MenuHelper
                 'items' => [
                     ['icon' => 'dashboard', 'name' => 'Dashboard', 'path' => '/dashboard'],
                     ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
+                    ['icon' => 'pages', 'name' => 'Documents', 'path' => '/documents'],
                 ],
             ],
             [
                 'title' => 'Account',
                 'items' => [
                     ['icon' => 'user-profile', 'name' => 'Profile', 'path' => '/profile'],
-                    ['icon' => 'user-profile', 'name' => 'Create Profile', 'path' => '/profile/create'],
-                ],
-            ],
-            [
-                'title' => 'Forms',
-                'items' => [
-                    ['icon' => 'forms', 'name' => 'My Documents', 'path' => '/generated-documents'],
                 ],
             ],
         ];
-
-        if ((int) $user->user_type === 2) {
-            $menuGroups[2]['items'][] = ['icon' => 'forms', 'name' => 'Manage Document Forms', 'path' => '/forms/manage'];
-        }
 
         if ((int) $user->user_type === 1) {
-            $menuGroups[2]['items'][] = ['icon' => 'charts', 'name' => 'Dashboard Builder', 'path' => '/superadmin/dashboard-builder'];
-            $menuGroups[2]['items'][] = ['icon' => 'forms', 'name' => 'Request Types', 'path' => '/superadmin/request-types'];
-        }
-
-        return self::injectFormMenuItems($menuGroups, $user);
-    }
-
-    /**
-     * @return array{is_superadmin:bool,is_officer:bool,is_president:bool,is_admin:bool,is_member_only:bool}
-     */
-    private static function resolveRoleFlags(User $user): array
-    {
-        $isSuperAdmin = (int) $user->user_type === 1;
-
-        $isPresident = $user
-            ->memberships()
-            ->whereHas('officers', function ($query) {
-                $query->where('role', 'president');
-            })
-            ->exists();
-
-        $isOfficer = $user
-            ->memberships()
-            ->whereHas('officers', function ($query) {
-                $query->where('role', 'officer');
-            })
-            ->exists();
-
-        $isAdmin = $isOfficer || $isPresident;
-
-        return [
-            'is_superadmin' => $isSuperAdmin,
-            'is_officer' => $isOfficer,
-            'is_president' => $isPresident,
-            'is_admin' => $isAdmin,
-            'is_member_only' => (int) $user->user_type === 4 && ! $isAdmin,
-        ];
-    }
-
-    private static function resolveUserRoleLevels(User $user): array
-    {
-        if (in_array((int) $user->user_type, [1, 2], true)) {
-            return Form::SIDEBAR_GROUP_OPTIONS;
-        }
-
-        $roleLevels = [Form::ROLE_LEVEL_MEMBER];
-
-        $isPresident = $user->memberships()
-            ->whereHas('officers', fn ($q) => $q->where('role', 'president'))
-            ->exists();
-
-        if ($isPresident) {
-            $roleLevels[] = Form::ROLE_LEVEL_PRESIDENT;
-        }
-
-        $isOfficer = $user->memberships()
-            ->whereHas('officers', fn ($q) => $q->where('role', 'officer'))
-            ->exists();
-
-        if ($isOfficer) {
-            $roleLevels[] = Form::ROLE_LEVEL_OFFICER;
-        }
-
-        return $roleLevels;
-    }
-
-    private static function injectFormMenuItems(array $menuGroups, User $user): array
-    {
-        $isPrivilegedUser = (int) $user->user_type <= 2;
-
-        $formsQuery = Form::query()
-            ->where('is_active', true)
-            ->where('is_published', true)
-            ->with('requestType');
-
-        if (! $isPrivilegedUser) {
-            $organizationIds = \App\Services\OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
-
-            $formsQuery->where(function ($query) use ($organizationIds) {
-                $query->whereNull('organization_id');
-
-                if (! empty($organizationIds)) {
-                    $query->orWhereIn('organization_id', $organizationIds);
-                }
-            });
-        }
-
-        $forms = $formsQuery
-            ->orderBy('name')
-            ->get();
-
-        if (! $isPrivilegedUser) {
-            $userRoleLevels = self::resolveUserRoleLevels($user);
-            $forms = $forms->filter(function (Form $form) use ($userRoleLevels) {
-                $formRoles = (array) ($form->sidebar_group ?? []);
-
-                return ! empty(array_intersect($formRoles, $userRoleLevels));
-            });
-        }
-
-        if ($forms->isEmpty()) {
-            return $menuGroups;
-        }
-
-        $grouped = $forms->groupBy(function (Form $form) {
-            return $form->requestType?->category ?: 'Other';
-        });
-
-        $categoryGroups = [];
-
-        foreach (RequestType::CATEGORY_OPTIONS as $category) {
-            if (! $grouped->has($category)) {
-                continue;
-            }
-
-            $categoryGroups[] = [
-                'title' => RequestType::categoryLabelForContext($category, 'forms'),
-                'items' => $grouped[$category]->map(function (Form $form) {
-                    return [
-                        'icon' => 'forms',
-                        'name' => $form->name,
-                        'path' => route('forms.show', ['formId' => (int) $form->getKey()]),
-                    ];
-                })->values()->all(),
+            $menuGroups[] = [
+                'title' => 'Admin',
+                'items' => [
+                    ['icon' => 'dashboard', 'name' => 'System Dashboard', 'path' => '/superadmin/dashboard'],
+                    ['icon' => 'user-profile', 'name' => 'Profile Manager', 'path' => '/superadmin/profiles'],
+                    ['icon' => 'user-profile', 'name' => 'Create Admin', 'path' => '/superadmin/accounts/create'],
+                    ['icon' => 'charts', 'name' => 'Dashboard Builder', 'path' => '/superadmin/dashboard-builder'],
+                    ['icon' => 'forms', 'name' => 'Request Types', 'path' => '/superadmin/request-types'],
+                    ['icon' => 'forms', 'name' => 'Template Manager', 'path' => '/admin/templates'],
+                    ['icon' => 'tables', 'name' => 'Export Data', 'path' => '/superadmin/export'],
+                    ['icon' => 'charts', 'name' => 'Score Audit', 'path' => '/superadmin/scoring/audit'],
+                ],
             ];
         }
 
-        foreach ($categoryGroups as $categoryGroup) {
-            $menuGroups[] = $categoryGroup;
+        if ((int) $user->user_type === 2) {
+            $menuGroups[] = [
+                'title' => 'Admin',
+                'items' => [
+                    ['icon' => 'pages',    'name' => 'Posts',              'path' => '/posts'],
+                    ['icon' => 'forms',    'name' => 'Template Manager',   'path' => '/admin/templates'],
+                    ['icon' => 'calendar', 'name' => 'Semester Management','path' => '/admin/semesters'],
+                    ['icon' => 'tables',  'name' => 'Export Data',        'path' => '/admin/export'],
+                ],
+            ];
+
+            $badges = self::getAdminRequestBadges();
+
+            $menuGroups[] = [
+                'title' => 'Requests',
+                'items' => [
+                    ['icon' => 'task',  'name' => 'Promotion Requests',        'path' => '/promotion-requests',                    'badge' => $badges['promotion']],
+                    ['icon' => 'task',  'name' => 'Event Plan Requests',       'path' => '/admin/event-plan-requests',             'badge' => $badges['event_plans']],
+                    ['icon' => 'forms', 'name' => 'Project Requests',          'path' => '/admin/project-requests',                'badge' => $badges['project']],
+                    ['icon' => 'forms', 'name' => 'Joint Statements',          'path' => '/admin/joint-statement-requests',        'badge' => $badges['joint_statement']],
+                    ['icon' => 'forms', 'name' => 'Accomplishment Reports',    'path' => '/admin/accomplishment-report-requests',  'badge' => $badges['accomplishment_report']],
+                    ['icon' => 'forms', 'name' => 'Financial Reports',         'path' => '/admin/financial-report-requests',       'badge' => $badges['financial_report']],
+                    ['icon' => 'forms', 'name' => 'Recognition Applications',  'path' => '/admin/recognition-requests',            'badge' => $badges['recognition']],
+                    ['icon' => 'forms', 'name' => 'Workplan Submissions',      'path' => '/admin/workplan-requests',               'badge' => $badges['workplan']],
+                ],
+            ];
+
+            $menuGroups[] = [
+                'title' => 'Evaluation',
+                'items' => [
+                    ['icon' => 'charts', 'name' => 'Organization Scoring', 'path' => '/admin/scoring'],
+                    ['icon' => 'charts', 'name' => 'Rankings', 'path' => '/admin/scoring/rankings'],
+                ],
+            ];
+
+            $adminForms = \App\Models\Form::whereNotNull('route_name')
+                ->where('is_published', true)
+                ->whereJsonContains('sidebar_group', 'admin')
+                ->orderBy('name')
+                ->get(['id', 'name', 'route_name']);
+
+            if ($adminForms->isNotEmpty()) {
+                $menuGroups[] = [
+                    'title' => 'Organization Forms',
+                    'items' => $adminForms->map(fn ($f) => [
+                        'icon' => 'forms',
+                        'name' => $f->name,
+                        'path' => '/forms/' . $f->route_name,
+                    ])->all(),
+                ];
+            }
         }
 
-        return array_values(array_filter($menuGroups, function (array $group): bool {
-            return ! empty($group['items']);
-        }));
+        $isOfficerOrPresident = $user->officers()->whereIn('role', ['officer', 'president'])->exists();
+
+        if ($isOfficerOrPresident) {
+            $menuGroups[] = [
+                'title' => 'Organization',
+                'items' => [
+                    ['icon' => 'calendar', 'name' => 'Event Plans',          'path' => '/event-plans'],
+                    ['icon' => 'forms',    'name' => 'Joint Statement',      'path' => '/forms/joint-statement'],
+                    ['icon' => 'forms',    'name' => 'New Officer Form',      'path' => '/forms/student-leader-directory'],
+                ],
+            ];
+
+            $publishedForms = \App\Models\Form::whereNotNull('route_name')
+                ->where('is_published', true)
+                ->whereJsonLength('sidebar_group', '>', 0)
+                ->orderBy('name')
+                ->get(['id', 'name', 'route_name', 'sidebar_group']);
+
+            $grouped = $publishedForms->groupBy(fn ($f) => $f->sidebar_group[0] ?? 'president');
+
+            foreach ($grouped as $group => $groupForms) {
+                $title = match ($group) {
+                    'president' => 'Organization Forms',
+                    default => ucfirst($group) . ' Forms',
+                };
+                $menuGroups[] = [
+                    'title' => $title,
+                    'items' => $groupForms->map(fn ($f) => [
+                        'icon' => 'forms',
+                        'name' => $f->name,
+                        'path' => '/forms/' . $f->route_name,
+                    ])->all(),
+                ];
+            }
+
+        }
+
+        return $menuGroups;
+    }
+
+    private static function getAdminRequestBadges(): array
+    {
+        $approvedIds = DB::table('approvals')->select('request')->whereNotNull('request');
+
+        $promotionCount = DB::table('requests')
+            ->whereIn('action_type', [7, 11])
+            ->whereNotIn('request_id', $approvedIds)
+            ->count();
+
+        $eventPlanCount = DB::table('requests')
+            ->where('action_type', 10)
+            ->whereNotIn('request_id', $approvedIds)
+            ->count();
+
+        $projectFormId             = DB::table('forms')->where('route_name', 'project-request')->value('id');
+        $jointFormId               = DB::table('forms')->where('route_name', 'joint-statement')->value('id');
+        $accomplishmentFormId      = DB::table('forms')->where('route_name', 'accomplishment-report')->value('id');
+        $financialFormId           = DB::table('forms')->where('route_name', 'financial-report')->value('id');
+        $recognitionFormId         = DB::table('forms')->where('route_name', 'organization-recognition')->value('id');
+        $workplanFormId            = DB::table('forms')->where('route_name', 'workplan')->value('id');
+
+        $pendingByForm = function (?int $formId) use ($approvedIds): int {
+            if (! $formId) {
+                return 0;
+            }
+            return (int) DB::table('requests')
+                ->where('action_type', 3)
+                ->where('payload->form_id', $formId)
+                ->whereNotIn('request_id', $approvedIds)
+                ->count();
+        };
+
+        return [
+            'promotion'            => (int) $promotionCount,
+            'event_plans'          => (int) $eventPlanCount,
+            'project'              => $pendingByForm($projectFormId ? (int) $projectFormId : null),
+            'joint_statement'      => $pendingByForm($jointFormId ? (int) $jointFormId : null),
+            'accomplishment_report' => $pendingByForm($accomplishmentFormId ? (int) $accomplishmentFormId : null),
+            'financial_report'     => $pendingByForm($financialFormId ? (int) $financialFormId : null),
+            'recognition'          => $pendingByForm($recognitionFormId ? (int) $recognitionFormId : null),
+            'workplan'             => $pendingByForm($workplanFormId ? (int) $workplanFormId : null),
+        ];
     }
 
     public static function isActive($path)

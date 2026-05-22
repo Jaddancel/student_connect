@@ -44,18 +44,9 @@
             overflow-y: auto;
         }
 
-        .org-hero {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
         .org-avatar {
-            width: 72px;
-            height: 72px;
             border-radius: 50%;
-            border: 3px solid var(--brand-ocean);
-            box-shadow: 4px 4px 0 rgba(19, 121, 91, 0.3);
+            border: 2px solid var(--brand-ocean);
             background: #fff;
             display: flex;
             align-items: center;
@@ -63,12 +54,32 @@
             font-weight: 700;
             color: var(--brand-ocean);
             overflow: hidden;
+            flex-shrink: 0;
         }
 
         .org-avatar img {
             width: 100%;
             height: 100%;
             object-fit: cover;
+        }
+
+        /* Post card hover overlay */
+        .post-card .card-overlay {
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        .post-card:hover .card-overlay {
+            opacity: 1;
+        }
+
+        .post-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 32px rgba(19, 121, 91, 0.12);
+        }
+
+        .post-card {
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
         }
     </style>
 </head>
@@ -86,10 +97,8 @@
                 <div class="group relative">
                     <button class="inline-flex items-center gap-2 text-slate-700 transition hover:text-emerald-600"
                         type="button">
-                        Organizations
-                        <span aria-hidden="true">▾</span>
+                        Organizations <span aria-hidden="true">▾</span>
                     </button>
-
                     <div
                         class="invisible absolute right-0 top-full mt-3 w-[min(92vw,56rem)] rounded-2xl border border-slate-200 bg-white p-5 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
                         <div class="submenu-panel grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -98,8 +107,7 @@
                                     <div>
                                         <p
                                             class="mb-2 border-b border-slate-200 pb-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
-                                            {{ $typeName }}
-                                        </p>
+                                            {{ $typeName }}</p>
                                         <ul class="space-y-1 text-sm">
                                             @foreach ($organizationsByType[$typeKey] as $menuOrganization)
                                                 <li>
@@ -123,58 +131,137 @@
         </div>
     </header>
 
-    <main class="mx-auto w-full max-w-5xl px-4 pb-20 pt-8 sm:px-6 lg:px-8">
+    <main class="mx-auto w-full max-w-6xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
+
+        {{-- ── Org Hero ── --}}
         @php
             $orgInitials = collect(preg_split('/\s+/', $organization['name']))
                 ->filter(fn($word) => strlen($word) > 2)
                 ->take(2)
                 ->map(fn($word) => strtoupper($word[0]))
                 ->implode('');
+
+            $publishedPosts = $posts->filter(fn($p) => ($p->status ?? 'published') === 'published');
         @endphp
+
         <section class="rounded-3xl bg-[color:var(--brand-cream)] p-6 ring-1 ring-emerald-100 sm:p-8">
-            <div class="org-hero">
-                <div class="org-avatar">
+            <div class="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
+                <div class="org-avatar h-20 w-20 text-2xl shadow-md">
                     @if (!empty($organization['logo_url']))
-                        <img src="{{ $organization['logo_url'] }}" alt="{{ $organization['name'] }} logo">
+                        <img src="{{ $organization['logo_url'] }}" alt="{{ $organization['name'] }} logo"
+                            onerror="this.style.display='none';this.nextElementSibling.style.display='inline';" />
+                        <span style="display:none;">{{ $orgInitials }}</span>
                     @else
                         {{ $orgInitials }}
                     @endif
                 </div>
-                <div>
+                <div class="flex-1">
                     <p class="text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">Organization Page</p>
-                    <h1 class="brand-font mt-2 text-4xl text-slate-800">{{ $organization['name'] }}</h1>
-                    <p class="mt-3 text-sm text-slate-600">
-                        Latest announcements and updates from this organization.
+                    <h1 class="brand-font mt-1 text-3xl text-slate-800 sm:text-4xl">{{ $organization['name'] }}</h1>
+                    <p class="mt-2 text-sm text-slate-500">
+                        {{ $publishedPosts->count() }} published post{{ $publishedPosts->count() !== 1 ? 's' : '' }}
                     </p>
                 </div>
             </div>
+
+            {{-- Tabs --}}
+            <div class="mt-6 flex border-b border-emerald-100">
+                <button
+                    class="border-b-2 border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700">Posts</button>
+                <button
+                    class="px-4 py-2 text-sm font-semibold text-slate-400 transition hover:text-slate-600">About</button>
+                <button
+                    class="px-4 py-2 text-sm font-semibold text-slate-400 transition hover:text-slate-600">Members</button>
+                <button
+                    class="px-4 py-2 text-sm font-semibold text-slate-400 transition hover:text-slate-600">Events</button>
+            </div>
         </section>
 
-        <section class="mt-8 space-y-4">
-            @forelse ($posts as $post)
-                <article class="rounded-2xl border border-slate-200 bg-[color:var(--card-bg)] p-5 shadow-sm">
-                    @if (!empty($post->image_path))
-                        <div class="mb-4 overflow-hidden rounded-xl border border-emerald-100 bg-white shadow-sm">
-                            <img src="{{ asset($post->image_path) }}" alt="{{ $post->title }}" class="h-48 w-full object-cover"
-                                loading="lazy">
-                        </div>
-                    @endif
-                    <div class="flex items-center justify-between gap-3">
-                        <span
-                            class="text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--brand-ocean)]">{{ $post->tag ?? 'Update' }}</span>
-                        <span class="text-xs text-slate-500">
-                            {{ $post->published_at?->diffForHumans() ?? $post->created_at?->diffForHumans() }}
-                        </span>
-                    </div>
-                    <h2 class="mt-2 text-xl font-bold text-slate-800">{{ $post->title }}</h2>
-                    <p class="mt-2 text-sm text-slate-600">{{ $post->excerpt }}</p>
-                    <p class="mt-3 text-xs font-semibold text-slate-500">Organization: {{ $organization['name'] }}</p>
-                </article>
-            @empty
-                <article class="rounded-2xl border border-dashed border-emerald-200 bg-white p-6 text-center">
-                    <p class="text-sm font-semibold text-slate-500">No posts yet for this organization.</p>
-                </article>
-            @endforelse
+        {{-- ── Post Grid ── --}}
+        <section class="mt-8">
+            @if ($posts->isEmpty())
+                <div class="rounded-2xl border border-dashed border-emerald-200 bg-white p-10 text-center">
+                    <svg class="mx-auto mb-3 h-10 w-10 text-emerald-200" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                            d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12" />
+                    </svg>
+                    <p class="text-sm font-semibold text-slate-400">No posts yet for this organization.</p>
+                </div>
+            @else
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    @foreach ($posts as $post)
+                        <article
+                            class="post-card relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-[color:var(--card-bg)] shadow-sm">
+
+                            {{-- Media --}}
+                            @if ($post->video_path)
+                                <div class="aspect-video w-full overflow-hidden bg-slate-900">
+                                    <video src="{{ '/storage/' . $post->video_path }}" class="h-full w-full object-cover"
+                                        preload="metadata" controls playsinline>
+                                    </video>
+                                </div>
+                            @elseif ($post->image_path)
+                                <figure class="overflow-hidden">
+                                    <img src="{{ '/storage/' . $post->image_path }}" alt="{{ $post->title }}"
+                                        class="h-48 w-full object-cover" loading="lazy"
+                                        onerror="this.parentElement.innerHTML='<div class=\'h-48 w-full flex flex-col items-center justify-center gap-2 bg-slate-100 text-slate-300\'><svg class=\'h-8 w-8\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'currentColor\' stroke-width=\'1.5\'><rect x=\'3\' y=\'3\' width=\'18\' height=\'18\' rx=\'2\'/><circle cx=\'8.5\' cy=\'8.5\' r=\'1.5\'/><polyline points=\'21 15 16 10 5 21\'/></svg><span class=\'text-xs font-semibold uppercase tracking-wide\'>Image unavailable</span></div>';">
+                                </figure>
+                            @else
+                                {{-- Decorative gradient placeholder --}}
+                                <div
+                                    class="h-28 w-full bg-gradient-to-br from-emerald-50 via-[color:var(--brand-mint)] to-emerald-100 flex items-end px-5 pb-4">
+                                    <span
+                                        class="text-xs font-bold uppercase tracking-widest text-emerald-600 opacity-60">{{ $post->tag ?? 'Update' }}</span>
+                                </div>
+                            @endif
+
+                            {{-- Content --}}
+                            <div class="flex flex-1 flex-col p-5">
+                                {{-- Org row --}}
+                                <div class="mb-3 flex items-center gap-2">
+                                    <div class="org-avatar h-7 w-7 text-[0.6rem]">{{ $orgInitials }}</div>
+                                    <span
+                                        class="text-xs font-semibold text-slate-600">{{ $organization['name'] }}</span>
+                                    @if (!$post->video_path && !$post->image_path)
+                                    @else
+                                        <span
+                                            class="ml-auto text-xs font-bold uppercase tracking-wide text-emerald-600">{{ $post->tag ?? 'Update' }}</span>
+                                    @endif
+                                </div>
+
+                                <h2 class="text-base font-bold leading-snug text-slate-800">{{ $post->title }}</h2>
+                                <p class="mt-2 flex-1 text-sm leading-relaxed text-slate-500 line-clamp-3">
+                                    {{ $post->excerpt }}</p>
+
+                                <div class="mt-4 flex items-center justify-between text-xs text-slate-400">
+                                    @if ($post->is_featured)
+                                        <span class="inline-flex items-center gap-1 font-medium text-amber-500">
+                                            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+                                                <path
+                                                    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                            </svg>
+                                            Featured
+                                        </span>
+                                    @else
+                                        <span></span>
+                                    @endif
+                                    <time>{{ $post->published_at?->diffForHumans() ?? $post->created_at?->diffForHumans() }}</time>
+                                </div>
+                            </div>
+
+                            {{-- Hover overlay --}}
+                            <div
+                                class="card-overlay pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[2px]">
+                                <span
+                                    class="translate-y-1 rounded-full border border-emerald-200 bg-white px-5 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition group-hover:translate-y-0">
+                                    Read More
+                                </span>
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
+            @endif
         </section>
     </main>
 </body>

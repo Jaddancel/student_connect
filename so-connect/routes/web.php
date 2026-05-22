@@ -1,28 +1,57 @@
 <?php
 
+use App\Http\Controllers\AccomplishmentReportController;
+use App\Http\Controllers\ActivityRequestController;
+use App\Http\Controllers\Admin\AccomplishmentReportRequestController;
+use App\Http\Controllers\Admin\AdminAccountCreationController;
+use App\Http\Controllers\Admin\AdminOfficerCreationController;
+use App\Http\Controllers\Admin\AdminWorkplanController;
+use App\Http\Controllers\Admin\EventPlanRequestController;
+use App\Http\Controllers\Admin\FinancialReportRequestController;
+use App\Http\Controllers\Admin\JointStatementRequestController;
+use App\Http\Controllers\Admin\OrganizationScoringController;
+use App\Http\Controllers\Admin\ProjectRequestController;
+use App\Http\Controllers\Admin\RecognitionRequestController;
+use App\Http\Controllers\Admin\SemesterController;
+use App\Http\Controllers\Admin\TemplateManagerController;
+use App\Http\Controllers\Admin\WorkplanRequestController;
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\Register;
 use App\Http\Controllers\Dashboard;
+use App\Http\Controllers\DashboardSearchController;
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EventController;
-use App\Http\Controllers\FormWorkflowController;
+use App\Http\Controllers\EventPlanController;
+use App\Http\Controllers\ExportController;
+use App\Http\Controllers\FinancialReportController;
+use App\Http\Controllers\JointStatementController;
 use App\Http\Controllers\LandingPage;
 use App\Http\Controllers\MembershipRegistrationController;
 use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\OrganizationRecognitionController;
 use App\Http\Controllers\PolicySecurityRequestController;
+use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProjectRequestController as UserProjectRequestController;
+use App\Http\Controllers\PromotionRequestsPageController;
 use App\Http\Controllers\RequestDecisionController;
 use App\Http\Controllers\SidebarMenuController;
+use App\Http\Controllers\StudentLeaderDirectoryController;
 use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\WorkplanController;
 use App\Http\Resources\ActionRequestResource;
 use App\Http\Resources\ApprovalResource;
 use App\Http\Resources\UserResource;
 use App\Models\Approval;
 use App\Models\Organization;
 use App\Models\Request;
+use App\Models\Semester;
 use App\Models\User;
+use App\Models\Workplan;
 use App\Services\OrganizationAuthorizationService;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -48,11 +77,8 @@ Route::get('/dashboard/admin', function () {
     ]);
 })->middleware(['auth', 'admin'])->name('admin-dashboard');
 
-Route::get('/dashboard/officer', function () {
-    return view('pages.dashboard.officer', ['title' => 'Officer Dashboard']);
-})->middleware(['auth', 'dashboard.access:officer'])->name('officer-dashboard');
-
-Route::get('/dashboard/member', [Dashboard::class, 'memberDashboard'])->middleware('auth')->name('member-dashboard');
+Route::get('/dashboard/officer', [Dashboard::class, 'officerDashboard'])
+    ->middleware(['auth', 'dashboard.access:officer'])->name('officer-dashboard');
 
 Route::get('/dashboard', [Dashboard::class, 'viewDashboard'])->middleware('auth')->name('dashboard');
 
@@ -62,9 +88,13 @@ Route::post('/login', Login::class)->middleware('guest');
 Route::post('/signup', Register::class)->middleware('guest');
 Route::post('/logout', Logout::class)->middleware('auth');
 
+Route::post('/events', [EventController::class, 'store'])
+    ->middleware('auth')
+    ->name('events.create');
+
 // Auth pages.
 
-Route::get('/login', [UserController::class, 'loginPage'])->name('login');
+Route::get('/login', [UserController::class, 'loginPage'])->middleware('guest')->name('login');
 
 // calender pages
 Route::get('/calendar', function () {
@@ -72,14 +102,28 @@ Route::get('/calendar', function () {
     $isOfficerOrPresident = Gate::forUser($user)->allows('access-dashboard', 'officer')
         || Gate::forUser($user)->allows('access-dashboard', 'president');
     $canRequestEvent = $isOfficerOrPresident;
+    $profileRow = DB::table('users as u')
+        ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+        ->where('u.user_id', (int) $user->getKey())
+        ->select(['p.first_name', 'p.middle_name', 'p.last_name', 'p.contact_number'])
+        ->first();
+
+    $presidentName = $profileRow ? trim(implode(' ', array_filter([
+        $profileRow->first_name,
+        $profileRow->middle_name,
+        $profileRow->last_name,
+    ]))) : '';
+
+    $presidentContact = $profileRow?->contact_number ?? '';
 
     $eventRequestOrganizations = collect();
+    $lockedOrgIds = [];
 
     if ($canRequestEvent) {
         $eventRequestOrganizations = Organization::query()
-            ->join('members as m', 'm.organization', '=', 'organizations.organization_id')
+            ->join('organization_officers as oo', 'oo.organization', '=', 'organizations.organization_id')
             ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'organizations.detail')
-            ->where('m.user', (int) $user->getKey())
+            ->where('oo.user', (int) $user->getKey())
             ->orderBy('od.name')
             ->get([
                 'organizations.organization_id',
@@ -87,12 +131,27 @@ Route::get('/calendar', function () {
             ])
             ->unique('organization_id')
             ->values();
+
+        $activeSemester = Semester::currentlyActive();
+        if ($activeSemester && $eventRequestOrganizations->isNotEmpty()) {
+            $lockedOrgIds = Workplan::query()
+                ->where('semester_id', $activeSemester->semester_id)
+                ->whereIn('organization_id', $eventRequestOrganizations->pluck('organization_id'))
+                ->whereIn('status', ['finalized', 'archived'])
+                ->pluck('organization_id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+        }
     }
 
-    return view('pages.calender', [
+    return view('pages.calendar', [
         'title' => 'Calendar',
         'canRequestEvent' => $canRequestEvent,
         'eventRequestOrganizations' => $eventRequestOrganizations,
+        'lockedOrgIds' => $lockedOrgIds,
+        'presidentName' => $presidentName,
+        'presidentContact' => $presidentContact,
     ]);
 })->middleware('auth')->name('calendar');
 
@@ -129,50 +188,205 @@ Route::post('/request-forms', [SidebarMenuController::class, 'storeRoleChangeReq
     ->middleware('auth')
     ->name('request-forms.store');
 
-Route::get('/recent-event-requests', [SidebarMenuController::class, 'recentEventRequests'])
-    ->middleware('auth')
-    ->name('recent-event-requests');
-
 Route::get('/manage-organization', [OrganizationController::class, 'manage'])
     ->middleware('auth')
     ->name('manage-organization');
 
-Route::get('/forms/manage', [FormWorkflowController::class, 'manageForms'])
-    ->middleware(['auth', 'admin'])
-    ->name('forms.manage');
+// Promotion requests management (President + Admin)
+Route::get('/promotion-requests', [PromotionRequestsPageController::class, 'index'])
+    ->middleware(['auth', 'admin'])->name('promotion-requests');
+Route::get('/promotion-requests/submissions/{submissionId}/confirm', [PromotionRequestsPageController::class, 'confirmation'])
+    ->whereNumber('submissionId')->middleware(['auth', 'admin'])->name('promotion-requests.confirmation');
+Route::post('/promotion-requests/submissions/{submissionId}/confirm', [PromotionRequestsPageController::class, 'confirm'])
+    ->whereNumber('submissionId')->middleware(['auth', 'admin'])->name('promotion-requests.confirm');
 
-Route::post('/forms/manage', [FormWorkflowController::class, 'storeTemplate'])
-    ->middleware(['auth', 'admin'])
-    ->name('forms.manage.store');
+Route::middleware(['auth', 'officer.or.admin'])->group(function () {
+    Route::get('/event-plans', [EventPlanController::class, 'index'])
+        ->name('event-plans');
+    Route::post('/event-plans/{id}/create-event', [EventPlanController::class, 'storeEvent'])
+        ->whereNumber('id')
+        ->name('event-plans.create-event');
+    Route::patch('/event-plans/{id}/junk', [EventPlanController::class, 'junk'])
+        ->whereNumber('id')
+        ->name('event-plans.junk');
+    Route::patch('/event-plans/{id}/revise', [EventPlanController::class, 'revise'])
+        ->whereNumber('id')
+        ->name('event-plans.revise');
 
-Route::get('/forms/{formId}/edit', [FormWorkflowController::class, 'editForm'])
-    ->whereNumber('formId')
-    ->middleware(['auth', 'admin'])
-    ->name('forms.edit');
+    Route::get('/forms/organization-recognition', [OrganizationRecognitionController::class, 'index'])
+        ->name('organization-recognition');
+    Route::post('/forms/organization-recognition', [OrganizationRecognitionController::class, 'store'])
+        ->name('organization-recognition.store');
 
-Route::post('/forms/{formId}/edit', [FormWorkflowController::class, 'updateForm'])
-    ->whereNumber('formId')
-    ->middleware(['auth', 'admin'])
-    ->name('forms.update');
+    Route::get('/forms/accomplishment-report', [AccomplishmentReportController::class, 'index'])
+        ->name('accomplishment-report');
+    Route::post('/forms/accomplishment-report', [AccomplishmentReportController::class, 'store'])
+        ->name('accomplishment-report.store');
 
-Route::get('/forms/{formId}', [FormWorkflowController::class, 'showFormPage'])
-    ->whereNumber('formId')
+    Route::get('/forms/activity-request', [ActivityRequestController::class, 'index'])
+        ->name('activity-request');
+    Route::post('/forms/activity-request', [ActivityRequestController::class, 'store'])
+        ->name('activity-request.store');
+
+    Route::get('/forms/project-request', [UserProjectRequestController::class, 'index'])
+        ->name('project-request');
+    Route::post('/forms/project-request', [UserProjectRequestController::class, 'store'])
+        ->name('project-request.store');
+
+    Route::get('/forms/workplan/{workplan_id}', [WorkplanController::class, 'review'])
+        ->whereNumber('workplan_id')
+        ->name('workplan.review');
+    Route::post('/forms/workplan/{workplan_id}/generate', [WorkplanController::class, 'generatePdf'])
+        ->whereNumber('workplan_id')
+        ->name('workplan.generate');
+
+    Route::patch('/workplans/{workplan_id}/finalize', [EventPlanController::class, 'finalize'])
+        ->whereNumber('workplan_id')
+        ->name('workplans.finalize');
+
+    Route::get('/forms/financial-report', [FinancialReportController::class, 'index'])
+        ->name('financial-report');
+    Route::post('/forms/financial-report', [FinancialReportController::class, 'store'])
+        ->name('financial-report.store');
+});
+
+Route::get('/forms/student-leader-directory', [StudentLeaderDirectoryController::class, 'index'])
+    ->name('student-leader-directory');
+Route::post('/forms/student-leader-directory', [StudentLeaderDirectoryController::class, 'store'])
+    ->name('student-leader-directory.store');
+
+Route::get('/forms/joint-statement', [JointStatementController::class, 'index'])
+    ->middleware(['auth', 'role.officer'])->name('joint-statement');
+Route::post('/forms/joint-statement', [JointStatementController::class, 'store'])
+    ->middleware(['auth', 'role.officer'])->name('joint-statement.store');
+
+Route::middleware(['auth', 'admin'])->group(function () {
+    Route::get('/posts', [PostController::class, 'index'])->name('posts.index');
+    Route::post('/posts', [PostController::class, 'store'])->name('posts.store');
+    Route::patch('/posts/{postId}', [PostController::class, 'update'])->whereNumber('postId')->name('posts.update');
+    Route::delete('/posts/{postId}', [PostController::class, 'destroy'])->whereNumber('postId')->name('posts.destroy');
+
+    Route::get('/admin/semesters', [SemesterController::class, 'index'])->name('admin.semesters.index');
+    Route::post('/admin/semesters', [SemesterController::class, 'store'])->name('admin.semesters.store');
+    Route::get('/admin/semesters/{semester}/edit', [SemesterController::class, 'edit'])->name('admin.semesters.edit');
+    Route::patch('/admin/semesters/{semester}', [SemesterController::class, 'update'])->name('admin.semesters.update');
+
+    Route::get('/admin/event-plan-requests', [EventPlanRequestController::class, 'index'])
+        ->name('admin.event-plan-requests.index');
+    Route::post('/admin/event-plan-requests/{requestId}/decide', [EventPlanRequestController::class, 'decide'])
+        ->whereNumber('requestId')
+        ->name('admin.event-plan-requests.decide');
+
+    Route::get('/admin/project-requests', [ProjectRequestController::class, 'index'])
+        ->name('admin.project-requests.index');
+    Route::post('/admin/project-requests/{requestId}/decide', [ProjectRequestController::class, 'decide'])
+        ->whereNumber('requestId')
+        ->name('admin.project-requests.decide');
+
+    Route::get('/admin/joint-statement-requests', [JointStatementRequestController::class, 'index'])
+        ->name('admin.joint-statement-requests.index');
+    Route::post('/admin/joint-statement-requests/{requestId}/decide', [JointStatementRequestController::class, 'decide'])
+        ->whereNumber('requestId')
+        ->name('admin.joint-statement-requests.decide');
+    Route::post('/admin/joint-statement-requests/{requestId}/generate', [JointStatementRequestController::class, 'generate'])
+        ->whereNumber('requestId')
+        ->name('admin.joint-statement-requests.generate');
+
+    Route::get('/admin/workplans', [AdminWorkplanController::class, 'index'])
+        ->name('admin.workplans.index');
+
+    Route::get('/admin/accomplishment-report-requests', [AccomplishmentReportRequestController::class, 'index'])
+        ->name('admin.accomplishment-report-requests.index');
+    Route::get('/admin/accomplishment-report-requests/{requestId}', [AccomplishmentReportRequestController::class, 'show'])
+        ->whereNumber('requestId')
+        ->name('admin.accomplishment-report-requests.show');
+    Route::post('/admin/accomplishment-report-requests/{requestId}/decide', [AccomplishmentReportRequestController::class, 'decide'])
+        ->whereNumber('requestId')
+        ->name('admin.accomplishment-report-requests.decide');
+
+    Route::get('/admin/financial-report-requests', [FinancialReportRequestController::class, 'index'])
+        ->name('admin.financial-report-requests.index');
+    Route::get('/admin/financial-report-requests/{requestId}', [FinancialReportRequestController::class, 'show'])
+        ->whereNumber('requestId')
+        ->name('admin.financial-report-requests.show');
+    Route::post('/admin/financial-report-requests/{requestId}/decide', [FinancialReportRequestController::class, 'decide'])
+        ->whereNumber('requestId')
+        ->name('admin.financial-report-requests.decide');
+
+    Route::get('/admin/recognition-requests', [RecognitionRequestController::class, 'index'])
+        ->name('admin.recognition-requests.index');
+    Route::get('/admin/recognition-requests/{requestId}', [RecognitionRequestController::class, 'show'])
+        ->whereNumber('requestId')
+        ->name('admin.recognition-requests.show');
+    Route::post('/admin/recognition-requests/{requestId}/decide', [RecognitionRequestController::class, 'decide'])
+        ->whereNumber('requestId')
+        ->name('admin.recognition-requests.decide');
+
+    Route::get('/admin/workplan-requests', [WorkplanRequestController::class, 'index'])
+        ->name('admin.workplan-requests.index');
+    Route::get('/admin/workplan-requests/{requestId}', [WorkplanRequestController::class, 'show'])
+        ->whereNumber('requestId')
+        ->name('admin.workplan-requests.show');
+    Route::post('/admin/workplan-requests/{requestId}/decide', [WorkplanRequestController::class, 'decide'])
+        ->whereNumber('requestId')
+        ->name('admin.workplan-requests.decide');
+
+    Route::get('/admin/scoring', [OrganizationScoringController::class, 'index'])
+        ->name('admin.scoring.index');
+    Route::get('/admin/scoring/rankings', [OrganizationScoringController::class, 'rankings'])
+        ->name('admin.scoring.rankings');
+    Route::get('/admin/scoring/create', [OrganizationScoringController::class, 'create'])
+        ->name('admin.scoring.create');
+    Route::post('/admin/scoring', [OrganizationScoringController::class, 'store'])
+        ->name('admin.scoring.store');
+    Route::get('/admin/scoring/{id}/edit', [OrganizationScoringController::class, 'edit'])
+        ->whereNumber('id')
+        ->name('admin.scoring.edit');
+    Route::put('/admin/scoring/{id}', [OrganizationScoringController::class, 'update'])
+        ->whereNumber('id')
+        ->name('admin.scoring.update');
+
+    Route::get('/admin/export', [ExportController::class, 'adminIndex'])
+        ->name('admin.export');
+    Route::get('/admin/export/org-data/json', [ExportController::class, 'adminExportOrgDataJson'])
+        ->name('admin.export.org-data.json');
+    Route::get('/admin/export/org-data/print', [ExportController::class, 'adminExportOrgDataPrint'])
+        ->name('admin.export.org-data.print');
+    Route::get('/admin/export/request-records/json', [ExportController::class, 'adminExportRequestRecordsJson'])
+        ->name('admin.export.request-records.json');
+    Route::get('/admin/export/request-records/print', [ExportController::class, 'adminExportRequestRecordsPrint'])
+        ->name('admin.export.request-records.print');
+
+    Route::get('/admin/officers/create', [AdminOfficerCreationController::class, 'create'])
+        ->name('admin.officers.create');
+    Route::post('/admin/officers/create', [AdminOfficerCreationController::class, 'store'])
+        ->name('admin.officers.store');
+});
+
+Route::get('/documents', [DocumentController::class, 'index'])
     ->middleware('auth')
-    ->name('forms.show');
+    ->name('documents.index');
 
-Route::post('/forms/{formId}', [FormWorkflowController::class, 'submitFormPage'])
-    ->whereNumber('formId')
-    ->middleware('auth')
-    ->name('forms.submit');
+Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
+    Route::get('/admin/templates', [TemplateManagerController::class, 'index'])
+        ->name('admin.templates.index');
+    Route::get('/admin/templates/{form}/upload', [TemplateManagerController::class, 'showUpload'])
+        ->name('admin.templates.upload');
+    Route::post('/admin/templates/{form}/upload', [TemplateManagerController::class, 'storeUpload'])
+        ->name('admin.templates.store');
+    Route::get('/admin/templates/{template}/verify', [TemplateManagerController::class, 'showVerify'])
+        ->name('admin.templates.verify');
+    Route::post('/admin/templates/{template}/confirm', [TemplateManagerController::class, 'confirm'])
+        ->name('admin.templates.confirm');
+    Route::delete('/admin/templates/{template}', [TemplateManagerController::class, 'destroy'])
+        ->name('admin.templates.destroy');
+    Route::get('/admin/templates/field-reference', [TemplateManagerController::class, 'fieldReference'])
+        ->name('admin.templates.field-reference');
+});
 
-Route::get('/generated-documents', [FormWorkflowController::class, 'generatedDocuments'])
-    ->middleware('auth')
-    ->name('generated-documents');
-
-Route::get('/generated-documents/{generatedDocumentId}/download', [FormWorkflowController::class, 'downloadGenerated'])
-    ->whereNumber('generatedDocumentId')
-    ->middleware('auth')
-    ->name('generated-documents.download');
+Route::get('/superadmin/dashboard', [SuperAdminController::class, 'monitoringDashboard'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.dashboard');
 
 Route::get('/superadmin/profile-requests', [SuperAdminController::class, 'profileRequests'])
     ->middleware(['auth', 'superadmin'])
@@ -212,6 +426,39 @@ Route::post('/superadmin/profile-requests/{requestId}/decision', [SuperAdminCont
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.profile-requests.decision');
 
+Route::post('/superadmin/officer-account-requests/{requestId}/decision', [SuperAdminController::class, 'decideOfficerAccountRequest'])
+    ->whereNumber('requestId')
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.officer-account-requests.decision');
+
+Route::get('/superadmin/export', [ExportController::class, 'index'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export');
+
+Route::get('/superadmin/export/org-data/json', [ExportController::class, 'exportOrgDataJson'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export.org-data.json');
+
+Route::get('/superadmin/export/org-data/print', [ExportController::class, 'exportOrgDataPrint'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export.org-data.print');
+
+Route::get('/superadmin/export/request-records/json', [ExportController::class, 'exportRequestRecordsJson'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export.request-records.json');
+
+Route::get('/superadmin/export/request-records/print', [ExportController::class, 'exportRequestRecordsPrint'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export.request-records.print');
+
+Route::get('/superadmin/export/login-logs/json', [ExportController::class, 'exportLoginLogsJson'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export.login-logs.json');
+
+Route::get('/superadmin/export/login-logs/print', [ExportController::class, 'exportLoginLogsPrint'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export.login-logs.print');
+
 Route::get('/superadmin/data-sync', [SuperAdminController::class, 'dataSyncPage'])
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.data-sync');
@@ -228,10 +475,43 @@ Route::post('/superadmin/data-sync/import-api', [SuperAdminController::class, 'i
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.data-sync.import-api');
 
+Route::get('/superadmin/accounts/create', [AdminAccountCreationController::class, 'create'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.accounts.create');
+
+Route::post('/superadmin/accounts/create', [AdminAccountCreationController::class, 'store'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.accounts.store');
+
+Route::get('/superadmin/scoring/audit', [OrganizationScoringController::class, 'audit'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('admin.scoring.audit');
+
+Route::get('/superadmin/scoring/audit/print', [OrganizationScoringController::class, 'auditPrint'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('admin.scoring.audit.print');
+
+Route::get('/superadmin/profiles', [SuperAdminController::class, 'profiles'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.profiles');
+
+Route::get('/superadmin/profiles/{id}/edit', [SuperAdminController::class, 'editProfile'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.profiles.edit');
+
+Route::patch('/superadmin/profiles/{id}', [SuperAdminController::class, 'updateProfile'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.profiles.update');
+
 // profile pages
 Route::get('/profile', function () {
+    $user = auth()->user();
+    if ($user && ! $user->profile()->exists()) {
+        return redirect()->route('profile.create');
+    }
+
     return view('pages.profile', ['title' => 'Profile']);
-})->name('profile');
+})->middleware('auth')->name('profile');
 
 Route::get('/profile/create', [ProfileController::class, 'profileForm'])->middleware('auth')->name('profile.create');
 Route::post('/profile/create', [ProfileController::class, 'store'])->middleware('auth')->name('profile.store');
@@ -271,9 +551,8 @@ Route::get('/signin', function () {
     return view('pages.auth.signin', ['title' => 'Sign In']);
 })->name('signin');
 
-Route::get('/signup', function () {
-    return view('pages.auth.signup', ['title' => 'Sign Up']);
-})->middleware('guest')->name('signup');
+Route::get('/signup', [StudentLeaderDirectoryController::class, 'index'])
+    ->middleware('guest')->name('signup');
 
 // ui elements pages
 Route::get('/alerts', function () {
@@ -379,9 +658,19 @@ Route::post('/api/requests/{requestId}/decision', [RequestDecisionController::cl
     ->whereNumber('requestId')
     ->middleware('auth');
 
-Route::post('/api/events/requests', [EventController::class, 'storeEventRequest'])
+Route::post('/api/requests/{requestId}/approve-with-signatures', [RequestDecisionController::class, 'approveWithSignatures'])
+    ->whereNumber('requestId')
+    ->middleware('auth')
+    ->name('requests.approve-with-signatures');
+
+Route::post('/api/events/requests', [EventController::class, 'storeEventPlanRequest'])
     ->middleware('auth')
     ->name('api.events.requests.store');
+
+Route::get('/api/organizations/{organizationId}/officers', [EventController::class, 'organizationOfficers'])
+    ->whereNumber('organizationId')
+    ->middleware('auth')
+    ->name('api.organizations.officers');
 
 Route::get('/api/organizations', function () {
     $ids = collect(explode(',', (string) request()->query('ids', '')))
@@ -527,7 +816,11 @@ Route::get('/api/events/calendar', [EventController::class, 'calendarEvents'])
     ->middleware('auth')
     ->name('api.events.calendar');
 
+Route::get('/api/dashboard-search', [DashboardSearchController::class, 'index'])
+    ->middleware('auth')
+    ->name('api.dashboard-search');
+
 Route::get('/api/superadmin/data/export', [SuperAdminController::class, 'apiExport']);
 
 Route::post('/api/superadmin/data/import', [SuperAdminController::class, 'apiImport'])
-    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
+    ->withoutMiddleware([VerifyCsrfToken::class]);

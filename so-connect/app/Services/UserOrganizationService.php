@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Officer;
 use App\Models\Organization;
 use App\Models\Request as RequestModel;
 use App\Models\User;
@@ -13,9 +14,10 @@ class UserOrganizationService
     {
         $userId = (int) $user->getKey();
 
-        $approvedMemberships = $user
-            ->member()
-            ->with('organizationrelation.organizationDetail')
+        $approvedMemberships = Officer::query()
+            ->with('organization.detail')
+            ->where('user', $userId)
+            ->whereNotNull('approval')
             ->get();
 
         $approvedOrganizationIds = $approvedMemberships
@@ -24,13 +26,13 @@ class UserOrganizationService
             ->all();
 
         $approvedEntries = $approvedMemberships
-            ->map(function ($member) {
+            ->map(function (Officer $officer) {
                 return (object) [
-                    'organization_id' => (int) $member->organization,
-                    'organization_name' => $member->organizationrelation?->organizationDetail?->organization_name ?? 'Unknown Organization',
-                    'role_name' => $member->role ?? 'Member',
-                    'member_since' => $member->member_since,
-                    'status' => $member->approval_id ? 'Approved' : 'Pending',
+                    'organization_id' => (int) $officer->organization,
+                    'organization_name' => $officer->organization?->detail?->name ?? 'Unknown Organization',
+                    'role_name' => $officer->role ?? 'Member',
+                    'member_since' => $officer->member_since,
+                    'status' => 'Approved',
                 ];
             });
 

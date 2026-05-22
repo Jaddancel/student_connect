@@ -49,9 +49,9 @@
             </button>
 
             <!-- Logo (mobile only) -->
-            <a href="/" class="xl:hidden">
-                <img class="dark:hidden" src="/images/logo/logo.svg" alt="Logo" />
-                <img class="hidden dark:block" src="/images/logo/logo-dark.svg" alt="Logo" />
+            <a href="{{ route('dashboard') }}" class="xl:hidden">
+                <img class="dark:hidden" src="/images/logo/logo.svg" alt="Logo" width="120" height="32" />
+                <img class="hidden dark:block" src="/images/logo/logo-dark.svg" alt="Logo" width="120" height="32" />
             </a>
 
             <!-- Application Menu Toggle (mobile only) -->
@@ -66,27 +66,157 @@
             </button>
 
             <!-- Search Bar (desktop only) -->
-            <div class="hidden xl:block">
-                <form>
-                    <div class="relative">
-                        <span class="absolute -translate-y-1/2 pointer-events-none left-4 top-1/2">
-                            <!-- Search Icon -->
-                            <svg class="fill-gray-500 dark:fill-gray-400" width="20" height="20"
-                                viewBox="0 0 20 20" fill="none">
-                                <path fill-rule="evenodd" clip-rule="evenodd"
-                                    d="M3.04175 9.37363C3.04175 5.87693 5.87711 3.04199 9.37508 3.04199C12.8731 3.04199 15.7084 5.87693 15.7084 9.37363C15.7084 12.8703 12.8731 15.7053 9.37508 15.7053C5.87711 15.7053 3.04175 12.8703 3.04175 9.37363ZM9.37508 1.54199C5.04902 1.54199 1.54175 5.04817 1.54175 9.37363C1.54175 13.6991 5.04902 17.2053 9.37508 17.2053C11.2674 17.2053 13.003 16.5344 14.357 15.4176L17.177 18.238C17.4699 18.5309 17.9448 18.5309 18.2377 18.238C18.5306 17.9451 18.5306 17.4703 18.2377 17.1774L15.418 14.3573C16.5365 13.0033 17.2084 11.2669 17.2084 9.37363C17.2084 5.04817 13.7011 1.54199 9.37508 1.54199Z"
-                                    fill="" />
-                            </svg>
-                        </span>
-                        <input type="text" placeholder="Search or type command..."
-                            class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-white/3 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]" />
-                        <button
-                            class="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-[7px] py-[4.5px] text-xs -tracking-[0.2px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
-                            <span> ⌘ </span>
-                            <span> K </span>
-                        </button>
+            <div class="hidden xl:block"
+                x-data="{
+                    query: '',
+                    results: [],
+                    open: false,
+                    loading: false,
+                    activeIndex: -1,
+                    async search() {
+                        if (this.query.trim().length < 1) {
+                            this.results = [];
+                            this.open = false;
+                            return;
+                        }
+                        this.loading = true;
+                        try {
+                            const res = await fetch(`/api/dashboard-search?q=${encodeURIComponent(this.query)}`);
+                            this.results = await res.json();
+                            this.open = this.results.length > 0;
+                            this.activeIndex = -1;
+                        } catch (e) {
+                            this.results = [];
+                        }
+                        this.loading = false;
+                    },
+                    navigate(path) {
+                        this.open = false;
+                        this.query = '';
+                        this.results = [];
+                        window.location = path;
+                    },
+                    moveDown() {
+                        if (!this.open) return;
+                        this.activeIndex = (this.activeIndex + 1) % this.results.length;
+                    },
+                    moveUp() {
+                        if (!this.open) return;
+                        this.activeIndex = this.activeIndex <= 0 ? this.results.length - 1 : this.activeIndex - 1;
+                    },
+                    select() {
+                        if (this.activeIndex >= 0 && this.results[this.activeIndex]) {
+                            this.navigate(this.results[this.activeIndex].path);
+                        }
+                    },
+                    close() {
+                        this.open = false;
+                        this.activeIndex = -1;
+                    },
+                    categoryColor(cat) {
+                        const map = {
+                            'General': 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
+                            'Account': 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',
+                            'Forms': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
+                            'Admin': 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+                            'Superadmin': 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300',
+                        };
+                        return map[cat] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
+                    }
+                }"
+                @keydown.window.meta.k.prevent="$refs.searchInput.focus()"
+                @click.outside="close()">
+                <div class="relative">
+                    <span class="absolute -translate-y-1/2 pointer-events-none left-4 top-1/2 z-10">
+                        <svg class="fill-gray-500 dark:fill-gray-400" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path fill-rule="evenodd" clip-rule="evenodd"
+                                d="M3.04175 9.37363C3.04175 5.87693 5.87711 3.04199 9.37508 3.04199C12.8731 3.04199 15.7084 5.87693 15.7084 9.37363C15.7084 12.8703 12.8731 15.7053 9.37508 15.7053C5.87711 15.7053 3.04175 12.8703 3.04175 9.37363ZM9.37508 1.54199C5.04902 1.54199 1.54175 5.04817 1.54175 9.37363C1.54175 13.6991 5.04902 17.2053 9.37508 17.2053C11.2674 17.2053 13.003 16.5344 14.357 15.4176L17.177 18.238C17.4699 18.5309 17.9448 18.5309 18.2377 18.238C18.5306 17.9451 18.5306 17.4703 18.2377 17.1774L15.418 14.3573C16.5365 13.0033 17.2084 11.2669 17.2084 9.37363C17.2084 5.04817 13.7011 1.54199 9.37508 1.54199Z"
+                                fill="" />
+                        </svg>
+                    </span>
+
+                    <input
+                        x-ref="searchInput"
+                        type="text"
+                        x-model="query"
+                        @input.debounce.250ms="search()"
+                        @keydown.arrow-down.prevent="moveDown()"
+                        @keydown.arrow-up.prevent="moveUp()"
+                        @keydown.enter.prevent="select()"
+                        @keydown.escape="close()"
+                        placeholder="Search or type command..."
+                        autocomplete="off"
+                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-white/3 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]" />
+
+                    {{-- Loading spinner --}}
+                    <span x-show="loading" class="absolute right-14 top-1/2 -translate-y-1/2">
+                        <svg class="h-4 w-4 animate-spin text-brand-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                        </svg>
+                    </span>
+
+                    <div class="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-[7px] py-[4.5px] text-xs -tracking-[0.2px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400 pointer-events-none">
+                        <span> ⌘ </span>
+                        <span> K </span>
                     </div>
-                </form>
+
+                    {{-- Results Dropdown --}}
+                    <div
+                        x-show="open && results.length > 0"
+                        x-transition:enter="transition ease-out duration-150"
+                        x-transition:enter-start="opacity-0 translate-y-1"
+                        x-transition:enter-end="opacity-100 translate-y-0"
+                        x-transition:leave="transition ease-in duration-100"
+                        x-transition:leave-start="opacity-100 translate-y-0"
+                        x-transition:leave-end="opacity-0 translate-y-1"
+                        class="absolute left-0 top-full z-[99999] mt-2 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-800 dark:bg-gray-900"
+                        style="display: none;">
+
+                        <div class="max-h-80 overflow-y-auto py-2">
+                            <template x-for="(item, index) in results" :key="item.path">
+                                <button
+                                    type="button"
+                                    @click="navigate(item.path)"
+                                    @mouseenter="activeIndex = index"
+                                    :class="activeIndex === index
+                                        ? 'bg-brand-50 dark:bg-brand-500/10'
+                                        : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'"
+                                    class="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors">
+
+                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor"/>
+                                        </svg>
+                                    </div>
+
+                                    <div class="min-w-0 flex-1">
+                                        <p class="truncate text-sm font-medium text-gray-800 dark:text-white/90" x-text="item.name"></p>
+                                        <p class="truncate text-xs text-gray-400 dark:text-gray-500" x-text="item.path"></p>
+                                    </div>
+
+                                    <span
+                                        :class="categoryColor(item.category)"
+                                        class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
+                                        x-text="item.category">
+                                    </span>
+                                </button>
+                            </template>
+                        </div>
+
+                        <div class="border-t border-gray-100 px-4 py-2 dark:border-gray-800">
+                            <p class="text-xs text-gray-400 dark:text-gray-500">
+                                <kbd class="rounded border border-gray-200 px-1 dark:border-gray-700">↑</kbd>
+                                <kbd class="rounded border border-gray-200 px-1 dark:border-gray-700">↓</kbd>
+                                navigate &nbsp;
+                                <kbd class="rounded border border-gray-200 px-1 dark:border-gray-700">↵</kbd>
+                                open &nbsp;
+                                <kbd class="rounded border border-gray-200 px-1 dark:border-gray-700">esc</kbd>
+                                close
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 

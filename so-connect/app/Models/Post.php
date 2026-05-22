@@ -20,8 +20,10 @@ class Post extends Model
         'body',
         'tag',
         'image_path',
+        'video_path',
         'is_featured',
         'published_at',
+        'status',
     ];
 
     protected $casts = [

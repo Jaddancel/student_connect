@@ -21,6 +21,13 @@ class ProfileController extends Controller
             'fname' => ['required', 'string', 'max:255'],
             'lname' => ['required', 'string', 'max:255'],
             'mname' => ['nullable', 'string', 'max:255'],
+            'contact_number' => ['nullable', 'string', 'digits:10', 'starts_with:9'],
+            'age' => ['nullable', 'integer', 'min:1', 'max:120'],
+            'sex' => ['nullable', 'in:Male,Female'],
+            'religion' => ['nullable', 'string', 'max:255'],
+            'nationality' => ['nullable', 'string', 'max:255'],
+            'birthday' => ['nullable', 'date', 'before:today'],
+            'course_year' => ['nullable', 'string', 'max:255'],
         ]);
 
         $user = $request->user();
@@ -73,6 +80,13 @@ class ProfileController extends Controller
                 'first_name' => $validated['fname'],
                 'last_name' => $validated['lname'],
                 'middle_name' => $validated['mname'] ?? '',
+                'contact_number' => $validated['contact_number'] ?? null,
+                'age' => $validated['age'] ?? null,
+                'sex' => $validated['sex'] ?? null,
+                'religion' => $validated['religion'] ?? null,
+                'nationality' => $validated['nationality'] ?? null,
+                'birthday' => $validated['birthday'] ?? null,
+                'course_year' => $validated['course_year'] ?? null,
                 'suggested_profile_id' => (int) ($closestProfile?->getKey() ?? 0),
             ],
             'user' => (int) $user->getKey(),
