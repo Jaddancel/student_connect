@@ -15,7 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToGroup('web', \App\Http\Middleware\PreventBackHistory::class);
 
         $middleware->redirectGuestsTo(fn () => route('home'));
-        $middleware->redirectUsersTo(fn () => route('home'));
+        $middleware->redirectUsersTo(fn () => route('dashboard'));
 
         $middleware->alias([
             'dashboard.access'   => \App\Http\Middleware\EnsureDashboardAccess::class,

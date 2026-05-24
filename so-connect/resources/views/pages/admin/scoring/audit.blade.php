@@ -26,6 +26,10 @@
                    class="ml-auto h-9 rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-1.5 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
                     Export PDF
                 </a>
+                <a href="{{ route('admin.scoring.audit.xlsx', $semesterFilter ? ['semester_id' => $semesterFilter] : []) }}"
+                   class="h-9 rounded-lg bg-green-500 px-4 text-sm font-medium text-white hover:bg-green-600 flex items-center gap-1.5">
+                    Download Excel
+                </a>
             </form>
         </div>
 

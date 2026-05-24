@@ -6,8 +6,6 @@ use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Request as ActionRequest;
 use App\Models\Semester;
-use App\Models\Template;
-use App\Services\DocumentGenerationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -33,7 +31,7 @@ class StudentLeaderDirectoryController extends Controller
         ]);
     }
 
-    public function store(Request $request, DocumentGenerationService $documentGenerationService)
+    public function store(Request $request)
     {
         $user   = $request->user();
         $userId = $user ? (int) $user->getKey() : 0;
@@ -168,16 +166,8 @@ class StudentLeaderDirectoryController extends Controller
             'id_photo_back'         => $idPhotoBackPath,
         ];
 
-        // Create the promotion request (action_type=11) for admin approval
-        ActionRequest::query()->create([
-            'action'       => "0|{$organizationId}|new_officer",
-            'action_type'  => 11,
-            'payload'      => $payload,
-            'user'         => $userId > 0 ? $userId : null,
-            'requested_at' => now(),
-        ]);
-
-        // Also create a FormSubmission for document generation
+        // Create the FormSubmission first so its ID can be stored in the request payload
+        $submissionId = null;
         $form = Form::query()->where('route_name', 'student-leader-directory')->first();
 
         if ($form) {
@@ -194,27 +184,17 @@ class StudentLeaderDirectoryController extends Controller
                     ]))),
                 ]),
             ]);
-
-            $template = Template::query()
-                ->where('form_id', $form->id)
-                ->where('is_active', true)
-                ->orderByDesc('version')
-                ->with(['mappings.field'])
-                ->first();
-
-            if ($template) {
-                try {
-                    $documentGenerationService->generateFromSubmission(
-                        $submission->fresh(['form']),
-                        $template,
-                        null,
-                        $userId > 0 ? $userId : null,
-                    );
-                } catch (\Throwable) {
-                    // Document generation failure does not block the promotion request
-                }
-            }
+            $submissionId = (int) $submission->getKey();
         }
+
+        // Create the promotion request (action_type=11) for admin approval
+        ActionRequest::query()->create([
+            'action'       => "0|{$organizationId}|new_officer",
+            'action_type'  => 11,
+            'payload'      => array_merge($payload, ['form_submission_id' => $submissionId]),
+            'user'         => $userId > 0 ? $userId : null,
+            'requested_at' => now(),
+        ]);
 
         return redirect()->route('signup')
             ->with('success', 'Your directory submission has been received. Awaiting admin approval.');

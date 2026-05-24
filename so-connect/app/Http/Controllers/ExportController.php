@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\LoginLogsExport;
+use App\Exports\OrgDataExport;
+use App\Exports\RequestRecordsExport;
 use App\Models\Approval;
 use App\Models\LoginLog;
 use App\Models\Organization;
 use App\Models\Request as ActionRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ExportController extends Controller
 {
@@ -177,6 +181,59 @@ class ExportController extends Controller
         return view('exports.request-records-print', array_merge($records, compact('orgName')));
     }
 
+    public function exportOrgDataXlsx(Request $request)
+    {
+        $orgId = $request->query('org_id');
+        $organizations = $this->loadOrganizations($orgId);
+        $data = $this->buildOrgDataArray($organizations);
+
+        $filename = $orgId ? "org-{$orgId}-data-export.xlsx" : 'org-data-export.xlsx';
+
+        return Excel::download(new OrgDataExport(collect($data)), $filename);
+    }
+
+    public function exportRequestRecordsXlsx(Request $request)
+    {
+        $orgId = $request->query('org_id');
+        $records = $this->getRequestRecords($orgId);
+
+        $filename = $orgId ? "org-{$orgId}-request-records-export.xlsx" : 'request-records-export.xlsx';
+
+        return Excel::download(
+            new RequestRecordsExport($records['accepted'], $records['pending'], $records['rejected']),
+            $filename
+        );
+    }
+
+    public function exportLoginLogsXlsx(Request $request)
+    {
+        return Excel::download(new LoginLogsExport($this->getLoginLogs()), 'login-activity-export.xlsx');
+    }
+
+    public function adminExportOrgDataXlsx(Request $request)
+    {
+        $orgId = $request->query('org_id');
+        $organizations = $this->loadOrganizations($orgId);
+        $data = $this->buildOrgDataArray($organizations);
+
+        $filename = $orgId ? "org-{$orgId}-data-export.xlsx" : 'org-data-export.xlsx';
+
+        return Excel::download(new OrgDataExport(collect($data)), $filename);
+    }
+
+    public function adminExportRequestRecordsXlsx(Request $request)
+    {
+        $orgId = $request->query('org_id');
+        $records = $this->getRequestRecords($orgId, true);
+
+        $filename = $orgId ? "org-{$orgId}-request-records-export.xlsx" : 'request-records-export.xlsx';
+
+        return Excel::download(
+            new RequestRecordsExport($records['accepted'], $records['pending'], $records['rejected']),
+            $filename
+        );
+    }
+
     public function exportLoginLogsJson(Request $request): JsonResponse
     {
         return response()->json($this->getLoginLogs())
@@ -188,6 +245,35 @@ class ExportController extends Controller
         $logs = $this->getLoginLogs();
 
         return view('exports.login-logs-print', compact('logs'));
+    }
+
+    private function buildOrgDataArray($organizations): array
+    {
+        return $organizations->map(function (Organization $org) {
+            $detail   = $org->getRelation('detail');
+            $officers = $org->officersOfThisOrganization->map(function ($o) {
+                $userModel = $o->getRelations()['user'] ?? null;
+                $profile   = $userModel?->getRelations()['profile'] ?? null;
+                $name      = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? '')) ?: null;
+
+                return [
+                    'org_officer_id' => $o->org_officer_id,
+                    'user_id'        => $o->getAttributes()['user'] ?? null,
+                    'name'           => $name,
+                    'role'           => $o->role,
+                    'position'       => $o->position ?? null,
+                    'member_since'   => optional($o->member_since)->toDateString(),
+                ];
+            })->all();
+
+            return [
+                'organization_id'   => $org->organization_id,
+                'name'              => $detail?->name,
+                'initials'          => $detail?->initials,
+                'organization_type' => $org->organization_type,
+                'officers'          => $officers,
+            ];
+        })->all();
     }
 
     private function getLoginLogs(): array

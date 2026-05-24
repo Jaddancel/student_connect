@@ -15,6 +15,7 @@ use App\Models\Profile;
 use App\Models\Profile\profileAddress;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
+use App\Models\Template;
 use App\Models\User;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
@@ -198,8 +199,9 @@ class RequestDecisionController extends Controller
 
         if ($this->isNewOfficerRequest($actionType) && $validated['decision'] === 'approve') {
             $payload = (array) ($actionRequest->payload ?? []);
+            $newUserId = 0;
 
-            DB::transaction(function () use ($payload, $approval) {
+            DB::transaction(function () use ($payload, $approval, &$newUserId) {
                 $addr = profileAddress::create([
                     'country'  => 'Philippines',
                     'province' => '',
@@ -255,6 +257,8 @@ class RequestDecisionController extends Controller
                         'reassigned_at' => now(),
                     ]);
                 }
+
+                $newUserId = (int) $newUser->user_id;
             });
 
             // Send activation email after the transaction completes
@@ -279,6 +283,37 @@ class RequestDecisionController extends Controller
                     ));
                 } catch (\Throwable) {
                     // Email failure does not roll back the approval
+                }
+            }
+
+            // Generate the Directory of Student Leader PDF now that the officer account exists
+            $formSubmissionId = (int) ($payload['form_submission_id'] ?? 0);
+            if ($formSubmissionId > 0 && $newUserId > 0) {
+                $submission = FormSubmission::query()->find($formSubmissionId);
+                if ($submission) {
+                    $submission->update(['submitted_by' => $newUserId]);
+                    $dirForm = Form::query()->where('route_name', 'student-leader-directory')->first();
+                    $dirTemplate = $dirForm
+                        ? Template::query()
+                            ->where('form_id', $dirForm->id)
+                            ->where('is_active', true)
+                            ->orderByDesc('version')
+                            ->with(['mappings.field'])
+                            ->first()
+                        : null;
+                    if ($dirTemplate) {
+                        try {
+                            $generatedDoc = $documentGenerationService->generateFromSubmission(
+                                $submission->fresh(['form']),
+                                $dirTemplate,
+                                (int) $actionRequest->getKey(),
+                                (int) $user->getKey(),
+                            );
+                            $generatedDoc->update(['approval_id' => (int) $approval->approval_id]);
+                        } catch (\Throwable) {
+                            // Document generation failure does not roll back the approval
+                        }
+                    }
                 }
             }
         }

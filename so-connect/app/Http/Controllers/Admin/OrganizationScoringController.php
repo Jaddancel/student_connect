@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\OrganizationType;
+use App\Exports\ScoringAuditExport;
 use App\Helpers\FormTemplateHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
@@ -13,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Facades\Excel;
 
 class OrganizationScoringController extends Controller
 {
@@ -212,7 +214,27 @@ class OrganizationScoringController extends Controller
         return $this->buildAuditView($request, 'exports.scoring-audit-print');
     }
 
+    public function auditXlsx(Request $request)
+    {
+        $data = $this->buildAuditData($request);
+
+        return Excel::download(new ScoringAuditExport($data['rows']), 'scoring-audit-export.xlsx');
+    }
+
     private function buildAuditView(Request $request, string $view)
+    {
+        $data = $this->buildAuditData($request);
+
+        return view($view, [
+            'title'          => 'Scoring Audit Log',
+            'rows'           => $data['rows'],
+            'semesters'      => $data['semesters'],
+            'semesterFilter' => $data['semesterFilter'],
+            'fieldLabels'    => $data['manualFields'],
+        ]);
+    }
+
+    private function buildAuditData(Request $request): array
     {
         $manualFields = [
             'cat6_leadership' => 'Leadership Training',
@@ -264,13 +286,7 @@ class OrganizationScoringController extends Controller
             ];
         });
 
-        return view($view, [
-            'title'          => 'Scoring Audit Log',
-            'rows'           => $rows,
-            'semesters'      => $semesters,
-            'semesterFilter' => $semesterFilter,
-            'fieldLabels'    => $manualFields,
-        ]);
+        return compact('rows', 'semesters', 'semesterFilter', 'manualFields');
     }
 
     public function rankings(Request $request)

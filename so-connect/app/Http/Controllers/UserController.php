@@ -6,6 +6,6 @@ class UserController extends Controller
 {
     public function loginPage()
     {
-        return view('pages.auth.signin');
+        return redirect()->route('home');
     }
 }

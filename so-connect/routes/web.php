@@ -110,7 +110,7 @@ Route::post('/events', [EventController::class, 'store'])
 
 // Auth pages.
 
-Route::get('/login', [UserController::class, 'loginPage'])->middleware('guest')->name('login');
+Route::get('/login', fn () => redirect()->route('home'))->name('login');
 
 // calender pages
 Route::get('/calendar', function () {
@@ -401,6 +401,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->name('admin.export.request-records.json');
     Route::get('/admin/export/request-records/print', [ExportController::class, 'adminExportRequestRecordsPrint'])
         ->name('admin.export.request-records.print');
+    Route::get('/admin/export/org-data/xlsx', [ExportController::class, 'adminExportOrgDataXlsx'])
+        ->name('admin.export.org-data.xlsx');
+    Route::get('/admin/export/request-records/xlsx', [ExportController::class, 'adminExportRequestRecordsXlsx'])
+        ->name('admin.export.request-records.xlsx');
 
     Route::get('/admin/officers/create', [AdminOfficerCreationController::class, 'create'])
         ->name('admin.officers.create');
@@ -496,6 +500,18 @@ Route::get('/superadmin/export/login-logs/print', [ExportController::class, 'exp
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.export.login-logs.print');
 
+Route::get('/superadmin/export/org-data/xlsx', [ExportController::class, 'exportOrgDataXlsx'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export.org-data.xlsx');
+
+Route::get('/superadmin/export/request-records/xlsx', [ExportController::class, 'exportRequestRecordsXlsx'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export.request-records.xlsx');
+
+Route::get('/superadmin/export/login-logs/xlsx', [ExportController::class, 'exportLoginLogsXlsx'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.export.login-logs.xlsx');
+
 Route::get('/superadmin/data-sync', [SuperAdminController::class, 'dataSyncPage'])
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.data-sync');
@@ -527,6 +543,10 @@ Route::get('/superadmin/scoring/audit', [OrganizationScoringController::class, '
 Route::get('/superadmin/scoring/audit/print', [OrganizationScoringController::class, 'auditPrint'])
     ->middleware(['auth', 'superadmin'])
     ->name('admin.scoring.audit.print');
+
+Route::get('/superadmin/scoring/audit/xlsx', [OrganizationScoringController::class, 'auditXlsx'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('admin.scoring.audit.xlsx');
 
 Route::get('/superadmin/profiles', [SuperAdminController::class, 'profiles'])
     ->middleware(['auth', 'superadmin'])
@@ -584,9 +604,7 @@ Route::get('/bar-chart', function () {
 })->name('bar-chart');
 
 // authentication pages
-Route::get('/signin', function () {
-    return view('pages.auth.signin', ['title' => 'Sign In']);
-})->middleware('guest')->name('signin');
+Route::get('/signin', fn () => redirect()->route('home'))->name('signin');
 
 Route::get('/signup', [StudentLeaderDirectoryController::class, 'index'])
     ->middleware('guest')->name('signup');
