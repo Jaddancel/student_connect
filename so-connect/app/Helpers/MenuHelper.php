@@ -85,7 +85,7 @@ class MenuHelper
             $menuGroups[] = [
                 'title' => 'Requests',
                 'items' => [
-                    ['icon' => 'task',  'name' => 'Event Plan Requests',       'path' => '/admin/event-plan-requests',             'badge' => $badges['event_plans']],
+                    ['icon' => 'task',  'name' => 'Activity Requests',          'path' => '/admin/event-plan-requests',             'badge' => $badges['event_plans']],
                     ['icon' => 'forms', 'name' => 'Project Requests',          'path' => '/admin/project-requests',                'badge' => $badges['project']],
                     ['icon' => 'forms', 'name' => 'Joint Statements',          'path' => '/admin/joint-statement-requests',        'badge' => $badges['joint_statement']],
                     ['icon' => 'forms', 'name' => 'Accomplishment Reports',    'path' => '/admin/accomplishment-report-requests',  'badge' => $badges['accomplishment_report']],

@@ -45,7 +45,10 @@ class EventPlanController extends Controller
         $plans = $query->orderByDesc('created_at')->get();
 
         $grouped = [
-            'pending' => $plans->where('status', 'pending')->values(),
+            // Initial plans awaiting workplan approval (no parent)
+            'in_workplan' => $plans->where('status', 'pending')->whereNull('parent_plan_id')->values(),
+            // Event item requests awaiting individual admin review (have a parent)
+            'pending' => $plans->where('status', 'pending')->whereNotNull('parent_plan_id')->values(),
             'approved' => $plans->where('status', 'approved')->values(),
             'rejected' => $plans->where('status', 'rejected')->values(),
             'junked' => $plans->where('status', 'junked')->values(),
@@ -332,25 +335,7 @@ class EventPlanController extends Controller
             'extension_services' => ['required', 'in:yes,no'],
         ]);
 
-        $requestType = $requestTypeService->resolveSystemType(
-            RequestType::SYSTEM_KEY_EVENT_PLAN,
-            'Event Plan Request',
-            RequestType::CATEGORY_EVENT,
-            $userId,
-        );
-
-        $actionRequest = ActionRequest::query()->create([
-            'action' => '',
-            'action_type' => 10,
-            'request_type_id' => (int) $requestType->getKey(),
-            'organization_id' => (int) $plan->organization_id,
-            'requested_by' => $userId,
-            'payload' => [],
-            'user' => $userId,
-            'requested_at' => now(),
-        ]);
-
-        $plan->update([
+        $updateData = [
             'title' => $validated['title'],
             'target_date' => $validated['target_date'],
             'resources_needed' => $validated['resources_needed'] ?? null,
@@ -372,18 +357,44 @@ class EventPlanController extends Controller
             'extension_services' => isset($validated['extension_services']) ? $validated['extension_services'] === 'yes' : null,
             'persons_responsible' => $validated['persons_responsible'] ?? [],
             'status' => 'pending',
-            'request_id' => (int) $actionRequest->getKey(),
-        ]);
+        ];
 
-        $actionRequest->update([
-            'payload' => [
-                'event_plan_id' => (int) $plan->getKey(),
+        // Event item requests (with a parent plan) still need an ActionRequest for admin review
+        if ($plan->isEventRequest()) {
+            $requestType = $requestTypeService->resolveSystemType(
+                RequestType::SYSTEM_KEY_EVENT_PLAN,
+                'Event Plan Request',
+                RequestType::CATEGORY_EVENT,
+                $userId,
+            );
+
+            $actionRequest = ActionRequest::query()->create([
+                'action' => '',
+                'action_type' => 10,
+                'request_type_id' => (int) $requestType->getKey(),
                 'organization_id' => (int) $plan->organization_id,
-                'user_id' => $userId,
-            ],
-        ]);
+                'requested_by' => $userId,
+                'payload' => [],
+                'user' => $userId,
+                'requested_at' => now(),
+            ]);
 
-        return redirect()->route('event-plans')->with('success', 'Event plan revised and resubmitted for approval.');
+            $updateData['request_id'] = (int) $actionRequest->getKey();
+
+            $plan->update($updateData);
+
+            $actionRequest->update([
+                'payload' => [
+                    'event_plan_id' => (int) $plan->getKey(),
+                    'organization_id' => (int) $plan->organization_id,
+                    'user_id' => $userId,
+                ],
+            ]);
+        } else {
+            $plan->update($updateData);
+        }
+
+        return redirect()->route('event-plans')->with('success', 'Event plan revised and resubmitted.');
     }
 
     public function junk(Request $request, int $id): RedirectResponse

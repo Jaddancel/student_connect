@@ -4,6 +4,8 @@
     'lockedOrgIds' => [],
     'presidentName' => null,
     'presidentContact' => null,
+    'allSemesters' => null,
+    'workplanStatuses' => [],
 ])
 
 @php
@@ -100,12 +102,25 @@
 
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="custom-calendar">
+            @php
+                $semesterData = collect($allSemesters ?? [])->map(fn($s) => [
+                    'id' => (int) $s->semester_id,
+                    'starts_at' => $s->starts_at instanceof \Illuminate\Support\Carbon
+                        ? $s->starts_at->toDateString()
+                        : \Illuminate\Support\Carbon::parse($s->starts_at)->toDateString(),
+                    'vacation_days' => (int) $s->vacation_days,
+                ])->values();
+            @endphp
             <div id="calendar" class="min-h-screen" data-can-request-event="{{ $resolvedCanRequestEvent ? '1' : '0' }}"
                 data-event-request-endpoint="{{ route('api.events.requests.store') }}"
+                data-direct-request-endpoint="{{ route('api.events.direct-request.store') }}"
                 data-officers-endpoint="/api/organizations/{id}/officers"
                 data-president-name="{{ e($resolvedPresidentName) }}"
                 data-president-contact="{{ e($resolvedPresidentContact) }}"
-                data-locked-org-ids="{{ json_encode(array_values(array_map('intval', $lockedOrgIds))) }}"></div>
+                data-locked-org-ids="{{ json_encode(array_values(array_map('intval', $lockedOrgIds))) }}"
+                data-semesters="{{ json_encode($semesterData->all()) }}"
+                data-workplan-statuses="{{ json_encode($workplanStatuses ?? []) }}"
+                data-today="{{ now()->toDateString() }}"></div>
         </div>
     </div>
 
@@ -133,8 +148,8 @@
             </div>
 
             @if ($resolvedCanRequestEvent)
-                <button type="button" id="open-event-plan-btn"
-                    class="bg-brand-500 hover:bg-brand-600 inline-flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-colors">
+                <button type="button" id="open-event-plan-btn" data-create-mode="event-plan"
+                    class="bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed inline-flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-colors">
                     Create Event Plan
                 </button>
             @endif
@@ -153,9 +168,8 @@
                 <div
                     class="flex items-start justify-between border-b border-gray-200 px-5 py-4 sm:px-6 dark:border-gray-800">
                     <div>
-                        <h5 class="text-xl font-semibold text-gray-800 dark:text-white/90">Create Event Plan</h5>
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Submit an event plan for president
-                            approval.</p>
+                        <h5 id="event-plan-drawer-title" class="text-xl font-semibold text-gray-800 dark:text-white/90">Create Event Plan</h5>
+                        <p id="event-plan-drawer-subtitle" class="mt-1 text-sm text-gray-500 dark:text-gray-400">Submit an event plan for your workplan.</p>
                     </div>
                     <button type="button"
                         class="event-plan-close rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.05] dark:hover:text-gray-300">

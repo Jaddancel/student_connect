@@ -242,7 +242,7 @@ class SidebarMenuController extends Controller
                     return [
                         'request_id' => (int) $actionRequest->request_id,
                         'action_type' => $actionType,
-                        'type_label' => 'Event Plan Request',
+                        'type_label' => 'Activity Request',
                         'organization_id' => $organizationId,
                         'requester_user_id' => (int) $actionRequest->user,
                         'summary' => $planTitle,

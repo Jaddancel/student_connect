@@ -7,7 +7,7 @@
         });
     </script>
 
-    <x-common.page-breadcrumb pageTitle="Event Plan Requests" />
+    <x-common.page-breadcrumb pageTitle="Activity Requests" />
 
     <div class="space-y-4">
 

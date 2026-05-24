@@ -134,6 +134,8 @@ Route::get('/calendar', function () {
 
     $eventRequestOrganizations = collect();
     $lockedOrgIds = [];
+    $allSemesters = collect();
+    $workplanStatuses = [];
 
     if ($canRequestEvent) {
         $eventRequestOrganizations = Organization::query()
@@ -159,6 +161,20 @@ Route::get('/calendar', function () {
                 ->values()
                 ->all();
         }
+
+        // Semester data for calendar auto-toggle logic
+        $allSemesters = Semester::query()->orderBy('starts_at')->get(['semester_id', 'starts_at', 'vacation_days']);
+
+        if ($eventRequestOrganizations->isNotEmpty() && $allSemesters->isNotEmpty()) {
+            $orgIds = $eventRequestOrganizations->pluck('organization_id')->all();
+            Workplan::query()
+                ->whereIn('organization_id', $orgIds)
+                ->whereIn('semester_id', $allSemesters->pluck('semester_id'))
+                ->get(['organization_id', 'semester_id', 'status'])
+                ->each(function ($wp) use (&$workplanStatuses) {
+                    $workplanStatuses[(int) $wp->organization_id][(int) $wp->semester_id] = $wp->status;
+                });
+        }
     }
 
     return view('pages.calendar', [
@@ -168,6 +184,8 @@ Route::get('/calendar', function () {
         'lockedOrgIds' => $lockedOrgIds,
         'presidentName' => $presidentName,
         'presidentContact' => $presidentContact,
+        'allSemesters' => $allSemesters,
+        'workplanStatuses' => $workplanStatuses,
     ]);
 })->middleware('auth')->name('calendar');
 
@@ -683,6 +701,10 @@ Route::post('/api/requests/{requestId}/approve-with-signatures', [RequestDecisio
 Route::post('/api/events/requests', [EventController::class, 'storeEventPlanRequest'])
     ->middleware('auth')
     ->name('api.events.requests.store');
+
+Route::post('/api/events/direct-request', [EventController::class, 'storeDirectEventRequest'])
+    ->middleware('auth')
+    ->name('api.events.direct-request.store');
 
 Route::get('/api/organizations/{organizationId}/officers', [EventController::class, 'organizationOfficers'])
     ->whereNumber('organizationId')

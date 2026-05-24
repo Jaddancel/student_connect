@@ -161,6 +161,8 @@ class WorkplanController extends Controller
         $sigDir = 'form-signatures/'.now()->format('Y/m');
 
         $payload = [
+            'organization_id'  => (int) $workplan->organization_id,
+            'semester_id'      => (int) $workplan->semester_id,
             'organization'     => $orgRow?->name ?? 'Unknown Organization',
             'schoolyear'       => $workplan->semester->name,
             'activities'       => array_column($activities, 'title'),

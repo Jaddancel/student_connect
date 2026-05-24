@@ -40,7 +40,8 @@ class WorkplanService
 
         $query = EventPlan::query()
             ->where('organization_id', $workplan->organization_id)
-            ->where('status', 'approved')
+            ->whereIn('status', ['approved', 'pending'])
+            ->whereNull('parent_plan_id')
             ->where('target_date', '>=', $semester->starts_at);
 
         $endsAt = $semester->endsAt();

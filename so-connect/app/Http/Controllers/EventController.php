@@ -9,12 +9,13 @@ use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
 use App\Models\Semester;
 use App\Models\Workplan;
+use App\Services\RequestTypeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\DB;
 
 class EventController extends Controller
 {
@@ -73,7 +74,7 @@ class EventController extends Controller
         return response()->json($events);
     }
 
-    public function storeEventPlanRequest(Request $request, \App\Services\RequestTypeService $requestTypeService): JsonResponse
+    public function storeEventPlanRequest(Request $request): JsonResponse
     {
         $user = $request->user();
 
@@ -131,6 +132,7 @@ class EventController extends Controller
             ], 403);
         }
 
+        // Block if the workplan for the active preparation semester is already finalized
         $activeSemester = Semester::currentlyActive();
         if ($activeSemester) {
             $workplanFinalized = Workplan::query()
@@ -145,24 +147,6 @@ class EventController extends Controller
                 ], 403);
             }
         }
-
-        $requestType = $requestTypeService->resolveSystemType(
-            RequestType::SYSTEM_KEY_EVENT_PLAN,
-            'Event Plan Request',
-            RequestType::CATEGORY_EVENT,
-            $userId,
-        );
-
-        $actionRequest = ActionRequest::query()->create([
-            'action' => '',
-            'action_type' => 10,
-            'request_type_id' => (int) $requestType->getKey(),
-            'organization_id' => $organizationId,
-            'requested_by' => $userId,
-            'payload' => [],
-            'user' => $userId,
-            'requested_at' => now(),
-        ]);
 
         $plan = EventPlan::query()->create([
             'organization_id' => $organizationId,
@@ -188,20 +172,11 @@ class EventController extends Controller
             'extension_services' => isset($validated['extension_services']) ? $validated['extension_services'] === 'yes' : null,
             'persons_responsible' => $validated['persons_responsible'] ?? [],
             'status' => 'pending',
-            'request_id' => (int) $actionRequest->getKey(),
-        ]);
-
-        $actionRequest->update([
-            'payload' => [
-                'event_plan_id' => (int) $plan->getKey(),
-                'organization_id' => $organizationId,
-                'user_id' => $userId,
-            ],
         ]);
 
         return response()->json([
             'message' => 'Event plan submitted successfully.',
-            'request_id' => (int) $actionRequest->getKey(),
+            'event_plan_id' => (int) $plan->getKey(),
         ], 201);
     }
 
@@ -252,6 +227,158 @@ class EventController extends Controller
             'user_id' => $o->user_id,
             'name' => trim($o->name) ?: 'Officer #'.$o->user_id,
         ])->values());
+    }
+
+    public function storeDirectEventRequest(Request $request, RequestTypeService $requestTypeService): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            abort(401);
+        }
+
+        $isOfficerOrPresident = Gate::forUser($user)->allows('access-dashboard', 'officer')
+            || Gate::forUser($user)->allows('access-dashboard', 'president');
+
+        if ((int) $user->user_type !== 2 && ! $isOfficerOrPresident) {
+            return response()->json([
+                'message' => 'Only organization officers and presidents can submit activity requests.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'organization_id' => ['required', 'integer', Rule::exists('organizations', 'organization_id')],
+            'title' => ['required', 'string', 'max:255'],
+            'target_date' => ['required', 'date'],
+            'resources_needed' => ['required', 'string', 'max:5000'],
+            'persons_responsible' => ['required', 'array', 'min:1'],
+            'persons_responsible.*' => ['integer'],
+            'purpose_of_activity' => ['required', 'string', 'max:1000'],
+            'university_facilities' => ['required', 'array', 'min:1'],
+            'university_facilities.*' => ['required', 'string', 'max:255'],
+            'president_name' => ['required', 'string', 'max:255'],
+            'president_contact' => ['required', 'string', 'max:50'],
+            'faculty_advisers' => ['required', 'array', 'min:1'],
+            'faculty_advisers.*' => ['required', 'string', 'max:255'],
+            'college_dean' => ['nullable', 'string', 'max:255'],
+            'activity_type' => ['required', 'string', 'in:Seminar,Clean Up Drive,Conference,Workshop,Preparation,Meeting,others'],
+            'activity_type_other' => ['required_if:activity_type,others', 'nullable', 'string', 'max:255'],
+            'seminar_level' => ['required_if:activity_type,Seminar', 'nullable', 'in:College,University'],
+            'area_scope' => ['required', 'string', 'max:100'],
+            'area_scope_other' => ['required_if:area_scope,others', 'nullable', 'string', 'max:255'],
+            'sponsor' => ['required', 'string', 'max:100'],
+            'sponsor_other' => ['required_if:sponsor,others', 'nullable', 'string', 'max:255'],
+            'cosponsor_count' => ['required_if:sponsor,co-sponsors', 'nullable', 'integer', Rule::when($request->input('sponsor') === 'co-sponsors', ['min:2'])],
+            'related_to_organization' => ['nullable', 'boolean'],
+            'extension_services' => ['required', 'in:yes,no'],
+            'event_location' => ['required', 'string', 'max:255'],
+            'event_start_time' => ['required', 'date'],
+            'event_end_time' => ['required', 'date', 'after_or_equal:event_start_time'],
+            'event_description' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $userId = (int) $user->getKey();
+        $organizationId = (int) $validated['organization_id'];
+
+        $isOrganizationMember = DB::table('organization_officers')
+            ->where('user', $userId)
+            ->where('organization', $organizationId)
+            ->exists();
+
+        if (! $isOrganizationMember) {
+            return response()->json([
+                'message' => 'You can only submit activity requests for organizations you belong to.',
+            ], 403);
+        }
+
+        // Must target a date in an already-started semester
+        $targetDate = \Illuminate\Support\Carbon::parse($validated['target_date'])->startOfDay();
+        $today = \Illuminate\Support\Carbon::today();
+        if ($targetDate->lt($today)) {
+            return response()->json([
+                'message' => 'Activity requests cannot target a past date.',
+            ], 422);
+        }
+
+        $runningSemester = Semester::query()
+            ->where('starts_at', '<=', $today)
+            ->orderByDesc('starts_at')
+            ->first();
+
+        if (! $runningSemester) {
+            return response()->json([
+                'message' => 'No active semester found for a direct activity request.',
+            ], 422);
+        }
+
+        $requestType = $requestTypeService->resolveSystemType(
+            RequestType::SYSTEM_KEY_EVENT_PLAN,
+            'Event Plan Request',
+            RequestType::CATEGORY_EVENT,
+            $userId,
+        );
+
+        $sharedFields = [
+            'organization_id' => $organizationId,
+            'created_by' => $userId,
+            'title' => $validated['title'],
+            'target_date' => $validated['target_date'],
+            'resources_needed' => $validated['resources_needed'] ?? null,
+            'purpose_of_activity' => $validated['purpose_of_activity'] ?? null,
+            'university_facilities' => array_values(array_filter($validated['university_facilities'] ?? [], fn ($value) => filled($value))),
+            'president_name' => $validated['president_name'] ?? null,
+            'president_contact' => $validated['president_contact'] ?? null,
+            'faculty_advisers' => array_values(array_filter($validated['faculty_advisers'] ?? [], fn ($value) => filled($value))),
+            'college_dean' => $validated['college_dean'] ?? null,
+            'activity_types' => [$validated['activity_type']],
+            'activity_types_other' => $validated['activity_type_other'] ?? null,
+            'seminar_level' => $validated['seminar_level'] ?? null,
+            'area_scope' => $validated['area_scope'] ?? null,
+            'area_scope_other' => $validated['area_scope_other'] ?? null,
+            'sponsor' => $validated['sponsor'] ?? null,
+            'sponsor_other' => $validated['sponsor_other'] ?? null,
+            'cosponsor_count' => isset($validated['cosponsor_count']) ? (int) $validated['cosponsor_count'] : null,
+            'related_to_organization' => !empty($validated['related_to_organization']),
+            'extension_services' => isset($validated['extension_services']) ? $validated['extension_services'] === 'yes' : null,
+            'persons_responsible' => $validated['persons_responsible'] ?? [],
+        ];
+
+        $parentPlan = EventPlan::query()->create(array_merge($sharedFields, ['status' => 'approved']));
+
+        $actionRequest = ActionRequest::query()->create([
+            'action' => '',
+            'action_type' => 10,
+            'request_type_id' => (int) $requestType->getKey(),
+            'organization_id' => $organizationId,
+            'requested_by' => $userId,
+            'payload' => [],
+            'user' => $userId,
+            'requested_at' => now(),
+        ]);
+
+        $childPlan = EventPlan::query()->create(array_merge($sharedFields, [
+            'event_location' => $validated['event_location'],
+            'event_start_time' => $validated['event_start_time'],
+            'event_end_time' => $validated['event_end_time'],
+            'event_description' => $validated['event_description'] ?? null,
+            'status' => 'pending',
+            'parent_plan_id' => (int) $parentPlan->getKey(),
+            'request_id' => (int) $actionRequest->getKey(),
+        ]));
+
+        $actionRequest->update([
+            'payload' => [
+                'event_plan_id' => (int) $childPlan->getKey(),
+                'parent_plan_id' => (int) $parentPlan->getKey(),
+                'organization_id' => $organizationId,
+                'user_id' => $userId,
+            ],
+        ]);
+
+        return response()->json([
+            'message' => 'Activity request submitted successfully. Awaiting admin approval.',
+            'event_plan_id' => (int) $childPlan->getKey(),
+        ], 201);
     }
 
     private function resolveOrganizationColor(int $organizationId): string

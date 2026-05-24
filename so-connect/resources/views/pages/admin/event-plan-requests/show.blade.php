@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-    <x-common.page-breadcrumb pageTitle="Review Event Plan" />
+    <x-common.page-breadcrumb pageTitle="Review Activity Request" />
 
     <div class="mx-auto max-w-3xl space-y-5">
 

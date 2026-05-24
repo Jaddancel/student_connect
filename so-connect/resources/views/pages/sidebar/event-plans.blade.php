@@ -25,25 +25,42 @@
             :personNames="$personNames ?? []"
         />
 
-        {{-- Pending Plans --}}
+        {{-- Plans In Workplan (awaiting workplan approval) --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
             <div class="mb-4 flex items-center justify-between">
-                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Pending Plans</h3>
-                <span class="inline-flex items-center rounded-full bg-warning-50 px-2.5 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-500/15 dark:text-warning-400">
-                    {{ $grouped['pending']->count() }}
+                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">In Workplan</h3>
+                <span class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-400">
+                    {{ $grouped['in_workplan']->count() }}
                 </span>
             </div>
 
-            @if ($grouped['pending']->isEmpty())
-                <p class="text-sm text-gray-500 dark:text-gray-400">No pending event plans.</p>
+            @if ($grouped['in_workplan']->isEmpty())
+                <p class="text-sm text-gray-500 dark:text-gray-400">No plans pending workplan approval.</p>
             @else
                 <div class="space-y-1">
-                    @foreach ($grouped['pending'] as $plan)
+                    @foreach ($grouped['in_workplan'] as $plan)
                         <x-event-plan-card :plan="$plan" :personNames="$personNames" :orgNames="$orgNames" status="pending" />
                     @endforeach
                 </div>
             @endif
         </div>
+
+        {{-- Event Item Requests Pending Admin Review --}}
+        @if ($grouped['pending']->isNotEmpty())
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Pending Admin Review</h3>
+                <span class="inline-flex items-center rounded-full bg-warning-50 px-2.5 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-500/15 dark:text-warning-400">
+                    {{ $grouped['pending']->count() }}
+                </span>
+            </div>
+            <div class="space-y-1">
+                @foreach ($grouped['pending'] as $plan)
+                    <x-event-plan-card :plan="$plan" :personNames="$personNames" :orgNames="$orgNames" status="pending" />
+                @endforeach
+            </div>
+        </div>
+        @endif
 
         {{-- Approved Plans --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">

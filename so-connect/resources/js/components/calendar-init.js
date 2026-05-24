@@ -14,6 +14,8 @@ export function calendarInit() {
     const canRequestEvent = calendarWrapper.dataset.canRequestEvent === "1";
     const eventRequestEndpoint =
         calendarWrapper.dataset.eventRequestEndpoint || "";
+    const directRequestEndpoint =
+        calendarWrapper.dataset.directRequestEndpoint || "";
     const officersEndpointTemplate =
         calendarWrapper.dataset.officersEndpoint ||
         "/api/organizations/{id}/officers";
@@ -22,6 +24,38 @@ export function calendarInit() {
     ).map(Number);
     const presidentName = calendarWrapper.dataset.presidentName || "";
     const presidentContact = calendarWrapper.dataset.presidentContact || "";
+    const semesters = JSON.parse(calendarWrapper.dataset.semesters || "[]");
+    const workplanStatuses = JSON.parse(
+        calendarWrapper.dataset.workplanStatuses || "{}",
+    );
+    const todayStr =
+        calendarWrapper.dataset.today ||
+        new Date().toISOString().slice(0, 10);
+
+    // ─── Semester detection helpers ──────────────────────────────────────────────
+
+    const getSemesterForDate = (dateStr) => {
+        const sorted = [...semesters].sort((a, b) =>
+            a.starts_at.localeCompare(b.starts_at),
+        );
+        let found = null;
+        for (const s of sorted) {
+            if (s.starts_at <= dateStr) found = s;
+            else break;
+        }
+        return found;
+    };
+
+    const getFormModeForDate = (dateStr) => {
+        if (dateStr < todayStr) return "disabled";
+        const semester = getSemesterForDate(dateStr);
+        // No semester started on or before this date → treat as future planning
+        if (!semester) return "event-plan";
+        // Future semester (not yet started) → event plan goes into workplan
+        if (semester.starts_at > todayStr) return "event-plan";
+        // Semester has started → use activity request form
+        return "activity-request";
+    };
 
     // Day Summary Modal
     const daySummaryModal = document.getElementById("daySummaryModal");
@@ -51,6 +85,7 @@ export function calendarInit() {
     );
 
     let currentPlanDate = "";
+    let currentFormMode = "event-plan";
     let calendarInstance = null;
     let successDismissTimer = null;
 
@@ -251,6 +286,23 @@ export function calendarInit() {
             }
         }
 
+        // Auto-toggle create button based on date context
+        if (canRequestEvent && openEventPlanBtn) {
+            const mode = getFormModeForDate(dateStr);
+            currentFormMode = mode;
+            openEventPlanBtn.dataset.createMode = mode;
+            if (mode === "disabled") {
+                openEventPlanBtn.disabled = true;
+                openEventPlanBtn.textContent = "Past Date";
+            } else if (mode === "activity-request") {
+                openEventPlanBtn.disabled = false;
+                openEventPlanBtn.textContent = "Request Activity";
+            } else {
+                openEventPlanBtn.disabled = false;
+                openEventPlanBtn.textContent = "Create Event Plan";
+            }
+        }
+
         daySummaryModal.style.display = "flex";
         document.body.style.overflow = "hidden";
     };
@@ -373,6 +425,24 @@ export function calendarInit() {
         currentPlanDate = prefillDate || "";
         resetPlanModal();
 
+        // Update drawer title and subtitle based on current form mode
+        const drawerTitle = document.getElementById("event-plan-drawer-title");
+        const drawerSubtitle = document.getElementById(
+            "event-plan-drawer-subtitle",
+        );
+        if (currentFormMode === "activity-request") {
+            if (drawerTitle)
+                drawerTitle.textContent = "Request Activity";
+            if (drawerSubtitle)
+                drawerSubtitle.textContent =
+                    "Submit a direct activity request to admin for approval.";
+        } else {
+            if (drawerTitle) drawerTitle.textContent = "Create Event Plan";
+            if (drawerSubtitle)
+                drawerSubtitle.textContent =
+                    "Submit an event plan for your workplan.";
+        }
+
         if (planTargetDateEl && prefillDate) {
             planTargetDateEl.value = prefillDate;
         }
@@ -440,7 +510,12 @@ export function calendarInit() {
     const submitEventPlan = async (event) => {
         event.preventDefault();
 
-        if (!canRequestEvent || !eventRequestEndpoint) {
+        const isActivityRequest = currentFormMode === "activity-request";
+        const endpoint = isActivityRequest
+            ? directRequestEndpoint
+            : eventRequestEndpoint;
+
+        if (!canRequestEvent || !endpoint) {
             setPlanFeedback("You are not authorized to submit event plans.");
             return;
         }
@@ -467,11 +542,11 @@ export function calendarInit() {
             !resourcesNeeded ||
             personsResponsible.length === 0
         ) {
-            setPlanFeedback("Please fill in the required event plan fields.");
+            setPlanFeedback("Please fill in the required fields.");
             return;
         }
 
-        if (lockedOrgIds.includes(parseInt(organizationId, 10))) {
+        if (!isActivityRequest && lockedOrgIds.includes(parseInt(organizationId, 10))) {
             setPlanFeedback(
                 "This organization's workplan has been finalized. New event plans cannot be submitted until the next preparation period begins.",
             );
@@ -492,7 +567,7 @@ export function calendarInit() {
             const formData = new FormData(form);
             formData.set("organization_id", organizationId);
 
-            const response = await fetch(eventRequestEndpoint, {
+            const response = await fetch(endpoint, {
                 method: "POST",
                 headers: {
                     Accept: "application/json",
@@ -506,24 +581,29 @@ export function calendarInit() {
                 throw new Error(errorMessage);
             }
 
-            setPlanFeedback("Event plan submitted successfully.", "success");
+            const successText = isActivityRequest
+                ? "Activity request submitted successfully. Awaiting admin approval."
+                : "Event plan submitted successfully. It will appear in your workplan.";
+
+            setPlanFeedback(successText, "success");
             window.setTimeout(() => {
                 closeEventPlanDrawer();
-                showPageSuccess(
-                    "Event plan submitted successfully. It will appear under your event plans once reviewed.",
-                );
+                showPageSuccess(successText);
             }, 700);
         } catch (error) {
             const message =
                 error instanceof Error && error.message
                     ? error.message
-                    : "Unable to submit event plan.";
+                    : isActivityRequest
+                      ? "Unable to submit activity request."
+                      : "Unable to submit event plan.";
             setPlanFeedback(message);
         } finally {
             if (submitPlanBtn) {
                 submitPlanBtn.disabled = false;
                 submitPlanBtn.textContent =
-                    originalLabel || "Submit Event Plan";
+                    originalLabel ||
+                    (isActivityRequest ? "Submit Request" : "Submit Event Plan");
             }
         }
     };

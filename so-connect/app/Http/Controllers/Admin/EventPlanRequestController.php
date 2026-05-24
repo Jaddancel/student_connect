@@ -43,7 +43,7 @@ class EventPlanRequestController extends Controller
 
         $eventPlans = EventPlan::query()
             ->whereIn('event_plan_id', $eventPlanIds)
-            ->get(['event_plan_id', 'title', 'target_date', 'organization_id', 'status'])
+            ->get(['event_plan_id', 'title', 'target_date', 'organization_id', 'status', 'parent_plan_id'])
             ->keyBy('event_plan_id');
 
         $requesterIds = $requests->pluck('user')->filter()->unique()->values()->all();
@@ -99,7 +99,7 @@ class EventPlanRequestController extends Controller
         $decided = $rows->filter(fn ($r) => $r['approval'] !== null)->take(30)->values();
 
         return view('pages.admin.event-plan-requests.index', [
-            'title' => 'Event Plan Requests',
+            'title' => 'Activity Requests',
             'pending' => $pending,
             'decided' => $decided,
             'orgGroups' => $orgGroups,
@@ -138,7 +138,7 @@ class EventPlanRequestController extends Controller
         }
 
         return view('pages.admin.event-plan-requests.show', [
-            'title' => 'Review Event Plan',
+            'title' => 'Review Activity Request',
             'actionRequest' => $actionRequest,
             'plan' => $plan,
             'approval' => $approval,
