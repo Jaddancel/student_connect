@@ -15,8 +15,10 @@ use App\Http\Controllers\Admin\RecognitionRequestController;
 use App\Http\Controllers\Admin\SemesterController;
 use App\Http\Controllers\Admin\TemplateManagerController;
 use App\Http\Controllers\Admin\WorkplanRequestController;
+use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
+use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\Auth\Register;
 use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\DashboardSearchController;
@@ -87,6 +89,20 @@ Route::get('/dashboard', [Dashboard::class, 'viewDashboard'])->middleware('auth'
 Route::post('/login', Login::class)->middleware('guest');
 Route::post('/signup', Register::class)->middleware('guest');
 Route::post('/logout', Logout::class)->middleware('auth');
+
+// Invitation activation (Flows 1, 2, 3)
+Route::get('/invitation/verify', [InvitationController::class, 'verify'])
+    ->middleware('guest')
+    ->name('invitation.verify');
+
+// First-login password wizard (Flow 3 — admin accounts)
+Route::get('/change-password', [PasswordChangeController::class, 'show'])
+    ->middleware('auth')
+    ->name('password.change');
+
+Route::post('/change-password', [PasswordChangeController::class, 'update'])
+    ->middleware('auth')
+    ->name('password.change.update');
 
 Route::post('/events', [EventController::class, 'store'])
     ->middleware('auth')
@@ -181,11 +197,11 @@ Route::get('/approval-requests', [SidebarMenuController::class, 'approvalRequest
     ->name('approval-requests');
 
 Route::get('/request-forms', [SidebarMenuController::class, 'requestForms'])
-    ->middleware('auth')
+    ->middleware(['auth', 'admin'])
     ->name('request-forms');
 
 Route::post('/request-forms', [SidebarMenuController::class, 'storeRoleChangeRequest'])
-    ->middleware('auth')
+    ->middleware(['auth', 'admin'])
     ->name('request-forms.store');
 
 Route::get('/manage-organization', [OrganizationController::class, 'manage'])
@@ -273,18 +289,27 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
     Route::get('/admin/event-plan-requests', [EventPlanRequestController::class, 'index'])
         ->name('admin.event-plan-requests.index');
+    Route::get('/admin/event-plan-requests/{requestId}', [EventPlanRequestController::class, 'show'])
+        ->whereNumber('requestId')
+        ->name('admin.event-plan-requests.show');
     Route::post('/admin/event-plan-requests/{requestId}/decide', [EventPlanRequestController::class, 'decide'])
         ->whereNumber('requestId')
         ->name('admin.event-plan-requests.decide');
 
     Route::get('/admin/project-requests', [ProjectRequestController::class, 'index'])
         ->name('admin.project-requests.index');
+    Route::get('/admin/project-requests/{requestId}', [ProjectRequestController::class, 'show'])
+        ->whereNumber('requestId')
+        ->name('admin.project-requests.show');
     Route::post('/admin/project-requests/{requestId}/decide', [ProjectRequestController::class, 'decide'])
         ->whereNumber('requestId')
         ->name('admin.project-requests.decide');
 
     Route::get('/admin/joint-statement-requests', [JointStatementRequestController::class, 'index'])
         ->name('admin.joint-statement-requests.index');
+    Route::get('/admin/joint-statement-requests/{requestId}', [JointStatementRequestController::class, 'show'])
+        ->whereNumber('requestId')
+        ->name('admin.joint-statement-requests.show');
     Route::post('/admin/joint-statement-requests/{requestId}/decide', [JointStatementRequestController::class, 'decide'])
         ->whereNumber('requestId')
         ->name('admin.joint-statement-requests.decide');
@@ -399,14 +424,6 @@ Route::get('/superadmin/profiles/search', [SuperAdminController::class, 'searchP
 Route::post('/superadmin/profile-requests/auto-accept-suggested', [SuperAdminController::class, 'autoAcceptSuggestedRequests'])
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.profile-requests.auto-accept-suggested');
-
-Route::get('/superadmin/request-types', [SuperAdminController::class, 'requestTypes'])
-    ->middleware(['auth', 'superadmin'])
-    ->name('superadmin.request-types');
-
-Route::post('/superadmin/request-types', [SuperAdminController::class, 'storeRequestType'])
-    ->middleware(['auth', 'superadmin'])
-    ->name('superadmin.request-types.store');
 
 Route::get('/superadmin/dashboard-builder', [SuperAdminController::class, 'dashboardBuilder'])
     ->middleware(['auth', 'superadmin'])

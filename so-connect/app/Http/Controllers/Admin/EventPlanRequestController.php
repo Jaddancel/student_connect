@@ -61,12 +61,21 @@ class EventPlanRequestController extends Controller
         )->unique()->values()->all();
 
         $orgNames = [];
+        $orgGroups = [];
         if (! empty($orgIds)) {
-            $orgNames = DB::table('organizations as o')
+            $orgData = DB::table('organizations as o')
                 ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
                 ->whereIn('o.organization_id', $orgIds)
-                ->select('o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as name"))
-                ->get()->pluck('name', 'organization_id')->all();
+                ->select('o.organization_id', 'o.organization_type', DB::raw("COALESCE(od.name, 'Unknown Organization') as name"))
+                ->get();
+
+            $orgNames = $orgData->pluck('name', 'organization_id')->all();
+
+            foreach ($orgData as $org) {
+                $label = \App\Enums\OrganizationType::label((int) $org->organization_type);
+                $orgGroups[$label][] = ['id' => $org->organization_id, 'name' => $org->name];
+            }
+            ksort($orgGroups);
         }
 
         $rows = $requests->map(function ($req) use ($approvals, $eventPlans, $requesterNames, $orgNames) {
@@ -82,6 +91,7 @@ class EventPlanRequestController extends Controller
                 'approval' => $approval,
                 'requester_name' => $requesterNames[$req->user] ?? 'Unknown',
                 'org_name' => $orgNames[$orgId] ?? 'Unknown Organization',
+                'org_id' => $orgId,
             ];
         });
 
@@ -92,6 +102,48 @@ class EventPlanRequestController extends Controller
             'title' => 'Event Plan Requests',
             'pending' => $pending,
             'decided' => $decided,
+            'orgGroups' => $orgGroups,
+            'preselectedOrg' => (int) request()->query('org', 0),
+        ]);
+    }
+
+    public function show(int $requestId)
+    {
+        $actionRequest = ActionRequest::query()->findOrFail($requestId);
+        $payload = (array) ($actionRequest->payload ?? []);
+        $planId = (int) ($payload['event_plan_id'] ?? 0);
+        $plan = $planId > 0 ? EventPlan::query()->find($planId) : null;
+
+        $approval = Approval::query()->where('request', $requestId)->first();
+
+        $orgId = (int) ($actionRequest->organization_id ?? ($plan?->organization_id ?? 0));
+        $orgName = 'Unknown Organization';
+        if ($orgId > 0) {
+            $orgRow = DB::table('organizations as o')
+                ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+                ->where('o.organization_id', $orgId)
+                ->select(DB::raw("COALESCE(od.name, 'Unknown Organization') as name"))
+                ->first();
+            $orgName = $orgRow?->name ?? 'Unknown Organization';
+        }
+
+        $requesterName = 'Unknown';
+        if ($actionRequest->user) {
+            $profileRow = DB::table('users as u')
+                ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+                ->where('u.user_id', $actionRequest->user)
+                ->select(DB::raw("TRIM(CONCAT(COALESCE(p.first_name,''), ' ', COALESCE(p.last_name,''))) as name"))
+                ->first();
+            $requesterName = $profileRow?->name ?? 'Unknown';
+        }
+
+        return view('pages.admin.event-plan-requests.show', [
+            'title' => 'Review Event Plan',
+            'actionRequest' => $actionRequest,
+            'plan' => $plan,
+            'approval' => $approval,
+            'orgName' => $orgName,
+            'requesterName' => $requesterName,
         ]);
     }
 
@@ -188,7 +240,10 @@ class EventPlanRequestController extends Controller
 
         $message = $isApproved ? 'Event plan approved successfully.' : 'Event plan rejected.';
 
-        return redirect()->route('admin.event-plan-requests.index')->with('success', $message);
+        $orgId = (int) $actionRequest->organization_id;
+        $params = $orgId > 0 ? ['org' => $orgId] : [];
+
+        return redirect()->route('admin.event-plan-requests.index', $params)->with('success', $message);
     }
 
     private function buildRoPayloadFromPlan(EventPlan $plan): array

@@ -85,10 +85,10 @@
                     @enderror
                 </div>
 
-                {{-- In-Kinds Beneficiaries --}}
+                {{-- Donated Materials --}}
                 <div x-show="isDonation" x-transition class="mt-4">
                     <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                        In-Kind Beneficiaries
+                        Donated Materials
                         <span class="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">(optional — each row counts toward scoring)</span>
                     </label>
                     <div class="space-y-2">
@@ -97,7 +97,7 @@
                                 <input type="text" name="in_kinds[]"
                                     :value="row"
                                     @input="inKinds[i] = $event.target.value"
-                                    placeholder="Beneficiary name or description"
+                                    placeholder="e.g. School supplies, canned goods, clothing"
                                     class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                                 <button type="button" @click="removeKind(i)"
                                     x-show="inKinds.length > 1"
@@ -110,7 +110,7 @@
                     <button type="button" @click="addKind()"
                         class="mt-2 flex items-center gap-1.5 text-sm text-brand-500 transition hover:text-brand-600">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        Add beneficiary
+                        Add material
                     </button>
                 </div>
             </div>

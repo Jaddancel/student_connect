@@ -281,23 +281,7 @@ class SuperAdminController extends Controller
         ]);
     }
 
-    public function requestTypes()
-    {
-        $requestTypes = RequestType::query()
-            ->withCount(['forms', 'requests'])
-            ->with('creator')
-            ->orderBy('category')
-            ->orderBy('name')
-            ->get();
-
-        return view('pages.sidebar.superadmin-request-types', [
-            'title' => 'Request Types',
-            'requestTypes' => $requestTypes,
-            'categoryOptions' => RequestType::categoryOptions(),
-        ]);
-    }
-
-    public function dashboardBuilder()
+public function dashboardBuilder()
     {
         $widgets = DashboardWidget::query()
             ->with('creator')
@@ -390,27 +374,7 @@ class SuperAdminController extends Controller
         return back()->with('success', 'Dashboard widget updated successfully.');
     }
 
-    public function storeRequestType(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:request_types,name'],
-            'category' => ['required', 'string', Rule::in(RequestType::CATEGORY_OPTIONS)],
-            'system_key' => ['nullable', 'string', 'max:64', 'unique:request_types,system_key'],
-            'is_active' => ['nullable', 'boolean'],
-        ]);
-
-        RequestType::query()->create([
-            'name' => trim((string) $validated['name']),
-            'category' => (string) $validated['category'],
-            'system_key' => trim((string) ($validated['system_key'] ?? '')) ?: null,
-            'created_by' => (int) $request->user()->getKey(),
-            'is_active' => (bool) ($validated['is_active'] ?? false),
-        ]);
-
-        return back()->with('success', 'Request type created successfully.');
-    }
-
-    public function searchProfiles(Request $request): JsonResponse
+public function searchProfiles(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'q' => ['nullable', 'string', 'max:255'],

@@ -36,7 +36,7 @@ class PostController extends Controller
             });
         }
 
-        $posts = $query->orderByDesc('created_at')->get();
+        $posts = $query->orderByDesc('created_at')->paginate(12)->appends($request->only(['org', 'search']));
 
         // Load accomplishment media library for the image picker
         $accomplishmentMedia = AccomplishmentMedia::query()

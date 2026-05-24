@@ -62,8 +62,6 @@ class MenuHelper
                     ['icon' => 'dashboard', 'name' => 'System Dashboard', 'path' => '/superadmin/dashboard'],
                     ['icon' => 'user-profile', 'name' => 'Profile Manager', 'path' => '/superadmin/profiles'],
                     ['icon' => 'user-profile', 'name' => 'Create Admin', 'path' => '/superadmin/accounts/create'],
-                    ['icon' => 'charts', 'name' => 'Dashboard Builder', 'path' => '/superadmin/dashboard-builder'],
-                    ['icon' => 'forms', 'name' => 'Request Types', 'path' => '/superadmin/request-types'],
                     ['icon' => 'forms', 'name' => 'Template Manager', 'path' => '/admin/templates'],
                     ['icon' => 'tables', 'name' => 'Export Data', 'path' => '/superadmin/export'],
                     ['icon' => 'charts', 'name' => 'Score Audit', 'path' => '/superadmin/scoring/audit'],
@@ -87,14 +85,13 @@ class MenuHelper
             $menuGroups[] = [
                 'title' => 'Requests',
                 'items' => [
-                    ['icon' => 'task',  'name' => 'Promotion Requests',        'path' => '/promotion-requests',                    'badge' => $badges['promotion']],
                     ['icon' => 'task',  'name' => 'Event Plan Requests',       'path' => '/admin/event-plan-requests',             'badge' => $badges['event_plans']],
                     ['icon' => 'forms', 'name' => 'Project Requests',          'path' => '/admin/project-requests',                'badge' => $badges['project']],
                     ['icon' => 'forms', 'name' => 'Joint Statements',          'path' => '/admin/joint-statement-requests',        'badge' => $badges['joint_statement']],
                     ['icon' => 'forms', 'name' => 'Accomplishment Reports',    'path' => '/admin/accomplishment-report-requests',  'badge' => $badges['accomplishment_report']],
                     ['icon' => 'forms', 'name' => 'Financial Reports',         'path' => '/admin/financial-report-requests',       'badge' => $badges['financial_report']],
                     ['icon' => 'forms', 'name' => 'Recognition Applications',  'path' => '/admin/recognition-requests',            'badge' => $badges['recognition']],
-                    ['icon' => 'forms', 'name' => 'Workplan Submissions',      'path' => '/admin/workplan-requests',               'badge' => $badges['workplan']],
+                    ['icon' => 'forms', 'name' => 'Workplan Submissions',       'path' => '/admin/workplan-requests',               'badge' => $badges['workplan']],
                 ],
             ];
 
@@ -106,22 +103,6 @@ class MenuHelper
                 ],
             ];
 
-            $adminForms = \App\Models\Form::whereNotNull('route_name')
-                ->where('is_published', true)
-                ->whereJsonContains('sidebar_group', 'admin')
-                ->orderBy('name')
-                ->get(['id', 'name', 'route_name']);
-
-            if ($adminForms->isNotEmpty()) {
-                $menuGroups[] = [
-                    'title' => 'Organization Forms',
-                    'items' => $adminForms->map(fn ($f) => [
-                        'icon' => 'forms',
-                        'name' => $f->name,
-                        'path' => '/forms/' . $f->route_name,
-                    ])->all(),
-                ];
-            }
         }
 
         $isOfficerOrPresident = $user->officers()->whereIn('role', ['officer', 'president'])->exists();
@@ -132,12 +113,12 @@ class MenuHelper
                 'items' => [
                     ['icon' => 'calendar', 'name' => 'Event Plans',          'path' => '/event-plans'],
                     ['icon' => 'forms',    'name' => 'Joint Statement',      'path' => '/forms/joint-statement'],
-                    ['icon' => 'forms',    'name' => 'New Officer Form',      'path' => '/forms/student-leader-directory'],
                 ],
             ];
 
             $publishedForms = \App\Models\Form::whereNotNull('route_name')
                 ->where('is_published', true)
+                ->where('route_name', '!=', 'workplan')
                 ->whereJsonLength('sidebar_group', '>', 0)
                 ->orderBy('name')
                 ->get(['id', 'name', 'route_name', 'sidebar_group']);
@@ -168,11 +149,6 @@ class MenuHelper
     {
         $approvedIds = DB::table('approvals')->select('request')->whereNotNull('request');
 
-        $promotionCount = DB::table('requests')
-            ->whereIn('action_type', [7, 11])
-            ->whereNotIn('request_id', $approvedIds)
-            ->count();
-
         $eventPlanCount = DB::table('requests')
             ->where('action_type', 10)
             ->whereNotIn('request_id', $approvedIds)
@@ -197,7 +173,6 @@ class MenuHelper
         };
 
         return [
-            'promotion'            => (int) $promotionCount,
             'event_plans'          => (int) $eventPlanCount,
             'project'              => $pendingByForm($projectFormId ? (int) $projectFormId : null),
             'joint_statement'      => $pendingByForm($jointFormId ? (int) $jointFormId : null),

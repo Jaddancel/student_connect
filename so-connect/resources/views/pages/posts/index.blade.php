@@ -205,7 +205,7 @@
                 </div>
             @else
                 <div class="space-y-3">
-                    @foreach ($posts as $i => $post)
+                    @foreach ($posts as $post)
                         @php
                             $orgName = $orgNameMap[$post->organization] ?? 'Organization #' . $post->organization;
                             $orgInit = collect(preg_split('/\s+/', $orgName))
@@ -213,7 +213,7 @@
                                 ->take(2)
                                 ->map(fn($w) => strtoupper($w[0]))
                                 ->implode('');
-                            $colorClass = $orgColorMap[$i % 5];
+                            $colorClass = $orgColorMap[$loop->index % 5];
                             $postJson = [
                                 'post_id' => $post->post_id,
                                 'organization' => $post->organization,
@@ -349,7 +349,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                            @foreach ($posts as $i => $post)
+                            @foreach ($posts as $post)
                                 @php
                                     $orgName =
                                         $orgNameMap[$post->organization] ?? 'Organization #' . $post->organization;
@@ -358,7 +358,7 @@
                                         ->take(2)
                                         ->map(fn($w) => strtoupper($w[0]))
                                         ->implode('');
-                                    $colorClass = $orgColorMap[$i % 5];
+                                    $colorClass = $orgColorMap[$loop->index % 5];
                                     $status = $post->status ?? 'draft';
                                     $postJson = [
                                         'post_id' => $post->post_id,
@@ -447,6 +447,13 @@
                 @endif
             </div>
         </div>
+
+        {{-- ── Pagination ── --}}
+        @if ($posts->hasPages())
+            <div class="rounded-2xl border border-gray-200 bg-white px-4 shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03]">
+                {{ $posts->links('pagination.theme') }}
+            </div>
+        @endif
 
         {{-- ════════════════ CREATE / EDIT MODAL ════════════════ --}}
         <div x-show="modalOpen" x-cloak class="fixed inset-0 z-[100000] flex items-end sm:items-center justify-center p-4"

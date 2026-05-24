@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\OfficerInvitationMail;
 use App\Models\Profile;
 use App\Models\Profile\profileAddress;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class AdminOfficerCreationController extends Controller
@@ -109,7 +111,34 @@ class AdminOfficerCreationController extends Controller
             ]);
         });
 
+        // Resolve organization name for the invitation email
+        $orgName = DB::table('organizations as o')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->where('o.organization_id', $orgId)
+            ->value(DB::raw("COALESCE(od.name, '')"));
+
+        $rawToken = Str::random(64);
+        DB::table('invitation_tokens')->updateOrInsert(
+            ['user_email' => $validated['email']],
+            [
+                'token'      => hash('sha256', $rawToken),
+                'created_at' => now(),
+                'expires_at' => now()->addHours(72),
+            ]
+        );
+
+        try {
+            Mail::to($validated['email'])->send(new OfficerInvitationMail(
+                recipientEmail:   $validated['email'],
+                organizationName: (string) ($orgName ?? ''),
+                position:         $validated['position'],
+                activationUrl:    route('invitation.verify', ['token' => $rawToken]),
+            ));
+        } catch (\Throwable) {
+            // Email failure is non-fatal
+        }
+
         return redirect()->route('admin.officers.create')
-            ->with('success', 'Officer account created successfully. Default password: tAU100!!');
+            ->with('success', 'Officer account created. An invitation email has been sent to '.$validated['email'].'.');
     }
 }

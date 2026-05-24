@@ -6,6 +6,7 @@ use App\Helpers\FormTemplateHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Approval;
 use App\Models\Form;
+use App\Models\FormSubmission;
 use App\Models\Request as ActionRequest;
 use App\Services\DocumentGenerationService;
 use Illuminate\Http\RedirectResponse;
@@ -131,6 +132,53 @@ class JointStatementRequestController extends Controller
             'pending' => $pending,
             'decided' => $decided,
             'formMissing' => false,
+        ]);
+    }
+
+    public function show(int $requestId)
+    {
+        $actionRequest = ActionRequest::query()->findOrFail($requestId);
+        $payload = (array) ($actionRequest->payload ?? []);
+        $submissionId = (int) ($payload['submission_id'] ?? 0);
+        $submission = $submissionId ? FormSubmission::query()->find($submissionId) : null;
+
+        $approval = Approval::query()->where('request', $requestId)->first();
+
+        $hasDocument = DB::table('generated_documents')
+            ->where('request_id', $requestId)
+            ->where('status', 'generated')
+            ->exists();
+
+        $orgId = (int) ($actionRequest->organization_id ?? ($payload['organization_id'] ?? 0));
+        $orgName = 'Unknown Organization';
+        if ($orgId > 0) {
+            $orgRow = DB::table('organizations as o')
+                ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+                ->where('o.organization_id', $orgId)
+                ->select(DB::raw("COALESCE(od.name, 'Unknown Organization') as name"))
+                ->first();
+            $orgName = $orgRow?->name ?? 'Unknown Organization';
+        }
+
+        $requesterName = 'Unknown';
+        if ($actionRequest->user) {
+            $profileRow = DB::table('users as u')
+                ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+                ->where('u.user_id', $actionRequest->user)
+                ->select(DB::raw("TRIM(CONCAT(COALESCE(p.first_name,''), ' ', COALESCE(p.last_name,''))) as name"))
+                ->first();
+            $requesterName = $profileRow?->name ?? 'Unknown';
+        }
+
+        return view('pages.admin.joint-statement-requests.show', [
+            'title' => 'Review Joint Statement',
+            'actionRequest' => $actionRequest,
+            'submission' => $submission,
+            'submissionPayload' => $submission ? (array) ($submission->payload ?? []) : [],
+            'approval' => $approval,
+            'hasDocument' => $hasDocument,
+            'orgName' => $orgName,
+            'requesterName' => $requesterName,
         ]);
     }
 

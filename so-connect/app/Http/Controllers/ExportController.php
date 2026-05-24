@@ -44,14 +44,20 @@ class ExportController extends Controller
 
         $data = $organizations->map(function (Organization $org) {
             $detail   = $org->getRelation('detail');
-            $officers = $org->officersOfThisOrganization->map(fn ($o) => [
-                'org_officer_id' => $o->org_officer_id,
-                'user_id'        => $o->user,
-                'name'           => optional($o->user)->name,
-                'role'           => $o->role,
-                'position'       => $o->position ?? null,
-                'member_since'   => optional($o->member_since)->toDateString(),
-            ]);
+            $officers = $org->officersOfThisOrganization->map(function ($o) {
+                $userModel = $o->getRelations()['user'] ?? null;
+                $profile   = $userModel?->getRelations()['profile'] ?? null;
+                $name      = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? '')) ?: null;
+
+                return [
+                    'org_officer_id' => $o->org_officer_id,
+                    'user_id'        => $o->getAttributes()['user'] ?? null,
+                    'name'           => $name,
+                    'role'           => $o->role,
+                    'position'       => $o->position ?? null,
+                    'member_since'   => optional($o->member_since)->toDateString(),
+                ];
+            });
 
             return [
                 'organization_id'   => $org->organization_id,
@@ -108,14 +114,20 @@ class ExportController extends Controller
 
         $data = $organizations->map(function (Organization $org) {
             $detail   = $org->getRelation('detail');
-            $officers = $org->officersOfThisOrganization->map(fn ($o) => [
-                'org_officer_id' => $o->org_officer_id,
-                'user_id'        => $o->user,
-                'name'           => optional($o->user)->name,
-                'role'           => $o->role,
-                'position'       => $o->position ?? null,
-                'member_since'   => optional($o->member_since)->toDateString(),
-            ]);
+            $officers = $org->officersOfThisOrganization->map(function ($o) {
+                $userModel = $o->getRelations()['user'] ?? null;
+                $profile   = $userModel?->getRelations()['profile'] ?? null;
+                $name      = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? '')) ?: null;
+
+                return [
+                    'org_officer_id' => $o->org_officer_id,
+                    'user_id'        => $o->getAttributes()['user'] ?? null,
+                    'name'           => $name,
+                    'role'           => $o->role,
+                    'position'       => $o->position ?? null,
+                    'member_since'   => optional($o->member_since)->toDateString(),
+                ];
+            });
 
             return [
                 'organization_id'   => $org->organization_id,
@@ -199,7 +211,7 @@ class ExportController extends Controller
 
     private function loadOrganizations(?string $orgId)
     {
-        $query = Organization::with(['detail', 'officersOfThisOrganization.user']);
+        $query = Organization::with(['detail', 'officersOfThisOrganization.user.profile']);
 
         if ($orgId) {
             $query->where('organization_id', $orgId);

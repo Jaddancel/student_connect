@@ -6,6 +6,7 @@ use App\Helpers\FormTemplateHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Approval;
 use App\Models\Form;
+use App\Models\FormSubmission;
 use App\Models\Request as ActionRequest;
 use App\Services\DocumentGenerationService;
 use Illuminate\Http\RedirectResponse;
@@ -99,10 +100,24 @@ class ProjectRequestController extends Controller
                 ->all();
         }
 
-        $rows = $requests->map(function ($request) use ($approvals, $requesterNames, $orgNames) {
+        $submissionIds = $requests->map(function ($request) {
+            return (int) (((array) ($request->payload ?? []))['submission_id'] ?? 0);
+        })->filter(fn ($id) => $id > 0)->unique()->values()->all();
+
+        $submissionTitles = [];
+        if (! empty($submissionIds)) {
+            $submissionTitles = FormSubmission::query()
+                ->whereIn('form_submission_id', $submissionIds)
+                ->get(['form_submission_id', 'payload'])
+                ->mapWithKeys(fn ($s) => [$s->form_submission_id => (string) (((array) ($s->payload ?? []))['projectTitle'] ?? '')])
+                ->all();
+        }
+
+        $rows = $requests->map(function ($request) use ($approvals, $requesterNames, $orgNames, $submissionTitles) {
             $payload = (array) ($request->payload ?? []);
             $organizationId = (int) ($request->organization_id ?? ($payload['organization_id'] ?? 0));
-            $projectTitle = (string) ($payload['projectTitle'] ?? '');
+            $submissionId = (int) ($payload['submission_id'] ?? 0);
+            $projectTitle = $submissionTitles[$submissionId] ?? '';
 
             return [
                 'request' => $request,
@@ -110,7 +125,7 @@ class ProjectRequestController extends Controller
                 'requester_name' => $requesterNames[$request->user] ?? 'Unknown',
                 'org_name' => $orgNames[$organizationId] ?? 'Unknown Organization',
                 'project_title' => $projectTitle,
-                'submission_id' => (int) ($payload['submission_id'] ?? 0),
+                'submission_id' => $submissionId,
             ];
         });
 
@@ -122,6 +137,47 @@ class ProjectRequestController extends Controller
             'pending' => $pending,
             'decided' => $decided,
             'formMissing' => false,
+        ]);
+    }
+
+    public function show(int $requestId)
+    {
+        $actionRequest = ActionRequest::query()->findOrFail($requestId);
+        $payload = (array) ($actionRequest->payload ?? []);
+        $submissionId = (int) ($payload['submission_id'] ?? 0);
+        $submission = $submissionId ? FormSubmission::query()->find($submissionId) : null;
+
+        $approval = Approval::query()->where('request', $requestId)->first();
+
+        $orgId = (int) ($actionRequest->organization_id ?? ($payload['organization_id'] ?? 0));
+        $orgName = 'Unknown Organization';
+        if ($orgId > 0) {
+            $orgRow = DB::table('organizations as o')
+                ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+                ->where('o.organization_id', $orgId)
+                ->select(DB::raw("COALESCE(od.name, 'Unknown Organization') as name"))
+                ->first();
+            $orgName = $orgRow?->name ?? 'Unknown Organization';
+        }
+
+        $requesterName = 'Unknown';
+        if ($actionRequest->user) {
+            $profileRow = DB::table('users as u')
+                ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+                ->where('u.user_id', $actionRequest->user)
+                ->select(DB::raw("TRIM(CONCAT(COALESCE(p.first_name,''), ' ', COALESCE(p.last_name,''))) as name"))
+                ->first();
+            $requesterName = $profileRow?->name ?? 'Unknown';
+        }
+
+        return view('pages.admin.project-requests.show', [
+            'title' => 'Review Project Request',
+            'actionRequest' => $actionRequest,
+            'submission' => $submission,
+            'submissionPayload' => $submission ? (array) ($submission->payload ?? []) : [],
+            'approval' => $approval,
+            'orgName' => $orgName,
+            'requesterName' => $requesterName,
         ]);
     }
 

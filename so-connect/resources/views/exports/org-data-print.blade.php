@@ -59,10 +59,15 @@
                     </thead>
                     <tbody>
                         @foreach($org->officersOfThisOrganization as $i => $officer)
+                            @php
+                                $officerUser    = $officer->getRelations()['user'] ?? null;
+                                $officerProfile = $officerUser?->getRelations()['profile'] ?? null;
+                                $officerName    = trim(($officerProfile?->first_name ?? '') . ' ' . ($officerProfile?->last_name ?? ''));
+                            @endphp
                             <tr>
                                 <td>{{ $i + 1 }}</td>
-                                <td>{{ $officer->user }}</td>
-                                <td>{{ optional($officer->user)->name ?? '—' }}</td>
+                                <td>{{ $officer->getAttributes()['user'] ?? '—' }}</td>
+                                <td>{{ $officerName ?: '—' }}</td>
                                 <td><span class="badge">{{ $officer->role }}</span></td>
                                 <td>{{ $officer->position ?? '—' }}</td>
                                 <td>{{ optional($officer->member_since)->format('M j, Y') ?? '—' }}</td>
@@ -75,12 +80,17 @@
                     <h4>Officer Composition Chart</h4>
                     <div class="chart-tree">
                         @foreach($org->officersOfThisOrganization as $officer)
+                            @php
+                                $chartUser    = $officer->getRelations()['user'] ?? null;
+                                $chartProfile = $chartUser?->getRelations()['profile'] ?? null;
+                                $chartName    = trim(($chartProfile?->first_name ?? '') . ' ' . ($chartProfile?->last_name ?? ''));
+                            @endphp
                             <div class="chart-node">
                                 <div class="role">{{ $officer->role }}</div>
                                 @if($officer->position)
                                     <div class="name" style="font-style:italic;font-size:10px;">{{ $officer->position }}</div>
                                 @endif
-                                <div class="name">{{ optional($officer->user)->name ?? 'User #'.$officer->user }}</div>
+                                <div class="name">{{ $chartName ?: 'User #'.($officer->getAttributes()['user'] ?? '?') }}</div>
                             </div>
                         @endforeach
                     </div>

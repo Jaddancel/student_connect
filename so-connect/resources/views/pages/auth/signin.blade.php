@@ -84,9 +84,13 @@
                                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                             Password<span class="text-error-500">*</span>
                                         </label>
-                                        <div x-data="{ showPassword: false }" class="relative">
+                                        <div x-data="{ showPassword: false, capsLock: false, focused: false }" class="relative">
                                             <input :type="showPassword ? 'text' : 'password'" name="user_password"
                                                 placeholder="Enter your password"
+                                                @keydown="capsLock = $event.getModifierState('CapsLock')"
+                                                @keyup="capsLock = $event.getModifierState('CapsLock')"
+                                                @focus="focused = true; capsLock = $event.getModifierState('CapsLock')"
+                                                @blur="focused = false"
                                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pr-11 pl-4 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
                                             <span @click="showPassword = !showPassword"
                                                 class="absolute top-1/2 right-4 z-30 -translate-y-1/2 cursor-pointer text-gray-500 dark:text-gray-400">
@@ -105,6 +109,19 @@
                                                         fill="#98A2B3" />
                                                 </svg>
                                             </span>
+                                            <p x-show="capsLock && !showPassword && focused"
+                                                x-transition:enter="transition ease-out duration-150"
+                                                x-transition:enter-start="opacity-0 -translate-y-1"
+                                                x-transition:enter-end="opacity-100 translate-y-0"
+                                                x-transition:leave="transition ease-in duration-100"
+                                                x-transition:leave-start="opacity-100 translate-y-0"
+                                                x-transition:leave-end="opacity-0 -translate-y-1"
+                                                class="mt-1.5 flex items-center gap-1.5 text-xs text-amber-500 dark:text-amber-400">
+                                                <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                                                </svg>
+                                                Caps Lock is on
+                                            </p>
                                         </div>
                                     </div>
                                     <!-- Forgot password -->

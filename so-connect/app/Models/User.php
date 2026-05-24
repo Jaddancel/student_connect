@@ -31,6 +31,8 @@ class User extends Authenticatable
         'user_type',
         'profile',
         'profile_pending',
+        'force_password_change',
+        'email_verified_at',
         'user_created_at',
         'documents_last_seen_at',
     ];
@@ -55,10 +57,16 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'user_password' => 'hashed',
-            'profile_pending' => 'boolean',
+            'email_verified_at'    => 'datetime',
+            'user_password'        => 'hashed',
+            'profile_pending'      => 'boolean',
+            'force_password_change'=> 'boolean',
         ];
+    }
+
+    public function hasVerifiedEmail(): bool
+    {
+        return $this->email_verified_at !== null;
     }
 
     public function getAuthPassword()

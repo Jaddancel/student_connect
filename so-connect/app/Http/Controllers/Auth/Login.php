@@ -26,6 +26,17 @@ class Login extends Controller
         if (Auth::attempt($credentials, true)) {
             $request->session()->regenerate();
 
+            $user = Auth::user();
+
+            if (! $user->hasVerifiedEmail()) {
+                Auth::logout();
+                $request->session()->invalidate();
+
+                return back()
+                    ->withErrors(['user_email' => 'Your account has not been activated yet. Please check your email for an activation link.'])
+                    ->onlyInput('user_email');
+            }
+
             return redirect()->route('dashboard');
         }
 

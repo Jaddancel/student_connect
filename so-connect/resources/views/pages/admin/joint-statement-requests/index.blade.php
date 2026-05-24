@@ -24,7 +24,15 @@
         @endif
 
         {{-- Pending Requests --}}
-        <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div x-data="{
+                page: 1, perPage: 10, total: {{ $pending->count() }},
+                get pages() { return Math.max(1, Math.ceil(this.total / this.perPage)); },
+                get visiblePages() { let s = Math.max(1, this.page - 1), e = Math.min(this.pages, this.page + 1); return Array.from({length: e - s + 1}, (_, i) => s + i); },
+                onPage(i) { return i >= (this.page - 1) * this.perPage && i < this.page * this.perPage; },
+                setPage(p) { this.page = Math.max(1, Math.min(this.pages, p)); },
+                get from() { return this.total === 0 ? 0 : (this.page - 1) * this.perPage + 1; },
+                get to() { return Math.min(this.page * this.perPage, this.total); }
+            }" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
             <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
                 <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Pending Requests</h3>
                 <span class="inline-flex items-center rounded-full bg-warning-50 px-2.5 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-500/15 dark:text-warning-400">
@@ -51,7 +59,7 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                             @foreach ($pending as $row)
-                                <tr x-data="{ rejectOpen: false }" class="transition hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                <tr x-show="onPage({{ $loop->index }})" class="transition hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                                     <td class="px-6 py-4 font-medium text-gray-800 dark:text-white/90">{{ $row['org_name'] }}</td>
                                     <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ $row['requester_name'] }}</td>
                                     <td class="px-6 py-4 text-gray-600 dark:text-gray-400">
@@ -72,47 +80,56 @@
                                         {{ \Illuminate\Support\Carbon::parse($row['request']->requested_at)->format('M d, Y') }}
                                     </td>
                                     <td class="px-6 py-4">
-                                        <div class="flex flex-wrap items-start gap-2">
-                                            <form method="POST" action="{{ route('admin.joint-statement-requests.decide', $row['request']->request_id) }}">
-                                                @csrf
-                                                <input type="hidden" name="decision" value="approve" />
-                                                <button type="submit"
-                                                    class="rounded-lg bg-success-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-600">
-                                                    Approve
-                                                </button>
-                                            </form>
-
-                                            <div>
-                                                <button type="button" @click="rejectOpen = !rejectOpen"
-                                                    class="rounded-lg border border-error-300 px-3 py-1.5 text-xs font-medium text-error-600 hover:bg-error-50 dark:border-error-600 dark:text-error-400 dark:hover:bg-error-900/20">
-                                                    Reject
-                                                </button>
-                                                <div x-show="rejectOpen" x-cloak class="mt-2 w-72">
-                                                    <form method="POST" action="{{ route('admin.joint-statement-requests.decide', $row['request']->request_id) }}" class="space-y-2">
-                                                        @csrf
-                                                        <input type="hidden" name="decision" value="reject" />
-                                                        <textarea name="rejection_reason" rows="2" placeholder="Reason for rejection (optional)"
-                                                            class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-xs text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-2 focus:ring-brand-500/10 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
-                                                        <button type="submit"
-                                                            class="w-full rounded-lg bg-error-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-error-600">
-                                                            Confirm Reject
-                                                        </button>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        <a href="{{ route('admin.joint-statement-requests.show', $row['request']->request_id) }}"
+                                            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700 dark:border-gray-700 dark:text-gray-300 dark:hover:border-brand-500 dark:hover:bg-brand-500/10 dark:hover:text-brand-300">
+                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                            Review
+                                        </a>
                                     </td>
                                 </tr>
                             @endforeach
                         </tbody>
                     </table>
                 </div>
+                <div x-show="pages > 1" x-cloak
+                    class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-6 py-3 dark:border-gray-800">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        Showing <span class="font-semibold text-gray-700 dark:text-gray-300" x-text="from"></span>–<span class="font-semibold text-gray-700 dark:text-gray-300" x-text="to"></span>
+                        of <span class="font-semibold text-gray-700 dark:text-gray-300" x-text="total"></span>
+                    </p>
+                    <div class="flex items-center gap-1">
+                        <button type="button" @click="setPage(page - 1)" :disabled="page === 1"
+                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:border-palette-lime hover:bg-palette-lime-pale hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:border-palette-lime/40 dark:hover:bg-palette-lime/10 dark:hover:text-white">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6"/></svg>
+                        </button>
+                        <span x-show="visiblePages[0] > 1" class="px-1 text-xs text-gray-400 dark:text-gray-600">…</span>
+                        <template x-for="p in visiblePages" :key="p">
+                            <button type="button" @click="setPage(p)"
+                                :class="p === page ? 'bg-palette-lime text-gray-900 border-palette-lime' : 'border-gray-200 text-gray-600 hover:border-palette-lime hover:bg-palette-lime-pale dark:border-gray-700 dark:text-gray-400 dark:hover:border-palette-lime/40 dark:hover:bg-palette-lime/10 dark:hover:text-white'"
+                                class="inline-flex h-8 min-w-[2rem] items-center justify-center rounded-lg border px-2 text-xs font-medium transition"
+                                x-text="p"></button>
+                        </template>
+                        <span x-show="visiblePages[visiblePages.length - 1] < pages" class="px-1 text-xs text-gray-400 dark:text-gray-600">…</span>
+                        <button type="button" @click="setPage(page + 1)" :disabled="page === pages"
+                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:border-palette-lime hover:bg-palette-lime-pale hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:border-palette-lime/40 dark:hover:bg-palette-lime/10 dark:hover:text-white">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6"/></svg>
+                        </button>
+                    </div>
+                </div>
             @endif
         </div>
 
         {{-- Recent Decisions --}}
         @if ($decided->isNotEmpty())
-            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+            <div x-data="{
+                    page: 1, perPage: 15, total: {{ $decided->count() }},
+                    get pages() { return Math.max(1, Math.ceil(this.total / this.perPage)); },
+                    get visiblePages() { let s = Math.max(1, this.page - 1), e = Math.min(this.pages, this.page + 1); return Array.from({length: e - s + 1}, (_, i) => s + i); },
+                    onPage(i) { return i >= (this.page - 1) * this.perPage && i < this.page * this.perPage; },
+                    setPage(p) { this.page = Math.max(1, Math.min(this.pages, p)); },
+                    get from() { return this.total === 0 ? 0 : (this.page - 1) * this.perPage + 1; },
+                    get to() { return Math.min(this.page * this.perPage, this.total); }
+                }" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                 <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
                     <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Recent Decisions</h3>
                 </div>
@@ -131,7 +148,7 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                             @foreach ($decided as $row)
-                                <tr class="transition hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                <tr x-show="onPage({{ $loop->index }})" class="transition hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                                     <td class="px-6 py-4 font-medium text-gray-800 dark:text-white/90">{{ $row['org_name'] }}</td>
                                     <td class="px-6 py-4 text-gray-700 dark:text-gray-300">{{ $row['requester_name'] }}</td>
                                     <td class="px-6 py-4 text-gray-500 dark:text-gray-400">
@@ -170,6 +187,31 @@
                             @endforeach
                         </tbody>
                     </table>
+                </div>
+                <div x-show="pages > 1" x-cloak
+                    class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-6 py-3 dark:border-gray-800">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        Showing <span class="font-semibold text-gray-700 dark:text-gray-300" x-text="from"></span>–<span class="font-semibold text-gray-700 dark:text-gray-300" x-text="to"></span>
+                        of <span class="font-semibold text-gray-700 dark:text-gray-300" x-text="total"></span>
+                    </p>
+                    <div class="flex items-center gap-1">
+                        <button type="button" @click="setPage(page - 1)" :disabled="page === 1"
+                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:border-palette-lime hover:bg-palette-lime-pale hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:border-palette-lime/40 dark:hover:bg-palette-lime/10 dark:hover:text-white">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6"/></svg>
+                        </button>
+                        <span x-show="visiblePages[0] > 1" class="px-1 text-xs text-gray-400 dark:text-gray-600">…</span>
+                        <template x-for="p in visiblePages" :key="p">
+                            <button type="button" @click="setPage(p)"
+                                :class="p === page ? 'bg-palette-lime text-gray-900 border-palette-lime' : 'border-gray-200 text-gray-600 hover:border-palette-lime hover:bg-palette-lime-pale dark:border-gray-700 dark:text-gray-400 dark:hover:border-palette-lime/40 dark:hover:bg-palette-lime/10 dark:hover:text-white'"
+                                class="inline-flex h-8 min-w-[2rem] items-center justify-center rounded-lg border px-2 text-xs font-medium transition"
+                                x-text="p"></button>
+                        </template>
+                        <span x-show="visiblePages[visiblePages.length - 1] < pages" class="px-1 text-xs text-gray-400 dark:text-gray-600">…</span>
+                        <button type="button" @click="setPage(page + 1)" :disabled="page === pages"
+                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:border-palette-lime hover:bg-palette-lime-pale hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:border-palette-lime/40 dark:hover:bg-palette-lime/10 dark:hover:text-white">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6"/></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
         @endif

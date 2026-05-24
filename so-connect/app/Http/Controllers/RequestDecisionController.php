@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\FormTemplateHelper;
 use App\Http\Resources\ApprovalResource;
+use App\Mail\OfficerActivationMail;
 use App\Models\Approval;
 use App\Models\Event;
 use App\Models\Event\EventDetail;
@@ -22,6 +23,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -251,6 +253,31 @@ class RequestDecisionController extends Controller
                     ]);
                 }
             });
+
+            // Send activation email after the transaction completes
+            $recipientEmail = (string) ($payload['email'] ?? '');
+            if ($recipientEmail !== '') {
+                $rawToken = Str::random(64);
+                DB::table('invitation_tokens')->updateOrInsert(
+                    ['user_email' => $recipientEmail],
+                    [
+                        'token'      => hash('sha256', $rawToken),
+                        'created_at' => now(),
+                        'expires_at' => now()->addHours(72),
+                    ]
+                );
+
+                try {
+                    Mail::to($recipientEmail)->send(new OfficerActivationMail(
+                        recipientEmail:   $recipientEmail,
+                        organizationName: (string) ($payload['organization_name'] ?? ''),
+                        position:         (string) ($payload['position'] ?? ''),
+                        activationUrl:    route('invitation.verify', ['token' => $rawToken]),
+                    ));
+                } catch (\Throwable) {
+                    // Email failure does not roll back the approval
+                }
+            }
         }
 
         if ($this->isEventPlanRequest($actionType, $systemKey)) {
