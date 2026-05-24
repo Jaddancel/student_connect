@@ -92,6 +92,7 @@ class MenuHelper
                     ['icon' => 'forms', 'name' => 'Financial Reports',         'path' => '/admin/financial-report-requests',       'badge' => $badges['financial_report']],
                     ['icon' => 'forms', 'name' => 'Recognition Applications',  'path' => '/admin/recognition-requests',            'badge' => $badges['recognition']],
                     ['icon' => 'forms', 'name' => 'Workplan Submissions',       'path' => '/admin/workplan-requests',               'badge' => $badges['workplan']],
+                    ['icon' => 'user-profile', 'name' => 'Promotion Requests', 'path' => '/promotion-requests',                   'badge' => $badges['promotion_requests']],
                 ],
             ];
 
@@ -169,6 +170,11 @@ class MenuHelper
                 ->count();
         };
 
+        $pendingPromotions = (int) DB::table('requests')
+            ->whereIn('action_type', [7, 11])
+            ->whereNotIn('request_id', DB::table('approvals')->select('request')->whereNotNull('request'))
+            ->count();
+
         return [
             'activity_requests'    => $pendingByForm($activityFormId ? (int) $activityFormId : null),
             'project'              => $pendingByForm($projectFormId ? (int) $projectFormId : null),
@@ -177,6 +183,7 @@ class MenuHelper
             'financial_report'     => $pendingByForm($financialFormId ? (int) $financialFormId : null),
             'recognition'          => $pendingByForm($recognitionFormId ? (int) $recognitionFormId : null),
             'workplan'             => $pendingByForm($workplanFormId ? (int) $workplanFormId : null),
+            'promotion_requests'   => $pendingPromotions,
         ];
     }
 

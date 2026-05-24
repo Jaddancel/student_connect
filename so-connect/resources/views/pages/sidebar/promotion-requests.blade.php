@@ -102,14 +102,11 @@
                                     </td>
                                     <td class="px-5 py-4">
                                         <div class="flex items-center gap-2 flex-wrap">
-                                            @if($row['can_decide'])
-                                                <button type="button"
-                                                    @click="open({{ Js::from(['request_id' => $row['request_id'], 'display_type' => $row['display_type'], 'requester_name' => $row['requester_name'], 'organization_name' => $row['organization_name'], 'current_role' => $row['current_role'], 'requested_role' => $row['requested_role'], 'member_initiated' => $row['member_initiated'], 'review_payload' => $row['review_payload']]) }})"
-                                                    class="inline-flex items-center gap-1.5 rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-600/40 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                                                    Review
-                                                </button>
-                                            @endif
+                                            <a href="{{ route('promotion-requests.show', $row['request_id']) }}"
+                                                class="inline-flex items-center gap-1.5 rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-600/40 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                Review
+                                            </a>
 
                                             @if($row['status'] === 'approved' && $row['submission_id'])
                                                 <a href="{{ route('promotion-requests.confirmation', $row['submission_id']) }}"
@@ -126,8 +123,6 @@
                 </div>
             @endif
         </div>
-
-    </div>
 
         {{-- Review Modal --}}
         <div x-show="reviewOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"

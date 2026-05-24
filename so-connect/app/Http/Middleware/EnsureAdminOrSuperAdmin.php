@@ -13,7 +13,7 @@ class EnsureAdminOrSuperAdmin
         $user = $request->user();
 
         if (! $user) {
-            abort(401);
+            return redirect()->route('home');
         }
 
         if (! in_array((int) $user->user_type, [1, 2])) {

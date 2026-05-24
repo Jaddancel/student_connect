@@ -14,7 +14,7 @@ class EnsureOrganizationAdminRole
         $user = $request->user();
 
         if (! $user) {
-            abort(401);
+            return redirect()->route('home');
         }
 
         if ((int) $user->user_type <= 2) {

@@ -28,6 +28,20 @@
             <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
                 <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">Period &amp; Identity</h3>
 
+                {{-- Student ID --}}
+                <div class="mb-4">
+                    <label for="student_id" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                        Student ID <span class="text-error-500">*</span>
+                    </label>
+                    <input type="text" id="student_id" name="student_id" inputmode="numeric" required
+                        placeholder="e.g. 2021123456"
+                        value="{{ old('student_id') }}"
+                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('student_id') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                    @error('student_id')
+                        <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                    @enderror
+                </div>
+
                 {{-- Semester / Season / School Year --}}
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
@@ -190,6 +204,69 @@
                             @error('photo')
                                 <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                             @enderror
+                        </div>
+                    </div>
+                </div>
+
+                {{-- ID Photos --}}
+                <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div x-data="{ preview: null }">
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Front of ID <span class="text-error-500">*</span>
+                            <span class="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">(JPG/PNG)</span>
+                        </label>
+                        <div class="flex items-start gap-3">
+                            <div class="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30">
+                                <template x-if="preview">
+                                    <img :src="preview" class="h-full w-full object-cover" alt="Front of ID preview" />
+                                </template>
+                                <template x-if="!preview">
+                                    <span class="px-2 text-center text-xs text-gray-400 dark:text-gray-500">No image</span>
+                                </template>
+                            </div>
+                            <div class="flex-1">
+                                <label for="id_photo_front"
+                                    class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed {{ $errors->has('id_photo_front') ? 'border-error-500 bg-error-50 dark:border-error-500/40 dark:bg-error-500/5' : 'border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30' }} px-4 py-4 transition hover:border-brand-400 hover:bg-brand-50 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
+                                    <svg class="mb-1 h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 16v-8m-4 4h8M20.25 6.375c0 .621-.504 1.125-1.125 1.125H4.875A1.125 1.125 0 013.75 6.375V5.625A1.125 1.125 0 014.875 4.5h14.25A1.125 1.125 0 0120.25 5.625v.75zM4.5 7.5h15V18a1.5 1.5 0 01-1.5 1.5h-12A1.5 1.5 0 014.5 18V7.5z" /></svg>
+                                    <span class="text-xs font-medium text-gray-600 dark:text-gray-400">Click to upload</span>
+                                    <span class="mt-0.5 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
+                                    <input id="id_photo_front" name="id_photo_front" type="file" accept="image/jpeg,image/png" class="hidden"
+                                        @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
+                                </label>
+                                @error('id_photo_front')
+                                    <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        </div>
+                    </div>
+
+                    <div x-data="{ preview: null }">
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Back of ID <span class="text-error-500">*</span>
+                            <span class="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">(JPG/PNG)</span>
+                        </label>
+                        <div class="flex items-start gap-3">
+                            <div class="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30">
+                                <template x-if="preview">
+                                    <img :src="preview" class="h-full w-full object-cover" alt="Back of ID preview" />
+                                </template>
+                                <template x-if="!preview">
+                                    <span class="px-2 text-center text-xs text-gray-400 dark:text-gray-500">No image</span>
+                                </template>
+                            </div>
+                            <div class="flex-1">
+                                <label for="id_photo_back"
+                                    class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed {{ $errors->has('id_photo_back') ? 'border-error-500 bg-error-50 dark:border-error-500/40 dark:bg-error-500/5' : 'border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30' }} px-4 py-4 transition hover:border-brand-400 hover:bg-brand-50 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
+                                    <svg class="mb-1 h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 16v-8m-4 4h8M20.25 6.375c0 .621-.504 1.125-1.125 1.125H4.875A1.125 1.125 0 013.75 6.375V5.625A1.125 1.125 0 014.875 4.5h14.25A1.125 1.125 0 0120.25 5.625v.75zM4.5 7.5h15V18a1.5 1.5 0 01-1.5 1.5h-12A1.5 1.5 0 014.5 18V7.5z" /></svg>
+                                    <span class="text-xs font-medium text-gray-600 dark:text-gray-400">Click to upload</span>
+                                    <span class="mt-0.5 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
+                                    <input id="id_photo_back" name="id_photo_back" type="file" accept="image/jpeg,image/png" class="hidden"
+                                        @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
+                                </label>
+                                @error('id_photo_back')
+                                    <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                                @enderror
+                            </div>
                         </div>
                     </div>
                 </div>

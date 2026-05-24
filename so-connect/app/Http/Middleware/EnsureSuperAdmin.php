@@ -12,7 +12,11 @@ class EnsureSuperAdmin
     {
         $user = $request->user();
 
-        if (! $user || (int) $user->user_type !== 1) {
+        if (! $user) {
+            return redirect()->route('home');
+        }
+
+        if ((int) $user->user_type !== 1) {
             abort(403, 'Only super admins can access this page.');
         }
 

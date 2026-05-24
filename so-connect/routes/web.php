@@ -229,6 +229,8 @@ Route::get('/manage-organization', [OrganizationController::class, 'manage'])
 // Promotion requests management (President + Admin)
 Route::get('/promotion-requests', [PromotionRequestsPageController::class, 'index'])
     ->middleware(['auth', 'admin'])->name('promotion-requests');
+Route::get('/promotion-requests/{requestId}', [PromotionRequestsPageController::class, 'show'])
+    ->whereNumber('requestId')->middleware(['auth', 'admin'])->name('promotion-requests.show');
 Route::get('/promotion-requests/submissions/{submissionId}/confirm', [PromotionRequestsPageController::class, 'confirmation'])
     ->whereNumber('submissionId')->middleware(['auth', 'admin'])->name('promotion-requests.confirmation');
 Route::post('/promotion-requests/submissions/{submissionId}/confirm', [PromotionRequestsPageController::class, 'confirm'])
@@ -584,7 +586,7 @@ Route::get('/bar-chart', function () {
 // authentication pages
 Route::get('/signin', function () {
     return view('pages.auth.signin', ['title' => 'Sign In']);
-})->name('signin');
+})->middleware('guest')->name('signin');
 
 Route::get('/signup', [StudentLeaderDirectoryController::class, 'index'])
     ->middleware('guest')->name('signup');

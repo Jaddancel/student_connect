@@ -12,6 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->appendToGroup('web', \App\Http\Middleware\EnsurePasswordChanged::class);
+        $middleware->appendToGroup('web', \App\Http\Middleware\PreventBackHistory::class);
+
+        $middleware->redirectGuestsTo(fn () => route('home'));
+        $middleware->redirectUsersTo(fn () => route('home'));
 
         $middleware->alias([
             'dashboard.access'   => \App\Http\Middleware\EnsureDashboardAccess::class,

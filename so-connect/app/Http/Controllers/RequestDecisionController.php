@@ -229,6 +229,9 @@ class RequestDecisionController extends Controller
                     'financial_support'       => $payload['financial_support'] ?? [],
                     'scholar_provider'        => (string) ($payload['scholar_provider'] ?? ''),
                     'financial_support_other' => (string) ($payload['others_specify'] ?? ''),
+                    'student_id'              => (string) ($payload['student_id'] ?? ''),
+                    'id_photo_front'          => (string) ($payload['id_photo_front'] ?? ''),
+                    'id_photo_back'           => (string) ($payload['id_photo_back'] ?? ''),
                 ]);
 
                 $newUser = User::create([

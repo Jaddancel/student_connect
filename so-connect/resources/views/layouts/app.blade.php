@@ -243,6 +243,40 @@ window.addEventListener('resize', checkMobile);">
         })();
     </script>
 
+    {{-- Global image lightbox --}}
+    <div x-data x-show="$store.lightbox.open"
+         x-transition:enter="transition ease-out duration-150"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 p-4 cursor-zoom-out"
+         @click.self="$store.lightbox.close()"
+         @keydown.escape.window="$store.lightbox.close()"
+         style="display:none">
+        <img :src="$store.lightbox.src" :alt="$store.lightbox.alt"
+             class="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl cursor-default"
+             @click.stop />
+        <button @click="$store.lightbox.close()"
+                class="absolute top-4 right-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur-sm transition hover:bg-white/20 hover:text-white">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+    </div>
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.store('lightbox', {
+                open: false,
+                src: '',
+                alt: '',
+                show(src, alt = '') { this.src = src; this.alt = alt; this.open = true; },
+                close() { this.open = false; this.src = ''; this.alt = ''; },
+            });
+        });
+    </script>
+
 </body>
 
 @stack('scripts')

@@ -73,6 +73,9 @@ class StudentLeaderDirectoryController extends Controller
             'signature'            => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
             'password'             => ['required', 'string', 'min:8', 'confirmed'],
             'password_confirmation' => ['required', 'string'],
+            'student_id'           => ['required', 'digits_between:1,50'],
+            'id_photo_front'       => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            'id_photo_back'        => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
         ]);
 
         $organizationId = (int) $validated['organization_id'];
@@ -98,6 +101,26 @@ class StudentLeaderDirectoryController extends Controller
         if ($request->hasFile('signature') && $request->file('signature')->isValid()) {
             $file          = $request->file('signature');
             $signaturePath = $file->storeAs(
+                $fileDir,
+                Str::lower(Str::random(16)).'.'.$file->getClientOriginalExtension(),
+                'public'
+            );
+        }
+
+        $idPhotoFrontPath = '';
+        if ($request->hasFile('id_photo_front') && $request->file('id_photo_front')->isValid()) {
+            $file             = $request->file('id_photo_front');
+            $idPhotoFrontPath = $file->storeAs(
+                $fileDir,
+                Str::lower(Str::random(16)).'.'.$file->getClientOriginalExtension(),
+                'public'
+            );
+        }
+
+        $idPhotoBackPath = '';
+        if ($request->hasFile('id_photo_back') && $request->file('id_photo_back')->isValid()) {
+            $file            = $request->file('id_photo_back');
+            $idPhotoBackPath = $file->storeAs(
                 $fileDir,
                 Str::lower(Str::random(16)).'.'.$file->getClientOriginalExtension(),
                 'public'
@@ -140,6 +163,9 @@ class StudentLeaderDirectoryController extends Controller
             'date_filed'            => $validated['date_filed'],
             'signature'             => $signaturePath,
             'password'              => Hash::make($validated['password']),
+            'student_id'            => $validated['student_id'] ?? '',
+            'id_photo_front'        => $idPhotoFrontPath,
+            'id_photo_back'         => $idPhotoBackPath,
         ];
 
         // Create the promotion request (action_type=11) for admin approval

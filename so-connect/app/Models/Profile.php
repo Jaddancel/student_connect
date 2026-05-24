@@ -38,6 +38,9 @@ class Profile extends Model
         'financial_support',
         'scholar_provider',
         'financial_support_other',
+        'student_id',
+        'id_photo_front',
+        'id_photo_back',
     ];
 
     protected function casts(): array

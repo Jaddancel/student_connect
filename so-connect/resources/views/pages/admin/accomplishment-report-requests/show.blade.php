@@ -116,7 +116,9 @@
                         <p class="text-xs font-medium text-gray-400">Prepared By</p>
                         <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['name'] ?? '—' }}</p>
                         @if (!empty($p['signature']))
-                            <img src="{{ asset('storage/'.$p['signature']) }}" alt="Signature" class="mt-2 h-16 object-contain rounded border border-gray-200 dark:border-gray-700" />
+                            <img src="{{ asset('storage/'.$p['signature']) }}" alt="Signature"
+                                 class="mt-2 h-16 cursor-zoom-in object-contain rounded border border-gray-200 dark:border-gray-700"
+                                 @click="$store.lightbox.show('{{ asset('storage/'.$p['signature']) }}', 'Signature')" />
                         @endif
                     </div>
                     @if (!empty($p['adviserName']))
@@ -134,7 +136,9 @@
                         <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Attached Photo</h3>
                     </div>
                     <div class="px-6 py-5">
-                        <img src="{{ asset('storage/'.$p['photos']) }}" alt="Activity Photo" class="max-h-64 rounded-xl border border-gray-200 object-contain dark:border-gray-700" />
+                        <img src="{{ asset('storage/'.$p['photos']) }}" alt="Activity Photo"
+                             class="max-h-64 cursor-zoom-in rounded-xl border border-gray-200 object-contain dark:border-gray-700"
+                             @click="$store.lightbox.show('{{ asset('storage/'.$p['photos']) }}', 'Activity Photo')" />
                     </div>
                 </div>
             @endif

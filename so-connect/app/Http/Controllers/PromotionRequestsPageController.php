@@ -180,6 +180,88 @@ class PromotionRequestsPageController extends Controller
         ]);
     }
 
+    public function show(int $requestId, Request $request)
+    {
+        $user = $request->user();
+        $isAdmin = (int) $user->user_type === 2;
+
+        if (! $isAdmin) {
+            abort(403);
+        }
+
+        $actionRequest = ActionRequest::query()->findOrFail($requestId);
+        $actionType = (int) $actionRequest->action_type;
+        $payload = (array) ($actionRequest->payload ?? []);
+
+        $approval = Approval::query()->where('request', $requestId)->first();
+
+        if ($actionType === 11) {
+            [$organizationId] = $this->parseNewOfficerAction($actionRequest->action);
+            $photoPath = (string) ($payload['photo'] ?? '');
+            $displayType = 'new_officer';
+            $reviewPayload = [
+                'photo_url'             => $photoPath ? Storage::url($photoPath) : null,
+                'email'                 => $payload['email'] ?? '',
+                'position'             => $payload['position'] ?? '',
+                'first_name'           => $payload['first_name'] ?? '',
+                'middle_name'          => $payload['middle_name'] ?? '',
+                'last_name'            => $payload['last_name'] ?? '',
+                'contact_number'       => $payload['contact_number'] ?? '',
+                'age'                  => $payload['age'] ?? '',
+                'sex'                  => $payload['sex'] ?? '',
+                'religious_affiliation' => $payload['religious_affiliation'] ?? '',
+                'nationality'          => $payload['nationality'] ?? '',
+                'birthday'             => $payload['birthday'] ?? '',
+                'birthplace'           => $payload['birthplace'] ?? '',
+                'present_address'      => $payload['present_address'] ?? '',
+                'home_address'         => $payload['home_address'] ?? '',
+                'parents_guardian'     => $payload['parents_guardian'] ?? '',
+                'course'               => $payload['course'] ?? '',
+                'year_level'           => $payload['year_level'] ?? '',
+                'talents_hobbies'      => $payload['talents_hobbies'] ?? '',
+                'financial_support'    => $payload['financial_support'] ?? [],
+                'scholar_provider'     => $payload['scholar_provider'] ?? '',
+                'others_specify'       => $payload['others_specify'] ?? '',
+                'faculty_advisers'     => $payload['faculty_advisers'] ?? '',
+                'semester'             => $payload['semester'] ?? '',
+                'season'               => $payload['season'] ?? '',
+                'school_year'          => $payload['school_year'] ?? '',
+                'date_filed'           => $payload['date_filed'] ?? '',
+                'student_id'           => $payload['student_id'] ?? '',
+                'id_photo_front_url'   => ($payload['id_photo_front'] ?? '') ? Storage::url($payload['id_photo_front']) : null,
+                'id_photo_back_url'    => ($payload['id_photo_back'] ?? '') ? Storage::url($payload['id_photo_back']) : null,
+            ];
+            $requesterName = trim(($payload['first_name'] ?? '').' '.($payload['last_name'] ?? ''));
+            $currentRole = 'new';
+            $requestedRole = 'officer';
+            $memberInitiated = false;
+        } else {
+            [$targetUserId, $organizationId, $currentRole] = $this->parseRoleChangeAction($actionRequest->action);
+            $displayType = 'role_change';
+            $reviewPayload = null;
+            $memberInitiated = (bool) ($payload['member_initiated'] ?? false);
+            $requestedRole = $this->nextRole($currentRole);
+            $userNameMap = $this->userNameMap([$targetUserId]);
+            $requesterName = $userNameMap[$targetUserId] ?? 'Unknown User';
+        }
+
+        $orgNameMap = $this->orgNameMap([$organizationId]);
+        $orgName = $orgNameMap[$organizationId] ?? 'Unknown Organization';
+
+        return view('pages.sidebar.promotion-request-show', [
+            'title'           => 'Review Promotion Request',
+            'actionRequest'   => $actionRequest,
+            'displayType'     => $displayType,
+            'reviewPayload'   => $reviewPayload,
+            'approval'        => $approval,
+            'orgName'         => $orgName,
+            'requesterName'   => $requesterName,
+            'currentRole'     => $currentRole,
+            'requestedRole'   => $requestedRole,
+            'memberInitiated' => $memberInitiated,
+        ]);
+    }
+
     public function confirmation(int $submissionId, Request $request)
     {
         $user = $request->user();
