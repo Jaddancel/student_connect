@@ -6,7 +6,7 @@ use App\Http\Controllers\Admin\AccomplishmentReportRequestController;
 use App\Http\Controllers\Admin\AdminAccountCreationController;
 use App\Http\Controllers\Admin\AdminOfficerCreationController;
 use App\Http\Controllers\Admin\AdminWorkplanController;
-use App\Http\Controllers\Admin\EventPlanRequestController;
+use App\Http\Controllers\Admin\ActivityRequestController as AdminActivityRequestController;
 use App\Http\Controllers\Admin\FinancialReportRequestController;
 use App\Http\Controllers\Admin\JointStatementRequestController;
 use App\Http\Controllers\Admin\OrganizationScoringController;
@@ -305,14 +305,14 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/semesters/{semester}/edit', [SemesterController::class, 'edit'])->name('admin.semesters.edit');
     Route::patch('/admin/semesters/{semester}', [SemesterController::class, 'update'])->name('admin.semesters.update');
 
-    Route::get('/admin/event-plan-requests', [EventPlanRequestController::class, 'index'])
-        ->name('admin.event-plan-requests.index');
-    Route::get('/admin/event-plan-requests/{requestId}', [EventPlanRequestController::class, 'show'])
+    Route::get('/admin/activity-requests', [AdminActivityRequestController::class, 'index'])
+        ->name('admin.activity-requests.index');
+    Route::get('/admin/activity-requests/{requestId}', [AdminActivityRequestController::class, 'show'])
         ->whereNumber('requestId')
-        ->name('admin.event-plan-requests.show');
-    Route::post('/admin/event-plan-requests/{requestId}/decide', [EventPlanRequestController::class, 'decide'])
+        ->name('admin.activity-requests.show');
+    Route::post('/admin/activity-requests/{requestId}/decide', [AdminActivityRequestController::class, 'decide'])
         ->whereNumber('requestId')
-        ->name('admin.event-plan-requests.decide');
+        ->name('admin.activity-requests.decide');
 
     Route::get('/admin/project-requests', [ProjectRequestController::class, 'index'])
         ->name('admin.project-requests.index');

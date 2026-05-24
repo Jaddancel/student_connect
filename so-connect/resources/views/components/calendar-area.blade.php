@@ -185,6 +185,7 @@
                 <div class="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
                     <form id="eventPlanDrawerForm" action="{{ route('api.events.requests.store') }}" method="POST"
                         class="space-y-6" x-data="{
+                            formMode: 'event-plan',
                             facilities: {{ Js::from(old('university_facilities', ['', ''])) }},
                             addFacility() {
                                 if (this.facilities.length < 10) this.facilities.push('');
@@ -199,8 +200,9 @@
                             removeAdviser(index) {
                                 if (this.advisers.length > 1) this.advisers.splice(index, 1);
                             },
-                            activityType: {{ Js::from(old('activity_type', '')) }},
+                            activityTypes: {{ Js::from(old('activity_types', [])) }},
                             activityTypeOther: {{ Js::from(old('activity_type_other', '')) }},
+                            activityType: {{ Js::from(old('activity_type', '')) }},
                             seminarLevel: {{ Js::from(old('seminar_level', '')) }},
                             areaScope: {{ Js::from(old('area_scope', '')) }},
                             areaScopeOther: {{ Js::from(old('area_scope_other', '')) }},
@@ -209,7 +211,7 @@
                             cosponsorCount: 0,
                             relatedToOrg: {{ old('related_to_organization') ? 'true' : 'false' }},
                             extensionServices: {{ Js::from(old('extension_services', '')) }},
-                        }">
+                        }" @calendar-form-mode.window="formMode = $event.detail.mode">
                         @csrf
 
                         <div id="event-plan-feedback" class="hidden rounded-lg border px-3 py-2 text-sm"></div>
@@ -261,7 +263,7 @@
                                         class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                                 </div>
 
-                                <div>
+                                <div x-show="formMode === 'event-plan'">
                                     <label for="plan-resources"
                                         class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Resources
                                         Needed <span class="text-error-500">*</span></label>
@@ -270,7 +272,7 @@
                                         placeholder="List the resources, equipment, or materials needed">{{ old('resources_needed') }}</textarea>
                                 </div>
 
-                                <div class="sm:col-span-2">
+                                <div class="sm:col-span-2" x-show="formMode === 'event-plan'">
                                     <label
                                         class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Persons
                                         Responsible <span class="text-error-500">*</span></label>
@@ -309,7 +311,7 @@
                                     </div>
                                 </div>
 
-                                <div class="sm:col-span-2">
+                                <div class="sm:col-span-2" x-show="formMode === 'event-plan'">
                                     <label for="event-description"
                                         class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Event
                                         Description</label>
@@ -441,29 +443,26 @@
                                 Event Type</h6>
 
                             <div class="space-y-6">
-                                <div>
+                                {{-- Event-plan mode: single-select radio --}}
+                                <div x-show="formMode === 'event-plan'">
                                     <p class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-400">Select one <span class="text-error-500">*</span></p>
-                                    <div
-                                        class="space-y-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900/30">
+                                    <div class="space-y-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900/30">
                                         @foreach (['Seminar', 'Clean Up Drive', 'Conference', 'Workshop', 'Preparation', 'Meeting'] as $type)
                                             <label class="flex cursor-pointer items-center gap-3">
-                                                <input type="radio" name="activity_type"
-                                                    value="{{ $type }}" x-model="activityType" required
+                                                <input type="radio" name="activity_type" value="{{ $type }}"
+                                                    x-model="activityType"
                                                     class="h-4 w-4 border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
-                                                <span
-                                                    class="text-sm text-gray-700 dark:text-gray-300">{{ $type }}</span>
+                                                <span class="text-sm text-gray-700 dark:text-gray-300">{{ $type }}</span>
                                             </label>
                                         @endforeach
-
                                         <div class="space-y-2">
                                             <label class="flex cursor-pointer items-center gap-3">
                                                 <input type="radio" name="activity_type" value="others"
-                                                    x-model="activityType" required
+                                                    x-model="activityType"
                                                     class="h-4 w-4 border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
                                                 <span class="text-sm text-gray-700 dark:text-gray-300">Others</span>
                                             </label>
-                                            <div x-show="activityType === 'others'" x-transition
-                                                class="pl-7">
+                                            <div x-show="activityType === 'others'" x-transition class="pl-7">
                                                 <input type="text" name="activity_type_other"
                                                     value="{{ old('activity_type_other') }}"
                                                     :required="activityType === 'others'"
@@ -477,15 +476,13 @@
                                             <div class="flex gap-6">
                                                 <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                                                     <input type="radio" name="seminar_level" value="College"
-                                                        x-model="seminarLevel"
-                                                        :required="activityType === 'Seminar'"
+                                                        x-model="seminarLevel" :required="activityType === 'Seminar'"
                                                         class="h-4 w-4 border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
                                                     College Level
                                                 </label>
                                                 <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                                                     <input type="radio" name="seminar_level" value="University"
-                                                        x-model="seminarLevel"
-                                                        :required="activityType === 'Seminar'"
+                                                        x-model="seminarLevel" :required="activityType === 'Seminar'"
                                                         class="h-4 w-4 border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
                                                     University Level
                                                 </label>
@@ -494,8 +491,36 @@
                                     </div>
                                 </div>
 
-                                {{-- Related to Organization --}}
-                                <div>
+                                {{-- Activity-request mode: multi-select checkboxes --}}
+                                <div x-show="formMode === 'activity-request'">
+                                    <p class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-400">Activity Type (select all that apply) <span class="text-error-500">*</span></p>
+                                    <div class="space-y-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900/30">
+                                        @foreach (['Seminar', 'Clean Up Drive', 'Donation', 'Conference', 'Workshop'] as $type)
+                                            <label class="flex cursor-pointer items-center gap-3">
+                                                <input type="checkbox" name="activity_types[]" value="{{ $type }}"
+                                                    x-model="activityTypes"
+                                                    class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                                                <span class="text-sm text-gray-700 dark:text-gray-300">{{ $type }}</span>
+                                            </label>
+                                        @endforeach
+                                        <div class="space-y-2">
+                                            <label class="flex cursor-pointer items-center gap-3">
+                                                <input type="checkbox" name="activity_types[]" value="others"
+                                                    x-model="activityTypes"
+                                                    class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                                                <span class="text-sm text-gray-700 dark:text-gray-300">Others</span>
+                                            </label>
+                                            <div x-show="activityTypes.includes('others')" x-transition class="pl-7">
+                                                <input type="text" name="activity_type_other" x-model="activityTypeOther"
+                                                    placeholder="Specify other activity type"
+                                                    class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {{-- Related to Organization: event-plan only --}}
+                                <div x-show="formMode === 'event-plan'">
                                     <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-400">
                                         <input type="checkbox" name="related_to_organization" value="1"
                                             x-model="relatedToOrg"
@@ -525,8 +550,7 @@
                                             <option value="Provincial" @selected(old('area_scope') === 'Provincial')>Provincial</option>
                                             <option value="Regional" @selected(old('area_scope') === 'Regional')>Regional</option>
                                             <option value="National" @selected(old('area_scope') === 'National')>National</option>
-                                            <option value="International" @selected(old('area_scope') === 'International')>International
-                                            </option>
+                                            <option value="International" @selected(old('area_scope') === 'International')>International</option>
                                             <option value="others" @selected(old('area_scope') === 'others')>Others</option>
                                         </select>
                                         <div x-show="areaScope === 'others'" x-transition class="mt-2">
@@ -555,7 +579,7 @@
                                                 value="{{ old('sponsor_other') }}" placeholder="Specify sponsor"
                                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                                         </div>
-                                        <div x-show="sponsor === 'co-sponsors'" x-transition class="mt-2">
+                                        <div x-show="sponsor === 'co-sponsors' && formMode === 'event-plan'" x-transition class="mt-2">
                                             <input type="hidden" name="cosponsor_count" :value="cosponsorCount" />
                                             <div class="max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900/30 space-y-2">
                                                 @foreach ($allOrgsGrouped as $typeId => $orgs)
@@ -602,8 +626,8 @@
                                 Cancel
                             </button>
                             <button type="submit"
-                                class="bg-brand-500 hover:bg-brand-600 flex w-full justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-white sm:w-auto">
-                                Submit Event Plan
+                                class="bg-brand-500 hover:bg-brand-600 flex w-full justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-white sm:w-auto"
+                                x-text="formMode === 'activity-request' ? 'Submit Activity Request' : 'Submit Event Plan'">
                             </button>
                         </div>
                     </form>

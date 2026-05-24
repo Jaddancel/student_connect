@@ -443,6 +443,12 @@ export function calendarInit() {
                     "Submit an event plan for your workplan.";
         }
 
+        window.dispatchEvent(
+            new CustomEvent("calendar-form-mode", {
+                detail: { mode: currentFormMode },
+            }),
+        );
+
         if (planTargetDateEl && prefillDate) {
             planTargetDateEl.value = prefillDate;
         }
@@ -539,8 +545,8 @@ export function calendarInit() {
             !organizationId ||
             !title ||
             !targetDate ||
-            !resourcesNeeded ||
-            personsResponsible.length === 0
+            (!isActivityRequest &&
+                (!resourcesNeeded || personsResponsible.length === 0))
         ) {
             setPlanFeedback("Please fill in the required fields.");
             return;

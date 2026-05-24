@@ -85,7 +85,7 @@ class MenuHelper
             $menuGroups[] = [
                 'title' => 'Requests',
                 'items' => [
-                    ['icon' => 'task',  'name' => 'Activity Requests',          'path' => '/admin/event-plan-requests',             'badge' => $badges['event_plans']],
+                    ['icon' => 'task',  'name' => 'Activity Requests',          'path' => '/admin/activity-requests',               'badge' => $badges['activity_requests']],
                     ['icon' => 'forms', 'name' => 'Project Requests',          'path' => '/admin/project-requests',                'badge' => $badges['project']],
                     ['icon' => 'forms', 'name' => 'Joint Statements',          'path' => '/admin/joint-statement-requests',        'badge' => $badges['joint_statement']],
                     ['icon' => 'forms', 'name' => 'Accomplishment Reports',    'path' => '/admin/accomplishment-report-requests',  'badge' => $badges['accomplishment_report']],
@@ -149,10 +149,7 @@ class MenuHelper
     {
         $approvedIds = DB::table('approvals')->select('request')->whereNotNull('request');
 
-        $eventPlanCount = DB::table('requests')
-            ->where('action_type', 10)
-            ->whereNotIn('request_id', $approvedIds)
-            ->count();
+        $activityFormId = DB::table('forms')->where('route_name', 'activity-request')->value('id');
 
         $projectFormId             = DB::table('forms')->where('route_name', 'project-request')->value('id');
         $jointFormId               = DB::table('forms')->where('route_name', 'joint-statement')->value('id');
@@ -173,7 +170,7 @@ class MenuHelper
         };
 
         return [
-            'event_plans'          => (int) $eventPlanCount,
+            'activity_requests'    => $pendingByForm($activityFormId ? (int) $activityFormId : null),
             'project'              => $pendingByForm($projectFormId ? (int) $projectFormId : null),
             'joint_statement'      => $pendingByForm($jointFormId ? (int) $jointFormId : null),
             'accomplishment_report' => $pendingByForm($accomplishmentFormId ? (int) $accomplishmentFormId : null),
