@@ -137,6 +137,10 @@ class OrganizationScoringController extends Controller
 
         $payload = $this->normalizePayload($validated['payload'] ?? []);
         $scores  = $this->computeScores($payload);
+        $semester = Semester::query()->find($semesterId);
+        $scores['manual_used'] = $semester
+            ? $this->buildManualUsed($payload, $organizationId, $semester)
+            : [];
 
         OrganizationScore::query()->create([
             'organization_id'     => $organizationId,
@@ -190,6 +194,10 @@ class OrganizationScoringController extends Controller
 
         $payload = $this->normalizePayload($validated['payload'] ?? []);
         $scores  = $this->computeScores($payload);
+        $semester = Semester::query()->find((int) $validated['semester_id']);
+        $scores['manual_used'] = $semester
+            ? $this->buildManualUsed($payload, (int) $validated['organization_id'], $semester)
+            : [];
 
         $score->fill([
             'scored_by'           => $request->user()?->user_id,
@@ -236,7 +244,67 @@ class OrganizationScoringController extends Controller
 
     private function buildAuditData(Request $request): array
     {
-        $manualFields = [
+        $manualFields = $this->manualFieldLabels();
+
+        $semesters = Semester::query()->orderByDesc('starts_at')->get();
+        $semesterFilter = $request->integer('semester_id') ?: null;
+
+        $scoresQuery = OrganizationScore::query()->orderByDesc('scored_at');
+        if ($semesterFilter) {
+            $scoresQuery->where('semester_id', $semesterFilter);
+        }
+        $scores = $scoresQuery->get();
+
+        $orgNames = DB::table('organizations as o')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->select('o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as name"))
+            ->pluck('name', 'organization_id');
+
+        $semesterNames = $semesters->pluck('name', 'semester_id');
+
+        $scorerNames = collect();
+        $scorerIds = $scores->pluck('scored_by')->filter()->unique()->values();
+        if ($scorerIds->isNotEmpty()) {
+            $scorerNames = DB::table('users as u')
+                ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+                ->whereIn('u.user_id', $scorerIds)
+                ->select('u.user_id', DB::raw("CONCAT(p.first_name, ' ', p.last_name) as full_name"))
+                ->pluck('full_name', 'user_id');
+        }
+
+        $semesterMap = $semesters->keyBy('semester_id');
+
+        $rows = $scores->map(function ($score) use ($orgNames, $semesterNames, $scorerNames, $semesterMap) {
+            $payload    = (array) ($score->payload ?? []);
+            $rawScores  = (array) ($score->raw_scores ?? []);
+            $semester   = $semesterMap->get($score->semester_id);
+            $usedManual = [];
+            if (isset($rawScores['manual_used']) && is_array($rawScores['manual_used'])) {
+                $usedManual = array_values(array_filter(
+                    $rawScores['manual_used'],
+                    fn ($label) => is_string($label) && trim($label) !== ''
+                ));
+            } elseif ($semester) {
+                $usedManual = $this->buildManualUsed($payload, (int) $score->organization_id, $semester);
+            }
+
+            return [
+                'id'          => $score->organization_score_id,
+                'org_name'    => $orgNames[$score->organization_id] ?? 'Unknown',
+                'semester'    => $semesterNames[$score->semester_id] ?? '—',
+                'total'       => $score->total_weighted_score,
+                'scored_at'   => $score->scored_at,
+                'scorer_name' => $scorerNames[$score->scored_by] ?? '—',
+                'manual_used' => $usedManual,
+            ];
+        });
+
+        return compact('rows', 'semesters', 'semesterFilter', 'manualFields');
+    }
+
+    private function manualFieldLabels(): array
+    {
+        return [
             'cat1_seminar_college'        => 'Seminars - College Level (>=15 members)',
             'cat1_seminar_univ'           => 'Seminars - University Level (>=30 members)',
             'cat1_activities_related'     => 'Activities Related to Org (>=15 members)',
@@ -276,60 +344,22 @@ class OrganizationScoringController extends Controller
             'cat6_leadership'             => 'Leadership Training Participated',
             'cat6_transparency'           => 'Financial/Transparency Report Submitted',
         ];
+    }
 
-        $semesters = Semester::query()->orderByDesc('starts_at')->get();
-        $semesterFilter = $request->integer('semester_id') ?: null;
+    private function buildManualUsed(array $payload, int $organizationId, Semester $semester): array
+    {
+        $auto = $this->computeAutoInstances($organizationId, $semester);
+        $usedManual = [];
 
-        $scoresQuery = OrganizationScore::query()->orderByDesc('scored_at');
-        if ($semesterFilter) {
-            $scoresQuery->where('semester_id', $semesterFilter);
-        }
-        $scores = $scoresQuery->get();
-
-        $orgNames = DB::table('organizations as o')
-            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
-            ->select('o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as name"))
-            ->pluck('name', 'organization_id');
-
-        $semesterNames = $semesters->pluck('name', 'semester_id');
-
-        $scorerNames = collect();
-        $scorerIds = $scores->pluck('scored_by')->filter()->unique()->values();
-        if ($scorerIds->isNotEmpty()) {
-            $scorerNames = DB::table('users as u')
-                ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
-                ->whereIn('u.user_id', $scorerIds)
-                ->select('u.user_id', DB::raw("CONCAT(p.first_name, ' ', p.last_name) as full_name"))
-                ->pluck('full_name', 'user_id');
-        }
-
-        $semesterMap = $semesters->keyBy('semester_id');
-
-        $rows = $scores->map(function ($score) use ($orgNames, $semesterNames, $scorerNames, $manualFields, $semesterMap) {
-            $payload    = (array) ($score->payload ?? []);
-            $semester   = $semesterMap->get($score->semester_id);
-            $auto       = $semester ? $this->computeAutoInstances((int) $score->organization_id, $semester) : [];
-            $usedManual = [];
-            foreach ($manualFields as $key => $label) {
-                $payloadValue = (int) ($payload[$key] ?? 0);
-                $autoValue = (int) ($auto[$key] ?? 0);
-                if ($payloadValue !== $autoValue) {
-                    $usedManual[] = $label;
-                }
+        foreach ($this->manualFieldLabels() as $key => $label) {
+            $payloadValue = (int) ($payload[$key] ?? 0);
+            $autoValue = (int) ($auto[$key] ?? 0);
+            if ($payloadValue !== $autoValue) {
+                $usedManual[] = $label;
             }
+        }
 
-            return [
-                'id'          => $score->organization_score_id,
-                'org_name'    => $orgNames[$score->organization_id] ?? 'Unknown',
-                'semester'    => $semesterNames[$score->semester_id] ?? '—',
-                'total'       => $score->total_weighted_score,
-                'scored_at'   => $score->scored_at,
-                'scorer_name' => $scorerNames[$score->scored_by] ?? '—',
-                'manual_used' => $usedManual,
-            ];
-        });
-
-        return compact('rows', 'semesters', 'semesterFilter', 'manualFields');
+        return $usedManual;
     }
 
     public function rankings(Request $request)

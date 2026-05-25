@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Mail\DocumentGeneratedMail;
 use App\Helpers\FormTemplateHelper;
+use App\Mail\DocumentGeneratedMail;
 use App\Models\Approval;
 use App\Models\Document;
 use App\Models\Form;
@@ -13,6 +13,9 @@ use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
 use App\Models\Template;
 use App\Models\Workplan;
+use DOMDocument;
+use DOMElement;
+use DOMXPath;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -31,7 +34,7 @@ class DocumentGenerationService
         int $formId,
         int $requesterUserId,
     ): ActionRequest {
-        $requestType = app(\App\Services\RequestTypeService::class)->resolveSystemType(
+        $requestType = app(RequestTypeService::class)->resolveSystemType(
             RequestType::SYSTEM_KEY_FORM_GENERATION,
             'Form Generation Request',
             RequestType::CATEGORY_ORGANIZATION,
@@ -64,7 +67,7 @@ class DocumentGenerationService
 
     public function createDocumentAccessRequest(?int $organizationId, int $generatedDocumentId, int $requesterUserId): ActionRequest
     {
-        $requestType = app(\App\Services\RequestTypeService::class)->resolveSystemType(
+        $requestType = app(RequestTypeService::class)->resolveSystemType(
             RequestType::SYSTEM_KEY_FORM_ACCESS,
             'Document Access Request',
             RequestType::CATEGORY_ORGANIZATION,
@@ -91,7 +94,7 @@ class DocumentGenerationService
 
     public function createFormUploadRequest(?int $organizationId, int $formId, int $templateId, int $uploaderUserId): ActionRequest
     {
-        $requestType = app(\App\Services\RequestTypeService::class)->resolveSystemType(
+        $requestType = app(RequestTypeService::class)->resolveSystemType(
             RequestType::SYSTEM_KEY_FORM_UPLOAD,
             'Form Upload Request',
             RequestType::CATEGORY_ORGANIZATION,
@@ -224,9 +227,46 @@ class DocumentGenerationService
 
             $originalPayload = (array) $submission->payload;
 
+            $isAccomplishmentReport = $formRouteName === 'accomplishment-report';
+            $accomplishmentPhotoWidth = null;
+
             foreach ($replacementMap as $placeholderKey => $value) {
                 if (isset($imagePlaceholderKeys[$placeholderKey])) {
                     $rawValue = $originalPayload[$placeholderKey] ?? null;
+                    if ($isAccomplishmentReport && $placeholderKey === 'photos') {
+                        $paths = $this->resolveImageAbsolutePaths($rawValue, $disk);
+                        if (count($paths) > 0) {
+                            $processor->cloneRow($placeholderKey, count($paths));
+                            if ($accomplishmentPhotoWidth === null) {
+                                $accomplishmentPhotoWidth = $this->findTableCellWidthPixels(
+                                    $preprocessedTemplatePath,
+                                    $placeholderKey
+                                );
+                            }
+                            if ($accomplishmentPhotoWidth === null) {
+                                $accomplishmentPhotoWidth = $this->findPageContentWidthPixels(
+                                    $preprocessedTemplatePath
+                                );
+                            }
+                            foreach ($paths as $index => $path) {
+                                $options = ['path' => $path];
+                                if ($accomplishmentPhotoWidth !== null) {
+                                    $info = @getimagesize($path);
+                                    if (is_array($info) && ($info[0] ?? 0) > 0 && ($info[1] ?? 0) > 0) {
+                                        $options['width'] = $accomplishmentPhotoWidth;
+                                        $options['height'] = (int) round($accomplishmentPhotoWidth * ($info[1] / $info[0]));
+                                    } else {
+                                        $options['width'] = $accomplishmentPhotoWidth;
+                                    }
+                                }
+                                $processor->setImageValue($placeholderKey.'#'.($index + 1), $options);
+                            }
+                        } else {
+                            $processor->setValue($placeholderKey, '');
+                        }
+
+                        continue;
+                    }
                     if (is_array($rawValue) && count($rawValue) > 0) {
                         $paths = array_values(array_filter(
                             array_map(fn ($p) => Storage::disk($disk)->path((string) $p), $rawValue),
@@ -237,10 +277,12 @@ class DocumentGenerationService
                             if ($composite) {
                                 $tempCompositePaths[] = $composite;
                                 $processor->setImageValue($placeholderKey, ['path' => $composite, 'ratio' => true]);
+
                                 continue;
                             }
                         } elseif (count($paths) === 1) {
                             $processor->setImageValue($placeholderKey, ['path' => $paths[0], 'ratio' => true]);
+
                             continue;
                         }
                     }
@@ -248,10 +290,12 @@ class DocumentGenerationService
                         $absoluteImagePath = Storage::disk($disk)->path($value);
                         if (is_file($absoluteImagePath)) {
                             $processor->setImageValue($placeholderKey, ['path' => $absoluteImagePath, 'ratio' => true]);
+
                             continue;
                         }
                     }
                     $processor->setValue($placeholderKey, '');
+
                     continue;
                 }
                 $processor->setValue($placeholderKey, $value);
@@ -360,8 +404,8 @@ class DocumentGenerationService
             }
             $img = match ($info['mime']) {
                 'image/jpeg' => @imagecreatefromjpeg($path),
-                'image/png'  => @imagecreatefrompng($path),
-                default      => null,
+                'image/png' => @imagecreatefrompng($path),
+                default => null,
             };
             if (! $img) {
                 continue;
@@ -384,6 +428,7 @@ class DocumentGenerationService
             foreach ($frames as $f) {
                 imagedestroy($f['img']);
             }
+
             return null;
         }
 
@@ -404,12 +449,249 @@ class DocumentGenerationService
         return ($saved && is_file($tmpPath)) ? $tmpPath : null;
     }
 
+    /**
+     * @return string[]
+     */
+    private function resolveImageAbsolutePaths(mixed $rawValue, string $disk): array
+    {
+        $items = [];
+
+        if (is_array($rawValue)) {
+            $items = $rawValue;
+        } elseif (is_string($rawValue)) {
+            $trimmed = trim($rawValue);
+            if ($trimmed !== '') {
+                $decoded = json_decode($trimmed, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $items = $decoded;
+                } else {
+                    $items = [$trimmed];
+                }
+            }
+        }
+
+        $items = array_values(array_filter(
+            $items,
+            fn ($path) => is_string($path) && trim($path) !== ''
+        ));
+
+        return array_values(array_filter(
+            array_map(fn ($path) => Storage::disk($disk)->path((string) $path), $items),
+            'is_file'
+        ));
+    }
+
+    private function findTableCellWidthPixels(string $docxAbsolutePath, string $placeholderKey): ?int
+    {
+        if (! is_file($docxAbsolutePath)) {
+            return null;
+        }
+
+        $zip = new ZipArchive;
+        if ($zip->open($docxAbsolutePath) !== true) {
+            return null;
+        }
+
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        if (! is_string($xml) || $xml === '') {
+            return null;
+        }
+
+        $needle = '${'.$placeholderKey.'}';
+
+        $dom = new DOMDocument;
+        $prevErrors = libxml_use_internal_errors(true);
+        $loaded = $dom->loadXML($xml);
+        libxml_clear_errors();
+        libxml_use_internal_errors($prevErrors);
+
+        if (! $loaded) {
+            return null;
+        }
+
+        $namespace = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+        $xpath = new DOMXPath($dom);
+        $xpath->registerNamespace('w', $namespace);
+
+        $cellNode = $xpath->query('//w:tc[.//w:t[contains(., "'.$needle.'")]]')->item(0);
+        if (! $cellNode instanceof DOMElement) {
+            $cellNode = $this->findTableCellByJoinedText($xpath, $needle);
+        }
+        if (! $cellNode instanceof DOMElement) {
+            return null;
+        }
+
+        $tcW = $xpath->query('./w:tcPr/w:tcW', $cellNode)->item(0);
+        if ($tcW instanceof DOMElement) {
+            $type = $this->wordAttr($tcW, $namespace, 'type');
+            $widthValue = $this->wordAttr($tcW, $namespace, 'w');
+            $twips = (int) $widthValue;
+            if ($type !== 'pct' && $twips > 0) {
+                return max(1, (int) round($twips / 15));
+            }
+        }
+
+        $tableNode = $xpath->query('ancestor::w:tbl', $cellNode)->item(0);
+        if (! $tableNode instanceof DOMElement) {
+            return null;
+        }
+
+        $gridCols = $xpath->query('./w:tblGrid/w:gridCol', $tableNode);
+        if (! $gridCols || $gridCols->length === 0) {
+            return null;
+        }
+
+        $columnWidths = [];
+        foreach ($gridCols as $gridCol) {
+            if (! $gridCol instanceof DOMElement) {
+                continue;
+            }
+            $widthValue = $this->wordAttr($gridCol, $namespace, 'w');
+            $columnWidths[] = (int) $widthValue;
+        }
+
+        $rowNode = $xpath->query('ancestor::w:tr', $cellNode)->item(0);
+        if (! $rowNode instanceof DOMElement) {
+            return null;
+        }
+
+        $startIndex = 0;
+        $previousCells = $xpath->query('preceding-sibling::w:tc', $cellNode);
+        if ($previousCells) {
+            foreach ($previousCells as $prevCell) {
+                if ($prevCell instanceof DOMElement) {
+                    $startIndex += $this->cellGridSpan($xpath, $prevCell, $namespace);
+                }
+            }
+        }
+
+        $span = $this->cellGridSpan($xpath, $cellNode, $namespace);
+        $twips = 0;
+        for ($i = 0; $i < $span; $i++) {
+            $twips += (int) ($columnWidths[$startIndex + $i] ?? 0);
+        }
+
+        if ($twips <= 0) {
+            return null;
+        }
+
+        return max(1, (int) round($twips / 15));
+    }
+
+    private function findPageContentWidthPixels(string $docxAbsolutePath): ?int
+    {
+        if (! is_file($docxAbsolutePath)) {
+            return null;
+        }
+
+        $zip = new ZipArchive;
+        if ($zip->open($docxAbsolutePath) !== true) {
+            return null;
+        }
+
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        if (! is_string($xml) || $xml === '') {
+            return null;
+        }
+
+        $dom = new DOMDocument;
+        $prevErrors = libxml_use_internal_errors(true);
+        $loaded = $dom->loadXML($xml);
+        libxml_clear_errors();
+        libxml_use_internal_errors($prevErrors);
+
+        if (! $loaded) {
+            return null;
+        }
+
+        $namespace = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+        $xpath = new DOMXPath($dom);
+        $xpath->registerNamespace('w', $namespace);
+
+        $sect = $xpath->query('//w:sectPr')->item(0);
+        if (! $sect instanceof DOMElement) {
+            return null;
+        }
+
+        $pgSz = $xpath->query('./w:pgSz', $sect)->item(0);
+        $pgMar = $xpath->query('./w:pgMar', $sect)->item(0);
+        if (! $pgSz instanceof DOMElement || ! $pgMar instanceof DOMElement) {
+            return null;
+        }
+
+        $pageWidth = (int) $this->wordAttr($pgSz, $namespace, 'w');
+        $leftMargin = (int) $this->wordAttr($pgMar, $namespace, 'left');
+        $rightMargin = (int) $this->wordAttr($pgMar, $namespace, 'right');
+
+        $contentWidth = $pageWidth - $leftMargin - $rightMargin;
+        if ($contentWidth <= 0) {
+            return null;
+        }
+
+        return max(1, (int) round($contentWidth / 15));
+    }
+
+    private function wordAttr(DOMElement $element, string $namespace, string $localName): string
+    {
+        $value = $element->getAttributeNS($namespace, $localName);
+        if ($value !== '') {
+            return $value;
+        }
+
+        return $element->getAttribute('w:'.$localName);
+    }
+
+    private function findTableCellByJoinedText(DOMXPath $xpath, string $needle): ?DOMElement
+    {
+        $cells = $xpath->query('//w:tc');
+        if (! $cells) {
+            return null;
+        }
+
+        foreach ($cells as $cell) {
+            if (! $cell instanceof DOMElement) {
+                continue;
+            }
+            $texts = $xpath->query('.//w:t', $cell);
+            if (! $texts) {
+                continue;
+            }
+            $joined = '';
+            foreach ($texts as $textNode) {
+                $joined .= $textNode->textContent ?? '';
+            }
+            if ($joined !== '' && str_contains($joined, $needle)) {
+                return $cell;
+            }
+        }
+
+        return null;
+    }
+
+    private function cellGridSpan(DOMXPath $xpath, DOMElement $cellNode, string $namespace): int
+    {
+        $span = 1;
+        $gridSpanNode = $xpath->query('./w:tcPr/w:gridSpan', $cellNode)->item(0);
+        if ($gridSpanNode instanceof DOMElement) {
+            $value = (int) $this->wordAttr($gridSpanNode, $namespace, 'val');
+            if ($value > 1) {
+                $span = $value;
+            }
+        }
+
+        return $span;
+    }
+
     private function preprocessTemplateDocx(string $absolutePath): string
     {
         $tempPath = sys_get_temp_dir().'/phpword_'.Str::random(12).'.docx';
         copy($absolutePath, $tempPath);
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         if ($zip->open($tempPath) !== true) {
             throw new RuntimeException('Unable to preprocess template DOCX for generation.');
         }
@@ -439,6 +721,11 @@ class DocumentGenerationService
 
     private function convertBraceMacrosToPhpWord(string $xml): string
     {
+        // Word sometimes splits {{ into two consecutive runs (e.g. one run contains "{" and
+        // the next run contains "{"), with only XML elements like <w:proofErr> between them.
+        // Merge those split braces so the main regex below can find {{...}} reliably.
+        $xml = (string) (preg_replace('/\{(<\/w:t>[^{}]*<w:t[^>]*>)\{/', '{{$1', $xml) ?? $xml);
+
         // Match {{fieldname}} or {{fieldname#}} that may span multiple XML runs.
         // [^}]* stops at the first } so it can't overshoot to a later placeholder.
         return preg_replace_callback(
@@ -520,12 +807,14 @@ class DocumentGenerationService
         $workplan = Workplan::find($workplanId);
         if (! $workplan) {
             Log::warning("DocumentGenerationService: workplan #{$workplanId} not found; skipping PDF merge.");
+
             return null;
         }
 
         $workplanForm = Form::query()->where('route_name', 'workplan')->first();
         if (! $workplanForm) {
             Log::warning('DocumentGenerationService: workplan form not configured; skipping PDF merge.');
+
             return null;
         }
 
@@ -540,6 +829,7 @@ class DocumentGenerationService
 
         if (! $matchedSubmission) {
             Log::warning("DocumentGenerationService: no workplan form submission found for workplan #{$workplanId}; skipping PDF merge.");
+
             return null;
         }
 
@@ -552,6 +842,7 @@ class DocumentGenerationService
 
         if (! $actionRequest) {
             Log::warning("DocumentGenerationService: no action request found for workplan submission #{$matchedSubmission->getKey()}; skipping PDF merge.");
+
             return null;
         }
 
@@ -562,6 +853,7 @@ class DocumentGenerationService
 
         if (! $approval) {
             Log::warning("DocumentGenerationService: workplan request #{$actionRequest->request_id} not yet approved; skipping PDF merge.");
+
             return null;
         }
 
@@ -572,12 +864,14 @@ class DocumentGenerationService
 
         if (! $generatedDoc || (string) ($generatedDoc->pdf_path ?? '') === '') {
             Log::warning("DocumentGenerationService: workplan generated document not found for request #{$actionRequest->request_id}; skipping PDF merge.");
+
             return null;
         }
 
         $absPath = Storage::disk($disk)->path((string) $generatedDoc->pdf_path);
         if (! is_file($absPath)) {
             Log::warning("DocumentGenerationService: workplan PDF file missing on disk ({$absPath}); skipping PDF merge.");
+
             return null;
         }
 
@@ -612,6 +906,7 @@ class DocumentGenerationService
             if (! $process->isSuccessful() || ! is_file($tmpPath)) {
                 @unlink($tmpPath);
                 Log::warning('DocumentGenerationService: PDF merge failed (pdfunite and ghostscript both failed); recognition PDF generated without workplan attachment.');
+
                 return;
             }
         }
