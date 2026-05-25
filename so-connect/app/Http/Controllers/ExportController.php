@@ -66,7 +66,7 @@ class ExportController extends Controller
                     'user_id'        => $o->getAttributes()['user'] ?? null,
                     'name'           => $name,
                     'role'           => $o->role,
-                    'position'       => $position,
+                    'position'       => $o->position ?? null,
                     'member_since'   => optional($o->member_since)->toDateString(),
                 ];
             });
@@ -130,16 +130,13 @@ class ExportController extends Controller
                 $userModel = $o->getRelations()['user'] ?? null;
                 $profile   = $userModel?->getRelations()['profile'] ?? null;
                 $name      = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? '')) ?: null;
-                $position = $o->position ?: ($profile?->position ?? null);
-                $position = is_string($position) ? trim($position) : $position;
-                $position = $position !== '' ? $position : null;
 
                 return [
                     'org_officer_id' => $o->org_officer_id,
                     'user_id'        => $o->getAttributes()['user'] ?? null,
                     'name'           => $name,
                     'role'           => $o->role,
-                    'position'       => $position,
+                    'position'       => $o->position ?? null,
                     'member_since'   => optional($o->member_since)->toDateString(),
                 ];
             });
@@ -266,9 +263,6 @@ class ExportController extends Controller
                 $userModel = $o->getRelations()['user'] ?? null;
                 $profile   = $userModel?->getRelations()['profile'] ?? null;
                 $name      = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? '')) ?: null;
-                $position = $o->position ?: ($profile?->position ?? null);
-                $position = is_string($position) ? trim($position) : $position;
-                $position = $position !== '' ? $position : null;
 
                 return [
                     'org_officer_id' => $o->org_officer_id,
@@ -297,7 +291,7 @@ class ExportController extends Controller
             ->get()
             ->map(function (LoginLog $log) {
                 $user = $log->user;
-                $profile = $user?->getRelations()['profile'] ?? null;
+                $profile = $user?->profile;
                 $nameParts = array_filter([
                     $profile?->first_name,
                     $profile?->middle_name,
