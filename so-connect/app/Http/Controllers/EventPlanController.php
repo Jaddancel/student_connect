@@ -94,7 +94,7 @@ class EventPlanController extends Controller
                     'workplan' => $wp,
                     'semester' => $activeSemester,
                     'plans' => $workplanService->getApprovedPlansForWorkplan($wp),
-                    'can_finalize' => in_array((int) $orgId, $presidentOrgIds, true),
+                    'can_finalize' => in_array((int) $orgId, $allOrgIds, true),
                 ];
             }
         }
@@ -131,8 +131,8 @@ class EventPlanController extends Controller
 
         $workplan = Workplan::query()->findOrFail($workplan_id);
 
-        $presidentOrgIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
-        if (! in_array((int) $workplan->organization_id, $presidentOrgIds, true)) {
+        $officerOrgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
+        if ((int) $user->user_type !== 2 && ! in_array((int) $workplan->organization_id, $officerOrgIds, true)) {
             abort(403);
         }
 

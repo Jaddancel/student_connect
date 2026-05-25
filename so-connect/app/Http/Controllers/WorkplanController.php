@@ -50,20 +50,19 @@ class WorkplanController extends Controller
             ->select(DB::raw("COALESCE(od.name, 'Unknown Organization') as name"))
             ->first();
 
-        $profileRow = DB::table('users as u')
+        $presidentRow = DB::table('organization_officers as oo')
+            ->join('users as u', 'u.user_id', '=', 'oo.user')
             ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
-            ->where('u.user_id', $userId)
+            ->where('oo.organization', $workplan->organization_id)
+            ->where('oo.role', 'president')
             ->select(['p.first_name', 'p.middle_name', 'p.last_name'])
             ->first();
 
-        $presidentName = '';
-        if ($profileRow) {
-            $presidentName = trim(implode(' ', array_filter([
-                $profileRow->first_name,
-                $profileRow->middle_name,
-                $profileRow->last_name,
-            ])));
-        }
+        $presidentName = $presidentRow ? trim(implode(' ', array_filter([
+            $presidentRow->first_name,
+            $presidentRow->middle_name,
+            $presidentRow->last_name,
+        ]))) : '';
 
         return view('pages.form.workplan', [
             'title' => 'Workplan',

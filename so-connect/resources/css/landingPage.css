@@ -9783,6 +9783,27 @@ textarea.form-control-lg {
   opacity: 0.8;
 }
 
+.event-card.event-blue {
+  border-top-color: #1E4D8C;
+}
+
+.event-header.blue-gradient {
+  background: linear-gradient(135deg, #1E4D8C 0%, #2E6DB4 100%);
+}
+
+.event-date.blue {
+  color: #1E4D8C;
+  font-weight: 600;
+}
+
+.event-link.blue {
+  color: #1E4D8C;
+}
+
+.event-link.blue:hover {
+  opacity: 0.8;
+}
+
   .align-self-xl-start {
     align-self: flex-start !important;
   }

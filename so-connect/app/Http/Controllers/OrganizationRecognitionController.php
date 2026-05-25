@@ -24,23 +24,8 @@ class OrganizationRecognitionController extends Controller
             abort(403, 'This form is for organization officers only.');
         }
 
-        $presidentName = '';
         $organizations = collect();
         $organizationId = null;
-
-        $profileRow = DB::table('users as u')
-            ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
-            ->where('u.user_id', $userId)
-            ->select(['p.first_name', 'p.middle_name', 'p.last_name'])
-            ->first();
-
-        if ($profileRow) {
-            $presidentName = trim(implode(' ', array_filter([
-                $profileRow->first_name,
-                $profileRow->middle_name,
-                $profileRow->last_name,
-            ])));
-        }
 
         $organizations = DB::table('organization_officers as oo')
             ->join('organizations as o', 'o.organization_id', '=', 'oo.organization')
@@ -60,6 +45,26 @@ class OrganizationRecognitionController extends Controller
         }
 
         $orgIds = $organizations->pluck('organization_id')->map(fn ($id) => (int) $id)->toArray();
+
+        $presidentsByOrg = DB::table('organization_officers as oo')
+            ->join('users as u', 'u.user_id', '=', 'oo.user')
+            ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+            ->whereIn('oo.organization', $orgIds)
+            ->where('oo.role', 'president')
+            ->select(['oo.organization', 'p.first_name', 'p.middle_name', 'p.last_name'])
+            ->get()
+            ->mapWithKeys(function ($row) {
+                $name = trim(implode(' ', array_filter([
+                    $row->first_name,
+                    $row->middle_name,
+                    $row->last_name,
+                ])));
+                return [(int) $row->organization => $name];
+            })
+            ->all();
+
+        $firstOrgId = $organizationId ?? (int) ($organizations->first()?->organization_id ?? 0);
+        $presidentName = $presidentsByOrg[$firstOrgId] ?? '';
 
         $activeSemester = Semester::current();
 
@@ -87,6 +92,7 @@ class OrganizationRecognitionController extends Controller
         return view('pages.form.organization-recognition', [
             'title'               => 'Application for Recognition/Renewal of Student Organization',
             'presidentName'       => $presidentName,
+            'presidentsByOrg'     => $presidentsByOrg,
             'organizations'       => $organizations,
             'organizationId'      => $organizationId,
             'finalisedWorkplans'  => $finalisedWorkplans,

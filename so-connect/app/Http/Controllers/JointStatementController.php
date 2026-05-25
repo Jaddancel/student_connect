@@ -18,21 +18,23 @@ class JointStatementController extends Controller
         $user   = $request->user();
         $userId = (int) $user->getKey();
 
-        $profileRow = DB::table('users as u')
-            ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
-            ->where('u.user_id', $userId)
-            ->select(['p.first_name', 'p.middle_name', 'p.last_name', 'p.contact_number'])
-            ->first();
+        $orgId = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId)[0] ?? null;
 
-        $presidentName = $profileRow ? trim(implode(' ', array_filter([
-            $profileRow->first_name,
-            $profileRow->middle_name,
-            $profileRow->last_name,
+        $presidentRow = $orgId ? DB::table('organization_officers as oo')
+            ->join('users as u', 'u.user_id', '=', 'oo.user')
+            ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+            ->where('oo.organization', $orgId)
+            ->where('oo.role', 'president')
+            ->select(['p.first_name', 'p.middle_name', 'p.last_name', 'p.contact_number'])
+            ->first() : null;
+
+        $presidentName = $presidentRow ? trim(implode(' ', array_filter([
+            $presidentRow->first_name,
+            $presidentRow->middle_name,
+            $presidentRow->last_name,
         ]))) : '';
 
-        $presidentContact = $profileRow?->contact_number ?? '';
-
-        $orgId = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId)[0] ?? null;
+        $presidentContact = $presidentRow?->contact_number ?? '';
 
         $orgName = '';
         $orgCategory = '';

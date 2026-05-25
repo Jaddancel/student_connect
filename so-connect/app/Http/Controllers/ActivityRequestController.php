@@ -18,35 +18,46 @@ class ActivityRequestController extends Controller
         $userId = (int) $user->getKey();
         $isAdmin = (int) $user->user_type === 2;
 
-        $profileRow = DB::table('users as u')
-            ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
-            ->where('u.user_id', $userId)
-            ->select(['p.first_name', 'p.middle_name', 'p.last_name', 'p.contact_number'])
-            ->first();
-
-        $presidentName = $profileRow ? trim(implode(' ', array_filter([
-            $profileRow->first_name,
-            $profileRow->middle_name,
-            $profileRow->last_name,
-        ]))) : '';
-
-        $presidentContact = $profileRow?->contact_number ?? '';
-
         if ($isAdmin) {
             $organizations = DB::table('organizations as o')
                 ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
                 ->select(['o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name")])
                 ->orderBy('od.name')
                 ->get();
+            $orgIds = $organizations->pluck('organization_id')->map(fn ($id) => (int) $id)->all();
         } else {
-            $officerOrgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
+            $orgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
             $organizations = DB::table('organizations as o')
                 ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
-                ->whereIn('o.organization_id', $officerOrgIds)
+                ->whereIn('o.organization_id', $orgIds)
                 ->select(['o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name")])
                 ->orderBy('od.name')
                 ->get();
         }
+
+        $presidentsByOrg = DB::table('organization_officers as oo')
+            ->join('users as u', 'u.user_id', '=', 'oo.user')
+            ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+            ->whereIn('oo.organization', $orgIds)
+            ->where('oo.role', 'president')
+            ->select(['oo.organization', 'p.first_name', 'p.middle_name', 'p.last_name', 'p.contact_number'])
+            ->get()
+            ->mapWithKeys(function ($row) {
+                $name = trim(implode(' ', array_filter([
+                    $row->first_name,
+                    $row->middle_name,
+                    $row->last_name,
+                ])));
+                return [(int) $row->organization => [
+                    'name'    => $name,
+                    'contact' => $row->contact_number ?? '',
+                ]];
+            })
+            ->all();
+
+        $firstOrgId = (int) ($organizations->first()?->organization_id ?? 0);
+        $presidentName    = $presidentsByOrg[$firstOrgId]['name']    ?? '';
+        $presidentContact = $presidentsByOrg[$firstOrgId]['contact']  ?? '';
 
         return view('pages.form.activity-request', [
             'title'            => 'Request for Organizational Activity',
@@ -54,6 +65,7 @@ class ActivityRequestController extends Controller
             'organizations'    => $organizations,
             'presidentName'    => $presidentName,
             'presidentContact' => $presidentContact,
+            'presidentsByOrg'  => $presidentsByOrg,
         ]);
     }
 

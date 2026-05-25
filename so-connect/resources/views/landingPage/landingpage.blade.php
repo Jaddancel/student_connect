@@ -219,7 +219,7 @@
         <div class="container">
             <div class="text-center">
                 <h2 class="section-heading text-uppercase">Featured Posts</h2>
-                <h3 class="section-subheading text-muted">Highlights from student organization announcements.</h3>
+                <h3 class="section-subheading text-muted">Top highlights from student organization announcements.</h3>
             </div>
             @if ($featuredPosts->isEmpty())
                 <div class="empty-state">No featured posts yet. New updates will appear here soon.</div>
@@ -293,44 +293,39 @@
                 </h3>
             </div>
             <div class="row text-center">
-                <!-- Event 1 -->
-                <div class="col-md-6 mb-4">
-                    <div class="card h-100 shadow-lg border-0 event-card event-gold">
-                        <div class="event-header gold-gradient">
-                            <i class="fas fa-users fa-3x"></i>
-                        </div>
-                        <div class="card-body">
-                            <h4 class="card-title my-3 event-title">Annual Org Fair</h4>
-                            <div class="event-details">
-                                <i class="fas fa-calendar"></i>
-                                <h6 class="card-subtitle mb-0 event-date gold">August 15 - University Quadrangle</h6>
+                @php
+                    $eventColors = [
+                        ['card' => 'event-gold',    'header' => 'gold-gradient',    'date' => 'gold'],
+                        ['card' => 'event-emerald',  'header' => 'emerald-gradient', 'date' => 'emerald'],
+                        ['card' => 'event-blue',     'header' => 'blue-gradient',    'date' => 'blue'],
+                    ];
+                @endphp
+                @forelse ($upcomingActivities as $index => $activity)
+                    @php $colors = $eventColors[$index % 3]; @endphp
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100 shadow-lg border-0 event-card {{ $colors['card'] }}">
+                            <div class="event-header {{ $colors['header'] }}">
+                                <i class="fas fa-calendar-check fa-3x"></i>
                             </div>
-                            <p class="card-text text-muted event-description">Explore all recognized student
-                                organizations, sign up for memberships, and watch live performances.</p>
-                            <a href="#" class="event-link gold">Learn More <i class="fas fa-arrow-right"
-                                    style="margin-left: 5px;"></i></a>
+                            <div class="card-body">
+                                <h4 class="card-title my-3 event-title">{{ $activity->event_name }}</h4>
+                                <div class="event-details">
+                                    <i class="fas fa-calendar"></i>
+                                    <h6 class="card-subtitle mb-0 event-date {{ $colors['date'] }}">
+                                        {{ \Carbon\Carbon::parse($activity->start_time)->format('M d, Y') }}
+                                        @if ($activity->event_location) &mdash; {{ $activity->event_location }} @endif
+                                    </h6>
+                                </div>
+                                <p class="card-text text-muted event-description">{{ $activity->event_description }}</p>
+                                <div class="text-muted small mt-2">
+                                    <i class="fas fa-building me-1"></i>{{ $activity->organization_name }}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <!-- Event 2 -->
-                <div class="col-md-6 mb-4">
-                    <div class="card h-100 shadow-lg border-0 event-card event-emerald">
-                        <div class="event-header emerald-gradient">
-                            <i class="fas fa-graduation-cap fa-3x"></i>
-                        </div>
-                        <div class="card-body">
-                            <h4 class="card-title my-3 event-title">Leadership Training Seminar</h4>
-                            <div class="event-details">
-                                <i class="fas fa-calendar"></i>
-                                <h6 class="card-subtitle mb-0 event-date emerald">September 10 - Main Auditorium</h6>
-                            </div>
-                            <p class="card-text text-muted event-description">A mandatory seminar for all newly elected
-                                organization officers to learn project management and communication.</p>
-                            <a href="#" class="event-link emerald">Learn More <i class="fas fa-arrow-right"
-                                    style="margin-left: 5px;"></i></a>
-                        </div>
-                    </div>
-                </div>
+                @empty
+                    <div class="col-12 text-center text-muted py-4">No upcoming events at this time.</div>
+                @endforelse
             </div>
         </div>
     </section>

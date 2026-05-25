@@ -23,11 +23,40 @@ class LandingPage extends Controller
 
         $featuredPosts = Schema::hasTable('posts')
             ? Post::query()
-                ->where('is_featured', true)
-                ->orderByDesc('published_at')
-                ->orderByDesc('created_at')
-                ->limit(6)
-                ->get()
+                ->where('posts.status', 'published')
+                ->when(Schema::hasTable('organization_scores'), function ($query) {
+                    $query->leftJoinSub(
+                        DB::table('organization_scores')
+                            ->select('organization_id', DB::raw('MAX(total_weighted_score) as best_score'))
+                            ->groupBy('organization_id'),
+                        'org_scores',
+                        'org_scores.organization_id', '=', 'posts.organization'
+                    )->orderByDesc('org_scores.best_score');
+                })
+                ->orderByDesc('posts.is_featured')
+                ->orderByDesc('posts.published_at')
+                ->orderByDesc('posts.created_at')
+                ->limit(3)
+                ->get(['posts.*'])
+            : collect();
+
+        $upcomingActivities = Schema::hasTable('events') && Schema::hasTable('event_details')
+            ? DB::table('events as e')
+                ->join('event_details as ed', 'ed.event_detail_id', '=', 'e.event_detail')
+                ->leftJoin('organizations as o', 'o.organization_id', '=', 'e.organization')
+                ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+                ->where('ed.start_time', '>=', now())
+                ->orderBy('ed.start_time')
+                ->limit(3)
+                ->get([
+                    'e.event_id',
+                    'ed.name as event_name',
+                    'ed.location as event_location',
+                    'ed.desc_text as event_description',
+                    'ed.start_time',
+                    'ed.end_time',
+                    DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name"),
+                ])
             : collect();
 
         return view('landingPage.landingpage', compact(
@@ -35,7 +64,8 @@ class LandingPage extends Controller
             'organizationTypes',
             'topFeed',
             'featuredPosts',
-            'organizationNameMap'
+            'organizationNameMap',
+            'upcomingActivities'
         ));
     }
 

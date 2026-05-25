@@ -110,7 +110,7 @@ Route::post('/events', [EventController::class, 'store'])
 
 // Auth pages.
 
-Route::get('/login', fn () => redirect()->route('home'))->name('login');
+Route::get('/login', fn () => redirect(route('home').'#auth'))->name('login');
 
 // calender pages
 Route::get('/calendar', function () {

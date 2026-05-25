@@ -32,12 +32,23 @@
                 for Organizational Meeting / Services / Projects / Activities</p>
         </div>
 
+        @php
+            $alphaPresidentsByOrg = $presidentsByOrg;
+            $alphaPresidentName    = old('presidentName', $presidentName);
+            $alphaPresidentContact = old('presidentContactNo', $presidentContact);
+        @endphp
         <form action="{{ route('activity-request.store') }}" method="POST" class="space-y-6" x-data="{
             orgId: '{{ $organizations->first()?->organization_id ?? '' }}',
             orgName: '{{ addslashes($organizations->first()?->organization_name ?? '') }}',
+            presidentsByOrg: {{ Js::from($alphaPresidentsByOrg) }},
+            presidentName: {{ Js::from($alphaPresidentName) }},
+            presidentContact: {{ Js::from($alphaPresidentContact) }},
             onOrgChange(el) {
                 const opt = el.options[el.selectedIndex];
                 this.orgName = opt ? opt.dataset.name : '';
+                const pres = this.presidentsByOrg[el.value];
+                this.presidentName    = pres ? pres.name    : '';
+                this.presidentContact = pres ? pres.contact : '';
             },
             facilities: {{ Js::from(old('facilitiesOrEquipmentToBeUsedRow', ['', ''])) }},
             addFacility() {
@@ -237,7 +248,7 @@
                             President Name <span class="text-error-500">*</span>
                         </label>
                         <input type="text" id="presidentName" name="presidentName"
-                            value="{{ old('presidentName', $presidentName) }}" placeholder="Full name of the President"
+                            x-model="presidentName" placeholder="Full name of the President"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('presidentName') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         @error('presidentName')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
@@ -250,7 +261,7 @@
                             Contact Number <span class="text-error-500">*</span>
                         </label>
                         <input type="text" id="presidentContactNo" name="presidentContactNo"
-                            value="{{ old('presidentContactNo', $presidentContact) }}" placeholder="e.g. 09XX-XXX-XXXX"
+                            x-model="presidentContact" placeholder="e.g. 09XX-XXX-XXXX"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('presidentContactNo') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         @error('presidentContactNo')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>

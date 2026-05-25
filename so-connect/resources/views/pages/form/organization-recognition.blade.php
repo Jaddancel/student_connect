@@ -47,6 +47,10 @@
             </div>
 
             {{-- ── SECTION 2 · BASIC INFORMATION ───────────────────────── --}}
+            @php
+                $alphaPsByOrg = $presidentsByOrg;
+                $alphaPresName = old('name_of_president', $presidentName);
+            @endphp
             <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6"
                 x-data="{
                     freshman: {{ old('freshman', 0) }},
@@ -55,7 +59,15 @@
                     get total() { return (parseInt(this.freshman) || 0) + (parseInt(this.sophomore) || 0) + (parseInt(this.junior) || 0); },
                     advisers: {{ Js::from(old('nameOfAdviserRow', [''])) }},
                     addAdviser() { this.advisers.push(''); },
-                    removeAdviser(i) { if (this.advisers.length > 1) this.advisers.splice(i, 1); }
+                    removeAdviser(i) { if (this.advisers.length > 1) this.advisers.splice(i, 1); },
+                    presidentsByOrg: {{ Js::from($alphaPsByOrg) }},
+                    presidentName: {{ Js::from($alphaPresName) }},
+                    onOrgChange(el) {
+                        document.getElementById('organization').value = el.options[el.selectedIndex]?.dataset.name ?? '';
+                        const pName = this.presidentsByOrg[el.value] ?? '';
+                        this.presidentName = pName;
+                        document.getElementById('name_of_president_sig').value = pName;
+                    }
                 }">
                 <h3 class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">I. Basic Information</h3>
 
@@ -69,7 +81,7 @@
                         @if ($organizations->count() > 1)
                             <select id="organization_id" name="organization_id"
                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90 mb-2"
-                                x-on:change="document.getElementById('organization').value = $event.target.options[$event.target.selectedIndex].dataset.name">
+                                @change="onOrgChange($el)">
                                 <option value="">Select organization</option>
                                 @foreach ($organizations as $org)
                                     <option value="{{ $org->organization_id }}"
@@ -99,7 +111,8 @@
                         </label>
                         <input type="text" id="name_of_president" name="name_of_president"
                             placeholder="Full name of president"
-                            value="{{ old('name_of_president', $presidentName) }}"
+                            x-model="presidentName"
+                            @input="document.getElementById('name_of_president_sig').value = presidentName"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         @error('name_of_president')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
