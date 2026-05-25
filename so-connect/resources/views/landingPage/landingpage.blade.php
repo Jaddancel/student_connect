@@ -14,9 +14,7 @@
     <!-- Google fonts-->
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700" rel="stylesheet" type="text/css" />
     <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:400,100,300,700" rel="stylesheet" type="text/css" />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Lato:wght@300;400;700&display=swap"
-        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
     <!-- Core theme CSS (includes Bootstrap)-->
     @vite(['resources/css/landingPage.css'])
 </head>
@@ -297,9 +295,9 @@
             <div class="row text-center">
                 @php
                     $eventColors = [
-                        ['card' => 'event-gold', 'header' => 'gold-gradient', 'date' => 'gold'],
-                        ['card' => 'event-emerald', 'header' => 'emerald-gradient', 'date' => 'emerald'],
-                        ['card' => 'event-blue', 'header' => 'blue-gradient', 'date' => 'blue'],
+                        ['card' => 'event-gold',    'header' => 'gold-gradient',    'date' => 'gold'],
+                        ['card' => 'event-emerald',  'header' => 'emerald-gradient', 'date' => 'emerald'],
+                        ['card' => 'event-blue',     'header' => 'blue-gradient',    'date' => 'blue'],
                     ];
                 @endphp
                 @forelse ($recentActivities as $index => $activity)
@@ -315,13 +313,10 @@
                                     <i class="fas fa-calendar"></i>
                                     <h6 class="card-subtitle mb-0 event-date {{ $colors['date'] }}">
                                         {{ \Carbon\Carbon::parse($activity->start_time)->format('M d, Y') }}
-                                        @if ($activity->event_location)
-                                            &mdash; {{ $activity->event_location }}
-                                        @endif
+                                        @if ($activity->event_location) &mdash; {{ $activity->event_location }} @endif
                                     </h6>
                                 </div>
-                                <p class="card-text text-muted event-description">{{ $activity->event_description }}
-                                </p>
+                                <p class="card-text text-muted event-description">{{ $activity->event_description }}</p>
                                 <div class="text-muted small mt-2">
                                     <i class="fas fa-building me-1"></i>{{ $activity->organization_name }}
                                 </div>
@@ -335,8 +330,7 @@
         </div>
     </section>
     <!-- Embedded Login Section -->
-    <section id="auth"
-        style="
+    <section id="auth" style="
         min-height: 100vh;
         position: relative;
         overflow: hidden;
@@ -344,8 +338,7 @@
         align-items: stretch;
     ">
         {{-- Left atmospheric panel --}}
-        <div class="auth-left-panel d-none d-lg-flex"
-            style="
+        <div class="auth-left-panel d-none d-lg-flex" style="
             flex: 0 0 52%;
             background:
                 radial-gradient(ellipse at 30% 20%, rgba(201,168,76,0.18) 0%, transparent 55%),
@@ -359,36 +352,24 @@
         ">
             {{-- Decorative geometric lines --}}
             <div style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;overflow:hidden;">
-                <svg width="100%" height="100%" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice"
-                    style="position:absolute;top:0;left:0;opacity:0.07;">
-                    <line x1="0" y1="200" x2="600" y2="600" stroke="#C9A84C"
-                        stroke-width="1" />
-                    <line x1="0" y1="400" x2="600" y2="0" stroke="#C9A84C"
-                        stroke-width="0.5" />
-                    <line x1="100" y1="0" x2="100" y2="800" stroke="#C9A84C"
-                        stroke-width="0.5" />
-                    <line x1="500" y1="0" x2="500" y2="800" stroke="#C9A84C"
-                        stroke-width="0.5" />
-                    <circle cx="300" cy="400" r="280" stroke="#C9A84C" stroke-width="0.5"
-                        fill="none" />
-                    <circle cx="300" cy="400" r="180" stroke="#C9A84C" stroke-width="0.3"
-                        fill="none" />
-                    <rect x="60" y="60" width="480" height="680" stroke="#C9A84C" stroke-width="0.5"
-                        fill="none" rx="4" />
+                <svg width="100%" height="100%" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice" style="position:absolute;top:0;left:0;opacity:0.07;">
+                    <line x1="0" y1="200" x2="600" y2="600" stroke="#C9A84C" stroke-width="1"/>
+                    <line x1="0" y1="400" x2="600" y2="0" stroke="#C9A84C" stroke-width="0.5"/>
+                    <line x1="100" y1="0" x2="100" y2="800" stroke="#C9A84C" stroke-width="0.5"/>
+                    <line x1="500" y1="0" x2="500" y2="800" stroke="#C9A84C" stroke-width="0.5"/>
+                    <circle cx="300" cy="400" r="280" stroke="#C9A84C" stroke-width="0.5" fill="none"/>
+                    <circle cx="300" cy="400" r="180" stroke="#C9A84C" stroke-width="0.3" fill="none"/>
+                    <rect x="60" y="60" width="480" height="680" stroke="#C9A84C" stroke-width="0.5" fill="none" rx="4"/>
                 </svg>
                 {{-- Bottom-right glow --}}
-                <div
-                    style="position:absolute;bottom:-100px;right:-100px;width:400px;height:400px;background:radial-gradient(circle,rgba(201,168,76,0.15),transparent 70%);border-radius:50%;">
-                </div>
+                <div style="position:absolute;bottom:-100px;right:-100px;width:400px;height:400px;background:radial-gradient(circle,rgba(201,168,76,0.15),transparent 70%);border-radius:50%;"></div>
             </div>
 
             {{-- Gold rule --}}
-            <div style="width:48px;height:3px;background:#C9A84C;margin-bottom:36px;position:relative;z-index:1;">
-            </div>
+            <div style="width:48px;height:3px;background:#C9A84C;margin-bottom:36px;position:relative;z-index:1;"></div>
 
             {{-- Headline --}}
-            <h2
-                style="
+            <h2 style="
                 font-family: 'Playfair Display', Georgia, serif;
                 font-size: clamp(2.4rem, 3.5vw, 3.2rem);
                 font-weight: 700;
@@ -403,8 +384,7 @@
                 <em style="color:#C9A84C;font-style:italic;">starts here.</em>
             </h2>
 
-            <p
-                style="
+            <p style="
                 font-family: 'Lato', sans-serif;
                 font-size: 1.05rem;
                 font-weight: 300;
@@ -415,53 +395,45 @@
                 position: relative;
                 z-index: 1;
             ">
-                SO Connect is the official student organization management platform of Tarlac Agricultural University —
-                where leaders are recognized, events are organized, and communities thrive.
+                SO Connect is the official student organization management platform of Tarlac Agricultural University — where leaders are recognized, events are organized, and communities thrive.
             </p>
 
             {{-- Feature pills --}}
             <div style="display:flex;flex-direction:column;gap:14px;position:relative;z-index:1;">
                 @php
-                    $features = [
-                        ['icon' => 'fa-users', 'text' => '46 recognized student organizations'],
-                        ['icon' => 'fa-calendar-check', 'text' => 'Activity planning & approvals'],
-                        ['icon' => 'fa-id-badge', 'text' => 'Digital officer directory'],
-                    ];
+                $features = [
+                    ['icon'=>'fa-users','text'=>'46 recognized student organizations'],
+                    ['icon'=>'fa-calendar-check','text'=>'Activity planning & approvals'],
+                    ['icon'=>'fa-id-badge','text'=>'Digital officer directory'],
+                ];
                 @endphp
-                @foreach ($features as $f)
-                    <div style="display:flex;align-items:center;gap:14px;">
-                        <div
-                            style="
+                @foreach($features as $f)
+                <div style="display:flex;align-items:center;gap:14px;">
+                    <div style="
                         width:36px;height:36px;border-radius:50%;
                         background:rgba(201,168,76,0.15);
                         border:1px solid rgba(201,168,76,0.35);
                         display:flex;align-items:center;justify-content:center;
                         flex-shrink:0;
                     ">
-                            <i class="fas {{ $f['icon'] }}" style="color:#C9A84C;font-size:0.8rem;"></i>
-                        </div>
-                        <span
-                            style="font-family:'Lato',sans-serif;font-size:0.9rem;color:rgba(255,255,255,0.65);font-weight:300;">{{ $f['text'] }}</span>
+                        <i class="fas {{ $f['icon'] }}" style="color:#C9A84C;font-size:0.8rem;"></i>
                     </div>
+                    <span style="font-family:'Lato',sans-serif;font-size:0.9rem;color:rgba(255,255,255,0.65);font-weight:300;">{{ $f['text'] }}</span>
+                </div>
                 @endforeach
             </div>
 
             {{-- Bottom logo/seal --}}
-            <div
-                style="position:absolute;bottom:40px;left:70px;z-index:1;display:flex;align-items:center;gap:10px;opacity:0.45;">
-                <div
-                    style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(201,168,76,0.6);display:flex;align-items:center;justify-content:center;">
+            <div style="position:absolute;bottom:40px;left:70px;z-index:1;display:flex;align-items:center;gap:10px;opacity:0.45;">
+                <div style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(201,168,76,0.6);display:flex;align-items:center;justify-content:center;">
                     <i class="fas fa-leaf" style="color:#C9A84C;font-size:0.65rem;"></i>
                 </div>
-                <span
-                    style="font-family:'Lato',sans-serif;font-size:0.75rem;color:rgba(255,255,255,0.6);letter-spacing:0.12em;text-transform:uppercase;font-weight:700;">Tarlac
-                    Agricultural University</span>
+                <span style="font-family:'Lato',sans-serif;font-size:0.75rem;color:rgba(255,255,255,0.6);letter-spacing:0.12em;text-transform:uppercase;font-weight:700;">Tarlac Agricultural University</span>
             </div>
         </div>
 
         {{-- Right form panel --}}
-        <div
-            style="
+        <div style="
             flex: 1;
             background: #f8f6f1;
             display: flex;
@@ -471,39 +443,30 @@
             position: relative;
         ">
             {{-- Subtle texture overlay --}}
-            <div
-                style="position:absolute;inset:0;background-image:url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%232D6A4F\' fill-opacity=\'0.025\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');pointer-events:none;">
-            </div>
+            <div style="position:absolute;inset:0;background-image:url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%232D6A4F\' fill-opacity=\'0.025\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');pointer-events:none;"></div>
 
             <div style="width:100%;max-width:420px;position:relative;z-index:1;">
 
                 {{-- Mobile-only top bar --}}
                 <div class="d-lg-none" style="margin-bottom:32px;text-align:center;">
                     <div style="width:40px;height:3px;background:#C9A84C;margin:0 auto 16px;"></div>
-                    <p
-                        style="font-family:'Lato',sans-serif;font-size:0.8rem;letter-spacing:0.12em;text-transform:uppercase;color:#2D6A4F;font-weight:700;">
-                        SO Connect</p>
+                    <p style="font-family:'Lato',sans-serif;font-size:0.8rem;letter-spacing:0.12em;text-transform:uppercase;color:#2D6A4F;font-weight:700;">SO Connect</p>
                 </div>
 
                 {{-- Form heading --}}
-                <h3
-                    style="
+                <h3 style="
                     font-family: 'Playfair Display', Georgia, serif;
                     font-size: 2rem;
                     font-weight: 700;
                     color: #1A3C2E;
                     margin-bottom: 6px;
                     line-height: 1.2;
-                ">
-                    Welcome back</h3>
-                <p
-                    style="font-family:'Lato',sans-serif;font-size:0.92rem;color:#6b7a6f;margin-bottom:32px;font-weight:300;">
-                    Sign in to your account to continue.</p>
+                ">Welcome back</h3>
+                <p style="font-family:'Lato',sans-serif;font-size:0.92rem;color:#6b7a6f;margin-bottom:32px;font-weight:300;">Sign in to your account to continue.</p>
 
                 {{-- Error message --}}
                 @if ($errors->has('user_email'))
-                    <div
-                        style="
+                    <div style="
                         background:#fff0f0;
                         border:1px solid #f5c6cb;
                         border-left:4px solid #dc3545;
@@ -514,22 +477,19 @@
                         align-items:flex-start;
                         gap:10px;
                     ">
-                        <i class="fas fa-exclamation-circle"
-                            style="color:#dc3545;margin-top:2px;flex-shrink:0;font-size:0.85rem;"></i>
-                        <p
-                            style="margin:0;font-family:'Lato',sans-serif;font-size:0.875rem;color:#721c24;line-height:1.4;">
+                        <i class="fas fa-exclamation-circle" style="color:#dc3545;margin-top:2px;flex-shrink:0;font-size:0.85rem;"></i>
+                        <p style="margin:0;font-family:'Lato',sans-serif;font-size:0.875rem;color:#721c24;line-height:1.4;">
                             {{ $errors->first('user_email') }}
                         </p>
                     </div>
                 @endif
 
-                <form action="/login" method="post" id="auth-form" target="_self">
+                <form action="/login" method="post" id="auth-form">
                     @csrf
 
                     {{-- Email --}}
                     <div style="margin-bottom:20px;">
-                        <label
-                            style="
+                        <label style="
                             display:block;
                             font-family:'Lato',sans-serif;
                             font-size:0.8rem;
@@ -538,10 +498,14 @@
                             letter-spacing:0.08em;
                             text-transform:uppercase;
                             margin-bottom:8px;
-                        ">Email
-                            address</label>
-                        <input type="email" name="user_email" value="{{ old('user_email') }}"
-                            placeholder="you@example.com" autocomplete="email" required
+                        ">Email address</label>
+                        <input
+                            type="email"
+                            name="user_email"
+                            value="{{ old('user_email') }}"
+                            placeholder="you@example.com"
+                            autocomplete="email"
+                            required
                             style="
                                 width:100%;
                                 padding:13px 16px;
@@ -555,13 +519,13 @@
                                 transition:border-color 0.2s,box-shadow 0.2s;
                             "
                             onfocus="this.style.borderColor='#2D6A4F';this.style.boxShadow='0 0 0 3px rgba(45,106,79,0.12)'"
-                            onblur="this.style.borderColor='{{ $errors->has('user_email') ? '#dc3545' : '#d4d0c8' }}';this.style.boxShadow='none'" />
+                            onblur="this.style.borderColor='{{ $errors->has('user_email') ? '#dc3545' : '#d4d0c8' }}';this.style.boxShadow='none'"
+                        />
                     </div>
 
                     {{-- Password --}}
                     <div style="margin-bottom:14px;">
-                        <label
-                            style="
+                        <label style="
                             display:block;
                             font-family:'Lato',sans-serif;
                             font-size:0.8rem;
@@ -572,8 +536,13 @@
                             margin-bottom:8px;
                         ">Password</label>
                         <div style="position:relative;">
-                            <input type="password" name="user_password" id="auth-password"
-                                placeholder="Enter your password" autocomplete="current-password" required
+                            <input
+                                type="password"
+                                name="user_password"
+                                id="auth-password"
+                                placeholder="Enter your password"
+                                autocomplete="current-password"
+                                required
                                 style="
                                     width:100%;
                                     padding:13px 48px 13px 16px;
@@ -589,42 +558,43 @@
                                 onfocus="this.style.borderColor='#2D6A4F';this.style.boxShadow='0 0 0 3px rgba(45,106,79,0.12)'"
                                 onblur="this.style.borderColor='#d4d0c8';this.style.boxShadow='none'"
                                 onkeyup="document.getElementById('caps-warn').style.display=event.getModifierState('CapsLock')?'flex':'none'"
-                                onkeydown="document.getElementById('caps-warn').style.display=event.getModifierState('CapsLock')?'flex':'none'" />
-                            <button type="button" id="auth-toggle-pw" onclick="toggleAuthPassword()"
+                                onkeydown="document.getElementById('caps-warn').style.display=event.getModifierState('CapsLock')?'flex':'none'"
+                            />
+                            <button
+                                type="button"
+                                id="auth-toggle-pw"
+                                onclick="toggleAuthPassword()"
                                 style="
                                     position:absolute;right:14px;top:50%;transform:translateY(-50%);
                                     background:none;border:none;cursor:pointer;padding:0;
                                     color:#6b7a6f;display:flex;align-items:center;
                                 "
-                                tabindex="-1">
+                                tabindex="-1"
+                            >
                                 <i class="fas fa-eye" id="auth-eye-icon" style="font-size:0.95rem;"></i>
                             </button>
                         </div>
                         {{-- Caps lock warning --}}
                         <div id="caps-warn" style="display:none;align-items:center;gap:6px;margin-top:6px;">
                             <i class="fas fa-exclamation-triangle" style="color:#d97706;font-size:0.75rem;"></i>
-                            <span style="font-family:'Lato',sans-serif;font-size:0.8rem;color:#92400e;">Caps Lock is
-                                on</span>
+                            <span style="font-family:'Lato',sans-serif;font-size:0.8rem;color:#92400e;">Caps Lock is on</span>
                         </div>
                     </div>
 
                     {{-- Forgot password --}}
                     <div style="text-align:right;margin-bottom:28px;">
-                        <a href="/reset-password"
-                            style="
+                        <a href="/reset-password" style="
                             font-family:'Lato',sans-serif;
                             font-size:0.82rem;
                             color:#2D6A4F;
                             text-decoration:none;
                             font-weight:700;
                             letter-spacing:0.02em;
-                        ">Forgot
-                            password?</a>
+                        ">Forgot password?</a>
                     </div>
 
                     {{-- Submit --}}
-                    <button type="submit" formtarget="_self"
-                        style="
+                    <button type="submit" style="
                         width:100%;
                         padding:15px 24px;
                         background: linear-gradient(135deg, #2D6A4F 0%, #1A3C2E 100%);
@@ -642,8 +612,9 @@
                         position:relative;
                         overflow:hidden;
                     "
-                        onmouseover="this.style.opacity='0.9';this.style.transform='translateY(-1px)';this.style.boxShadow='0 8px 28px rgba(26,60,46,0.45)'"
-                        onmouseout="this.style.opacity='1';this.style.transform='translateY(0)';this.style.boxShadow='0 4px 20px rgba(26,60,46,0.35)'">
+                    onmouseover="this.style.opacity='0.9';this.style.transform='translateY(-1px)';this.style.boxShadow='0 8px 28px rgba(26,60,46,0.45)'"
+                    onmouseout="this.style.opacity='1';this.style.transform='translateY(0)';this.style.boxShadow='0 4px 20px rgba(26,60,46,0.35)'"
+                    >
                         <i class="fas fa-sign-in-alt" style="margin-right:10px;"></i>
                         Sign In
                     </button>
@@ -652,14 +623,12 @@
                 {{-- Divider --}}
                 <div style="display:flex;align-items:center;gap:14px;margin:28px 0;">
                     <div style="flex:1;height:1px;background:#d4d0c8;"></div>
-                    <span style="font-family:'Lato',sans-serif;font-size:0.8rem;color:#9ca89f;font-weight:400;">New to
-                        SO Connect?</span>
+                    <span style="font-family:'Lato',sans-serif;font-size:0.8rem;color:#9ca89f;font-weight:400;">New to SO Connect?</span>
                     <div style="flex:1;height:1px;background:#d4d0c8;"></div>
                 </div>
 
                 {{-- Sign Up CTA --}}
-                <a href="/signup"
-                    style="
+                <a href="/signup" style="
                     display:block;
                     width:100%;
                     padding:14px 24px;
@@ -676,8 +645,9 @@
                     text-decoration:none;
                     transition:background 0.2s,color 0.2s;
                 "
-                    onmouseover="this.style.background='#2D6A4F';this.style.color='#fff'"
-                    onmouseout="this.style.background='transparent';this.style.color='#2D6A4F'">
+                onmouseover="this.style.background='#2D6A4F';this.style.color='#fff'"
+                onmouseout="this.style.background='transparent';this.style.color='#2D6A4F'"
+                >
                     <i class="fas fa-user-plus" style="margin-right:8px;"></i>
                     Register as Officer
                 </a>
@@ -687,30 +657,27 @@
     </section>
 
     <script>
-        function toggleAuthPassword() {
-            var input = document.getElementById('auth-password');
-            var icon = document.getElementById('auth-eye-icon');
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.classList.replace('fa-eye', 'fa-eye-slash');
-            } else {
-                input.type = 'password';
-                icon.classList.replace('fa-eye-slash', 'fa-eye');
-            }
+    function toggleAuthPassword() {
+        var input = document.getElementById('auth-password');
+        var icon  = document.getElementById('auth-eye-icon');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.replace('fa-eye', 'fa-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.replace('fa-eye-slash', 'fa-eye');
         }
-        @if ($errors->any())
-            document.addEventListener('DOMContentLoaded', function() {
-                var authSection = document.getElementById('auth');
-                if (authSection) {
-                    setTimeout(function() {
-                        authSection.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'start'
-                        });
-                    }, 120);
-                }
-            });
-        @endif
+    }
+    @if ($errors->any())
+    document.addEventListener('DOMContentLoaded', function () {
+        var authSection = document.getElementById('auth');
+        if (authSection) {
+            setTimeout(function () {
+                authSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 120);
+        }
+    });
+    @endif
     </script>
     <!-- Recent Activity Section -->
     <section class="page-section bg-light" id="activity">
@@ -721,30 +688,28 @@
             </div>
             <div class="row g-4">
                 @forelse ($recentActivities as $activity)
-                    <div class="col-lg-4 col-md-6">
-                        <div class="activity-card"
-                            style="overflow: hidden; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
-                            <div
-                                style="background: linear-gradient(135deg, #2D6A4F 0%, #1A3C2E 100%); height: 200px; display: flex; align-items: center; justify-content: center;">
-                                <i class="fas fa-calendar-check fa-5x" style="color: rgba(255,255,255,0.8);"></i>
+                <div class="col-lg-4 col-md-6">
+                    <div class="activity-card"
+                        style="overflow: hidden; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+                        <div
+                            style="background: linear-gradient(135deg, #2D6A4F 0%, #1A3C2E 100%); height: 200px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-calendar-check fa-5x" style="color: rgba(255,255,255,0.8);"></i>
+                        </div>
+                        <div style="padding: 20px;">
+                            <div style="color: #2D6A4F; font-size: 0.8rem; font-weight: 600; margin-bottom: 8px;">
+                                <i class="fas fa-calendar-day"></i>
+                                {{ \Carbon\Carbon::parse($activity->start_time)->format('M j, Y') }}
                             </div>
-                            <div style="padding: 20px;">
-                                <div style="color: #2D6A4F; font-size: 0.8rem; font-weight: 600; margin-bottom: 8px;">
-                                    <i class="fas fa-calendar-day"></i>
-                                    {{ \Carbon\Carbon::parse($activity->start_time)->format('M j, Y') }}
-                                </div>
-                                <h5 style="margin: 0; font-weight: 700; color: #1A3C2E;">{{ $activity->event_name }}
-                                </h5>
-                                <p style="margin: 4px 0 0; font-size: 0.8rem; color: #555;">
-                                    {{ $activity->organization_name }}</p>
-                            </div>
+                            <h5 style="margin: 0; font-weight: 700; color: #1A3C2E;">{{ $activity->event_name }}</h5>
+                            <p style="margin: 4px 0 0; font-size: 0.8rem; color: #555;">{{ $activity->organization_name }}</p>
                         </div>
                     </div>
+                </div>
                 @empty
-                    <div class="col-12 text-center text-muted py-4">
-                        <i class="fas fa-calendar-times fa-2x mb-2" style="color: #ccc;"></i>
-                        <p style="color: #999;">No recent activities yet.</p>
-                    </div>
+                <div class="col-12 text-center text-muted py-4">
+                    <i class="fas fa-calendar-times fa-2x mb-2" style="color: #ccc;"></i>
+                    <p style="color: #999;">No recent activities yet.</p>
+                </div>
                 @endforelse
             </div>
         </div>
@@ -772,8 +737,7 @@
     <script src="https://cdn.startbootstrap.com/sb-forms-latest.js"></script>
 
     @if ($errors->has('user_email'))
-        <div id="login-toast"
-            style="
+    <div id="login-toast" style="
         position:fixed;
         bottom:24px;
         right:24px;
@@ -791,45 +755,33 @@
         animation:toastSlideIn 0.35s cubic-bezier(0.16,1,0.3,1);
         font-family:'Lato',sans-serif;
     ">
-            <i class="fas fa-exclamation-circle"
-                style="color:#dc3545;font-size:1.1rem;margin-top:2px;flex-shrink:0;"></i>
-            <div style="flex:1;">
-                <div style="font-weight:700;color:#1A3C2E;font-size:0.9rem;margin-bottom:4px;">Login Failed</div>
-                <div style="color:#6b7a6f;font-size:0.85rem;line-height:1.4;">{{ $errors->first('user_email') }}</div>
-            </div>
-            <button onclick="dismissLoginToast()"
-                style="
+        <i class="fas fa-exclamation-circle" style="color:#dc3545;font-size:1.1rem;margin-top:2px;flex-shrink:0;"></i>
+        <div style="flex:1;">
+            <div style="font-weight:700;color:#1A3C2E;font-size:0.9rem;margin-bottom:4px;">Login Failed</div>
+            <div style="color:#6b7a6f;font-size:0.85rem;line-height:1.4;">{{ $errors->first('user_email') }}</div>
+        </div>
+        <button onclick="dismissLoginToast()" style="
             background:none;border:none;cursor:pointer;padding:0;
             color:#9ca89f;font-size:1.25rem;flex-shrink:0;line-height:1;margin-top:1px;
-        "
-                aria-label="Dismiss">&times;</button>
-        </div>
-        <style>
-            @keyframes toastSlideIn {
-                from {
-                    opacity: 0;
-                    transform: translateX(48px);
-                }
-
-                to {
-                    opacity: 1;
-                    transform: translateX(0);
-                }
-            }
-        </style>
-        <script>
-            function dismissLoginToast() {
-                var t = document.getElementById('login-toast');
-                if (!t) return;
-                t.style.transition = 'opacity 0.35s, transform 0.35s';
-                t.style.opacity = '0';
-                t.style.transform = 'translateX(48px)';
-                setTimeout(function() {
-                    t.style.display = 'none';
-                }, 350);
-            }
-            setTimeout(dismissLoginToast, 6000);
-        </script>
+        " aria-label="Dismiss">&times;</button>
+    </div>
+    <style>
+    @keyframes toastSlideIn {
+        from { opacity:0; transform:translateX(48px); }
+        to   { opacity:1; transform:translateX(0); }
+    }
+    </style>
+    <script>
+    function dismissLoginToast() {
+        var t = document.getElementById('login-toast');
+        if (!t) return;
+        t.style.transition = 'opacity 0.35s, transform 0.35s';
+        t.style.opacity = '0';
+        t.style.transform = 'translateX(48px)';
+        setTimeout(function() { t.style.display = 'none'; }, 350);
+    }
+    setTimeout(dismissLoginToast, 6000);
+    </script>
     @endif
 </body>
 
