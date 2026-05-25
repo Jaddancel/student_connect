@@ -119,13 +119,15 @@ class TemplateManagerController extends Controller
 
             foreach ($placeholders as $placeholder) {
                 $base = rtrim($placeholder, '#');
-                $field = $fieldMap[$base] ?? null;
+                $field = $fieldMap[$base] ?? $fieldMap[str_replace('_', '', $base)] ?? null;
 
                 TemplateDescription::create([
                     'template_id' => $template->id,
                     'form_description_id' => $field?->id,
                     'placeholder_key' => $placeholder,
-                    'field_key' => $base,
+                    'field_key' => $field
+                        ? FormTemplateHelper::normalizeFieldKey($field->field_key)
+                        : $base,
                     'is_required' => $field?->is_required ?? false,
                 ]);
             }
@@ -172,8 +174,11 @@ class TemplateManagerController extends Controller
 
         foreach ($fields as $field) {
             $key = FormTemplateHelper::normalizeFieldKey($field->field_key);
-            if (isset($normalizedPlaceholders[$key])) {
-                $matched[$key] = ['field' => $field, 'placeholder' => $normalizedPlaceholders[$key]];
+            $placeholder = $normalizedPlaceholders[$key]
+                ?? $normalizedPlaceholders[str_replace('_', '', $key)]
+                ?? null;
+            if ($placeholder !== null) {
+                $matched[$key] = ['field' => $field, 'placeholder' => $placeholder];
             } else {
                 $missing[$key] = $field;
             }

@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Models\Event\EventDetail;
 use App\Models\EventPlan;
 use App\Models\Semester;
+use App\Models\Workplan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;

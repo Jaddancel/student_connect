@@ -203,6 +203,16 @@ class FormTemplateHelper
                 $hasPayloadValue = array_key_exists($fieldKey, $normalizedPayload);
                 $payloadValue = $hasPayloadValue ? $normalizedPayload[$fieldKey] : '';
 
+                // Fallback: if the template field_key uses underscores (e.g. day_of_the_week) but the
+                // payload key is camelCase-normalised (e.g. dayoftheweek), try stripping underscores.
+                if (! $hasPayloadValue) {
+                    $strippedKey = str_replace('_', '', $fieldKey);
+                    if ($strippedKey !== $fieldKey && array_key_exists($strippedKey, $normalizedPayload)) {
+                        $payloadValue = $normalizedPayload[$strippedKey];
+                        $hasPayloadValue = true;
+                    }
+                }
+
                 if (! $hasPayloadValue && self::placeholderIndex($placeholderKey) !== null) {
                     $baseFieldKey = self::placeholderBaseKey($fieldKey);
                     if ($baseFieldKey !== $fieldKey && array_key_exists($baseFieldKey, $normalizedPayload)) {

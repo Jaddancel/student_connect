@@ -111,7 +111,7 @@
                         <div class="border-t border-gray-100 px-4 py-3 dark:border-gray-800">
                             <a href="{{ route('workplan.review', $wp->workplan_id) }}"
                                 class="inline-flex items-center gap-1.5 rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white hover:bg-success-600">
-                                Generate PDF
+                                Submit Workplan Request
                             </a>
                         </div>
                     @elseif ($wp->status === 'archived')

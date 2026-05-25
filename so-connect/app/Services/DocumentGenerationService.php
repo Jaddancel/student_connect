@@ -4,13 +4,17 @@ namespace App\Services;
 
 use App\Mail\DocumentGeneratedMail;
 use App\Helpers\FormTemplateHelper;
+use App\Models\Approval;
 use App\Models\Document;
+use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\GeneratedDocument;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
 use App\Models\Template;
+use App\Models\Workplan;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -183,6 +187,13 @@ class DocumentGenerationService
         $mappings = $template->mappings()->with('field')->get();
 
         $missingRequiredFields = FormTemplateHelper::missingRequiredFields($mappings, (array) $submission->payload);
+        $formRouteName = Form::query()->where('id', $submission->form_id)->value('route_name');
+        if ($formRouteName === 'joint-statement') {
+            $missingRequiredFields = array_values(array_filter(
+                $missingRequiredFields,
+                fn ($field) => $field !== 'adviser1signature'
+            ));
+        }
 
         if (! empty($missingRequiredFields)) {
             throw new RuntimeException('Submission is missing required fields: '.implode(', ', $missingRequiredFields));
@@ -205,27 +216,62 @@ class DocumentGenerationService
         File::ensureDirectoryExists(dirname($generatedDocxAbsolutePath));
 
         $preprocessedTemplatePath = null;
+        $tempCompositePaths = [];
 
         try {
             $preprocessedTemplatePath = $this->preprocessTemplateDocx($templateAbsolutePath);
             $processor = new TemplateProcessor($preprocessedTemplatePath);
 
+            $originalPayload = (array) $submission->payload;
+
             foreach ($replacementMap as $placeholderKey => $value) {
-                if (isset($imagePlaceholderKeys[$placeholderKey]) && $value !== '') {
-                    $absoluteImagePath = Storage::disk($disk)->path($value);
-                    if (is_file($absoluteImagePath)) {
-                        $processor->setImageValue($placeholderKey, ['path' => $absoluteImagePath, 'ratio' => true]);
-                        continue;
+                if (isset($imagePlaceholderKeys[$placeholderKey])) {
+                    $rawValue = $originalPayload[$placeholderKey] ?? null;
+                    if (is_array($rawValue) && count($rawValue) > 0) {
+                        $paths = array_values(array_filter(
+                            array_map(fn ($p) => Storage::disk($disk)->path((string) $p), $rawValue),
+                            'is_file'
+                        ));
+                        if (count($paths) > 1) {
+                            $composite = $this->compositeImagesVertically($paths);
+                            if ($composite) {
+                                $tempCompositePaths[] = $composite;
+                                $processor->setImageValue($placeholderKey, ['path' => $composite, 'ratio' => true]);
+                                continue;
+                            }
+                        } elseif (count($paths) === 1) {
+                            $processor->setImageValue($placeholderKey, ['path' => $paths[0], 'ratio' => true]);
+                            continue;
+                        }
                     }
+                    if ($value !== '') {
+                        $absoluteImagePath = Storage::disk($disk)->path($value);
+                        if (is_file($absoluteImagePath)) {
+                            $processor->setImageValue($placeholderKey, ['path' => $absoluteImagePath, 'ratio' => true]);
+                            continue;
+                        }
+                    }
+                    $processor->setValue($placeholderKey, '');
+                    continue;
                 }
                 $processor->setValue($placeholderKey, $value);
             }
 
             $processor->saveAs($generatedDocxAbsolutePath);
+            foreach ($tempCompositePaths as $tmp) {
+                @unlink($tmp);
+            }
+            $tempCompositePaths = [];
             @unlink($preprocessedTemplatePath);
             $preprocessedTemplatePath = null;
 
             $pdfAbsolutePath = $this->convertDocxToPdf($generatedDocxAbsolutePath);
+
+            $workplanPdfAbsPath = $this->findWorkplanApprovedPdf((array) $submission->payload, $disk);
+            if ($workplanPdfAbsPath !== null) {
+                $this->appendPdfPages($pdfAbsolutePath, $workplanPdfAbsPath);
+            }
+
             $generatedPdfRelativePath = $this->relativePathFromDiskAbsolute($pdfAbsolutePath, $disk);
 
             $formName = trim((string) ($submission->form?->name ?? 'Form'));
@@ -268,6 +314,9 @@ class DocumentGenerationService
             if ($preprocessedTemplatePath !== null) {
                 @unlink($preprocessedTemplatePath);
             }
+            foreach ($tempCompositePaths as $tmp) {
+                @unlink($tmp);
+            }
 
             $failedRecord = GeneratedDocument::query()->create([
                 'form_submission_id' => (int) $submission->getKey(),
@@ -289,6 +338,70 @@ class DocumentGenerationService
                 previous: $throwable,
             );
         }
+    }
+
+    /**
+     * Stack multiple images vertically into a single JPEG temp file.
+     * Returns the absolute path to the composite, or null on failure.
+     *
+     * @param  string[]  $absolutePaths
+     */
+    private function compositeImagesVertically(array $absolutePaths): ?string
+    {
+        $frames = [];
+        $maxWidth = 0;
+        $totalHeight = 0;
+        $gap = 10;
+
+        foreach ($absolutePaths as $path) {
+            $info = @getimagesize($path);
+            if (! $info) {
+                continue;
+            }
+            $img = match ($info['mime']) {
+                'image/jpeg' => @imagecreatefromjpeg($path),
+                'image/png'  => @imagecreatefrompng($path),
+                default      => null,
+            };
+            if (! $img) {
+                continue;
+            }
+            $w = imagesx($img);
+            $h = imagesy($img);
+            $frames[] = ['img' => $img, 'w' => $w, 'h' => $h];
+            $maxWidth = max($maxWidth, $w);
+            $totalHeight += $h;
+        }
+
+        if (empty($frames)) {
+            return null;
+        }
+
+        $totalHeight += $gap * (count($frames) - 1);
+
+        $canvas = imagecreatetruecolor($maxWidth, $totalHeight);
+        if (! $canvas) {
+            foreach ($frames as $f) {
+                imagedestroy($f['img']);
+            }
+            return null;
+        }
+
+        $white = imagecolorallocate($canvas, 255, 255, 255);
+        imagefill($canvas, 0, 0, $white);
+
+        $y = 0;
+        foreach ($frames as $f) {
+            imagecopy($canvas, $f['img'], 0, $y, 0, 0, $f['w'], $f['h']);
+            $y += $f['h'] + $gap;
+            imagedestroy($f['img']);
+        }
+
+        $tmpPath = sys_get_temp_dir().'/accomplishment_composite_'.Str::random(8).'.jpg';
+        $saved = imagejpeg($canvas, $tmpPath, 90);
+        imagedestroy($canvas);
+
+        return ($saved && is_file($tmpPath)) ? $tmpPath : null;
     }
 
     private function preprocessTemplateDocx(string $absolutePath): string
@@ -395,6 +508,115 @@ class DocumentGenerationService
         $timestamp = now()->format('Y/m/d');
 
         return $directory.'/'.$timestamp.'/submission-'.$submissionId.'-'.Str::lower(Str::random(12)).'.docx';
+    }
+
+    private function findWorkplanApprovedPdf(array $payload, string $disk): ?string
+    {
+        $workplanId = (int) ($payload['workplan_id'] ?? 0);
+        if ($workplanId <= 0) {
+            return null;
+        }
+
+        $workplan = Workplan::find($workplanId);
+        if (! $workplan) {
+            Log::warning("DocumentGenerationService: workplan #{$workplanId} not found; skipping PDF merge.");
+            return null;
+        }
+
+        $workplanForm = Form::query()->where('route_name', 'workplan')->first();
+        if (! $workplanForm) {
+            Log::warning('DocumentGenerationService: workplan form not configured; skipping PDF merge.');
+            return null;
+        }
+
+        $matchedSubmission = FormSubmission::query()
+            ->where('form_id', (int) $workplanForm->getKey())
+            ->where('organization_id', $workplan->organization_id)
+            ->orderByDesc('submitted_at')
+            ->get()
+            ->first(function ($sub) use ($workplan) {
+                return (int) (((array) ($sub->payload ?? []))['semester_id'] ?? 0) === (int) $workplan->semester_id;
+            });
+
+        if (! $matchedSubmission) {
+            Log::warning("DocumentGenerationService: no workplan form submission found for workplan #{$workplanId}; skipping PDF merge.");
+            return null;
+        }
+
+        $actionRequest = ActionRequest::query()
+            ->where('action_type', FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION)
+            ->where('organization_id', $workplan->organization_id)
+            ->orderByDesc('requested_at')
+            ->get()
+            ->first(fn ($r) => (int) (((array) ($r->payload ?? []))['submission_id'] ?? 0) === (int) $matchedSubmission->getKey());
+
+        if (! $actionRequest) {
+            Log::warning("DocumentGenerationService: no action request found for workplan submission #{$matchedSubmission->getKey()}; skipping PDF merge.");
+            return null;
+        }
+
+        $approval = Approval::query()
+            ->where('request', $actionRequest->request_id)
+            ->where('is_rejected', false)
+            ->first();
+
+        if (! $approval) {
+            Log::warning("DocumentGenerationService: workplan request #{$actionRequest->request_id} not yet approved; skipping PDF merge.");
+            return null;
+        }
+
+        $generatedDoc = GeneratedDocument::query()
+            ->where('request_id', $actionRequest->request_id)
+            ->where('status', 'generated')
+            ->first();
+
+        if (! $generatedDoc || (string) ($generatedDoc->pdf_path ?? '') === '') {
+            Log::warning("DocumentGenerationService: workplan generated document not found for request #{$actionRequest->request_id}; skipping PDF merge.");
+            return null;
+        }
+
+        $absPath = Storage::disk($disk)->path((string) $generatedDoc->pdf_path);
+        if (! is_file($absPath)) {
+            Log::warning("DocumentGenerationService: workplan PDF file missing on disk ({$absPath}); skipping PDF merge.");
+            return null;
+        }
+
+        return $absPath;
+    }
+
+    private function appendPdfPages(string $mainPdfAbsPath, string $appendPdfAbsPath): void
+    {
+        $tmpPath = $mainPdfAbsPath.'.merge_'.Str::random(8).'.pdf';
+
+        $binary = (string) config('documents.pdfunite_binary', 'pdfunite');
+        $timeout = max((int) config('documents.libreoffice.timeout', 120), 30);
+
+        $process = new Process([$binary, $mainPdfAbsPath, $appendPdfAbsPath, $tmpPath]);
+        $process->setTimeout($timeout);
+        $process->run();
+
+        if (! $process->isSuccessful() || ! is_file($tmpPath)) {
+            @unlink($tmpPath);
+
+            // Fallback: ghostscript
+            $process = new Process([
+                'gs', '-dBATCH', '-dNOPAUSE', '-q',
+                '-sDEVICE=pdfwrite',
+                '-sOutputFile='.$tmpPath,
+                $mainPdfAbsPath,
+                $appendPdfAbsPath,
+            ]);
+            $process->setTimeout($timeout);
+            $process->run();
+
+            if (! $process->isSuccessful() || ! is_file($tmpPath)) {
+                @unlink($tmpPath);
+                Log::warning('DocumentGenerationService: PDF merge failed (pdfunite and ghostscript both failed); recognition PDF generated without workplan attachment.');
+                return;
+            }
+        }
+
+        rename($tmpPath, $mainPdfAbsPath);
     }
 
     private function relativePathFromDiskAbsolute(string $absolutePath, string $disk): string

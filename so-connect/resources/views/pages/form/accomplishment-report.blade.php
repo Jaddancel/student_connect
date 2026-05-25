@@ -244,18 +244,21 @@
                     </div>
 
                     {{-- Documentation (photos) --}}
-                    <div x-data="{ preview: null }">
+                    <div x-data="{ previews: [] }">
                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Documentation
-                            <span class="ml-1 text-xs font-normal text-gray-400">(photo/PDF, optional)</span>
+                            <span class="ml-1 text-xs font-normal text-gray-400">(photos, optional)</span>
                         </label>
                         <label for="photos"
-                            class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed {{ $errors->has('photos') ? 'border-error-500 bg-error-50 dark:border-error-500/40 dark:bg-error-500/5' : 'border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30' }} px-4 py-5 transition hover:border-brand-400 hover:bg-brand-50 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
-                            <template x-if="preview">
-                                <img :src="preview" class="mb-2 max-h-24 object-contain rounded"
-                                    alt="Documentation preview" />
+                            class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed {{ $errors->has('photos') || $errors->has('photos.*') ? 'border-error-500 bg-error-50 dark:border-error-500/40 dark:bg-error-500/5' : 'border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30' }} px-4 py-5 transition hover:border-brand-400 hover:bg-brand-50 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
+                            <template x-if="previews.length > 0">
+                                <div class="mb-2 flex flex-wrap justify-center gap-2">
+                                    <template x-for="src in previews" :key="src">
+                                        <img :src="src" class="h-20 w-20 rounded object-cover" alt="Preview" />
+                                    </template>
+                                </div>
                             </template>
-                            <template x-if="!preview">
+                            <template x-if="previews.length === 0">
                                 <svg class="mb-2 h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24"
                                     stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
@@ -263,12 +266,18 @@
                                 </svg>
                             </template>
                             <span class="text-sm font-medium text-gray-600 dark:text-gray-400"
-                                x-text="preview ? 'Change file' : 'Click to upload documentation'"></span>
-                            <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG, PDF — max 5 MB</span>
-                            <input id="photos" name="photos" type="file"
-                                accept="image/jpeg,image/png,application/pdf" class="hidden"
-                                @change="preview = ($event.target.files[0] && $event.target.files[0].type.startsWith('image/')) ? URL.createObjectURL($event.target.files[0]) : null" />
+                                x-text="previews.length > 0 ? previews.length + ' photo(s) selected' : 'Click to upload documentation'"></span>
+                            <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 5 MB each, up to 5 photos</span>
+                            <input id="photos" name="photos[]" type="file" multiple
+                                accept="image/jpeg,image/png" class="hidden"
+                                @change="previews = Array.from($event.target.files).filter(f => f.type.startsWith('image/')).map(f => URL.createObjectURL(f))" />
                         </label>
+                        @error('photos')
+                            <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                        @enderror
+                        @error('photos.*')
+                            <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                        @enderror
                     </div>
                 </div>
             </div>

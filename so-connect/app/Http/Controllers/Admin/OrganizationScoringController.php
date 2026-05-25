@@ -237,7 +237,44 @@ class OrganizationScoringController extends Controller
     private function buildAuditData(Request $request): array
     {
         $manualFields = [
-            'cat6_leadership' => 'Leadership Training',
+            'cat1_seminar_college'        => 'Seminars - College Level (>=15 members)',
+            'cat1_seminar_univ'           => 'Seminars - University Level (>=30 members)',
+            'cat1_activities_related'     => 'Activities Related to Org (>=15 members)',
+            'cat1_activities_not_related' => 'Activities Not Related to Org (>=15 members)',
+            'cat1_donation_cash'          => 'Donation - Cash (>=PHP 200, per approved project)',
+            'cat1_donation_kinds'         => 'Donation - In Kind (per in-kind row)',
+            'cat1_cosponsor_pts'          => 'Co-sponsorship Points (pre-computed)',
+            'cat1_income'                 => 'Income Generated (per PHP 500)',
+            'cat2_other_orgs'             => 'Activities co-sponsored by other orgs',
+            'cat2_rep_local'              => 'Representative - Local scope',
+            'cat2_rep_provincial'         => 'Representative - Provincial scope',
+            'cat2_rep_regional'           => 'Representative - Regional scope',
+            'cat2_rep_national'           => 'Representative - National scope',
+            'cat2_rep_international'      => 'Representative - International scope',
+            'cat2_ssc_osa_activities'     => 'SSC/OSA-sponsored activities',
+            'cat2_ssc_seminars'           => 'SSC-sponsored seminars',
+            'cat2_other_seminars'         => 'Other org seminars/conferences',
+            'cat2_osa_seminars'           => 'OSA/Admin seminars',
+            'cat2_ssc_meeting_rep'        => 'SSC meeting - Representative',
+            'cat2_ssc_meeting_proxy'      => 'SSC meeting - Proxy',
+            'cat2_help_ssc_osa'           => 'Preparation/help for SSC/OSA',
+            'cat2_help_others'            => 'Preparation/help for other orgs',
+            'cat3_group_intl'             => 'Group Award - International',
+            'cat3_group_national'         => 'Group Award - National',
+            'cat3_group_regional'         => 'Group Award - Regional',
+            'cat3_group_provincial'       => 'Group Award - Provincial',
+            'cat3_group_local'            => 'Group Award - Local',
+            'cat3_individual_intl'        => 'Individual Award - International',
+            'cat3_individual_national'    => 'Individual Award - National',
+            'cat3_individual_regional'    => 'Individual Award - Regional',
+            'cat3_individual_provincial'  => 'Individual Award - Provincial',
+            'cat3_individual_local'       => 'Individual Award - Local',
+            'cat4_extension_groups'       => 'Extension Service Groups (>=10 members)',
+            'cat5_tangible_projects'      => 'Approved Tangible Projects',
+            'cat6_documents'              => 'Required Documents Submitted',
+            'cat6_meetings'               => 'General Meetings with Minutes (>30 min)',
+            'cat6_leadership'             => 'Leadership Training Participated',
+            'cat6_transparency'           => 'Financial/Transparency Report Submitted',
         ];
 
         $semesters = Semester::query()->orderByDesc('starts_at')->get();
@@ -266,11 +303,17 @@ class OrganizationScoringController extends Controller
                 ->pluck('full_name', 'user_id');
         }
 
-        $rows = $scores->map(function ($score) use ($orgNames, $semesterNames, $scorerNames, $manualFields) {
+        $semesterMap = $semesters->keyBy('semester_id');
+
+        $rows = $scores->map(function ($score) use ($orgNames, $semesterNames, $scorerNames, $manualFields, $semesterMap) {
             $payload    = (array) ($score->payload ?? []);
+            $semester   = $semesterMap->get($score->semester_id);
+            $auto       = $semester ? $this->computeAutoInstances((int) $score->organization_id, $semester) : [];
             $usedManual = [];
             foreach ($manualFields as $key => $label) {
-                if (($payload[$key] ?? 0) > 0) {
+                $payloadValue = (int) ($payload[$key] ?? 0);
+                $autoValue = (int) ($auto[$key] ?? 0);
+                if ($payloadValue !== $autoValue) {
                     $usedManual[] = $label;
                 }
             }
@@ -376,12 +419,32 @@ class OrganizationScoringController extends Controller
         $c2_ssc_meeting_proxy = 0;
 
         if ($arForm) {
-            $arRows = DB::table('form_submissions as fs')
-                ->where('fs.form_id', (int) $arForm->getKey())
+            $arFormId = (int) $arForm->getKey();
+
+            $allArRows = DB::table('form_submissions as fs')
+                ->where('fs.form_id', $arFormId)
                 ->where('fs.organization_id', $organizationId)
                 ->whereBetween('fs.submitted_at', [$semesterStart, $semesterEnd])
-                ->select(['fs.event_id', 'fs.payload'])
+                ->select(['fs.form_submission_id', 'fs.event_id', 'fs.payload'])
                 ->get();
+
+            $allArIds = $allArRows->pluck('form_submission_id')->map(fn ($id) => (int) $id)->all();
+
+            $approvedArIds = [];
+            if (! empty($allArIds)) {
+                $approvedArIds = DB::table('requests as r')
+                    ->join('approvals as a', 'a.request', '=', 'r.request_id')
+                    ->where('r.action_type', FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION)
+                    ->where('r.organization_id', $organizationId)
+                    ->where('a.is_rejected', false)
+                    ->whereNotNull('a.approved_at')
+                    ->get(['r.payload'])
+                    ->map(fn ($row) => (int) ((is_string($row->payload) ? json_decode($row->payload, true) : (array) $row->payload)['submission_id'] ?? 0))
+                    ->filter(fn ($id) => in_array($id, $allArIds, true))
+                    ->all();
+            }
+
+            $arRows = $allArRows->filter(fn ($ar) => in_array((int) $ar->form_submission_id, $approvedArIds, true));
 
             foreach ($arRows as $ar) {
                 $p = is_string($ar->payload) ? json_decode($ar->payload, true) : (array) $ar->payload;
@@ -392,13 +455,13 @@ class OrganizationScoringController extends Controller
                 $hasAnyAr = true;
                 $arRewardedRows->push($p);
 
-                $isMeeting    = ($p['activity_type'] ?? '') === 'Meeting';
-                $isSscSponsor = ! empty($p['is_sponsor_ssc']);
-                $rop          = $p['rep_or_proxy'] ?? null;
-                if ($isMeeting && $isSscSponsor && $rop === 'representative') {
+                $isMeeting       = ($p['activity_type'] ?? '') === 'Meeting';
+                $isSscOrAdmin    = ! empty($p['is_sponsor_ssc']) || ($p['sponsor'] ?? '') === 'Admin';
+                $rop             = $p['rep_or_proxy'] ?? null;
+                if ($isMeeting && $isSscOrAdmin && $rop === 'representative') {
                     $c2_ssc_meeting_rep++;
                 }
-                if ($isMeeting && $isSscSponsor && $rop === 'proxy') {
+                if ($isMeeting && $isSscOrAdmin && $rop === 'proxy') {
                     $c2_ssc_meeting_proxy++;
                 }
             }
@@ -677,9 +740,9 @@ class OrganizationScoringController extends Controller
         $cat2 = min(100,
             $get('cat2_other_orgs') * 10 +
             $get('cat2_rep_local') * 2 +
-            $get('cat2_rep_provincial') * 3 +
-            $get('cat2_rep_regional') * 5 +
-            $get('cat2_rep_national') * 7 +
+            $get('cat2_rep_provincial') * 4 +
+            $get('cat2_rep_regional') * 6 +
+            $get('cat2_rep_national') * 8 +
             $get('cat2_rep_international') * 10 +
             $get('cat2_ssc_osa_activities') * 10 +
             $get('cat2_ssc_seminars') * 10 +
@@ -693,15 +756,15 @@ class OrganizationScoringController extends Controller
 
         $cat3 = min(50,
             $get('cat3_group_intl') * 20 +
-            $get('cat3_group_national') * 15 +
-            $get('cat3_group_regional') * 10 +
-            $get('cat3_group_provincial') * 7 +
-            $get('cat3_group_local') * 5 +
-            $get('cat3_individual_intl') * 15 +
-            $get('cat3_individual_national') * 10 +
-            $get('cat3_individual_regional') * 7 +
-            $get('cat3_individual_provincial') * 5 +
-            $get('cat3_individual_local') * 3
+            $get('cat3_group_national') * 10 +
+            $get('cat3_group_regional') * 7 +
+            $get('cat3_group_provincial') * 5 +
+            $get('cat3_group_local') * 3 +
+            $get('cat3_individual_intl') * 10 +
+            $get('cat3_individual_national') * 7 +
+            $get('cat3_individual_regional') * 5 +
+            $get('cat3_individual_provincial') * 2 +
+            $get('cat3_individual_local') * 1
         );
 
         $cat4 = min(100, $get('cat4_extension_groups') * 10);

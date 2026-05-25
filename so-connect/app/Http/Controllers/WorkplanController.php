@@ -2,14 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\FormTemplateHelper;
+use App\Models\Approval;
 use App\Models\Form;
 use App\Models\FormSubmission;
+use App\Models\GeneratedDocument;
+use App\Models\Request as ActionRequest;
 use App\Models\Workplan;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
 use App\Services\WorkplanService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class WorkplanController extends Controller
@@ -64,6 +69,46 @@ class WorkplanController extends Controller
             $presidentRow->last_name,
         ]))) : '';
 
+        // Determine if a workplan request has already been submitted for this workplan.
+        $requestStatus = null; // null | 'pending' | 'approved' | 'rejected'
+        $generatedDocument = null;
+
+        $workplanForm = Form::query()->where('route_name', 'workplan')->first();
+        if ($workplanForm) {
+            $matchedSubmission = FormSubmission::query()
+                ->where('form_id', (int) $workplanForm->getKey())
+                ->where('organization_id', $workplan->organization_id)
+                ->orderByDesc('submitted_at')
+                ->get()
+                ->first(function ($sub) use ($workplan) {
+                    $p = (array) ($sub->payload ?? []);
+                    return (int) ($p['semester_id'] ?? 0) === (int) $workplan->semester_id;
+                });
+
+            if ($matchedSubmission) {
+                $actionRequest = ActionRequest::query()
+                    ->where('action_type', FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION)
+                    ->where('organization_id', $workplan->organization_id)
+                    ->orderByDesc('requested_at')
+                    ->get()
+                    ->first(fn ($r) => (int) (((array) ($r->payload ?? []))['submission_id'] ?? 0) === (int) $matchedSubmission->getKey());
+
+                if ($actionRequest) {
+                    $approval = Approval::query()->where('request', $actionRequest->request_id)->first();
+                    if ($approval) {
+                        $requestStatus = $approval->is_rejected ? 'rejected' : 'approved';
+                        if ($requestStatus === 'approved') {
+                            $generatedDocument = GeneratedDocument::query()
+                                ->where('request_id', $actionRequest->request_id)
+                                ->first();
+                        }
+                    } else {
+                        $requestStatus = 'pending';
+                    }
+                }
+            }
+        }
+
         return view('pages.form.workplan', [
             'title' => 'Workplan',
             'workplan' => $workplan,
@@ -73,6 +118,8 @@ class WorkplanController extends Controller
             'orgName' => $orgRow?->name ?? 'Unknown Organization',
             'presidentName' => $presidentName,
             'isAdmin' => $isAdmin,
+            'requestStatus' => $requestStatus,
+            'generatedDocument' => $generatedDocument,
         ]);
     }
 
@@ -201,6 +248,72 @@ class WorkplanController extends Controller
         );
 
         return redirect()->route('workplan.review', $workplan_id)
-            ->with('success', 'Workplan submitted and is pending admin review.');
+            ->with('success', 'Workplan request submitted and is pending admin review.');
+    }
+
+    public function downloadPdf(Request $request, int $workplan_id)
+    {
+        $user = $request->user();
+        $userId = (int) $user->getKey();
+        $isAdmin = (int) $user->user_type === 2;
+
+        $workplan = Workplan::query()->with('semester')->findOrFail($workplan_id);
+
+        if (! $isAdmin) {
+            $presidentOrgIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
+            if (! in_array((int) $workplan->organization_id, $presidentOrgIds, true)) {
+                abort(403);
+            }
+        }
+
+        $workplanForm = Form::query()->where('route_name', 'workplan')->first();
+        if (! $workplanForm) {
+            abort(404);
+        }
+
+        $matchedSubmission = FormSubmission::query()
+            ->where('form_id', (int) $workplanForm->getKey())
+            ->where('organization_id', $workplan->organization_id)
+            ->orderByDesc('submitted_at')
+            ->get()
+            ->first(function ($sub) use ($workplan) {
+                $p = (array) ($sub->payload ?? []);
+                return (int) ($p['semester_id'] ?? 0) === (int) $workplan->semester_id;
+            });
+
+        if (! $matchedSubmission) {
+            abort(404);
+        }
+
+        $actionRequest = ActionRequest::query()
+            ->where('action_type', FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION)
+            ->where('organization_id', $workplan->organization_id)
+            ->orderByDesc('requested_at')
+            ->get()
+            ->first(fn ($r) => (int) (((array) ($r->payload ?? []))['submission_id'] ?? 0) === (int) $matchedSubmission->getKey());
+
+        if (! $actionRequest) {
+            abort(404);
+        }
+
+        $approval = Approval::query()->where('request', $actionRequest->request_id)->first();
+        if (! $approval || $approval->is_rejected) {
+            abort(403);
+        }
+
+        $generatedDocument = GeneratedDocument::query()
+            ->where('request_id', $actionRequest->request_id)
+            ->first();
+
+        if (! $generatedDocument) {
+            return back()->withErrors(['workplan' => 'The generated document is not yet available.']);
+        }
+
+        $path = (string) ($generatedDocument->pdf_path ?? '');
+        if ($path === '' || ! Storage::disk('public')->exists($path)) {
+            return back()->withErrors(['workplan' => 'The PDF file could not be found.']);
+        }
+
+        return Storage::disk('public')->download($path, 'Workplan.pdf');
     }
 }

@@ -11,4 +11,6 @@ return [
         'binary' => env('LIBREOFFICE_BINARY', 'soffice'),
         'timeout' => (int) env('LIBREOFFICE_TIMEOUT', 120),
     ],
+
+    'pdfunite_binary' => env('PDFUNITE_BINARY', 'pdfunite'),
 ];

@@ -51,7 +51,15 @@ class ExportController extends Controller
             $officers = $org->officersOfThisOrganization->map(function ($o) {
                 $userModel = $o->getRelations()['user'] ?? null;
                 $profile   = $userModel?->getRelations()['profile'] ?? null;
-                $name      = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? '')) ?: null;
+                $nameParts = array_filter([
+                    $profile?->first_name,
+                    $profile?->middle_name,
+                    $profile?->last_name,
+                ], fn ($part) => trim((string) $part) !== '');
+                $name = $nameParts ? trim(implode(' ', $nameParts)) : null;
+                $position = $o->position ?: ($profile?->position ?? null);
+                $position = is_string($position) ? trim($position) : $position;
+                $position = $position !== '' ? $position : null;
 
                 return [
                     'org_officer_id' => $o->org_officer_id,
@@ -261,7 +269,7 @@ class ExportController extends Controller
                     'user_id'        => $o->getAttributes()['user'] ?? null,
                     'name'           => $name,
                     'role'           => $o->role,
-                    'position'       => $o->position ?? null,
+                    'position'       => $position,
                     'member_since'   => optional($o->member_since)->toDateString(),
                 ];
             })->all();
@@ -282,11 +290,20 @@ class ExportController extends Controller
             ->orderByDesc('logged_at')
             ->get()
             ->map(function (LoginLog $log) {
-                $profile = $log->user?->profile;
-                $name = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? ''));
+                $user = $log->user;
+                $profile = $user?->profile;
+                $nameParts = array_filter([
+                    $profile?->first_name,
+                    $profile?->middle_name,
+                    $profile?->last_name,
+                ], fn ($part) => trim((string) $part) !== '');
+                $name = $nameParts ? trim(implode(' ', $nameParts)) : '';
+                if ($name === '') {
+                    $name = $user?->user_email ?? '';
+                }
 
                 return [
-                    'user_email'  => $log->user?->user_email ?? '-',
+                    'user_email'  => $user?->user_email ?? '-',
                     'name'        => $name !== '' ? $name : '-',
                     'interaction' => $log->interaction,
                     'logged_at'   => optional($log->logged_at)->toDateTimeString(),

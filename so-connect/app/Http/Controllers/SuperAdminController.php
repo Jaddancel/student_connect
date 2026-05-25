@@ -752,6 +752,8 @@ public function searchProfiles(Request $request): JsonResponse
             'occupation'     => ['nullable', 'string', 'max:255'],
         ]);
 
+        $validated['middle_name'] = $validated['middle_name'] ?? '';
+
         $profile->update($validated);
 
         return redirect()

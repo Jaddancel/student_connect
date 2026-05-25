@@ -79,6 +79,7 @@ class JointStatementController extends Controller
             'adviser1_contact' => ['required', 'string', 'max:50'],
             'adviser2_name' => ['nullable', 'string', 'max:255'],
             'adviser2_contact' => ['nullable', 'string', 'max:50'],
+            'adviser2_signature' => ['nullable', 'file', 'mimes:jpeg,png', 'max:2048'],
         ]);
 
         $form = Form::query()->where('route_name', 'joint-statement')->first();
@@ -105,6 +106,20 @@ class JointStatementController extends Controller
             return back()->withErrors(['president_signature' => 'Signature upload failed. Please try again.']);
         }
 
+        $adviser2SignaturePath = '';
+        if ($request->hasFile('adviser2_signature')) {
+            if (! $request->file('adviser2_signature')->isValid()) {
+                return back()->withErrors(['adviser2_signature' => 'Adviser 2 signature upload failed. Please try again.']);
+            }
+
+            $file = $request->file('adviser2_signature');
+            $adviser2SignaturePath = $file->storeAs(
+                'form-submissions/joint-statement',
+                (string) Str::uuid().'.'.$file->getClientOriginalExtension(),
+                'public'
+            );
+        }
+
         $payload = [
             'date' => $validated['date'],
             'organization' => $validated['organization'],
@@ -114,10 +129,9 @@ class JointStatementController extends Controller
             'presidentSignature' => $signaturePath,
             'adviser1Name' => $validated['adviser1_name'],
             'adviser1Contact' => $validated['adviser1_contact'],
-            'adviser1Signature' => '',
             'adviser2Name' => $validated['adviser2_name'] ?? '',
             'adviser2Contact' => $validated['adviser2_contact'] ?? '',
-            'adviser2Signature' => '',
+            'adviser2Signature' => $adviser2SignaturePath,
             'organization_id' => $orgId,
         ];
 

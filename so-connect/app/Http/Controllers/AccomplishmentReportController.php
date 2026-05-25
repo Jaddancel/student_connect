@@ -138,7 +138,8 @@ class AccomplishmentReportController extends Controller
             'date'            => ['required', 'date'],
             'people'          => ['required', 'string'],
             'problem'         => ['nullable', 'string'],
-            'photos'          => ['nullable', 'file', 'mimes:jpeg,png,pdf', 'max:5120'],
+            'photos'          => ['nullable', 'array', 'max:5'],
+            'photos.*'        => ['file', 'mimes:jpeg,png', 'max:5120'],
             'name'            => ['required', 'string', 'max:255'],
             'signature'       => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
             'adviserRow'      => ['nullable', 'array'],
@@ -186,31 +187,41 @@ class AccomplishmentReportController extends Controller
             'rep_or_proxy'        => $validated['rep_or_proxy'] ?? null,
         ];
 
-        $photoCopyPath = null;
-
-        foreach (['photos', 'signature'] as $fileField) {
-            if ($request->hasFile($fileField) && $request->file($fileField)->isValid()) {
-                $file = $request->file($fileField);
-                $path = $file->storeAs(
-                    $sigDir,
-                    Str::lower(Str::random(16)).'.'.$file->getClientOriginalExtension(),
-                    'public'
-                );
-                $payload[$fileField] = $path;
-
-                // Copy the photos file to the accomplishment media library (images only, not PDFs).
-                if ($fileField === 'photos' && str_starts_with($file->getMimeType(), 'image/')) {
-                    $copyDir = 'posts/media/accomplishment/'.now()->format('Y/m');
-                    $photoCopyPath = $file->storeAs(
-                        $copyDir,
-                        Str::lower(Str::random(16)).'.'.$file->getClientOriginalExtension(),
-                        'public'
-                    );
-                }
-            } else {
-                $payload[$fileField] = '';
-            }
+        // Handle signature (single file).
+        if ($request->hasFile('signature') && $request->file('signature')->isValid()) {
+            $sig = $request->file('signature');
+            $payload['signature'] = $sig->storeAs(
+                $sigDir,
+                Str::lower(Str::random(16)).'.'.$sig->getClientOriginalExtension(),
+                'public'
+            );
+        } else {
+            $payload['signature'] = '';
         }
+
+        // Handle photos (multiple images).
+        $photoPaths = [];
+        $photoCopyPaths = [];
+        foreach ($request->file('photos') ?? [] as $file) {
+            if (! $file->isValid()) {
+                continue;
+            }
+            $path = $file->storeAs(
+                $sigDir,
+                Str::lower(Str::random(16)).'.'.$file->getClientOriginalExtension(),
+                'public'
+            );
+            $photoPaths[] = $path;
+
+            $copyDir = 'posts/media/accomplishment/'.now()->format('Y/m');
+            $copyPath = $file->storeAs(
+                $copyDir,
+                Str::lower(Str::random(16)).'.'.$file->getClientOriginalExtension(),
+                'public'
+            );
+            $photoCopyPaths[] = $copyPath;
+        }
+        $payload['photos'] = $photoPaths;
 
         $form = Form::query()->where('route_name', 'accomplishment-report')->firstOrFail();
 
@@ -223,7 +234,7 @@ class AccomplishmentReportController extends Controller
             'payload'         => $payload,
         ]);
 
-        if ($photoCopyPath) {
+        foreach ($photoCopyPaths as $photoCopyPath) {
             AccomplishmentMedia::create([
                 'form_submission_id' => $submission->getKey(),
                 'organization_id'    => $organizationId,

@@ -40,13 +40,13 @@ class LandingPage extends Controller
                 ->get(['posts.*'])
             : collect();
 
-        $upcomingActivities = Schema::hasTable('events') && Schema::hasTable('event_details')
+        $recentActivities = Schema::hasTable('events') && Schema::hasTable('event_details')
             ? DB::table('events as e')
                 ->join('event_details as ed', 'ed.event_detail_id', '=', 'e.event_detail')
                 ->leftJoin('organizations as o', 'o.organization_id', '=', 'e.organization')
                 ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
-                ->where('ed.start_time', '>=', now())
-                ->orderBy('ed.start_time')
+                ->where('ed.start_time', '<', now())
+                ->orderByDesc('ed.start_time')
                 ->limit(3)
                 ->get([
                     'e.event_id',
@@ -65,7 +65,7 @@ class LandingPage extends Controller
             'topFeed',
             'featuredPosts',
             'organizationNameMap',
-            'upcomingActivities'
+            'recentActivities'
         ));
     }
 

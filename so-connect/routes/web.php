@@ -275,6 +275,9 @@ Route::middleware(['auth', 'officer.or.admin'])->group(function () {
     Route::post('/forms/workplan/{workplan_id}/generate', [WorkplanController::class, 'generatePdf'])
         ->whereNumber('workplan_id')
         ->name('workplan.generate');
+    Route::get('/forms/workplan/{workplan_id}/download', [WorkplanController::class, 'downloadPdf'])
+        ->whereNumber('workplan_id')
+        ->name('workplan.download');
 
     Route::patch('/workplans/{workplan_id}/finalize', [EventPlanController::class, 'finalize'])
         ->whereNumber('workplan_id')

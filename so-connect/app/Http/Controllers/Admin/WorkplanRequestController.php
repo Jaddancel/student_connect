@@ -10,7 +10,9 @@ use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Request as ActionRequest;
 use App\Models\Semester;
+use App\Models\Workplan;
 use App\Services\DocumentGenerationService;
+use App\Services\WorkplanService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -105,7 +107,7 @@ class WorkplanRequestController extends Controller
         ]);
     }
 
-    public function show(int $requestId)
+    public function show(int $requestId, WorkplanService $workplanService)
     {
         $actionRequest = ActionRequest::query()->findOrFail($requestId);
         $payload = (array) ($actionRequest->payload ?? []);
@@ -135,14 +137,43 @@ class WorkplanRequestController extends Controller
             $requesterName = $profileRow?->name ?? 'Unknown';
         }
 
+        $submissionPayload = $submission ? (array) ($submission->payload ?? []) : [];
+        $semesterId = (int) ($submissionPayload['semester_id'] ?? 0);
+
+        $eventPlans = collect();
+        $personNames = [];
+
+        if ($orgId > 0 && $semesterId > 0) {
+            $workplan = Workplan::query()
+                ->with('semester')
+                ->where('organization_id', $orgId)
+                ->where('semester_id', $semesterId)
+                ->first();
+
+            if ($workplan) {
+                $eventPlans = $workplanService->getApprovedPlansForWorkplan($workplan);
+
+                $personIds = $eventPlans->flatMap(fn ($p) => $p->persons_responsible ?? [])->unique()->filter()->values()->all();
+                if (! empty($personIds)) {
+                    $personNames = DB::table('users as u')
+                        ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+                        ->whereIn('u.user_id', $personIds)
+                        ->select('u.user_id', DB::raw("TRIM(CONCAT(COALESCE(p.first_name,''), ' ', COALESCE(p.last_name,''))) as name"))
+                        ->get()->pluck('name', 'user_id')->all();
+                }
+            }
+        }
+
         return view('pages.admin.workplan-requests.show', [
             'title' => self::PAGE_TITLE,
             'actionRequest' => $actionRequest,
             'submission' => $submission,
-            'submissionPayload' => $submission ? (array) ($submission->payload ?? []) : [],
+            'submissionPayload' => $submissionPayload,
             'approval' => $approval,
             'orgName' => $orgName,
             'requesterName' => $requesterName,
+            'eventPlans' => $eventPlans,
+            'personNames' => $personNames,
         ]);
     }
 

@@ -130,15 +130,34 @@
                 </div>
             </div>
 
-            @if (!empty($p['photos']))
+            @php
+                $photoValue = $p['photos'] ?? null;
+                $photoList = [];
+                if (is_array($photoValue)) {
+                    $photoList = $photoValue;
+                } elseif (is_string($photoValue) && trim($photoValue) !== '') {
+                    $decodedPhotos = json_decode($photoValue, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decodedPhotos)) {
+                        $photoList = $decodedPhotos;
+                    } else {
+                        $photoList = [$photoValue];
+                    }
+                }
+                $photoList = array_values(array_filter($photoList, fn ($path) => is_string($path) && trim($path) !== ''));
+            @endphp
+            @if (!empty($photoList))
                 <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                     <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
                         <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Attached Photo</h3>
                     </div>
                     <div class="px-6 py-5">
-                        <img src="{{ asset('storage/'.$p['photos']) }}" alt="Activity Photo"
-                             class="max-h-64 cursor-zoom-in rounded-xl border border-gray-200 object-contain dark:border-gray-700"
-                             @click="$store.lightbox.show('{{ asset('storage/'.$p['photos']) }}', 'Activity Photo')" />
+                        <div class="flex flex-wrap gap-4">
+                            @foreach ($photoList as $photoPath)
+                                <img src="{{ asset('storage/'.$photoPath) }}" alt="Activity Photo {{ $loop->iteration }}"
+                                     class="max-h-64 cursor-zoom-in rounded-xl border border-gray-200 object-contain dark:border-gray-700"
+                                     @click="$store.lightbox.show('{{ asset('storage/'.$photoPath) }}', 'Activity Photo')" />
+                            @endforeach
+                        </div>
                     </div>
                 </div>
             @endif

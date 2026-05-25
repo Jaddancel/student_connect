@@ -85,10 +85,59 @@
                 </div>
             @endif
 
-            {{-- Section III: Signatories --}}
+            {{-- Section III: Attached Event Plans --}}
             <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                 <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
-                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">III. Signatories</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">III. Attached Event Plans</h3>
+                </div>
+                @if ($eventPlans->isEmpty())
+                    <p class="px-6 py-5 text-sm text-gray-400 dark:text-gray-500">No event plans found for this workplan.</p>
+                @else
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-100 dark:border-gray-800">
+                                    <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Activity / Title</th>
+                                    <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Target Date</th>
+                                    <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Status</th>
+                                    <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Resources Needed</th>
+                                    <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Persons Responsible</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                @foreach ($eventPlans as $plan)
+                                    @php
+                                        $names = collect($plan->persons_responsible ?? [])
+                                            ->map(fn($id) => $personNames[$id] ?? null)
+                                            ->filter()
+                                            ->implode(', ');
+                                    @endphp
+                                    <tr>
+                                        <td class="px-6 py-3 font-medium text-gray-800 dark:text-white/90">{{ $plan->title }}</td>
+                                        <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ \Illuminate\Support\Carbon::parse($plan->target_date)->format('M d, Y') }}</td>
+                                        <td class="px-6 py-3">
+                                            @if ($plan->status === 'approved')
+                                                <span class="inline-flex items-center rounded-full bg-success-50 px-2 py-0.5 text-xs font-medium text-success-700 dark:bg-success-500/15 dark:text-success-400">Approved</span>
+                                            @elseif ($plan->status === 'pending')
+                                                <span class="inline-flex items-center rounded-full bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-500/15 dark:text-warning-400">Pending</span>
+                                            @else
+                                                <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-400">{{ ucfirst($plan->status) }}</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ $plan->resources_needed ?: '—' }}</td>
+                                        <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ $names ?: '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </div>
+
+            {{-- Section IV: Signatories --}}
+            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">IV. Signatories</h3>
                 </div>
                 <div class="grid grid-cols-1 gap-x-6 gap-y-6 px-6 py-5 text-sm sm:grid-cols-2">
                     <div>

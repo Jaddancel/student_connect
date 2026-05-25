@@ -300,7 +300,7 @@
                         ['card' => 'event-blue',     'header' => 'blue-gradient',    'date' => 'blue'],
                     ];
                 @endphp
-                @forelse ($upcomingActivities as $index => $activity)
+                @forelse ($recentActivities as $index => $activity)
                     @php $colors = $eventColors[$index % 3]; @endphp
                     <div class="col-md-4 mb-4">
                         <div class="card h-100 shadow-lg border-0 event-card {{ $colors['card'] }}">
@@ -687,54 +687,30 @@
                 <h2 class="section-heading text-uppercase">Recent Activities</h2>
             </div>
             <div class="row g-4">
-                <!-- Activity 1 -->
+                @forelse ($recentActivities as $activity)
                 <div class="col-lg-4 col-md-6">
                     <div class="activity-card"
                         style="overflow: hidden; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
                         <div
                             style="background: linear-gradient(135deg, #2D6A4F 0%, #1A3C2E 100%); height: 200px; display: flex; align-items: center; justify-content: center;">
-                            <i class="fas fa-brain fa-5x" style="color: rgba(255,255,255,0.8);"></i>
+                            <i class="fas fa-calendar-check fa-5x" style="color: rgba(255,255,255,0.8);"></i>
                         </div>
                         <div style="padding: 20px;">
                             <div style="color: #2D6A4F; font-size: 0.8rem; font-weight: 600; margin-bottom: 8px;">
-                                <i class="fas fa-calendar-day"></i> May 10, 2026
+                                <i class="fas fa-calendar-day"></i>
+                                {{ \Carbon\Carbon::parse($activity->start_time)->format('M j, Y') }}
                             </div>
-                            <h5 style="margin: 0; font-weight: 700; color: #1A3C2E;">AFP Seminar Success</h5>
+                            <h5 style="margin: 0; font-weight: 700; color: #1A3C2E;">{{ $activity->event_name }}</h5>
+                            <p style="margin: 4px 0 0; font-size: 0.8rem; color: #555;">{{ $activity->organization_name }}</p>
                         </div>
                     </div>
                 </div>
-                <!-- Activity 2 -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="activity-card"
-                        style="overflow: hidden; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
-                        <div
-                            style="background: linear-gradient(135deg, #C9A84C 0%, #A68238 100%); height: 200px; display: flex; align-items: center; justify-content: center;">
-                            <i class="fas fa-handshake fa-5x" style="color: rgba(255,255,255,0.8);"></i>
-                        </div>
-                        <div style="padding: 20px;">
-                            <div style="color: #C9A84C; font-size: 0.8rem; font-weight: 600; margin-bottom: 8px;">
-                                <i class="fas fa-calendar-day"></i> May 8, 2026
-                            </div>
-                            <h5 style="margin: 0; font-weight: 700; color: #1A3C2E;">Community Drive</h5>
-                        </div>
-                    </div>
+                @empty
+                <div class="col-12 text-center text-muted py-4">
+                    <i class="fas fa-calendar-times fa-2x mb-2" style="color: #ccc;"></i>
+                    <p style="color: #999;">No recent activities yet.</p>
                 </div>
-                <!-- Activity 3 -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="activity-card"
-                        style="overflow: hidden; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
-                        <div
-                            style="background: linear-gradient(135deg, #2D6A4F 0%, #40826d 100%); height: 200px; display: flex; align-items: center; justify-content: center;">
-                            <i class="fas fa-certificate fa-5x" style="color: rgba(255,255,255,0.8);"></i>
-                        </div>
-                        <div style="padding: 20px;">
-                            <div style="color: #2D6A4F; font-size: 0.8rem; font-weight: 600; margin-bottom: 8px;">
-                                <i class="fas fa-calendar-day"></i> May 5, 2026
-                            </div>
-                            <h5 style="margin: 0; font-weight: 700; color: #1A3C2E;">Training Completed</h5>
-                        </div>
-                    </div>
-                </div>
+                @endforelse
             </div>
         </div>
     </section>

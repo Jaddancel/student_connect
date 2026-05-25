@@ -240,6 +240,34 @@
                         </div>
                     </div>
 
+                    <div x-data="{ preview: null }">
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Signature
+                            <span class="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">(photo of signature, JPG/PNG)</span>
+                        </label>
+                        <label for="adviser2_signature"
+                            class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed {{ $errors->has('adviser2_signature') ? 'border-error-500 bg-error-50 dark:border-error-500/40 dark:bg-error-500/5' : 'border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30' }} px-4 py-4 transition hover:border-brand-400 hover:bg-brand-50 dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
+                            <template x-if="preview">
+                                <img :src="preview" class="mb-2 max-h-16 object-contain" alt="Adviser 2 signature preview" />
+                            </template>
+                            <template x-if="!preview">
+                                <svg class="mb-2 h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                        d="M16.862 3.487a2.25 2.25 0 113.182 3.182L8.5 18.213l-4.5 1 1-4.5L16.862 3.487z" />
+                                </svg>
+                            </template>
+                            <span class="text-sm font-medium text-gray-600 dark:text-gray-400"
+                                x-text="preview ? 'Change signature' : 'Click to upload signature'"></span>
+                            <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
+                            <input id="adviser2_signature" name="adviser2_signature" type="file" accept="image/jpeg,image/png"
+                                class="hidden"
+                                @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
+                        </label>
+                        @error('adviser2_signature')
+                            <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+
                 </div>
             </div>
 
