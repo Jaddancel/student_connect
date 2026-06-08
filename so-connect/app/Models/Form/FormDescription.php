@@ -25,6 +25,7 @@ class FormDescription extends Model
         'field_order',
         'placeholder_hint',
         'field_options',
+        'ocr_region',
     ];
 
     protected function casts(): array
@@ -33,6 +34,7 @@ class FormDescription extends Model
             'is_required' => 'boolean',
             'field_order' => 'integer',
             'field_options' => 'array',
+            'ocr_region' => 'array',
         ];
     }
 

@@ -23,6 +23,7 @@ services:
       - sail
     depends_on:
       - mysql
+      - ocr
   mysql:
     image: "mysql:8.4"
     ports:
@@ -62,6 +63,20 @@ services:
           - '${FORWARD_MAILHOG_DASHBOARD_PORT:-8025}:8025'
       networks:
           - sail
+  ocr:
+    build:
+      context: "./docker/ocr"
+      dockerfile: Dockerfile
+    ports:
+      - "${OCR_PORT:-5000}:5000"
+    networks:
+      - sail
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
 networks:
   sail:
     driver: bridge

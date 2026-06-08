@@ -23,11 +23,17 @@ class StudentLeaderDirectoryController extends Controller
 
         $currentSemester = Semester::current();
 
-        return view('pages.form.student-leader-directory', [
+        $ocrForm = Form::query()
+            ->where('directory_assignment_key', 'student-leader-directory')
+            ->where('is_active', true)
+            ->first();
+
+        return view('pages.auth.signup', [
             'title'             => 'Directory of Student Leader',
             'organizations'     => $organizations,
             'currentSchoolYear' => Semester::currentSchoolYear(),
             'currentSemester'   => $currentSemester?->semesterLabel() ?? '',
+            'ocrForm'           => $ocrForm,
         ]);
     }
 

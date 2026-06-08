@@ -7,8 +7,10 @@ use App\Listeners\LogAuthActivity;
 use App\Models\Officer;
 use App\Models\User;
 use App\Policies\RolePolicy;
+use App\Services\OcrService;
 use App\Services\OrganizationAuthorizationService;
 use Faker\Generator as FakerGenerator;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +28,14 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->callAfterResolving(FakerGenerator::class, function (FakerGenerator $faker) {
             $faker->addProvider(new FilipinoPersonProvider($faker));
+        });
+
+        $this->app->singleton(OcrService::class, function ($app) {
+            return new OcrService(
+                (string) config('services.ocr.url'),
+                (int) config('services.ocr.timeout', 60),
+                $app->make(HttpFactory::class),
+            );
         });
     }
 

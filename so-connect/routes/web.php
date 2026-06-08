@@ -8,6 +8,8 @@ use App\Http\Controllers\Admin\AdminOfficerCreationController;
 use App\Http\Controllers\Admin\AdminWorkplanController;
 use App\Http\Controllers\Admin\ActivityRequestController as AdminActivityRequestController;
 use App\Http\Controllers\Admin\FinancialReportRequestController;
+use App\Http\Controllers\Admin\FormDerivationController;
+use App\Http\Controllers\Admin\FormSettingsController;
 use App\Http\Controllers\Admin\JointStatementRequestController;
 use App\Http\Controllers\Admin\OrganizationScoringController;
 use App\Http\Controllers\Admin\ProjectRequestController;
@@ -30,6 +32,7 @@ use App\Http\Controllers\FinancialReportController;
 use App\Http\Controllers\JointStatementController;
 use App\Http\Controllers\LandingPage;
 use App\Http\Controllers\MembershipRegistrationController;
+use App\Http\Controllers\OcrScanController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\OrganizationRecognitionController;
 use App\Http\Controllers\PolicySecurityRequestController;
@@ -294,6 +297,12 @@ Route::get('/forms/student-leader-directory', [StudentLeaderDirectoryController:
 Route::post('/forms/student-leader-directory', [StudentLeaderDirectoryController::class, 'store'])
     ->name('student-leader-directory.store');
 
+// OCR scan (auth OR guest-allowed — access is checked inside the controller).
+Route::post('/api/forms/{form}/scan', [OcrScanController::class, 'store'])
+    ->name('api.forms.scan');
+Route::get('/api/form-scans/{scan}/result', [OcrScanController::class, 'result'])
+    ->name('api.form-scans.result');
+
 Route::get('/forms/joint-statement', [JointStatementController::class, 'index'])
     ->middleware(['auth', 'role.officer'])->name('joint-statement');
 Route::post('/forms/joint-statement', [JointStatementController::class, 'store'])
@@ -434,6 +443,24 @@ Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
         ->name('admin.templates.destroy');
     Route::get('/admin/templates/field-reference', [TemplateManagerController::class, 'fieldReference'])
         ->name('admin.templates.field-reference');
+
+    // Form Derivation — upload a blank DOCX and auto-detect its fields.
+    Route::get('/admin/form-derivation', [FormDerivationController::class, 'showUpload'])
+        ->name('admin.form-derivation.upload');
+    Route::post('/admin/form-derivation/upload', [FormDerivationController::class, 'storeUpload'])
+        ->name('admin.form-derivation.store');
+    Route::get('/admin/form-derivation/{form}/review', [FormDerivationController::class, 'showReview'])
+        ->name('admin.form-derivation.review');
+    Route::post('/admin/form-derivation/{form}/confirm', [FormDerivationController::class, 'confirm'])
+        ->name('admin.form-derivation.confirm');
+    Route::delete('/admin/form-derivation/{form}', [FormDerivationController::class, 'destroy'])
+        ->name('admin.form-derivation.destroy');
+
+    // Form OCR settings — allows_guest_scan, directory_assignment_key, ocr_region per field
+    Route::get('/admin/forms/{form}/settings', [FormSettingsController::class, 'show'])
+        ->name('admin.forms.settings');
+    Route::patch('/admin/forms/{form}/settings', [FormSettingsController::class, 'update'])
+        ->name('admin.forms.settings.update');
 });
 
 Route::get('/superadmin/dashboard', [SuperAdminController::class, 'monitoringDashboard'])

@@ -308,6 +308,52 @@ Route::get('/api/form-scans/{scan}/result', [OcrScanController::class, 'result']
 
 ---
 
+## Progress Tracker
+
+> App root is `so-connect/`. Updated live as implementation proceeds.
+
+### Phase 1 — Infrastructure
+- [x] Migration A — `add_ocr_columns_to_forms_table`
+- [x] Migration B — `add_ocr_region_to_form_descriptions_table`
+- [x] Migration C — `create_form_scans_table`
+- [x] `Form` model (fillable + cast + `scans()`)
+- [x] `FormDescription` model (`ocr_region`)
+- [x] `FormScan` model
+- [x] `config/services.php` — `ocr`
+- [x] `OcrService`
+- [x] `AppServiceProvider` binding
+- [x] Docker: `docker/ocr/{Dockerfile,requirements.txt,main.py}`
+- [x] `compose.yaml` ocr service + `depends_on`
+- [x] `.env` / `.env.example` additions
+
+### Phase 2 — Async pipeline
+- [x] `OcrFieldMatcherService`
+- [x] `ProcessFormScan` job
+- [x] `OcrScanController`
+- [x] scan routes
+
+### Phase 3 — Form Derivation (Admin)
+- [x] `DocxFormStructureParser`
+- [x] `FormDerivationController`
+- [x] derivation routes
+- [x] upload view
+- [x] review view
+
+> Phases 4–5 complete. Verification done: `php -l` on all new PHP files.
+> **Not yet run** (needs Sail up): `php artisan migrate`, OCR Docker build,
+> end-to-end scan/derivation/settings/pre-fill tests.
+
+### Phase 4 — Form Settings (Admin)
+- [x] `FormSettingsController`
+- [x] settings routes
+- [x] settings view (+ ocr_region calibration)
+
+### Phase 5 — OCR Pre-fill UI
+- [x] `ocr-scan-uploader` component
+- [x] integrate into `student-leader-directory.blade.php`
+
+---
+
 ## Implementation Order
 
 | Phase                           | Steps                                                                                                                                                                             |
