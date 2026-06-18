@@ -9,6 +9,7 @@ use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ActivityRequestController extends Controller
 {
@@ -76,8 +77,8 @@ class ActivityRequestController extends Controller
         $isAdmin = (int) $user->user_type === 2;
 
         $validated = $request->validate([
-            'organization_id'      => ['required', 'integer', 'min:1'],
-            'organization'         => ['required', 'string', 'max:255'],
+            'organization_id'                   => ['required', 'integer', 'min:1'],
+            'organization'                      => ['required', 'string', 'max:255'],
             'date'                              => ['required', 'date'],
             'projectActivity'                   => ['required', 'string', 'max:500'],
             'purposed'                          => ['required', 'string', 'max:1000'],
@@ -99,6 +100,14 @@ class ActivityRequestController extends Controller
             'adviserRow'                        => ['required', 'array', 'min:1'],
             'adviserRow.*'                      => ['required', 'string', 'max:255'],
             'collegeDean'                       => ['nullable', 'string', 'max:255'],
+
+            // ── Waiver (NEW) ─────────────────────────────────────────────────
+            'waiver_file' => [
+                'required',
+                'file',
+                'mimes:pdf,jpg,jpeg,png',
+                'max:5120', // 5 MB
+            ],
         ]);
 
         $organizationId = (int) $validated['organization_id'];
@@ -109,6 +118,18 @@ class ActivityRequestController extends Controller
                 abort(403);
             }
         }
+
+        // ── 1. Store the waiver file on the private disk ──────────────────────
+        //
+        // Stored under  storage/app/private/waivers/{year}/{random}.ext
+        // NOT publicly accessible — serve to admins via downloadWaiver() below.
+
+        $waiverPath = $request->file('waiver_file')->store(
+            'waivers/' . now()->year,
+            'private'
+        );
+
+        // ── 2. Build the payload (all original fields + waiver meta) ──────────
 
         $facilities = array_values(array_filter($validated['facilitiesOrEquipmentToBeUsedRow'] ?? [], fn ($v) => filled($v)));
         $advisers   = array_values(array_filter($validated['adviserRow'], fn ($v) => filled($v)));
@@ -133,7 +154,16 @@ class ActivityRequestController extends Controller
             'presidentContactNo'               => $validated['presidentContactNo'],
             'adviserRow'                       => $advisers,
             'collegeDean'                      => $validated['collegeDean'] ?? '',
+
+            // Waiver meta stored inside the JSON payload (NEW)
+            'waiver_file_path'        => $waiverPath,
+            'waiver_status'           => 'pending',  // admin flips to 'verified' before approval
+            'waiver_reviewed_by'      => null,
+            'waiver_reviewed_at'      => null,
+            'waiver_rejection_reason' => null,
         ];
+
+        // ── 3. Create the FormSubmission (unchanged) ──────────────────────────
 
         $form = Form::query()->where('route_name', 'activity-request')->firstOrFail();
 
@@ -144,6 +174,8 @@ class ActivityRequestController extends Controller
             'submitted_at'    => now(),
             'payload'         => $payload,
         ]);
+
+        // ── 4. Generate the document (unchanged) ─────────────────────────────
 
         $template = Template::query()
             ->where('form_id', $form->id)
@@ -166,10 +198,81 @@ class ActivityRequestController extends Controller
             );
 
             return redirect()->route('download-files')
-                ->with('success', 'Activity request generated and is now available for download.');
+                ->with('success', 'Activity request submitted. Your parent/guardian waiver is pending admin review before final approval.');
         } catch (\Throwable $e) {
             return redirect()->route('activity-request')
                 ->with('status', 'Request submitted, but document generation failed: ' . $e->getMessage());
         }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // VERIFY WAIVER  –  admin marks the uploaded waiver as authentic
+    // ──────────────────────────────────────────────────────────────────────────
+
+    public function verifyWaiver(Request $request, FormSubmission $submission): \Illuminate\Http\RedirectResponse
+    {
+        $payload = $submission->payload;
+        $payload['waiver_status']      = 'verified';
+        $payload['waiver_reviewed_by'] = $request->user()->getKey();
+        $payload['waiver_reviewed_at'] = now()->toDateTimeString();
+
+        $submission->update(['payload' => $payload]);
+
+        return back()->with('success', 'Waiver marked as verified.');
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // REJECT WAIVER  –  admin rejects (unsigned, unreadable, wrong document)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    public function rejectWaiver(Request $request, FormSubmission $submission): \Illuminate\Http\RedirectResponse
+    {
+        $request->validate([
+            'rejection_reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $payload = $submission->payload;
+        $payload['waiver_status']           = 'rejected';
+        $payload['waiver_reviewed_by']      = $request->user()->getKey();
+        $payload['waiver_reviewed_at']      = now()->toDateTimeString();
+        $payload['waiver_rejection_reason'] = $request->rejection_reason ?? '';
+
+        $submission->update(['payload' => $payload]);
+
+        return back()->with('status', 'Waiver rejected. The student will need to re-upload.');
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // APPROVE  –  blocked until waiver_status is 'verified'
+    // ──────────────────────────────────────────────────────────────────────────
+
+    public function approve(FormSubmission $submission): \Illuminate\Http\RedirectResponse
+    {
+        $waiverStatus = $submission->payload['waiver_status'] ?? 'pending';
+
+        if ($waiverStatus !== 'verified') {
+            return back()->with(
+                'status',
+                'This request cannot be approved yet — the parent/guardian waiver has not been verified.'
+            );
+        }
+
+        // Replace 'approved' with whatever status string your system uses
+        $submission->update(['status' => 'approved']);
+
+        return back()->with('success', 'Activity request approved.');
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // DOWNLOAD WAIVER  –  streams the private file to the admin
+    // ──────────────────────────────────────────────────────────────────────────
+
+    public function downloadWaiver(FormSubmission $submission)
+    {
+        $path = $submission->payload['waiver_file_path'] ?? null;
+
+        abort_if(! $path || ! Storage::disk('private')->exists($path), 404);
+
+        return Storage::disk('private')->download($path);
     }
 }
