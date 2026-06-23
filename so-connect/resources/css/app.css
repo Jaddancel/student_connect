@@ -1160,3 +1160,6 @@ pre[class*='language-'] {
 .dark .dark\:border-gray-800 {
   border-color: #166534;
 }
+
+/* Alpine.js: hide elements until Alpine initializes (used by OCR scanner & other x-show panels) */
+[x-cloak] { display: none !important; }

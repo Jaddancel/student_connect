@@ -21,6 +21,37 @@
             </div>
         @endif
 
+        <div
+            x-data="{
+                // Resolve an OCR field key to a form input, tolerating camelCase
+                // field keys (e.g. schoolYear) vs snake_case input names (school_year).
+                findInput(key) {
+                    const snake = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+                    for (const candidate of [key, snake]) {
+                        const el = this.$root.querySelector('[name=&quot;' + candidate + '&quot;]');
+                        if (el) return el;
+                    }
+                    return null;
+                },
+                applyOcrResult(map) {
+                    Object.entries(map || {}).forEach(([key, value]) => {
+                        if (value === null || value === undefined || String(value).trim() === '') return;
+                        const el = this.findInput(key);
+                        if (!el) return;
+                        el.value = value;
+                        el.classList.add('border-yellow-400', 'ring-2', 'ring-yellow-300');
+                        el.dispatchEvent(new Event('input', { bubbles: true }));
+                        el.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                }
+            }"
+            @ocr-result.window="applyOcrResult($event.detail.fieldMap)"
+            class="space-y-6"
+        >
+            @if(!empty($form))
+                <x-form.ocr-camera-scanner :form="$form" />
+            @endif
+
         <form action="{{ route('student-leader-directory.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
             @csrf
 
@@ -727,6 +758,7 @@
             </div>
 
         </form>
+        </div>
     </div>
 @endsection
 

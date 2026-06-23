@@ -146,6 +146,13 @@
                     @endforeach
                 </div>
             </div>
+        {{-- Signature Verification — president is primary signatory --}}
+        @if(!empty($p['signature3']) && !empty($p['name_of_the_president']))
+            <x-admin.signature-verification
+                :submitter-name="$p['name_of_the_president']"
+                :current-signature-path="$p['signature3']" />
+        @endif
+
         @else
             <div class="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-400">
                 Submission data not found.

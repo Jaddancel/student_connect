@@ -161,6 +161,13 @@
                     </div>
                 </div>
             @endif
+        {{-- Signature Verification --}}
+        @if(!empty($p['signature']) && !empty($p['name']))
+            <x-admin.signature-verification
+                :submitter-name="$p['name']"
+                :current-signature-path="$p['signature']" />
+        @endif
+
         @else
             <div class="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-400">
                 Submission data not found.

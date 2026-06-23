@@ -23,11 +23,14 @@ class StudentLeaderDirectoryController extends Controller
 
         $currentSemester = Semester::current();
 
+        $form = Form::query()->where('route_name', 'student-leader-directory')->first();
+
         return view('pages.form.student-leader-directory', [
             'title'             => 'Directory of Student Leader',
             'organizations'     => $organizations,
             'currentSchoolYear' => Semester::currentSchoolYear(),
             'currentSemester'   => $currentSemester?->semesterLabel() ?? '',
+            'form'              => $form,
         ]);
     }
 

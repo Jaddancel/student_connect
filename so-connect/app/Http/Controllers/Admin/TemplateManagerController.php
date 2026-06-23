@@ -16,7 +16,9 @@ class TemplateManagerController extends Controller
 {
     public function index()
     {
-        $forms = Form::whereNotNull('route_name')->get();
+        $forms = Form::where(function ($q) {
+            $q->whereNotNull('route_name')->orWhere('is_active', true);
+        })->get();
 
         $activeTemplates = Template::whereIn('form_id', $forms->pluck('id'))
             ->where('is_active', true)

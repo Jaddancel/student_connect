@@ -23,6 +23,28 @@ services:
       - sail
     depends_on:
       - mysql
+      - ocr
+  queue:
+    image: "sail-8.5/app"
+    build:
+      context: "./docker/8.5"
+      dockerfile: Dockerfile
+      args:
+        WWWGROUP: "${WWWGROUP:-1000}"
+    command: php artisan queue:work --timeout=300 --tries=1 --sleep=3
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      WWWUSER: "${WWWUSER:-1000}"
+      LARAVEL_SAIL: 1
+    volumes:
+      - ".:/var/www/html"
+    networks:
+      - sail
+    depends_on:
+      - mysql
+      - ocr
+    restart: unless-stopped
   mysql:
     image: "mysql:8.4"
     ports:
@@ -62,9 +84,37 @@ services:
           - '${FORWARD_MAILHOG_DASHBOARD_PORT:-8025}:8025'
       networks:
           - sail
+  ocr:
+    build:
+      context: "./docker/ocr"
+      dockerfile: Dockerfile
+    ports:
+      - "${OCR_PORT:-5000}:5000"
+    networks:
+      - sail
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+  ollama:
+    image: ollama/ollama:latest
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - ollama_models:/root/.ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    networks:
+      - sail
+    restart: unless-stopped
 networks:
   sail:
     driver: bridge
 volumes:
   sail-mysql:
+    driver: local
+  ollama_models:
     driver: local

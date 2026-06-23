@@ -37,6 +37,9 @@ class Form extends Model
         'is_active',
         'is_published',
         'route_name',
+        'allows_guest_scan',
+        'ocr_reference_docx',
+        'directory_assignment_key',
     ];
 
     protected function casts(): array
@@ -45,6 +48,7 @@ class Form extends Model
             'is_active' => 'boolean',
             'is_published' => 'boolean',
             'sidebar_group' => 'array',
+            'allows_guest_scan' => 'boolean',
         ];
     }
 

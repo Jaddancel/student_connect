@@ -143,6 +143,168 @@ class FormTemplateHelper
     }
 
     /**
+     * Extracts the full human-readable text of a DOCX directly from its XML —
+     * no rendering or OCR. Reads body + headers/footers in reading order and
+     * preserves table layout: cells in the same row are joined with " | " on a
+     * single line, so an LLM can tell which fields are side-by-side columns
+     * versus stacked vertically.
+     *
+     * This is lossless (unlike DOCX→PNG→OCR) and gives the LLM clean, complete,
+     * layout-aware text to infer form fields from.
+     */
+    public static function extractTextFromDocx(string $absolutePath): string
+    {
+        if (! is_file($absolutePath)) {
+            throw new InvalidArgumentException('DOCX file does not exist: '.$absolutePath);
+        }
+
+        $zip = new ZipArchive;
+
+        if ($zip->open($absolutePath) !== true) {
+            throw new RuntimeException('Unable to read DOCX file.');
+        }
+
+        $combined = '';
+
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $entryName = $zip->getNameIndex($i);
+
+            if (! is_string($entryName)) {
+                continue;
+            }
+
+            $isDocumentBody = $entryName === 'word/document.xml';
+            $isHeaderOrFooter = (bool) preg_match('/^word\/(header|footer)\d*\.xml$/', $entryName);
+
+            if (! $isDocumentBody && ! $isHeaderOrFooter) {
+                continue;
+            }
+
+            $content = $zip->getFromIndex($i);
+
+            if (! is_string($content) || $content === '') {
+                continue;
+            }
+
+            $combined .= "\n".self::extractStructuredText($content);
+        }
+
+        $zip->close();
+
+        // Collapse runs of blank lines and trim — keeps the structure an LLM
+        // uses (line breaks between fields) without excessive empty padding.
+        $combined = preg_replace("/\n{3,}/", "\n\n", $combined) ?? $combined;
+
+        return trim($combined);
+    }
+
+    /**
+     * Walks a DOCX part's XML in document order, emitting one line per paragraph
+     * and one line per table row (cells joined with " | "). Falls back to the
+     * flat run-joining extractor if the XML can't be parsed as a DOM.
+     */
+    private static function extractStructuredText(string $xml): string
+    {
+        $dom = new \DOMDocument;
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $dom->loadXML($xml);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        if (! $loaded || $dom->documentElement === null) {
+            return self::joinTextRunsPerParagraph($xml);
+        }
+
+        $lines = [];
+        self::walkBlockLevel($dom->documentElement, $lines);
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Recursively walks block-level nodes. Paragraphs (<w:p>) become a line;
+     * tables (<w:tbl>) are rendered row-by-row; any other container (e.g. the
+     * <w:body> wrapper or content controls) is descended into.
+     *
+     * @param  array<int, string>  $lines
+     */
+    private static function walkBlockLevel(\DOMNode $node, array &$lines): void
+    {
+        foreach ($node->childNodes as $child) {
+            if (! $child instanceof \DOMElement) {
+                continue;
+            }
+
+            switch ($child->localName) {
+                case 'p':
+                    $text = self::elementText($child);
+                    if (trim($text) !== '') {
+                        $lines[] = $text;
+                    }
+                    break;
+
+                case 'tbl':
+                    self::appendTableLines($child, $lines);
+                    break;
+
+                default:
+                    // Descend into wrappers (w:body, w:sdt, w:sdtContent, …).
+                    self::walkBlockLevel($child, $lines);
+            }
+        }
+    }
+
+    /**
+     * Renders a <w:tbl> as one line per row, cells separated by " | ".
+     *
+     * @param  array<int, string>  $lines
+     */
+    private static function appendTableLines(\DOMElement $table, array &$lines): void
+    {
+        foreach ($table->childNodes as $row) {
+            if (! $row instanceof \DOMElement || $row->localName !== 'tr') {
+                continue;
+            }
+
+            $cells = [];
+            foreach ($row->childNodes as $cell) {
+                if (! $cell instanceof \DOMElement || $cell->localName !== 'tc') {
+                    continue;
+                }
+
+                // Join the cell's paragraphs with a space so a multi-line cell
+                // still reads as one column value.
+                $cellParts = [];
+                foreach ($cell->getElementsByTagNameNS('*', 'p') as $p) {
+                    $t = trim(self::elementText($p));
+                    if ($t !== '') {
+                        $cellParts[] = $t;
+                    }
+                }
+                $cells[] = implode(' ', $cellParts);
+            }
+
+            if ($cells !== []) {
+                $lines[] = implode(' | ', $cells);
+            }
+        }
+    }
+
+    /**
+     * Concatenates all <w:t> text descendants of an element (handles Word's
+     * habit of splitting a single label across multiple runs).
+     */
+    private static function elementText(\DOMElement $element): string
+    {
+        $buffer = '';
+        foreach ($element->getElementsByTagNameNS('*', 't') as $t) {
+            $buffer .= $t->textContent;
+        }
+
+        return $buffer;
+    }
+
+    /**
      * Extracts text from DOCX XML by concatenating all <w:t> nodes within each
      * paragraph before joining paragraphs with newlines. This correctly handles
      * Word's habit of splitting placeholder text (e.g. {{item1}}) across multiple

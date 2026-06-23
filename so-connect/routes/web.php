@@ -13,8 +13,10 @@ use App\Http\Controllers\Admin\OrganizationScoringController;
 use App\Http\Controllers\Admin\ProjectRequestController;
 use App\Http\Controllers\Admin\RecognitionRequestController;
 use App\Http\Controllers\Admin\SemesterController;
+use App\Http\Controllers\Admin\FormCreationWizardController;
 use App\Http\Controllers\Admin\TemplateManagerController;
 use App\Http\Controllers\Admin\WorkplanRequestController;
+use App\Http\Controllers\OcrScanController;
 use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
@@ -31,6 +33,7 @@ use App\Http\Controllers\JointStatementController;
 use App\Http\Controllers\LandingPage;
 use App\Http\Controllers\MembershipRegistrationController;
 use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\OrganizationAccreditationWizardController;
 use App\Http\Controllers\OrganizationRecognitionController;
 use App\Http\Controllers\PolicySecurityRequestController;
 use App\Http\Controllers\PostController;
@@ -249,10 +252,21 @@ Route::middleware(['auth', 'officer.or.admin'])->group(function () {
         ->whereNumber('id')
         ->name('event-plans.revise');
 
-    Route::get('/forms/organization-recognition', [OrganizationRecognitionController::class, 'index'])
+    // Organization accreditation wizard (replaces single-page org recognition GET entry)
+    Route::get('/forms/organization-recognition', [OrganizationAccreditationWizardController::class, 'showStep1'])
         ->name('organization-recognition');
     Route::post('/forms/organization-recognition', [OrganizationRecognitionController::class, 'store'])
         ->name('organization-recognition.store');
+    Route::post('/forms/accreditation/step1', [OrganizationAccreditationWizardController::class, 'saveStep1'])
+        ->name('accreditation.wizard.step1.save');
+    Route::get('/forms/accreditation/step2', [OrganizationAccreditationWizardController::class, 'showStep2'])
+        ->name('accreditation.wizard.step2');
+    Route::post('/forms/accreditation/step2', [OrganizationAccreditationWizardController::class, 'saveStep2'])
+        ->name('accreditation.wizard.step2.save');
+    Route::get('/forms/accreditation/step3', [OrganizationAccreditationWizardController::class, 'showStep3'])
+        ->name('accreditation.wizard.step3');
+    Route::post('/forms/accreditation/store', [OrganizationAccreditationWizardController::class, 'store'])
+        ->name('accreditation.wizard.store');
 
     Route::get('/forms/accomplishment-report', [AccomplishmentReportController::class, 'index'])
         ->name('accomplishment-report');
@@ -434,7 +448,29 @@ Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
         ->name('admin.templates.destroy');
     Route::get('/admin/templates/field-reference', [TemplateManagerController::class, 'fieldReference'])
         ->name('admin.templates.field-reference');
+
+    // Form Creation Wizard
+    Route::prefix('admin/form-wizard')->name('admin.form-wizard.')->group(function () {
+        Route::get('/', [FormCreationWizardController::class, 'showStart'])->name('start');
+        Route::post('/upload', [FormCreationWizardController::class, 'storeUpload'])->name('upload');
+        Route::get('/meta', [FormCreationWizardController::class, 'showMeta'])->name('meta');
+        Route::post('/meta', [FormCreationWizardController::class, 'saveMeta'])->name('meta.save');
+        Route::get('/ai-review', [FormCreationWizardController::class, 'showAiReview'])->name('ai-review');
+        Route::get('/ai-status', [FormCreationWizardController::class, 'aiStatus'])->name('ai-status');
+        Route::post('/ai-review', [FormCreationWizardController::class, 'confirmAiReview'])->name('ai-confirm');
+        Route::get('/revise', [FormCreationWizardController::class, 'showRevise'])->name('revise');
+        Route::post('/revise', [FormCreationWizardController::class, 'saveRevise'])->name('revise.save');
+        Route::get('/final', [FormCreationWizardController::class, 'showFinal'])->name('final');
+        Route::post('/confirm', [FormCreationWizardController::class, 'confirm'])->name('confirm');
+        Route::delete('/discard', [FormCreationWizardController::class, 'discard'])->name('discard');
+    });
 });
+
+// OCR scan (auth OR guest-allowed — enforced inside the controller).
+Route::post('/api/forms/{form}/scan', [OcrScanController::class, 'store'])
+    ->name('api.forms.scan');
+Route::get('/api/form-scans/{scan}/result', [OcrScanController::class, 'result'])
+    ->name('api.form-scans.result');
 
 Route::get('/superadmin/dashboard', [SuperAdminController::class, 'monitoringDashboard'])
     ->middleware(['auth', 'superadmin'])

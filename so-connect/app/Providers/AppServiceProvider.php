@@ -4,10 +4,15 @@ namespace App\Providers;
 
 use App\Faker\FilipinoPersonProvider;
 use App\Listeners\LogAuthActivity;
+use App\Models\FormSubmission;
 use App\Models\Officer;
 use App\Models\User;
+use App\Observers\FormSubmissionObserver;
 use App\Policies\RolePolicy;
+use App\Services\LlmService;
+use App\Services\OcrService;
 use App\Services\OrganizationAuthorizationService;
+use App\Services\SignatureRecordService;
 use Faker\Generator as FakerGenerator;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
@@ -27,6 +32,23 @@ class AppServiceProvider extends ServiceProvider
         $this->callAfterResolving(FakerGenerator::class, function (FakerGenerator $faker) {
             $faker->addProvider(new FilipinoPersonProvider($faker));
         });
+
+        $this->app->singleton(OcrService::class, function () {
+            return new OcrService(
+                (string) config('services.ocr.url', 'http://ocr:5000'),
+                (int) config('services.ocr.timeout', 60),
+            );
+        });
+
+        $this->app->singleton(LlmService::class, function () {
+            return new LlmService(
+                (string) config('services.ollama.url', 'http://ollama:11434'),
+                (string) config('services.ollama.model', 'qwen3.5:9b'),
+                (int) config('services.ollama.timeout', 120),
+            );
+        });
+
+        $this->app->singleton(SignatureRecordService::class);
     }
 
     /**
@@ -35,6 +57,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Event::listen([Login::class, Logout::class], LogAuthActivity::class);
+
+        FormSubmission::observe(FormSubmissionObserver::class);
 
         Gate::policy(Officer::class, RolePolicy::class);
 
