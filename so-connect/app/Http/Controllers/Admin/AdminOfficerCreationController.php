@@ -9,6 +9,7 @@ use App\Models\Profile\profileAddress;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -134,8 +135,12 @@ class AdminOfficerCreationController extends Controller
                 position:         $validated['position'],
                 activationUrl:    route('invitation.verify', ['token' => $rawToken]),
             ));
-        } catch (\Throwable) {
-            // Email failure is non-fatal
+        } catch (\Throwable $e) {
+            // Email failure is non-fatal, but must be logged so it is not silently lost.
+            Log::error('Officer invitation email failed to send', [
+                'email' => $validated['email'],
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return redirect()->route('admin.officers.create')

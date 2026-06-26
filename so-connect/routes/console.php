@@ -9,12 +9,42 @@ use App\Services\DocumentGenerationService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+/*
+ * Automated database backups (spatie/laravel-backup). A DB-only backup runs nightly
+ * and old backups are pruned weekly per config/backup.php retention. Requires the
+ * scheduler (`php artisan schedule:work` / cron) to be running — the queue container
+ * handles this in this project's compose setup.
+ */
+Schedule::command('backup:run --only-db')->dailyAt('01:00');
+Schedule::command('backup:clean')->weeklyOn(0, '02:00');
+
+/*
+ * Smoke-test the invitation email pipeline against MailHog (or whatever mailer is
+ * configured). Sends a real AdminInvitationMail so you can confirm SMTP delivery
+ * + template rendering in isolation, then check it at the MailHog UI (:8025).
+ *
+ *   php artisan mail:test you@example.com
+ */
+Artisan::command('mail:test {email}', function (string $email) {
+    \Illuminate\Support\Facades\Mail::to($email)->send(new \App\Mail\AdminInvitationMail(
+        recipientEmail: $email,
+        recipientName:  'MailHog Smoke Test',
+        activationUrl:  url('/invitation/verify?token=smoke-test-token'),
+    ));
+
+    $this->info('Sent AdminInvitationMail to '.$email.' via mailer ['.config('mail.default').'].');
+    $this->line('If using MailHog, open http://localhost:8025 to view it.');
+
+    return self::SUCCESS;
+})->purpose('Send a test invitation email (verifies SMTP/MailHog delivery + template)');
 
 Artisan::command('forms:bootstrap-template
     {name : Display name of the form}

@@ -24,6 +24,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -281,8 +282,12 @@ class RequestDecisionController extends Controller
                         position:         (string) ($payload['position'] ?? ''),
                         activationUrl:    route('invitation.verify', ['token' => $rawToken]),
                     ));
-                } catch (\Throwable) {
-                    // Email failure does not roll back the approval
+                } catch (\Throwable $e) {
+                    // Email failure does not roll back the approval, but must be logged.
+                    Log::error('Officer activation email failed to send', [
+                        'email' => $recipientEmail,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
             }
 

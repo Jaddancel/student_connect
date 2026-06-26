@@ -44,7 +44,11 @@ class InvitationController extends Controller
             return redirect()->route('password.change');
         }
 
-        return redirect()->route('login')
-            ->with('status', 'Your account has been activated! You can now sign in.');
+        // Redirect straight to the landing-page sign-in section (not via the `login`
+        // route, which bounces through a second redirect and would drop the flash data).
+        // Flash the verified email so the sign-in form can autofill it.
+        return redirect(route('home').'#auth')
+            ->with('status', 'Your account has been activated! You can now sign in.')
+            ->with('verified_email', $record->user_email);
     }
 }

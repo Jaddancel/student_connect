@@ -15,8 +15,8 @@
             Alpine.store('theme', {
                 init() {
                     const saved = localStorage.getItem('theme');
-                    const sys = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-                    this.theme = saved || sys;
+                    // Default to light unless the user has explicitly chosen a theme.
+                    this.theme = saved || 'light';
                     this.updateTheme();
                 },
                 theme: 'light',
@@ -43,8 +43,7 @@
     <script>
         (function () {
             const saved = localStorage.getItem('theme');
-            const sys = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-            const theme = saved || sys;
+            const theme = saved || 'light';
             if (theme === 'dark') {
                 document.documentElement.classList.add('dark');
                 document.body.classList.add('dark', 'bg-gray-900');

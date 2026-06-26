@@ -59,7 +59,17 @@
                                                 {{ $pk }}
                                             </code>
                                         </td>
-                                        <td class="px-6 py-3 text-gray-700 dark:text-gray-300">{{ $field->field_label }}</td>
+                                        <td class="px-6 py-3 text-gray-700 dark:text-gray-300">
+                                            {{ $field->field_label }}
+                                            @if($field->field_type === 'repeating' && !empty($field->field_options))
+                                                <span class="mt-1 block text-xs text-gray-400 dark:text-gray-500">
+                                                    Item fields:
+                                                    @foreach($field->field_options as $sub)
+                                                        <code class="font-mono">{{ $sub['field_key'] ?? '' }}</code>@if(!$loop->last), @endif
+                                                    @endforeach
+                                                </span>
+                                            @endif
+                                        </td>
                                         <td class="px-6 py-3">
                                             <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                                                 {{ $field->field_type }}

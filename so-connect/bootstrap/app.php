@@ -11,6 +11,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->prependToGroup('web', \App\Http\Middleware\EnsureSystemInitialized::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\EnsurePasswordChanged::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\PreventBackHistory::class);
 
@@ -28,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role.officer'       => \App\Http\Middleware\EnsureOfficerRole::class,
             'officer.or.admin'   => \App\Http\Middleware\EnsureOfficerOrAdmin::class,
             'password.changed'   => \App\Http\Middleware\EnsurePasswordChanged::class,
+            'form.template'      => \App\Http\Middleware\EnsureFormTemplateAssigned::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

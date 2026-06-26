@@ -9,6 +9,7 @@ use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ActivityRequestController extends Controller
 {
@@ -69,6 +70,34 @@ class ActivityRequestController extends Controller
         ]);
     }
 
+    /**
+     * Render a print-ready parent/guardian waiver pre-filled with the supplied
+     * details. The user prints this, has it signed, then uploads it on the
+     * activity request form.
+     */
+    public function waiverDocument(Request $request)
+    {
+        $validated = $request->validate([
+            'studentName'  => ['nullable', 'string', 'max:255'],
+            'studentId'    => ['nullable', 'string', 'max:255'],
+            'parentName'   => ['nullable', 'string', 'max:255'],
+            'relationship' => ['nullable', 'string', 'max:255'],
+            'activityName' => ['nullable', 'string', 'max:255'],
+            'activityDate' => ['nullable', 'string', 'max:255'],
+            'venue'        => ['nullable', 'string', 'max:255'],
+        ]);
+
+        return view('exports.waiver-print', [
+            'studentName'  => $validated['studentName']  ?? '',
+            'studentId'    => $validated['studentId']    ?? '',
+            'parentName'   => $validated['parentName']   ?? '',
+            'relationship' => $validated['relationship'] ?? '',
+            'activityName' => $validated['activityName'] ?? '',
+            'activityDate' => $validated['activityDate'] ?? '',
+            'venue'        => $validated['venue']        ?? '',
+        ]);
+    }
+
     public function store(Request $request, DocumentGenerationService $documentGenerationService)
     {
         $user = $request->user();
@@ -99,6 +128,7 @@ class ActivityRequestController extends Controller
             'adviserRow'                        => ['required', 'array', 'min:1'],
             'adviserRow.*'                      => ['required', 'string', 'max:255'],
             'collegeDean'                       => ['nullable', 'string', 'max:255'],
+            'parentGuardianWaiver'              => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
         ]);
 
         $organizationId = (int) $validated['organization_id'];
@@ -144,6 +174,21 @@ class ActivityRequestController extends Controller
             'submitted_at'    => now(),
             'payload'         => $payload,
         ]);
+
+        // Store the signed parent/guardian waiver and record its path on the
+        // submission so it can be appended as a separate page during generation.
+        $disk = config('documents.disk', 'public');
+        $waiverFile = $request->file('parentGuardianWaiver');
+        $waiverFilename = Str::lower(Str::random(24)).'.'.$waiverFile->getClientOriginalExtension();
+        $waiverPath = $waiverFile->storeAs(
+            'activity-waivers/'.$submission->getKey(),
+            $waiverFilename,
+            ['disk' => $disk],
+        );
+
+        $payload['parentGuardianWaiver'] = $waiverPath;
+        $submission->payload = $payload;
+        $submission->save();
 
         $template = Template::query()
             ->where('form_id', $form->id)

@@ -22,9 +22,11 @@ use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\Auth\Register;
+use App\Http\Controllers\Auth\SystemSetupController;
 use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\DashboardSearchController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\DatabaseBackupController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventPlanController;
 use App\Http\Controllers\ExportController;
@@ -61,6 +63,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 
+// First-run system setup (creates the initial superadmin; locked once one exists)
+Route::get('/setup', [SystemSetupController::class, 'create'])->name('setup.create');
+Route::post('/setup', [SystemSetupController::class, 'store'])->name('setup.store');
+
 Route::get('/', [LandingPage::class, 'view'])->name('home');
 Route::get('/organizations/{organizationId}/{slug?}', [LandingPage::class, 'organizationFeed'])
     ->whereNumber('organizationId')
@@ -90,7 +96,7 @@ Route::get('/dashboard', [Dashboard::class, 'viewDashboard'])->middleware('auth'
 // Auth routes.
 
 Route::post('/login', Login::class)->middleware('guest');
-Route::post('/signup', Register::class)->middleware('guest');
+Route::post('/signup', Register::class)->middleware(['guest', 'form.template:student-leader-directory']);
 Route::post('/logout', Logout::class)->middleware('auth');
 
 // Invitation activation (Flows 1, 2, 3)
@@ -254,64 +260,66 @@ Route::middleware(['auth', 'officer.or.admin'])->group(function () {
 
     // Organization accreditation wizard (replaces single-page org recognition GET entry)
     Route::get('/forms/organization-recognition', [OrganizationAccreditationWizardController::class, 'showStep1'])
-        ->name('organization-recognition');
+        ->middleware('form.template:organization-recognition')->name('organization-recognition');
     Route::post('/forms/organization-recognition', [OrganizationRecognitionController::class, 'store'])
-        ->name('organization-recognition.store');
+        ->middleware('form.template:organization-recognition')->name('organization-recognition.store');
     Route::post('/forms/accreditation/step1', [OrganizationAccreditationWizardController::class, 'saveStep1'])
-        ->name('accreditation.wizard.step1.save');
+        ->middleware('form.template:organization-recognition')->name('accreditation.wizard.step1.save');
     Route::get('/forms/accreditation/step2', [OrganizationAccreditationWizardController::class, 'showStep2'])
-        ->name('accreditation.wizard.step2');
+        ->middleware('form.template:organization-recognition')->name('accreditation.wizard.step2');
     Route::post('/forms/accreditation/step2', [OrganizationAccreditationWizardController::class, 'saveStep2'])
-        ->name('accreditation.wizard.step2.save');
+        ->middleware('form.template:organization-recognition')->name('accreditation.wizard.step2.save');
     Route::get('/forms/accreditation/step3', [OrganizationAccreditationWizardController::class, 'showStep3'])
-        ->name('accreditation.wizard.step3');
+        ->middleware('form.template:organization-recognition')->name('accreditation.wizard.step3');
     Route::post('/forms/accreditation/store', [OrganizationAccreditationWizardController::class, 'store'])
-        ->name('accreditation.wizard.store');
+        ->middleware('form.template:organization-recognition')->name('accreditation.wizard.store');
 
     Route::get('/forms/accomplishment-report', [AccomplishmentReportController::class, 'index'])
-        ->name('accomplishment-report');
+        ->middleware('form.template:accomplishment-report')->name('accomplishment-report');
     Route::post('/forms/accomplishment-report', [AccomplishmentReportController::class, 'store'])
-        ->name('accomplishment-report.store');
+        ->middleware('form.template:accomplishment-report')->name('accomplishment-report.store');
 
     Route::get('/forms/activity-request', [ActivityRequestController::class, 'index'])
-        ->name('activity-request');
+        ->middleware('form.template:activity-request')->name('activity-request');
+    Route::get('/forms/activity-request/waiver-document', [ActivityRequestController::class, 'waiverDocument'])
+        ->name('activity-request.waiver');
     Route::post('/forms/activity-request', [ActivityRequestController::class, 'store'])
-        ->name('activity-request.store');
+        ->middleware('form.template:activity-request')->name('activity-request.store');
 
     Route::get('/forms/project-request', [UserProjectRequestController::class, 'index'])
-        ->name('project-request');
+        ->middleware('form.template:project-request')->name('project-request');
     Route::post('/forms/project-request', [UserProjectRequestController::class, 'store'])
-        ->name('project-request.store');
+        ->middleware('form.template:project-request')->name('project-request.store');
 
     Route::get('/forms/workplan/{workplan_id}', [WorkplanController::class, 'review'])
         ->whereNumber('workplan_id')
-        ->name('workplan.review');
+        ->middleware('form.template:workplan')->name('workplan.review');
     Route::post('/forms/workplan/{workplan_id}/generate', [WorkplanController::class, 'generatePdf'])
         ->whereNumber('workplan_id')
-        ->name('workplan.generate');
+        ->middleware('form.template:workplan')->name('workplan.generate');
     Route::get('/forms/workplan/{workplan_id}/download', [WorkplanController::class, 'downloadPdf'])
         ->whereNumber('workplan_id')
-        ->name('workplan.download');
+        ->middleware('form.template:workplan')->name('workplan.download');
 
     Route::patch('/workplans/{workplan_id}/finalize', [EventPlanController::class, 'finalize'])
         ->whereNumber('workplan_id')
         ->name('workplans.finalize');
 
     Route::get('/forms/financial-report', [FinancialReportController::class, 'index'])
-        ->name('financial-report');
+        ->middleware('form.template:financial-report')->name('financial-report');
     Route::post('/forms/financial-report', [FinancialReportController::class, 'store'])
-        ->name('financial-report.store');
+        ->middleware('form.template:financial-report')->name('financial-report.store');
 });
 
 Route::get('/forms/student-leader-directory', [StudentLeaderDirectoryController::class, 'index'])
-    ->name('student-leader-directory');
+    ->middleware('form.template:student-leader-directory')->name('student-leader-directory');
 Route::post('/forms/student-leader-directory', [StudentLeaderDirectoryController::class, 'store'])
-    ->name('student-leader-directory.store');
+    ->middleware('form.template:student-leader-directory')->name('student-leader-directory.store');
 
 Route::get('/forms/joint-statement', [JointStatementController::class, 'index'])
-    ->middleware(['auth', 'role.officer'])->name('joint-statement');
+    ->middleware(['auth', 'role.officer', 'form.template:joint-statement'])->name('joint-statement');
 Route::post('/forms/joint-statement', [JointStatementController::class, 'store'])
-    ->middleware(['auth', 'role.officer'])->name('joint-statement.store');
+    ->middleware(['auth', 'role.officer', 'form.template:joint-statement'])->name('joint-statement.store');
 
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/posts', [PostController::class, 'index'])->name('posts.index');
@@ -511,6 +519,26 @@ Route::post('/superadmin/officer-account-requests/{requestId}/decision', [SuperA
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.officer-account-requests.decision');
 
+Route::get('/superadmin/backups', [DatabaseBackupController::class, 'index'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.backups');
+
+Route::post('/superadmin/backups/run', [DatabaseBackupController::class, 'run'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.backups.run');
+
+Route::get('/superadmin/backups/{file}/download', [DatabaseBackupController::class, 'download'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.backups.download');
+
+Route::delete('/superadmin/backups/{file}', [DatabaseBackupController::class, 'destroy'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.backups.destroy');
+
+Route::post('/superadmin/backups/restore', [DatabaseBackupController::class, 'restore'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.backups.restore');
+
 Route::get('/superadmin/export', [ExportController::class, 'index'])
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.export');
@@ -646,7 +674,7 @@ Route::get('/bar-chart', function () {
 Route::get('/signin', fn () => redirect()->route('home'))->name('signin');
 
 Route::get('/signup', [StudentLeaderDirectoryController::class, 'index'])
-    ->middleware('guest')->name('signup');
+    ->middleware(['guest', 'form.template:student-leader-directory'])->name('signup');
 
 // ui elements pages
 Route::get('/alerts', function () {

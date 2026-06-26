@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\UseResource;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Models\RequestType;
 
 #[UseResource(ActionRequestResource::class)]
@@ -40,9 +41,9 @@ class Request extends Model
         ];
     }
 
-    public function approval(): BelongsTo
+    public function approval(): HasOne
     {
-        return $this->belongsTo(Approval::class, 'request', 'request_id');
+        return $this->hasOne(Approval::class, 'request', 'request_id');
     }
 
     public function requester(): BelongsTo

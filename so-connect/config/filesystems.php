@@ -38,6 +38,14 @@ return [
             'report' => false,
         ],
 
+        // Dedicated disk for database backups (spatie/laravel-backup destination).
+        'backups' => [
+            'driver' => 'local',
+            'root' => storage_path('app/backups'),
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

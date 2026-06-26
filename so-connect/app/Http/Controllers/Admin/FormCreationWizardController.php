@@ -139,9 +139,13 @@ class FormCreationWizardController extends Controller
             'fields' => ['nullable', 'array'],
             'fields.*.label' => ['required', 'string', 'max:255'],
             'fields.*.field_key' => ['required', 'string', 'max:255'],
-            'fields.*.field_type' => ['required', 'in:text,textarea,checkbox,date,number,email'],
+            'fields.*.field_type' => ['required', 'in:text,textarea,checkbox,date,number,email,signature,repeating'],
             'fields.*.is_required' => ['nullable'],
             'fields.*.field_order' => ['nullable', 'integer'],
+            'fields.*.field_options' => ['nullable', 'array'],
+            'fields.*.field_options.*.label' => ['nullable', 'string', 'max:255'],
+            'fields.*.field_options.*.field_key' => ['nullable', 'string', 'max:255'],
+            'fields.*.field_options.*.field_type' => ['nullable', 'in:text,textarea,checkbox,date,number,email'],
         ]);
 
         $this->upsertFormDescriptions($form, $request->input('fields', []));
@@ -207,15 +211,48 @@ class FormCreationWizardController extends Controller
         foreach ($fields as $i => $field) {
             $rawKey = $field['field_key'] ?? $field['label'] ?? 'field';
             $fieldKey = FormTemplateHelper::normalizeFieldKey($rawKey);
+            $fieldType = $field['field_type'] ?? 'text';
 
             FormDescription::create([
                 'form_id' => $form->id,
                 'field_label' => $field['label'] ?? $field['field_label'] ?? '',
                 'field_key' => $fieldKey,
-                'field_type' => $field['field_type'] ?? 'text',
+                'field_type' => $fieldType,
                 'is_required' => (bool) ($field['is_required'] ?? false),
                 'field_order' => (int) ($field['field_order'] ?? $i + 1),
+                'field_options' => $this->normalizeFieldOptions($fieldType, $field['field_options'] ?? null),
             ]);
         }
+    }
+
+    /**
+     * Build the field_options payload for a field. Only "repeating" fields keep
+     * a definition of their per-item sub-fields; everything else stores null.
+     *
+     * @param  mixed  $rawOptions
+     * @return array<int, array{label: string, field_key: string, field_type: string}>|null
+     */
+    private function normalizeFieldOptions(string $fieldType, $rawOptions): ?array
+    {
+        if ($fieldType !== 'repeating' || ! is_array($rawOptions)) {
+            return null;
+        }
+
+        $items = [];
+
+        foreach ($rawOptions as $sub) {
+            $label = trim($sub['label'] ?? '');
+            if ($label === '') {
+                continue;
+            }
+
+            $items[] = [
+                'label' => $label,
+                'field_key' => FormTemplateHelper::normalizeFieldKey($sub['field_key'] ?? $label),
+                'field_type' => $sub['field_type'] ?? 'text',
+            ];
+        }
+
+        return $items === [] ? null : $items;
     }
 }

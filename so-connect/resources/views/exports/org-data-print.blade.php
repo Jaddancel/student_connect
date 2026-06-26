@@ -111,29 +111,108 @@
             letter-spacing: 0.05em;
         }
 
-        .chart-tree {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .chart-node {
-            background: #fff;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            padding: 6px 12px;
-            font-size: 11px;
+        /* Org-chart diagram (two levels: President -> all other officers) */
+        .org-chart {
             text-align: center;
-            min-width: 100px;
+            padding-top: 4px;
         }
 
-        .chart-node .role {
+        .oc-root {
+            text-align: center;
+        }
+
+        /* vertical connector from the President down to the bus line */
+        .oc-trunk {
+            width: 1px;
+            height: 18px;
+            background: #94a3b8;
+            margin: 0 auto;
+        }
+
+        .oc-children {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+
+        .oc-child {
+            position: relative;
+            padding: 18px 10px 0 10px;
+        }
+
+        /* vertical line up from each child to the horizontal bus */
+        .oc-child::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 1px;
+            height: 18px;
+            background: #94a3b8;
+        }
+
+        /* horizontal bus line; segments join to form one continuous line */
+        .oc-child::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #94a3b8;
+        }
+
+        .oc-child:first-child::after {
+            left: 50%;
+        }
+
+        .oc-child:last-child::after {
+            right: 50%;
+        }
+
+        .oc-child:only-child::after {
+            display: none;
+        }
+
+        .oc-node {
+            display: inline-block;
+            width: 150px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #fff;
+            text-align: center;
+            vertical-align: top;
+        }
+
+        .oc-node-role {
+            padding: 5px 8px;
+            font-size: 10px;
             font-weight: 700;
-            color: #1d4ed8;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #3b82f6;
         }
 
-        .chart-node .name {
-            color: #374151;
+        .oc-root .oc-node-role {
+            background: #1e3a8a;
+        }
+
+        .oc-node-body {
+            padding: 6px 8px;
+        }
+
+        .oc-node-name {
+            font-size: 11px;
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        .oc-node-tenure {
+            font-size: 10px;
+            color: #6b7280;
             margin-top: 2px;
         }
 
@@ -223,28 +302,91 @@
 
                 <div class="chart-section">
                     <h4>Officer Composition Chart</h4>
-                    <div class="chart-tree">
-                        @foreach ($org->officersOfThisOrganization as $officer)
-                            @php
-                                $chartUser = $officer->getRelations()['user'] ?? null;
-                                $chartProfile = $chartUser?->getRelations()['profile'] ?? null;
-                                $chartName = trim(
-                                    ($chartProfile?->first_name ?? '') . ' ' . ($chartProfile?->last_name ?? ''),
-                                );
-                                $chartPosition = $officer->position ?: $chartProfile?->position ?? null;
-                                $chartPosition = is_string($chartPosition) ? trim($chartPosition) : $chartPosition;
-                                $chartPosition = $chartPosition !== '' ? $chartPosition : null;
-                            @endphp
-                            <div class="chart-node">
-                                <div class="role">{{ $officer->role }}</div>
-                                @if ($chartPosition)
-                                    <div class="name" style="font-style:italic;font-size:10px;">{{ $chartPosition }}
-                                    </div>
-                                @endif
-                                <div class="name">
-                                    {{ $chartName ?: 'User #' . ($officer->getAttributes()['user'] ?? '?') }}</div>
+                    @php
+                        // Rank purely for ordering: lower = more senior. President/Chair/Head = root (0).
+                        $rankFn = function ($role) {
+                            $r = strtolower(trim((string) $role));
+                            if ($r === '') {
+                                return 9;
+                            }
+                            if (
+                                (str_contains($r, 'president') || str_contains($r, 'chair') || str_contains($r, 'head')) &&
+                                !str_contains($r, 'vice') &&
+                                !str_contains($r, 'co-') &&
+                                !str_contains($r, 'co ')
+                            ) {
+                                return 0;
+                            }
+                            if (str_contains($r, 'vice') || str_starts_with($r, 'vp') || str_contains($r, 'v.p')) {
+                                return 1;
+                            }
+                            if (str_contains($r, 'secretary') || str_contains($r, 'treasurer') || str_contains($r, 'auditor')) {
+                                return 2;
+                            }
+                            return 3;
+                        };
+
+                        // Build a single node payload (role, name, tenure) reused for root + children.
+                        $nodeFn = function ($officer) {
+                            $u = $officer->getRelations()['user'] ?? null;
+                            $p = $u?->getRelations()['profile'] ?? null;
+                            $name = trim(($p?->first_name ?? '') . ' ' . ($p?->last_name ?? ''));
+                            if ($name === '') {
+                                $name = 'User #' . ($officer->getAttributes()['user'] ?? '?');
+                            }
+                            $tenure = $officer->member_since
+                                ? 'Since ' . $officer->member_since->format('M Y')
+                                : null;
+
+                            return [
+                                'role' => $officer->role ?: 'Officer',
+                                'name' => $name,
+                                'tenure' => $tenure,
+                            ];
+                        };
+
+                        $sorted = $org->officersOfThisOrganization
+                            ->sortBy(fn ($o) => $rankFn($o->role))
+                            ->values();
+                        $root = $sorted->first(fn ($o) => $rankFn($o->role) === 0) ?? $sorted->first();
+                        $others = $sorted
+                            ->reject(fn ($o) => $o->org_officer_id === $root->org_officer_id)
+                            ->values();
+                    @endphp
+
+                    <div class="org-chart">
+                        <div class="oc-root">
+                            @php($rootNode = $nodeFn($root))
+                            <div class="oc-node">
+                                <div class="oc-node-role">{{ $rootNode['role'] }}</div>
+                                <div class="oc-node-body">
+                                    <div class="oc-node-name">{{ $rootNode['name'] }}</div>
+                                    @if ($rootNode['tenure'])
+                                        <div class="oc-node-tenure">{{ $rootNode['tenure'] }}</div>
+                                    @endif
+                                </div>
                             </div>
-                        @endforeach
+                        </div>
+
+                        @if ($others->isNotEmpty())
+                            <div class="oc-trunk"></div>
+                            <div class="oc-children">
+                                @foreach ($others as $officer)
+                                    @php($node = $nodeFn($officer))
+                                    <div class="oc-child">
+                                        <div class="oc-node">
+                                            <div class="oc-node-role">{{ $node['role'] }}</div>
+                                            <div class="oc-node-body">
+                                                <div class="oc-node-name">{{ $node['name'] }}</div>
+                                                @if ($node['tenure'])
+                                                    <div class="oc-node-tenure">{{ $node['tenure'] }}</div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
                 </div>
             @else

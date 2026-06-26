@@ -4,9 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Approval;
 use App\Models\Officer;
-use App\Models\Organization;
 use App\Models\Request;
-use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -30,21 +28,31 @@ class ApprovalFactory extends Factory
 
     public function approveMemberships()
     {
+        return $this->state(function () {
+            $request = $this->pendingMembershipRequest();
+            $orgId   = $request ? $this->parseMembershipAction($request->action)[0] : null;
 
-        $randomOrg = Organization::query()->inRandomOrder()->first()?->getKey();
+            return [
+                'admin' => Officer::query()->where('organization', $orgId)->inRandomOrder()->first()?->getKey(),
+                'request' => $request?->getKey(),
+                'is_rejected' => false,
+            ];
+        })->afterCreating(function (Approval $approval) {
+            $request = Request::find($approval->request);
 
-        return $this->state(fn (array $attributes) => [
-            'admin' => Officer::query()->where('organization', $randomOrg)->inRandomOrder()->first()?->getKey(),
-            'request' => Request::query()
-                ->where('action_type', 1)
-                ->where('action', 'like', $randomOrg.'|%')
-                ->inRandomOrder()
-                ->first()?->getKey(),
-            'is_rejected' => false,
-        ])->afterCreating(function (Approval $approval) use ($randomOrg) {
+            if (! $request) {
+                return;
+            }
+
+            [$orgId, $userId] = $this->parseMembershipAction($request->action);
+
+            if (! $orgId || ! $userId) {
+                return;
+            }
+
             \Illuminate\Support\Facades\DB::table('organization_officers')->insert([
-                'organization'  => $randomOrg,
-                'user'          => User::query()->inRandomOrder()->first()->user_id,
+                'organization'  => $orgId,
+                'user'          => $userId,
                 'approval'      => $approval->getKey(),
                 'role'          => 'member',
                 'member_since'  => now(),
@@ -56,27 +64,40 @@ class ApprovalFactory extends Factory
 
     public function denyMemberships()
     {
+        // A denied membership records the rejection only — it must NOT add the
+        // applicant to the organization.
+        return $this->state(function () {
+            $request = $this->pendingMembershipRequest();
+            $orgId   = $request ? $this->parseMembershipAction($request->action)[0] : null;
 
-        $randomOrg = Organization::query()->inRandomOrder()->first()?->getKey();
-
-        return $this->state(fn (array $attributes) => [
-            'admin' => Officer::query()->where('organization', $randomOrg)->inRandomOrder()->first()?->getKey(),
-            'request' => Request::query()
-                ->where('action_type', 1)
-                ->where('action', 'like', $randomOrg.'|%')
-                ->inRandomOrder()
-                ->first()?->getKey(),
-            'is_rejected' => true,
-        ])->afterCreating(function (Approval $approval) use ($randomOrg) {
-            \Illuminate\Support\Facades\DB::table('organization_officers')->insert([
-                'organization'  => $randomOrg,
-                'user'          => User::query()->inRandomOrder()->first()->user_id,
-                'approval'      => $approval->getKey(),
-                'role'          => 'member',
-                'member_since'  => now(),
-                'registered_at' => now(),
-                'reassigned_at' => now(),
-            ]);
+            return [
+                'admin' => Officer::query()->where('organization', $orgId)->inRandomOrder()->first()?->getKey(),
+                'request' => $request?->getKey(),
+                'is_rejected' => true,
+            ];
         });
+    }
+
+    /**
+     * Pick a membership request (action_type 1) that has not been resolved yet,
+     * so each approval/denial maps to a distinct, real applicant.
+     */
+    protected function pendingMembershipRequest(): ?Request
+    {
+        return Request::query()
+            ->where('action_type', 1)
+            ->whereDoesntHave('approval')
+            ->inRandomOrder()
+            ->first();
+    }
+
+    /**
+     * Membership request actions are stored as "organizationId|userId".
+     *
+     * @return array{0: ?string, 1: ?string}
+     */
+    protected function parseMembershipAction(?string $action): array
+    {
+        return array_pad(explode('|', (string) $action, 2), 2, null);
     }
 }

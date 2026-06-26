@@ -269,7 +269,7 @@ class ExportController extends Controller
                     'user_id'        => $o->getAttributes()['user'] ?? null,
                     'name'           => $name,
                     'role'           => $o->role,
-                    'position'       => $position,
+                    'position'       => $o->position,
                     'member_since'   => optional($o->member_since)->toDateString(),
                 ];
             })->all();

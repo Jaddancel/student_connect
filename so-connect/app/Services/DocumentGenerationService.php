@@ -272,6 +272,15 @@ class DocumentGenerationService
                 $this->appendPdfPages($pdfAbsolutePath, $workplanPdfAbsPath);
             }
 
+            $waiverPdfAbsPath = $this->resolveWaiverPdf((array) $submission->payload, $disk, $tempCompositePaths);
+            if ($waiverPdfAbsPath !== null) {
+                $this->appendPdfPages($pdfAbsolutePath, $waiverPdfAbsPath);
+            }
+            foreach ($tempCompositePaths as $tmp) {
+                @unlink($tmp);
+            }
+            $tempCompositePaths = [];
+
             $generatedPdfRelativePath = $this->relativePathFromDiskAbsolute($pdfAbsolutePath, $disk);
 
             $formName = trim((string) ($submission->form?->name ?? 'Form'));
@@ -464,7 +473,20 @@ class DocumentGenerationService
             throw new RuntimeException('Generated DOCX file was not created.');
         }
 
-        $outDir = dirname($docxAbsolutePath);
+        return $this->convertToPdfViaLibreOffice($docxAbsolutePath);
+    }
+
+    /**
+     * Convert any LibreOffice-supported file (DOCX, JPG, PNG, …) to a PDF that
+     * sits next to the source file, and return the PDF's absolute path.
+     */
+    private function convertToPdfViaLibreOffice(string $inputAbsolutePath): string
+    {
+        if (! is_file($inputAbsolutePath)) {
+            throw new RuntimeException('Source file for PDF conversion was not found.');
+        }
+
+        $outDir = dirname($inputAbsolutePath);
         $binary = (string) config('documents.libreoffice.binary', 'soffice');
         $timeout = max((int) config('documents.libreoffice.timeout', 120), 30);
 
@@ -476,7 +498,7 @@ class DocumentGenerationService
             'pdf:writer_pdf_Export',
             '--outdir',
             $outDir,
-            $docxAbsolutePath,
+            $inputAbsolutePath,
         ]);
 
         // Force software rendering — GPU acceleration causes black PDFs in containers.
@@ -493,13 +515,57 @@ class DocumentGenerationService
             );
         }
 
-        $pdfAbsolutePath = preg_replace('/\.docx$/i', '.pdf', $docxAbsolutePath);
+        $pdfAbsolutePath = preg_replace('/\.[^.\/\\\\]+$/', '.pdf', $inputAbsolutePath);
 
         if (! is_string($pdfAbsolutePath) || ! is_file($pdfAbsolutePath)) {
             throw new RuntimeException('PDF conversion did not produce an output file.');
         }
 
         return $pdfAbsolutePath;
+    }
+
+    /**
+     * Resolve the uploaded parent/guardian waiver into an absolute PDF path
+     * ready to append as a separate page. PDF uploads are used as-is; image
+     * uploads are converted to a temporary PDF (tracked for later cleanup).
+     *
+     * @param  list<string>  $tempPaths  collects temp files created here
+     */
+    private function resolveWaiverPdf(array $payload, string $disk, array &$tempPaths): ?string
+    {
+        $relativePath = (string) ($payload['parentGuardianWaiver'] ?? '');
+        if ($relativePath === '' || ! Storage::disk($disk)->exists($relativePath)) {
+            return null;
+        }
+
+        $absolutePath = Storage::disk($disk)->path($relativePath);
+        if (! is_file($absolutePath)) {
+            return null;
+        }
+
+        if (strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION)) === 'pdf') {
+            return $absolutePath;
+        }
+
+        // Image upload (jpg/jpeg/png): copy to a temp file and convert to PDF so
+        // the original stored upload is left untouched.
+        $tmpImage = sys_get_temp_dir().'/waiver_'.Str::random(8).'.'.pathinfo($absolutePath, PATHINFO_EXTENSION);
+        if (! @copy($absolutePath, $tmpImage)) {
+            Log::warning("DocumentGenerationService: unable to stage waiver image for conversion ({$absolutePath}); skipping waiver page.");
+            return null;
+        }
+        $tempPaths[] = $tmpImage;
+
+        try {
+            $waiverPdf = $this->convertToPdfViaLibreOffice($tmpImage);
+            $tempPaths[] = $waiverPdf;
+
+            return $waiverPdf;
+        } catch (\Throwable $throwable) {
+            Log::warning('DocumentGenerationService: waiver image-to-PDF conversion failed; skipping waiver page. '.$throwable->getMessage());
+
+            return null;
+        }
     }
 
     private function nextGeneratedDocxPath(int $submissionId): string

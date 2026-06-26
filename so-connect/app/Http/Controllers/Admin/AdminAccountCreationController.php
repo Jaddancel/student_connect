@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -109,8 +110,12 @@ class AdminAccountCreationController extends Controller
                 recipientName:  $recipientName,
                 activationUrl:  route('invitation.verify', ['token' => $rawToken]),
             ));
-        } catch (\Throwable) {
-            // Email failure is non-fatal
+        } catch (\Throwable $e) {
+            // Email failure is non-fatal, but must be logged so it is not silently lost.
+            Log::error('Admin invitation email failed to send', [
+                'email' => $validated['email'],
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return redirect()->route('superadmin.accounts.create')

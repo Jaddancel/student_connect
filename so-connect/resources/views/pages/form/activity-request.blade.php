@@ -37,7 +37,7 @@
             $alphaPresidentName    = old('presidentName', $presidentName);
             $alphaPresidentContact = old('presidentContactNo', $presidentContact);
         @endphp
-        <form action="{{ route('activity-request.store') }}" method="POST" class="space-y-6" x-data="{
+        <form action="{{ route('activity-request.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6" x-data="{
             orgId: '{{ $organizations->first()?->organization_id ?? '' }}',
             orgName: '{{ addslashes($organizations->first()?->organization_name ?? '') }}',
             presidentsByOrg: {{ Js::from($alphaPresidentsByOrg) }},
@@ -71,6 +71,58 @@
             sponsor: {{ Js::from(old('sponsor', '')) }},
             sponsorOther: {{ Js::from(old('sponsorOther', '')) }},
             extensionServices: {{ Js::from(old('extensionServices', '')) }},
+            waiverFileName: '',
+            waiverError: '',
+            isDraggingWaiver: false,
+            waiver: {
+                studentName: '', studentId: '', parentName: '', relationship: '',
+                activityName: '', activityDate: '', venue: '',
+            },
+            pickWaiver(fileList) {
+                this.waiverError = '';
+                const file = fileList && fileList.length ? fileList[0] : null;
+                if (!file) { return; }
+                const allowed = ['application/pdf', 'image/jpeg', 'image/png'];
+                if (!allowed.includes(file.type)) {
+                    this.waiverError = 'Accepted file types: PDF, JPG, PNG.';
+                    this.waiverFileName = '';
+                    this.$refs.waiverInput.value = '';
+                    return;
+                }
+                if (file.size > 5 * 1024 * 1024) {
+                    this.waiverError = 'File exceeds the 5 MB limit.';
+                    this.waiverFileName = '';
+                    this.$refs.waiverInput.value = '';
+                    return;
+                }
+                // Reflect a dropped file onto the real input so it submits.
+                if (this.$refs.waiverInput.files !== fileList) {
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    this.$refs.waiverInput.files = dt.files;
+                }
+                this.waiverFileName = file.name;
+            },
+            clearWaiver() {
+                this.waiverFileName = '';
+                this.waiverError = '';
+                this.$refs.waiverInput.value = '';
+            },
+            openWaiverGenerator() {
+                const params = new URLSearchParams({
+                    studentName: this.waiver.studentName,
+                    studentId: this.waiver.studentId,
+                    parentName: this.waiver.parentName,
+                    relationship: this.waiver.relationship,
+                    activityName: this.waiver.activityName || this.projectActivityValue(),
+                    activityDate: this.waiver.activityDate || (document.querySelector('[name=date]')?.value ?? ''),
+                    venue: this.waiver.venue || (document.querySelector('[name=placeAndVenue]')?.value ?? ''),
+                });
+                window.open('{{ route('activity-request.waiver') }}?' + params.toString(), '_blank');
+            },
+            projectActivityValue() {
+                return document.querySelector('[name=projectActivity]')?.value ?? '';
+            },
         }">
             @csrf
 
@@ -424,17 +476,149 @@
                 </div>
             </div>
 
+            {{-- SECTION 6 · PARENT / GUARDIAN WAIVER --}}
             <div
                 class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-                <div class="mt-2 flex justify-end gap-3">
-                    <button type="reset"
-                        class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
-                        Clear
+                <h3
+                    class="mb-4 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">
+                    Parent / Guardian Waiver</h3>
+
+                <div
+                    class="mb-5 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-400">
+                    A signed waiver is <span class="font-semibold">required</span> before this activity request can be
+                    submitted. Upload the signed waiver below, or use the generator to create one, print it, have it
+                    signed, then upload it.
+                </div>
+
+                {{-- Upload area --}}
+                <input type="file" name="parentGuardianWaiver" x-ref="waiverInput"
+                    accept="application/pdf,image/jpeg,image/png" class="hidden"
+                    @change="pickWaiver($event.target.files)" />
+
+                <div @click="$refs.waiverInput.click()"
+                    @drop.prevent="isDraggingWaiver = false; pickWaiver($event.dataTransfer.files)"
+                    @dragover.prevent="isDraggingWaiver = true" @dragleave.prevent="isDraggingWaiver = false"
+                    :class="isDraggingWaiver ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10' : 'border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/40'"
+                    class="cursor-pointer rounded-xl border border-dashed p-6 text-center transition hover:border-brand-500 dark:hover:border-brand-500">
+                    <template x-if="!waiverFileName">
+                        <div class="flex flex-col items-center">
+                            <div
+                                class="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M7 16a4 4 0 01-.88-7.9A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                            </div>
+                            <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Click to upload or drag and
+                                drop</p>
+                            <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Accepted: PDF, JPG, PNG — max 5 MB</p>
+                        </div>
+                    </template>
+                    <template x-if="waiverFileName">
+                        <div class="flex items-center justify-center gap-3">
+                            <svg class="h-5 w-5 text-success-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="waiverFileName"></span>
+                            <button type="button" @click.stop="clearWaiver()"
+                                class="rounded-lg border border-error-200 p-1.5 text-error-500 transition hover:bg-error-50 dark:border-error-500/30 dark:hover:bg-error-500/10">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+                <p x-show="waiverError" x-cloak class="mt-1.5 text-xs text-error-500" x-text="waiverError"></p>
+                @error('parentGuardianWaiver')
+                    <p class="mt-1.5 text-xs text-error-500">{{ $message }}</p>
+                @enderror
+
+                {{-- Divider --}}
+                <div class="my-6 flex items-center gap-3">
+                    <div class="h-px flex-1 bg-gray-200 dark:bg-gray-800"></div>
+                    <span class="text-xs font-medium text-gray-400 dark:text-gray-500">or generate one below</span>
+                    <div class="h-px flex-1 bg-gray-200 dark:bg-gray-800"></div>
+                </div>
+
+                {{-- Waiver generator --}}
+                <div class="rounded-xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-800 dark:bg-gray-900/30">
+                    <h4 class="text-sm font-semibold text-gray-800 dark:text-white/90">Waiver document generator</h4>
+                    <p class="mb-4 mt-1 text-xs text-gray-500 dark:text-gray-400">Fill in the details below to generate an
+                        official TAU parent/guardian waiver. Print it, have it signed, then upload it above.</p>
+
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Student full
+                                name</label>
+                            <input type="text" x-model="waiver.studentName" placeholder="e.g. Juan Dela Cruz"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Student ID
+                                number</label>
+                            <input type="text" x-model="waiver.studentId" placeholder="e.g. 2021-00001"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Parent /
+                                guardian name</label>
+                            <input type="text" x-model="waiver.parentName" placeholder="e.g. Maria Dela Cruz"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Relationship to
+                                student</label>
+                            <input type="text" x-model="waiver.relationship" placeholder="e.g. Mother"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Activity
+                                name</label>
+                            <input type="text" x-model="waiver.activityName" :placeholder="projectActivityValue() || 'e.g. Sports Fest 2025'"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Activity
+                                date</label>
+                            <input type="date" x-model="waiver.activityDate"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Venue</label>
+                            <input type="text" x-model="waiver.venue" placeholder="e.g. TAU Gymnasium"
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </div>
+                    </div>
+
+                    <button type="button" @click="openWaiverGenerator()"
+                        class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-white dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 17v-2a4 4 0 014-4h2m-6 6h6m-9 4h12a2 2 0 002-2V7a2 2 0 00-2-2h-5l-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        Generate &amp; download waiver
                     </button>
-                    <button type="submit"
-                        class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">
-                        Submit &amp; Generate PDF
-                    </button>
+                </div>
+            </div>
+
+            <div
+                class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+                <div class="flex flex-col items-end gap-2">
+                    <div class="flex justify-end gap-3">
+                        <button type="reset" @click="clearWaiver()"
+                            class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                            Clear
+                        </button>
+                        <button type="submit" :disabled="!waiverFileName"
+                            class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-brand-500">
+                            Submit &amp; Generate PDF
+                        </button>
+                    </div>
+                    <p x-show="!waiverFileName" class="text-xs text-gray-400 dark:text-gray-500">Attach the signed
+                        parent/guardian waiver to enable submission.</p>
                 </div>
             </div>
 

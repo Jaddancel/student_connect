@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Helpers\FormTemplateHelper;
 use App\Models\Form;
+use App\Services\FieldCandidateExtractor;
 use App\Services\LlmService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -48,8 +49,19 @@ class ProcessFormWizardAiReview implements ShouldQueue
                 return;
             }
 
-            // LLM interpretation — degrades to [] on failure.
-            $fields = $llm->interpretFields($text);
+            // Deterministic candidate extraction is the floor: complete and
+            // never empty. The LLM only refines (prunes/retypes) it when enabled,
+            // and falls back to the candidates on any failure — so detection is
+            // never worse than the deterministic result.
+            $candidates = app(FieldCandidateExtractor::class)->extract($text);
+
+            $fields = config('services.ollama.refine', true)
+                ? $llm->refineFields($candidates)
+                : $candidates;
+
+            if ($fields === []) {
+                $fields = $candidates;
+            }
 
             Cache::put($cacheKey, [
                 'status' => 'done',

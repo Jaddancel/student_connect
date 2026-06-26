@@ -43,8 +43,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(LlmService::class, function () {
             return new LlmService(
                 (string) config('services.ollama.url', 'http://ollama:11434'),
-                (string) config('services.ollama.model', 'qwen3.5:9b'),
+                (string) config('services.ollama.model', 'phi4-mini'),
                 (int) config('services.ollama.timeout', 120),
+                (int) config('services.ollama.num_ctx', 8192),
+                (string) config('services.ollama.keep_alive', '10m'),
             );
         });
 

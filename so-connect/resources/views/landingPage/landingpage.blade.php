@@ -331,7 +331,7 @@
     </section>
     <!-- Embedded Login Section -->
     <section id="auth" style="
-        min-height: 100vh;
+        min-height: calc(100vh - 4.5rem);
         position: relative;
         overflow: hidden;
         display: flex;
@@ -484,6 +484,26 @@
                     </div>
                 @endif
 
+                {{-- Success message (e.g. account activation confirmation) --}}
+                @if (session('status'))
+                    <div style="
+                        background:#eef7f1;
+                        border:1px solid #b7e0c4;
+                        border-left:4px solid #2D6A4F;
+                        border-radius:6px;
+                        padding:12px 16px;
+                        margin-bottom:22px;
+                        display:flex;
+                        align-items:flex-start;
+                        gap:10px;
+                    ">
+                        <i class="fas fa-check-circle" style="color:#2D6A4F;margin-top:2px;flex-shrink:0;font-size:0.85rem;"></i>
+                        <p style="margin:0;font-family:'Lato',sans-serif;font-size:0.875rem;color:#1A3C2E;line-height:1.4;">
+                            {{ session('status') }}
+                        </p>
+                    </div>
+                @endif
+
                 <form action="/login" method="post" id="auth-form">
                     @csrf
 
@@ -502,7 +522,7 @@
                         <input
                             type="email"
                             name="user_email"
-                            value="{{ old('user_email') }}"
+                            value="{{ old('user_email', session('verified_email')) }}"
                             placeholder="you@example.com"
                             autocomplete="email"
                             required

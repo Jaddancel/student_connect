@@ -46,8 +46,14 @@ return [
 
     'ollama' => [
         'url' => env('OLLAMA_URL', 'http://ollama:11434'),
-        'model' => env('OLLAMA_MODEL', 'qwen3.5:9b'),
+        'model' => env('OLLAMA_MODEL', 'phi4-mini'),
         'timeout' => (int) env('OLLAMA_TIMEOUT', 120),
+        // Context window for the small model — long forms truncate below this.
+        'num_ctx' => (int) env('OLLAMA_NUM_CTX', 8192),
+        // Keep the model resident so cold-start load doesn't blow the timeout.
+        'keep_alive' => env('OLLAMA_KEEP_ALIVE', '10m'),
+        // Kill-switch: false = pure deterministic extraction, no LLM refinement.
+        'refine' => (bool) env('OLLAMA_REFINE_FIELDS', true),
     ],
 
 ];
