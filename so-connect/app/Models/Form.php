@@ -37,6 +37,7 @@ class Form extends Model
         'is_active',
         'is_published',
         'route_name',
+        'layout',
     ];
 
     protected function casts(): array
@@ -45,6 +46,7 @@ class Form extends Model
             'is_active' => 'boolean',
             'is_published' => 'boolean',
             'sidebar_group' => 'array',
+            'layout' => 'array',
         ];
     }
 

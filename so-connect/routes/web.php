@@ -26,7 +26,9 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventPlanController;
 use App\Http\Controllers\ExportController;
+use App\Http\Controllers\Admin\FormBuilderController;
 use App\Http\Controllers\FinancialReportController;
+use App\Http\Controllers\FormRenderController;
 use App\Http\Controllers\JointStatementController;
 use App\Http\Controllers\LandingPage;
 use App\Http\Controllers\MembershipRegistrationController;
@@ -299,6 +301,14 @@ Route::get('/forms/joint-statement', [JointStatementController::class, 'index'])
 Route::post('/forms/joint-statement', [JointStatementController::class, 'store'])
     ->middleware(['auth', 'role.officer'])->name('joint-statement.store');
 
+// Generic WYSIWYG-builder form renderer. Registered AFTER the literal /forms/*
+// routes above so bespoke forms keep their dedicated pages; this catches any
+// remaining single-segment form route_name created through the builder.
+Route::middleware('auth')->group(function () {
+    Route::get('/forms/{routeName}', [FormRenderController::class, 'show'])->name('forms.render');
+    Route::post('/forms/{routeName}', [FormRenderController::class, 'submit'])->name('forms.render.submit');
+});
+
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/posts', [PostController::class, 'index'])->name('posts.index');
     Route::post('/posts', [PostController::class, 'store'])->name('posts.store');
@@ -420,6 +430,22 @@ Route::get('/documents', [DocumentController::class, 'index'])
     ->name('documents.index');
 
 Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
+    // WYSIWYG form builder (replacement for the DOCX Template Manager).
+    Route::get('/admin/form-builder', [FormBuilderController::class, 'index'])
+        ->name('admin.form-builder.index');
+    Route::get('/admin/form-builder/create', [FormBuilderController::class, 'create'])
+        ->name('admin.form-builder.create');
+    Route::post('/admin/form-builder', [FormBuilderController::class, 'store'])
+        ->name('admin.form-builder.store');
+    Route::post('/admin/form-builder/upload-asset', [FormBuilderController::class, 'uploadAsset'])
+        ->name('admin.form-builder.upload-asset');
+    Route::get('/admin/form-builder/{form}/edit', [FormBuilderController::class, 'edit'])
+        ->name('admin.form-builder.edit');
+    Route::put('/admin/form-builder/{form}', [FormBuilderController::class, 'update'])
+        ->name('admin.form-builder.update');
+    Route::delete('/admin/form-builder/{form}', [FormBuilderController::class, 'destroy'])
+        ->name('admin.form-builder.destroy');
+
     Route::get('/admin/templates', [TemplateManagerController::class, 'index'])
         ->name('admin.templates.index');
     Route::get('/admin/templates/{form}/upload', [TemplateManagerController::class, 'showUpload'])

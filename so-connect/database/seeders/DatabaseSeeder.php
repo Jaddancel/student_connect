@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
         $this->call(SuperAdminSeeder::class);
         $this->call(AdminSeeder::class);
         $this->call(FormPageSeeder::class);
+        $this->call(BuilderFormSeeder::class);
         $this->call(EventPlanSeeder::class);
         $this->call(SemesterSeeder::class);
     }

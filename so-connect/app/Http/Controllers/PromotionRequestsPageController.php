@@ -7,7 +7,6 @@ use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Request as ActionRequest;
 use App\Models\Semester;
-use App\Models\Template;
 use App\Models\User;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
@@ -343,22 +342,9 @@ class PromotionRequestsPageController extends Controller
                 ->with('status', 'Details saved. No Student Leader Directory form found — document not generated.');
         }
 
-        $template = Template::query()
-            ->where('form_id', $form->id)
-            ->where('is_active', true)
-            ->orderByDesc('version')
-            ->with(['mappings.field'])
-            ->first();
-
-        if (! $template) {
-            return redirect()->route('promotion-requests')
-                ->with('status', 'Details saved. No active template is bound to the form yet — document not generated.');
-        }
-
         try {
             $documentGenerationService->generateFromSubmission(
                 $submission->fresh(['form']),
-                $template,
                 null,
                 $userId,
             );

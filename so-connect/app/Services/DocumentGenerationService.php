@@ -7,22 +7,30 @@ use App\Helpers\FormTemplateHelper;
 use App\Models\Approval;
 use App\Models\Document;
 use App\Models\Form;
+use App\Models\Form\FormDescription;
 use App\Models\FormSubmission;
 use App\Models\GeneratedDocument;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
-use App\Models\Template;
 use App\Models\Workplan;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use PhpOffice\PhpWord\TemplateProcessor;
 use RuntimeException;
 use Symfony\Component\Process\Process;
-use ZipArchive;
 
+/**
+ * Generates the printable PDF for a form submission by rendering the form's
+ * WYSIWYG layout (or, as a fallback, its ordered fields) to HTML and converting
+ * it with dompdf.
+ *
+ * This replaces the previous DOCX-template pipeline (phpword + LibreOffice).
+ * The request/approval plumbing (action encode/decode via {@see FormTemplateHelper})
+ * is unchanged, so existing approval workflows keep working.
+ */
 class DocumentGenerationService
 {
     public function createDocumentGenerationRequest(
@@ -141,140 +149,55 @@ class DocumentGenerationService
             throw new RuntimeException('Form submission organization does not match request organization.');
         }
 
-        $template = Template::query()
-            ->where('form_id', $formId)
-            ->where(function ($q) use ($organizationId) {
-                if ($organizationId > 0) {
-                    $q->where('organization_id', $organizationId)
-                        ->orWhereNull('organization_id');
-                } else {
-                    $q->whereNull('organization_id');
-                }
-            })
-            ->where('is_active', true)
-            ->orderByRaw('CASE WHEN organization_id IS NOT NULL THEN 0 ELSE 1 END')
-            ->orderByDesc('version')
-            ->with(['mappings.field'])
-            ->first();
-
-        if (! $template) {
-            throw new RuntimeException('No active template is available for this form.');
-        }
-
         return $this->generateFromSubmission(
             $submission,
-            $template,
             (int) $request->getKey(),
             $generatedByUserId,
         );
     }
 
+    /**
+     * Render a submission's form layout (or ordered fields) to a PDF and persist it.
+     */
     public function generateFromSubmission(
         FormSubmission $submission,
-        Template $template,
         ?int $requestId,
         int $generatedByUserId,
     ): GeneratedDocument {
         $disk = (string) config('documents.disk', 'public');
-        $templatePath = (string) $template->docx_path;
 
-        if ($templatePath === '' || ! Storage::disk($disk)->exists($templatePath)) {
-            throw new RuntimeException('Template DOCX file is missing in storage.');
-        }
-
-        $templateAbsolutePath = Storage::disk($disk)->path($templatePath);
-
-        $mappings = $template->mappings()->with('field')->get();
-
-        $missingRequiredFields = FormTemplateHelper::missingRequiredFields($mappings, (array) $submission->payload);
-        $formRouteName = Form::query()->where('id', $submission->form_id)->value('route_name');
-        if ($formRouteName === 'joint-statement') {
-            $missingRequiredFields = array_values(array_filter(
-                $missingRequiredFields,
-                fn ($field) => $field !== 'adviser1signature'
-            ));
-        }
-
-        if (! empty($missingRequiredFields)) {
-            throw new RuntimeException('Submission is missing required fields: '.implode(', ', $missingRequiredFields));
-        }
-
-        $replacementMap = FormTemplateHelper::buildReplacementMap($mappings, (array) $submission->payload);
-
-        // Collect placeholder keys whose FormDescription field_type is 'file' (image upload).
-        $imagePlaceholderKeys = $mappings
-            ->filter(fn ($m) => ($m->field?->field_type ?? '') === 'file')
-            ->map(fn ($m) => FormTemplateHelper::normalizeFieldKey(
-                (string) ($m->placeholder_key ?: $m->field_key)
-            ))
-            ->flip()
-            ->all();
-
-        $generatedDocxRelativePath = $this->nextGeneratedDocxPath((int) $submission->getKey());
-        $generatedDocxAbsolutePath = Storage::disk($disk)->path($generatedDocxRelativePath);
-
-        File::ensureDirectoryExists(dirname($generatedDocxAbsolutePath));
-
-        $preprocessedTemplatePath = null;
-        $tempCompositePaths = [];
+        $generatedPdfRelativePath = $this->nextGeneratedPdfPath((int) $submission->getKey());
+        $generatedPdfAbsolutePath = Storage::disk($disk)->path($generatedPdfRelativePath);
+        File::ensureDirectoryExists(dirname($generatedPdfAbsolutePath));
 
         try {
-            $preprocessedTemplatePath = $this->preprocessTemplateDocx($templateAbsolutePath);
-            $processor = new TemplateProcessor($preprocessedTemplatePath);
-
-            $originalPayload = (array) $submission->payload;
-
-            foreach ($replacementMap as $placeholderKey => $value) {
-                if (isset($imagePlaceholderKeys[$placeholderKey])) {
-                    $rawValue = $originalPayload[$placeholderKey] ?? null;
-                    if (is_array($rawValue) && count($rawValue) > 0) {
-                        $paths = array_values(array_filter(
-                            array_map(fn ($p) => Storage::disk($disk)->path((string) $p), $rawValue),
-                            'is_file'
-                        ));
-                        if (count($paths) > 1) {
-                            $composite = $this->compositeImagesVertically($paths);
-                            if ($composite) {
-                                $tempCompositePaths[] = $composite;
-                                $processor->setImageValue($placeholderKey, ['path' => $composite, 'ratio' => true]);
-                                continue;
-                            }
-                        } elseif (count($paths) === 1) {
-                            $processor->setImageValue($placeholderKey, ['path' => $paths[0], 'ratio' => true]);
-                            continue;
-                        }
-                    }
-                    if ($value !== '') {
-                        $absoluteImagePath = Storage::disk($disk)->path($value);
-                        if (is_file($absoluteImagePath)) {
-                            $processor->setImageValue($placeholderKey, ['path' => $absoluteImagePath, 'ratio' => true]);
-                            continue;
-                        }
-                    }
-                    $processor->setValue($placeholderKey, '');
-                    continue;
-                }
-                $processor->setValue($placeholderKey, $value);
+            $form = $submission->form ?: Form::query()->find($submission->form_id);
+            if (! $form) {
+                throw new RuntimeException('Form for this submission was not found.');
             }
 
-            $processor->saveAs($generatedDocxAbsolutePath);
-            foreach ($tempCompositePaths as $tmp) {
-                @unlink($tmp);
-            }
-            $tempCompositePaths = [];
-            @unlink($preprocessedTemplatePath);
-            $preprocessedTemplatePath = null;
+            $fields = FormDescription::query()
+                ->where('form_id', (int) $submission->form_id)
+                ->orderBy('field_order')
+                ->get();
 
-            $pdfAbsolutePath = $this->convertDocxToPdf($generatedDocxAbsolutePath);
+            $html = view('documents.form-pdf', [
+                'form' => $form,
+                'fields' => $fields,
+                'payload' => (array) $submission->payload,
+                'submission' => $submission,
+            ])->render();
 
+            $pdf = Pdf::loadHTML($html)->setPaper('a4', 'portrait');
+            Storage::disk($disk)->put($generatedPdfRelativePath, $pdf->output());
+
+            // Recognition forms attach the org's approved workplan PDF, if any.
             $workplanPdfAbsPath = $this->findWorkplanApprovedPdf((array) $submission->payload, $disk);
             if ($workplanPdfAbsPath !== null) {
-                $this->appendPdfPages($pdfAbsolutePath, $workplanPdfAbsPath);
+                $this->appendPdfPages($generatedPdfAbsolutePath, $workplanPdfAbsPath);
             }
 
-            $generatedPdfRelativePath = $this->relativePathFromDiskAbsolute($pdfAbsolutePath, $disk);
-
-            $formName = trim((string) ($submission->form?->name ?? 'Form'));
+            $formName = trim((string) ($form->name ?? 'Form'));
             $document = Document::query()->create([
                 'description_text' => $formName.' submission #'.(int) $submission->getKey(),
                 'author' => (int) ($submission->submitted_by ?? 0) ?: null,
@@ -283,11 +206,11 @@ class DocumentGenerationService
 
             $generatedDocument = GeneratedDocument::query()->create([
                 'form_submission_id' => (int) $submission->getKey(),
-                'template_id' => (int) $template->getKey(),
+                'template_id' => null,
                 'request_id' => $requestId,
                 'document_id' => (int) $document->getKey(),
                 'generated_by' => $generatedByUserId,
-                'docx_path' => $generatedDocxRelativePath,
+                'docx_path' => null,
                 'pdf_path' => $generatedPdfRelativePath,
                 'status' => 'generated',
                 'generated_at' => now(),
@@ -311,203 +234,34 @@ class DocumentGenerationService
 
             return $generatedDocument;
         } catch (\Throwable $throwable) {
-            if ($preprocessedTemplatePath !== null) {
-                @unlink($preprocessedTemplatePath);
-            }
-            foreach ($tempCompositePaths as $tmp) {
-                @unlink($tmp);
-            }
-
             $failedRecord = GeneratedDocument::query()->create([
                 'form_submission_id' => (int) $submission->getKey(),
-                'template_id' => (int) $template->getKey(),
+                'template_id' => null,
                 'request_id' => $requestId,
                 'document_id' => null,
                 'generated_by' => $generatedByUserId,
-                'docx_path' => Storage::disk($disk)->exists($generatedDocxRelativePath)
-                    ? $generatedDocxRelativePath
-                    : 'N/A',
-                'pdf_path' => null,
+                'docx_path' => null,
+                'pdf_path' => Storage::disk($disk)->exists($generatedPdfRelativePath)
+                    ? $generatedPdfRelativePath
+                    : null,
                 'status' => 'failed',
                 'failure_reason' => $throwable->getMessage(),
                 'generated_at' => now(),
             ]);
 
             throw new RuntimeException(
-                'Unable to generate PDF for the approved request. Failure record #'.(int) $failedRecord->getKey().'. '.$throwable->getMessage(),
+                'Unable to generate PDF for the request. Failure record #'.(int) $failedRecord->getKey().'. '.$throwable->getMessage(),
                 previous: $throwable,
             );
         }
     }
 
-    /**
-     * Stack multiple images vertically into a single JPEG temp file.
-     * Returns the absolute path to the composite, or null on failure.
-     *
-     * @param  string[]  $absolutePaths
-     */
-    private function compositeImagesVertically(array $absolutePaths): ?string
-    {
-        $frames = [];
-        $maxWidth = 0;
-        $totalHeight = 0;
-        $gap = 10;
-
-        foreach ($absolutePaths as $path) {
-            $info = @getimagesize($path);
-            if (! $info) {
-                continue;
-            }
-            $img = match ($info['mime']) {
-                'image/jpeg' => @imagecreatefromjpeg($path),
-                'image/png'  => @imagecreatefrompng($path),
-                default      => null,
-            };
-            if (! $img) {
-                continue;
-            }
-            $w = imagesx($img);
-            $h = imagesy($img);
-            $frames[] = ['img' => $img, 'w' => $w, 'h' => $h];
-            $maxWidth = max($maxWidth, $w);
-            $totalHeight += $h;
-        }
-
-        if (empty($frames)) {
-            return null;
-        }
-
-        $totalHeight += $gap * (count($frames) - 1);
-
-        $canvas = imagecreatetruecolor($maxWidth, $totalHeight);
-        if (! $canvas) {
-            foreach ($frames as $f) {
-                imagedestroy($f['img']);
-            }
-            return null;
-        }
-
-        $white = imagecolorallocate($canvas, 255, 255, 255);
-        imagefill($canvas, 0, 0, $white);
-
-        $y = 0;
-        foreach ($frames as $f) {
-            imagecopy($canvas, $f['img'], 0, $y, 0, 0, $f['w'], $f['h']);
-            $y += $f['h'] + $gap;
-            imagedestroy($f['img']);
-        }
-
-        $tmpPath = sys_get_temp_dir().'/accomplishment_composite_'.Str::random(8).'.jpg';
-        $saved = imagejpeg($canvas, $tmpPath, 90);
-        imagedestroy($canvas);
-
-        return ($saved && is_file($tmpPath)) ? $tmpPath : null;
-    }
-
-    private function preprocessTemplateDocx(string $absolutePath): string
-    {
-        $tempPath = sys_get_temp_dir().'/phpword_'.Str::random(12).'.docx';
-        copy($absolutePath, $tempPath);
-
-        $zip = new ZipArchive();
-        if ($zip->open($tempPath) !== true) {
-            throw new RuntimeException('Unable to preprocess template DOCX for generation.');
-        }
-
-        for ($i = 0; $i < $zip->numFiles; $i++) {
-            $name = $zip->getNameIndex($i);
-            if (! is_string($name)) {
-                continue;
-            }
-            $isTarget = $name === 'word/document.xml'
-                || (bool) preg_match('/^word\/(header|footer)\d*\.xml$/', $name);
-            if (! $isTarget) {
-                continue;
-            }
-            $xml = $zip->getFromName($name);
-            if (! is_string($xml) || $xml === '') {
-                continue;
-            }
-            $zip->deleteName($name);
-            $zip->addFromString($name, $this->convertBraceMacrosToPhpWord($xml));
-        }
-
-        $zip->close();
-
-        return $tempPath;
-    }
-
-    private function convertBraceMacrosToPhpWord(string $xml): string
-    {
-        // Match {{fieldname}} or {{fieldname#}} that may span multiple XML runs.
-        // [^}]* stops at the first } so it can't overshoot to a later placeholder.
-        return preg_replace_callback(
-            '/\{\{([^}]*)\}\}/s',
-            function ($match) {
-                $inner = trim(strip_tags($match[1]));
-                $isMultiline = str_ends_with($inner, '#');
-                $key = $isMultiline ? substr($inner, 0, -1) : $inner;
-                $key = trim(preg_replace('/[^a-z0-9_]+/i', '_', strtolower($key)), '_');
-                if ($key === '') {
-                    return $match[0];
-                }
-
-                return '${'.$key.'}';
-            },
-            $xml
-        ) ?? $xml;
-    }
-
-    private function convertDocxToPdf(string $docxAbsolutePath): string
-    {
-        if (! is_file($docxAbsolutePath)) {
-            throw new RuntimeException('Generated DOCX file was not created.');
-        }
-
-        $outDir = dirname($docxAbsolutePath);
-        $binary = (string) config('documents.libreoffice.binary', 'soffice');
-        $timeout = max((int) config('documents.libreoffice.timeout', 120), 30);
-
-        $process = new Process([
-            $binary,
-            '--headless',
-            '--norestore',
-            '--convert-to',
-            'pdf:writer_pdf_Export',
-            '--outdir',
-            $outDir,
-            $docxAbsolutePath,
-        ]);
-
-        // Force software rendering — GPU acceleration causes black PDFs in containers.
-        $process->setEnv(['SAL_USE_VCLPLUGIN' => 'svp']);
-
-        $process->setTimeout($timeout);
-        $process->run();
-
-        if (! $process->isSuccessful()) {
-            $errorOutput = trim($process->getErrorOutput().' '.$process->getOutput());
-
-            throw new RuntimeException(
-                'LibreOffice conversion failed. Verify LIBREOFFICE_BINARY and server package install. '.$errorOutput,
-            );
-        }
-
-        $pdfAbsolutePath = preg_replace('/\.docx$/i', '.pdf', $docxAbsolutePath);
-
-        if (! is_string($pdfAbsolutePath) || ! is_file($pdfAbsolutePath)) {
-            throw new RuntimeException('PDF conversion did not produce an output file.');
-        }
-
-        return $pdfAbsolutePath;
-    }
-
-    private function nextGeneratedDocxPath(int $submissionId): string
+    private function nextGeneratedPdfPath(int $submissionId): string
     {
         $directory = trim((string) config('documents.generated_directory', 'generated-documents'), '/');
         $timestamp = now()->format('Y/m/d');
 
-        return $directory.'/'.$timestamp.'/submission-'.$submissionId.'-'.Str::lower(Str::random(12)).'.docx';
+        return $directory.'/'.$timestamp.'/submission-'.$submissionId.'-'.Str::lower(Str::random(12)).'.pdf';
     }
 
     private function findWorkplanApprovedPdf(array $payload, string $disk): ?string
@@ -589,7 +343,7 @@ class DocumentGenerationService
         $tmpPath = $mainPdfAbsPath.'.merge_'.Str::random(8).'.pdf';
 
         $binary = (string) config('documents.pdfunite_binary', 'pdfunite');
-        $timeout = max((int) config('documents.libreoffice.timeout', 120), 30);
+        $timeout = max((int) config('documents.pdf_timeout', 120), 30);
 
         $process = new Process([$binary, $mainPdfAbsPath, $appendPdfAbsPath, $tmpPath]);
         $process->setTimeout($timeout);
@@ -617,16 +371,5 @@ class DocumentGenerationService
         }
 
         rename($tmpPath, $mainPdfAbsPath);
-    }
-
-    private function relativePathFromDiskAbsolute(string $absolutePath, string $disk): string
-    {
-        $diskRoot = rtrim(Storage::disk($disk)->path(''), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
-
-        if (! str_starts_with($absolutePath, $diskRoot)) {
-            throw new RuntimeException('Generated file path is outside the configured disk root.');
-        }
-
-        return str_replace('\\', '/', ltrim(substr($absolutePath, strlen($diskRoot)), DIRECTORY_SEPARATOR));
     }
 }

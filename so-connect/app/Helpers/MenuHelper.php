@@ -62,7 +62,7 @@ class MenuHelper
                     ['icon' => 'dashboard', 'name' => 'System Dashboard', 'path' => '/superadmin/dashboard'],
                     ['icon' => 'user-profile', 'name' => 'Profile Manager', 'path' => '/superadmin/profiles'],
                     ['icon' => 'user-profile', 'name' => 'Create Admin', 'path' => '/superadmin/accounts/create'],
-                    ['icon' => 'forms', 'name' => 'Template Manager', 'path' => '/admin/templates'],
+                    ['icon' => 'forms', 'name' => 'Form Builder', 'path' => '/admin/form-builder'],
                     ['icon' => 'tables', 'name' => 'Export Data', 'path' => '/superadmin/export'],
                     ['icon' => 'charts', 'name' => 'Score Audit', 'path' => '/superadmin/scoring/audit'],
                 ],
@@ -74,7 +74,7 @@ class MenuHelper
                 'title' => 'Admin',
                 'items' => [
                     ['icon' => 'pages',    'name' => 'Posts',              'path' => '/posts'],
-                    ['icon' => 'forms',    'name' => 'Template Manager',   'path' => '/admin/templates'],
+                    ['icon' => 'forms',    'name' => 'Form Builder',       'path' => '/admin/form-builder'],
                     ['icon' => 'calendar', 'name' => 'Semester Management','path' => '/admin/semesters'],
                     ['icon' => 'tables',  'name' => 'Export Data',        'path' => '/admin/export'],
                 ],

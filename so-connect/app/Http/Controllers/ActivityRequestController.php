@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Form;
 use App\Models\FormSubmission;
-use App\Models\Template;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\Request;
@@ -145,22 +144,9 @@ class ActivityRequestController extends Controller
             'payload'         => $payload,
         ]);
 
-        $template = Template::query()
-            ->where('form_id', $form->id)
-            ->where('is_active', true)
-            ->orderByDesc('version')
-            ->with(['mappings.field'])
-            ->first();
-
-        if (! $template) {
-            return redirect()->route('activity-request')
-                ->with('status', 'Request submitted. No active template found — document not generated yet.');
-        }
-
         try {
             $documentGenerationService->generateFromSubmission(
                 $submission->fresh(['form']),
-                $template,
                 null,
                 $userId,
             );

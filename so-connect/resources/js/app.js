@@ -3,6 +3,8 @@ import './dashboard';
 import Alpine from 'alpinejs';
 import Collapse from '@alpinejs/collapse';
 import ApexCharts from 'apexcharts';
+import { formBuilder } from './components/form-builder';
+import { signatureField } from './components/signature-field';
 
 // flatpickr
 import flatpickr from 'flatpickr';
@@ -18,6 +20,8 @@ window.flatpickr = flatpickr;
 window.FullCalendar = Calendar;
 
 Alpine.plugin(Collapse);
+Alpine.data('formBuilder', formBuilder);
+Alpine.data('signatureField', signatureField);
 Alpine.start();
 
 // Initialize components on DOM ready
