@@ -44,6 +44,7 @@ class MenuHelper
                 'items' => [
                     ['icon' => 'dashboard', 'name' => 'Dashboard', 'path' => '/dashboard'],
                     ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
+                    ['icon' => 'forms', 'name' => 'Forms', 'path' => '/forms'],
                     ['icon' => 'pages', 'name' => 'Documents', 'path' => '/documents'],
                 ],
             ],

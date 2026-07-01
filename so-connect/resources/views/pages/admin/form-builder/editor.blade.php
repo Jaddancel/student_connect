@@ -23,15 +23,25 @@
                 <span x-show="message" x-text="message" class="text-sm font-medium text-success-600"></span>
                 <span x-show="error" x-text="error" class="text-sm font-medium text-error-600"></span>
             </div>
-            <button type="button" @click="save()" :disabled="saving"
-                class="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-60">
-                <span x-show="!saving">Save form</span>
-                <span x-show="saving">Saving…</span>
-            </button>
+            <div class="flex items-center gap-2">
+                @if ($form)
+                    <a href="{{ route('admin.form-builder.preview', $form) }}" target="_blank"
+                        class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Preview</a>
+                @endif
+                <button type="button" @click="save()" :disabled="saving"
+                    class="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-60">
+                    <span x-show="!saving">{{ $form ? 'Save form' : 'Save draft' }}</span>
+                    <span x-show="saving">Saving…</span>
+                </button>
+            </div>
         </div>
 
-        <div class="grid grid-cols-12 gap-5">
-            {{-- LEFT: palette + settings --}}
+        {{-- Stepper --}}
+        <x-common.wizard-steps :steps="['Online form', 'Printed template', 'Details']" />
+
+        {{-- ========================= STEP 1: ONLINE FORM ========================= --}}
+        <div x-show="step === 1" class="grid grid-cols-12 gap-5">
+            {{-- LEFT: palette + header designer --}}
             <div class="col-span-12 space-y-5 lg:col-span-3">
                 <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                     <h3 class="mb-3 text-sm font-semibold text-gray-800 dark:text-white/90">Field palette</h3>
@@ -47,80 +57,11 @@
                         + Empty row
                     </button>
                 </div>
-
-                <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03] space-y-3">
-                    <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Settings</h3>
-                    <div>
-                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Form name</label>
-                        <input type="text" x-model="name" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Route name (URL slug)</label>
-                        <input type="text" x-model="route_name" @input="routeTouched = true"
-                            class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 font-mono text-xs dark:border-gray-700 dark:text-white/90" />
-                        <p class="mt-1 text-xs text-gray-400">/forms/<span x-text="route_name || '…'"></span></p>
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Show in sidebar for</label>
-                        <div class="flex flex-wrap gap-3 text-xs text-gray-600 dark:text-gray-300">
-                            @foreach (['admin' => 'Admin', 'president' => 'President', 'officer' => 'Officer'] as $val => $label)
-                                <label class="flex items-center gap-1.5">
-                                    <input type="checkbox" value="{{ $val }}" x-model="sidebar_group" class="h-4 w-4 rounded border-gray-300 text-brand-500" />
-                                    {{ $label }}
-                                </label>
-                            @endforeach
-                        </div>
-                    </div>
-                    <div class="flex gap-4 text-xs text-gray-600 dark:text-gray-300">
-                        <label class="flex items-center gap-1.5"><input type="checkbox" x-model="is_active" class="h-4 w-4 rounded border-gray-300 text-brand-500" /> Active</label>
-                        <label class="flex items-center gap-1.5"><input type="checkbox" x-model="is_published" class="h-4 w-4 rounded border-gray-300 text-brand-500" /> Published</label>
-                    </div>
-                </div>
-
-                {{-- Header designer --}}
-                <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03] space-y-3">
-                    <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Header / letterhead</h3>
-                    <div>
-                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Banner image</label>
-                        <input type="file" accept="image/*" @change="uploadHeader($event, 'image')" class="w-full text-xs text-gray-500" />
-                        <template x-if="header.image">
-                            <div class="mt-1 flex items-center gap-2">
-                                <span class="truncate text-xs text-success-600" x-text="header.image"></span>
-                                <button type="button" @click="header.image = ''" class="text-xs text-error-500">remove</button>
-                            </div>
-                        </template>
-                    </div>
-                    <div class="text-center text-xs text-gray-400">— or design one —</div>
-                    <div>
-                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Logo</label>
-                        <input type="file" accept="image/*" @change="uploadHeader($event, 'logo')" class="w-full text-xs text-gray-500" />
-                        <template x-if="header.logo">
-                            <button type="button" @click="header.logo = ''" class="mt-1 text-xs text-error-500">remove logo</button>
-                        </template>
-                    </div>
-                    <input type="text" x-model="header.title" placeholder="Title" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
-                    <input type="text" x-model="header.subtitle" placeholder="Subtitle" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
-                    <select x-model="header.align" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
-                        <option value="left">Align left</option>
-                        <option value="center">Align center</option>
-                        <option value="right">Align right</option>
-                    </select>
-                </div>
             </div>
 
             {{-- CENTER: canvas --}}
             <div class="col-span-12 lg:col-span-6">
                 <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] min-h-[400px]">
-                    {{-- header preview --}}
-                    <template x-if="header.image || header.logo || header.title || header.subtitle">
-                        <div class="mb-5 rounded-xl border border-gray-200 bg-palette-lime-pale p-4 dark:border-gray-800"
-                            :class="{'text-left': header.align==='left','text-center': header.align==='center','text-right': header.align==='right'}">
-                            <div class="text-sm font-bold uppercase text-gray-900 dark:text-white" x-text="header.title"></div>
-                            <div class="text-xs text-gray-700 dark:text-gray-300" x-text="header.subtitle"></div>
-                            <template x-if="header.image"><div class="mt-1 text-[10px] text-gray-400">banner: <span x-text="header.image"></span></div></template>
-                        </div>
-                    </template>
-
                     <template x-if="rows.length === 0">
                         <div class="py-16 text-center text-sm text-gray-400">Add fields from the palette to start building.</div>
                     </template>
@@ -173,7 +114,7 @@
                 </div>
             </div>
 
-            {{-- RIGHT: config panel --}}
+            {{-- RIGHT: field config panel --}}
             <div class="col-span-12 lg:col-span-3">
                 <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                     <h3 class="mb-3 text-sm font-semibold text-gray-800 dark:text-white/90">Field settings</h3>
@@ -237,6 +178,79 @@
                         </div>
                     </template>
                 </div>
+            </div>
+        </div>
+
+        {{-- ===================== STEP 2: PRINTED PDF TEMPLATE ===================== --}}
+        <div x-show="step === 2" x-cloak>
+            <x-form-builder.pdf-template
+                :exportUrl="route('admin.form-builder.template.export-docx')"
+                :importUrl="route('admin.form-builder.template.import-docx')" />
+        </div>
+
+        {{-- ========================= STEP 3: META DETAILS ========================= --}}
+        <div x-show="step === 3" x-cloak class="grid grid-cols-12 gap-5">
+            <div class="col-span-12 lg:col-span-8 lg:col-start-3">
+                <div class="rounded-2xl border border-gray-200 bg-palette-surface p-6 dark:border-gray-800 dark:bg-white/[0.03] space-y-4">
+                    <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Form details</h3>
+
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Form name</label>
+                        <input type="text" x-model="name" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
+                    </div>
+
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Purpose</label>
+                        <textarea x-model="description_text" rows="3" placeholder="What is this form for? (used by search)"
+                            class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:text-white/90"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Route name (URL slug)</label>
+                        <input type="text" x-model="route_name" @input="routeTouched = true"
+                            class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 font-mono text-xs dark:border-gray-700 dark:text-white/90" />
+                        <p class="mt-1 text-xs text-gray-400">/forms/<span x-text="route_name || '…'"></span></p>
+                    </div>
+
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Show in sidebar for</label>
+                        <div class="flex flex-wrap gap-3 text-xs text-gray-600 dark:text-gray-300">
+                            @foreach (['admin' => 'Admin', 'president' => 'President', 'officer' => 'Officer'] as $val => $label)
+                                <label class="flex items-center gap-1.5">
+                                    <input type="checkbox" value="{{ $val }}" x-model="sidebar_group" class="h-4 w-4 rounded border-gray-300 text-brand-500" />
+                                    {{ $label }}
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4 text-xs text-gray-600 dark:text-gray-300">
+                        <label class="flex items-center gap-1.5"><input type="checkbox" x-model="is_active" class="h-4 w-4 rounded border-gray-300 text-brand-500" /> Active</label>
+                        <label class="flex items-center gap-1.5"><input type="checkbox" x-model="is_published" class="h-4 w-4 rounded border-gray-300 text-brand-500" /> Published</label>
+                    </div>
+
+                    <template x-if="is_published && !hasTemplate">
+                        <p class="rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600 dark:bg-error-500/10">
+                            A printed PDF template (Step 2) is required before this form can be published.
+                        </p>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        {{-- Wizard footer nav --}}
+        <div class="flex items-center justify-between rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+            <button type="button" @click="prevStep()" x-show="step > 1"
+                class="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">← Back</button>
+            <span x-show="step === 1"></span>
+            <div class="flex items-center gap-2">
+                <button type="button" @click="nextStep()" x-show="step < 3"
+                    class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">Next →</button>
+                <button type="button" @click="save()" x-show="step === 3" :disabled="saving"
+                    class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-60">
+                    <span x-show="!saving">Finish</span>
+                    <span x-show="saving">Saving…</span>
+                </button>
             </div>
         </div>
     </div>

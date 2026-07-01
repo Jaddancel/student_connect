@@ -5,6 +5,7 @@
 
     /** @var \App\Models\Form $form */
     /** @var \Illuminate\Support\Collection $fields */
+    $preview = $preview ?? false;
     $layout = (array) ($form->layout ?? []);
     $header = (array) ($layout['header'] ?? []);
     $rows = $layout['rows'] ?? null;
@@ -32,6 +33,18 @@
     <x-common.page-breadcrumb :pageTitle="$form->name" />
 
     <div class="space-y-6">
+        @if ($preview)
+            <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm font-medium text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-400">
+                <span>Preview mode — this form is shown regardless of its published/active status. Submitting is disabled.</span>
+                @if (! empty($form->pdf_template['html']))
+                    <a href="{{ route('admin.form-builder.preview', ['form' => $form, 'document' => 1]) }}" target="_blank"
+                        class="rounded-lg border border-warning-300 px-3 py-1.5 text-xs font-semibold text-warning-700 transition hover:bg-warning-100 dark:border-warning-500/40 dark:text-warning-300">
+                        Preview printed document
+                    </a>
+                @endif
+            </div>
+        @endif
+
         @if (session('success'))
             <div class="rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm font-medium text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400">
                 {{ session('success') }}
@@ -65,7 +78,7 @@
             </div>
         @endif
 
-        <form action="{{ route('forms.render.submit', $form->route_name) }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+        <form action="{{ $preview ? '#' : route('forms.render.submit', $form->route_name) }}" method="POST" enctype="multipart/form-data" class="space-y-6" @if ($preview) onsubmit="return false;" @endif>
             @csrf
 
             <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
@@ -90,8 +103,12 @@
 
             <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
                 <div class="flex justify-end gap-3">
-                    <button type="reset" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">Clear</button>
-                    <button type="submit" class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">Submit &amp; Generate PDF</button>
+                    @if ($preview)
+                        <span class="text-sm text-gray-400">Submission is disabled in preview.</span>
+                    @else
+                        <button type="reset" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">Clear</button>
+                        <button type="submit" class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">Submit &amp; Generate PDF</button>
+                    @endif
                 </div>
             </div>
         </form>

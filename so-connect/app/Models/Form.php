@@ -38,6 +38,7 @@ class Form extends Model
         'is_published',
         'route_name',
         'layout',
+        'pdf_template',
     ];
 
     protected function casts(): array
@@ -47,6 +48,7 @@ class Form extends Model
             'is_published' => 'boolean',
             'sidebar_group' => 'array',
             'layout' => 'array',
+            'pdf_template' => 'array',
         ];
     }
 

@@ -28,6 +28,7 @@ use App\Http\Controllers\EventPlanController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\Admin\FormBuilderController;
 use App\Http\Controllers\FinancialReportController;
+use App\Http\Controllers\FormDirectoryController;
 use App\Http\Controllers\FormRenderController;
 use App\Http\Controllers\JointStatementController;
 use App\Http\Controllers\LandingPage;
@@ -305,6 +306,9 @@ Route::post('/forms/joint-statement', [JointStatementController::class, 'store']
 // routes above so bespoke forms keep their dedicated pages; this catches any
 // remaining single-segment form route_name created through the builder.
 Route::middleware('auth')->group(function () {
+    // Dedicated Forms directory (name + purpose search). Registered before the
+    // `/forms/{routeName}` renderer so the literal `/forms` index wins.
+    Route::get('/forms', [FormDirectoryController::class, 'index'])->name('forms.directory');
     Route::get('/forms/{routeName}', [FormRenderController::class, 'show'])->name('forms.render');
     Route::post('/forms/{routeName}', [FormRenderController::class, 'submit'])->name('forms.render.submit');
 });
@@ -439,6 +443,13 @@ Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
         ->name('admin.form-builder.store');
     Route::post('/admin/form-builder/upload-asset', [FormBuilderController::class, 'uploadAsset'])
         ->name('admin.form-builder.upload-asset');
+    // Printed-PDF template DOCX interchange (operates on in-wizard state).
+    Route::post('/admin/form-builder/template/export-docx', [FormBuilderController::class, 'exportDocx'])
+        ->name('admin.form-builder.template.export-docx');
+    Route::post('/admin/form-builder/template/import-docx', [FormBuilderController::class, 'importDocx'])
+        ->name('admin.form-builder.template.import-docx');
+    Route::get('/admin/form-builder/{form}/preview', [FormBuilderController::class, 'preview'])
+        ->name('admin.form-builder.preview');
     Route::get('/admin/form-builder/{form}/edit', [FormBuilderController::class, 'edit'])
         ->name('admin.form-builder.edit');
     Route::put('/admin/form-builder/{form}', [FormBuilderController::class, 'update'])

@@ -27,7 +27,7 @@ class DashboardSearchHelper
             $publishedForms = \App\Models\Form::whereNotNull('route_name')
                 ->where('is_published', true)
                 ->orderBy('name')
-                ->get(['name', 'route_name']);
+                ->get(['name', 'route_name', 'description_text']);
 
             foreach ($publishedForms as $form) {
                 $items[] = [
@@ -35,7 +35,8 @@ class DashboardSearchHelper
                     'path' => '/forms/' . $form->route_name,
                     'icon' => 'forms',
                     'category' => 'Forms',
-                    'keywords' => 'form submit organization ' . $form->route_name,
+                    // Index by name AND purpose so search matches either.
+                    'keywords' => trim('form submit organization ' . $form->route_name . ' ' . (string) $form->description_text),
                 ];
             }
         }

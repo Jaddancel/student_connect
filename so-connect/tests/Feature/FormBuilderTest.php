@@ -56,11 +56,11 @@ it('stores a form with layout and fields', function () {
 
     $payload = [
         'name' => 'Test Built Form',
+        'description_text' => 'Collects member details for recognition.',
         'route_name' => 'test-built-form',
         'sidebar_group' => ['admin'],
         'is_active' => true,
         'is_published' => true,
-        'header' => ['title' => 'Hello', 'align' => 'center'],
         'fields' => [
             ['field_key' => 'full_name', 'field_label' => 'Full Name', 'field_type' => 'text', 'is_required' => true, 'field_options' => []],
             ['field_key' => 'age', 'field_label' => 'Age', 'field_type' => 'age', 'is_required' => true, 'field_options' => ['min' => 1, 'max' => 99]],
@@ -69,6 +69,13 @@ it('stores a form with layout and fields', function () {
         'rows' => [
             ['columns' => [['span' => 6, 'fields' => ['full_name']], ['span' => 6, 'fields' => ['age']]]],
             ['columns' => [['span' => 12, 'fields' => ['sig']]]],
+        ],
+        'pdf_template' => [
+            'html' => '<p>Name: <span class="field-token" data-field="full_name" contenteditable="false">Full Name</span></p>',
+            'page' => ['size' => 'a4', 'orientation' => 'portrait'],
+            // The letterhead now lives on the printed template, not the form layout.
+            'header' => ['title' => 'Hello', 'align' => 'center'],
+            'footer' => [],
         ],
     ];
 
@@ -80,8 +87,41 @@ it('stores a form with layout and fields', function () {
     $form = Form::where('route_name', 'test-built-form')->first();
     expect($form)->not->toBeNull();
     expect($form->fields()->count())->toBe(3);
-    expect($form->layout['header']['title'])->toBe('Hello');
+    expect($form->pdf_template['header']['title'])->toBe('Hello');
     expect(count($form->layout['rows']))->toBe(2);
+    expect($form->description_text)->toBe('Collects member details for recognition.');
+    expect($form->pdf_template['html'])->toContain('data-field="full_name"');
+});
+
+it('blocks publishing a form without a printed template', function () {
+    $admin = makeUser(2);
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
+        'name' => 'No Template', 'route_name' => 'no-template',
+        'is_active' => true, 'is_published' => true,
+        'fields' => [
+            ['field_key' => 'a', 'field_label' => 'A', 'field_type' => 'text', 'is_required' => false],
+        ],
+        'rows' => [],
+        'pdf_template' => ['html' => '', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ])->assertStatus(422);
+
+    expect(Form::where('route_name', 'no-template')->exists())->toBeFalse();
+});
+
+it('allows saving an unpublished draft without a template', function () {
+    $admin = makeUser(2);
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
+        'name' => 'Draft Form', 'route_name' => 'draft-form',
+        'is_active' => true, 'is_published' => false,
+        'fields' => [
+            ['field_key' => 'a', 'field_label' => 'A', 'field_type' => 'text', 'is_required' => false],
+        ],
+        'rows' => [],
+    ])->assertOk();
+
+    expect(Form::where('route_name', 'draft-form')->exists())->toBeTrue();
 });
 
 it('rejects duplicate field keys', function () {
@@ -116,6 +156,12 @@ it('renders a published builder form and generates a PDF on submit', function ()
                 ['columns' => [['span' => 6, 'fields' => ['full_name']], ['span' => 6, 'fields' => ['favorite']]]],
                 ['columns' => [['span' => 12, 'fields' => ['photo']]]],
             ],
+        ],
+        'pdf_template' => [
+            'html' => '<h1>Renderable</h1><p>Name: <span class="field-token" data-field="full_name" contenteditable="false">Full Name</span></p>'
+                .'<p>Favorite: <span class="field-token" data-field="favorite" contenteditable="false">Favorite</span></p>'
+                .'<p>Photo: <span class="field-token" data-field="photo" contenteditable="false">Photo</span></p>',
+            'page' => ['size' => 'a4', 'orientation' => 'portrait'],
         ],
     ]);
 
@@ -160,6 +206,10 @@ it('enforces required-field validation on submit', function () {
         'name' => 'Required Form', 'route_name' => 'required-form',
         'is_active' => true, 'is_published' => true, 'sidebar_group' => ['admin'],
         'layout' => ['rows' => []],
+        'pdf_template' => [
+            'html' => '<p><span class="field-token" data-field="needed" contenteditable="false">Needed</span></p>',
+            'page' => ['size' => 'a4', 'orientation' => 'portrait'],
+        ],
     ]);
     FormDescription::create([
         'form_id' => $form->id, 'field_key' => 'needed', 'field_label' => 'Needed',

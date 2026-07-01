@@ -58,12 +58,14 @@ class FormBuilderController extends Controller
         $form = DB::transaction(function () use ($data, $request) {
             $form = Form::create([
                 'name' => $data['name'],
+                'description_text' => $data['description_text'],
                 'route_name' => $data['route_name'],
                 'sidebar_group' => $data['sidebar_group'],
                 'is_active' => $data['is_active'],
                 'is_published' => $data['is_published'],
                 'created_by' => $request->user()?->getKey(),
-                'layout' => ['header' => $data['header'], 'rows' => $data['rows']],
+                'layout' => ['rows' => $data['rows']],
+                'pdf_template' => $data['pdf_template'],
             ]);
 
             $this->syncFields($form, $data['fields']);
@@ -84,11 +86,13 @@ class FormBuilderController extends Controller
         DB::transaction(function () use ($data, $form) {
             $form->update([
                 'name' => $data['name'],
+                'description_text' => $data['description_text'],
                 'route_name' => $data['route_name'],
                 'sidebar_group' => $data['sidebar_group'],
                 'is_active' => $data['is_active'],
                 'is_published' => $data['is_published'],
-                'layout' => ['header' => $data['header'], 'rows' => $data['rows']],
+                'layout' => ['rows' => $data['rows']],
+                'pdf_template' => $data['pdf_template'],
             ]);
 
             $this->syncFields($form, $data['fields']);
@@ -135,6 +139,7 @@ class FormBuilderController extends Controller
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'description_text' => ['nullable', 'string', 'max:5000'],
             'route_name' => [
                 'required', 'string', 'max:255', 'regex:/^[a-z0-9-]+$/',
                 Rule::unique('forms', 'route_name')->ignore($formId),
@@ -143,7 +148,6 @@ class FormBuilderController extends Controller
             'sidebar_group.*' => ['string', Rule::in(['officer', 'president', 'superadmin', 'admin'])],
             'is_active' => ['boolean'],
             'is_published' => ['boolean'],
-            'header' => ['nullable', 'array'],
             'fields' => ['present', 'array'],
             'fields.*.field_key' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9_]+$/'],
             'fields.*.field_label' => ['required', 'string', 'max:255'],
@@ -152,6 +156,16 @@ class FormBuilderController extends Controller
             'fields.*.placeholder_hint' => ['nullable', 'string', 'max:255'],
             'fields.*.field_options' => ['nullable', 'array'],
             'rows' => ['present', 'array'],
+            'pdf_template' => ['nullable', 'array'],
+            'pdf_template.html' => ['nullable', 'string'],
+            'pdf_template.page' => ['nullable', 'array'],
+            'pdf_template.page.size' => ['nullable', 'string', Rule::in(['a4', 'letter', 'legal'])],
+            'pdf_template.page.orientation' => ['nullable', 'string', Rule::in(['portrait', 'landscape'])],
+            'pdf_template.font' => ['nullable', 'array'],
+            'pdf_template.font.family' => ['nullable', 'string', 'max:120'],
+            'pdf_template.font.size' => ['nullable', 'string', 'max:8'],
+            'pdf_template.header' => ['nullable', 'array'],
+            'pdf_template.footer' => ['nullable', 'array'],
         ], [
             'route_name.regex' => 'The route name may only contain lowercase letters, numbers and hyphens.',
             'fields.*.field_key.regex' => 'Field keys may only contain letters, numbers and underscores.',
@@ -163,16 +177,114 @@ class FormBuilderController extends Controller
             abort(response()->json(['message' => 'Field keys must be unique within a form.'], 422));
         }
 
+        $pdfTemplate = $this->cleanPdfTemplate($validated['pdf_template'] ?? []);
+        $isPublished = (bool) ($validated['is_published'] ?? false);
+
+        // A form requires a printed PDF template before it can be published.
+        if ($isPublished && ! $this->templateHasContent($pdfTemplate['html'])) {
+            abort(response()->json([
+                'message' => 'A printed PDF template (Step 2) is required before this form can be published.',
+                'errors' => ['pdf_template' => ['A printed PDF template is required before publishing.']],
+            ], 422));
+        }
+
         return [
             'name' => $validated['name'],
+            'description_text' => $validated['description_text'] ?? null,
             'route_name' => $validated['route_name'],
             'sidebar_group' => array_values($validated['sidebar_group'] ?? []),
             'is_active' => (bool) ($validated['is_active'] ?? true),
-            'is_published' => (bool) ($validated['is_published'] ?? false),
-            'header' => $this->cleanHeader($validated['header'] ?? []),
+            'is_published' => $isPublished,
             'fields' => $validated['fields'],
             'rows' => $this->cleanRows($validated['rows'] ?? [], $keys),
+            'pdf_template' => $pdfTemplate,
         ];
+    }
+
+    /**
+     * Normalise + sanitize the printed-PDF template payload.
+     *
+     * @param  array<string,mixed>  $template
+     * @return array{html:string, page:array{size:string, orientation:string}}
+     */
+    private function cleanPdfTemplate(array $template): array
+    {
+        $page = (array) ($template['page'] ?? []);
+        $size = (string) ($page['size'] ?? 'a4');
+        $size = in_array($size, ['a4', 'letter', 'legal'], true) ? $size : 'a4';
+        $orientation = (string) ($page['orientation'] ?? 'portrait');
+        $orientation = in_array($orientation, ['portrait', 'landscape'], true) ? $orientation : 'portrait';
+
+        return [
+            'html' => $this->sanitizeTemplateHtml((string) ($template['html'] ?? '')),
+            'page' => ['size' => $size, 'orientation' => $orientation],
+            'font' => $this->cleanFont((array) ($template['font'] ?? [])),
+            'header' => $this->cleanHeader((array) ($template['header'] ?? [])),
+            'footer' => $this->cleanFooter((array) ($template['footer'] ?? [])),
+        ];
+    }
+
+    /**
+     * The document's default font family + size. Family is whitelisted to the
+     * dompdf-safe editor options; size is clamped to a sane px range.
+     *
+     * @param  array<string,mixed>  $font
+     * @return array{family:string, size:string}
+     */
+    private function cleanFont(array $font): array
+    {
+        $default = "'Times New Roman', Times, serif";
+        $allowed = [
+            'Arial, Helvetica, sans-serif',
+            "'Times New Roman', Times, serif",
+            'Georgia, serif',
+            "'Courier New', Courier, monospace",
+            "'DejaVu Sans', sans-serif",
+        ];
+        $family = (string) ($font['family'] ?? $default);
+        if (! in_array($family, $allowed, true)) {
+            $family = $default;
+        }
+
+        $size = 12;
+        if (preg_match('/^(\d{1,2})px$/', (string) ($font['size'] ?? ''), $m)) {
+            $size = min(48, max(8, (int) $m[1]));
+        }
+
+        return ['family' => $family, 'size' => $size.'px'];
+    }
+
+    /**
+     * Normalise the printed footer (image only, for now).
+     *
+     * @param  array<string,mixed>  $footer
+     * @return array<string,mixed>
+     */
+    private function cleanFooter(array $footer): array
+    {
+        return array_filter([
+            'image' => $footer['image'] ?? null,
+        ], fn ($v) => $v !== null && $v !== '');
+    }
+
+    private function templateHasContent(string $html): bool
+    {
+        // Content = any visible text or at least one field token.
+        if (str_contains($html, 'data-field=')) {
+            return true;
+        }
+
+        return trim(strip_tags($html)) !== '';
+    }
+
+    /**
+     * Authoritatively strip the template HTML down to the editor's allowed tag
+     * and attribute set (headings, paragraphs, inline emphasis, lists, field
+     * tokens, basic alignment) so only dompdf-safe markup is persisted.
+     */
+    private function sanitizeTemplateHtml(string $html): string
+    {
+        return \App\Forms\TemplateHtmlSanitizer::sanitize($html);
     }
 
     /**
@@ -209,13 +321,15 @@ class FormBuilderController extends Controller
      */
     private function cleanHeader(array $header): array
     {
+        $align = $header['align'] ?? 'center';
+        $align = in_array($align, ['left', 'center', 'right'], true) ? $align : 'center';
+
         return array_filter([
             'image' => $header['image'] ?? null,
             'logo' => $header['logo'] ?? null,
             'title' => $header['title'] ?? null,
             'subtitle' => $header['subtitle'] ?? null,
-            'align' => in_array(($header['align'] ?? 'center'), ['left', 'center', 'right'], true)
-                ? $header['align'] : 'center',
+            'align' => $align,
         ], fn ($v) => $v !== null && $v !== '');
     }
 
@@ -264,13 +378,20 @@ class FormBuilderController extends Controller
     {
         return [
             'name' => '',
+            'description_text' => '',
             'route_name' => '',
             'sidebar_group' => ['admin'],
             'is_active' => true,
             'is_published' => false,
-            'header' => ['align' => 'center'],
             'fields' => [],
             'rows' => [],
+            'pdf_template' => [
+                'html' => '',
+                'page' => ['size' => 'a4', 'orientation' => 'portrait'],
+                'font' => ['family' => "'Times New Roman', Times, serif", 'size' => '12px'],
+                'header' => ['align' => 'center'],
+                'footer' => [],
+            ],
         ];
     }
 
@@ -290,15 +411,151 @@ class FormBuilderController extends Controller
             'field_options' => (array) ($f->field_options ?? []),
         ])->values()->all();
 
+        $pdfTemplate = (array) ($form->pdf_template ?? []);
+
+        // Migrate a legacy letterhead stored on layout.header into the template
+        // header, so forms authored before the move don't lose it.
+        $header = (array) ($pdfTemplate['header'] ?? ($layout['header'] ?? ['align' => 'center']));
+
         return [
             'name' => $form->name,
+            'description_text' => $form->description_text,
             'route_name' => $form->route_name,
             'sidebar_group' => (array) ($form->sidebar_group ?? []),
             'is_active' => (bool) $form->is_active,
             'is_published' => (bool) $form->is_published,
-            'header' => (array) ($layout['header'] ?? ['align' => 'center']),
             'fields' => $fields,
             'rows' => $layout['rows'] ?? [],
+            'pdf_template' => [
+                'html' => (string) ($pdfTemplate['html'] ?? ''),
+                'page' => [
+                    'size' => (string) ($pdfTemplate['page']['size'] ?? 'a4'),
+                    'orientation' => (string) ($pdfTemplate['page']['orientation'] ?? 'portrait'),
+                ],
+                'font' => [
+                    'family' => (string) ($pdfTemplate['font']['family'] ?? "'Times New Roman', Times, serif"),
+                    'size' => (string) ($pdfTemplate['font']['size'] ?? '12px'),
+                ],
+                'header' => $header,
+                'footer' => (array) ($pdfTemplate['footer'] ?? []),
+            ],
         ];
+    }
+
+    /**
+     * Admin preview of a form (and, optionally, its printed document), bypassing
+     * the live page's `is_active`/`is_published` gates. Resolves by form id so
+     * drafts without a `route_name` still preview.
+     */
+    public function preview(Request $request, Form $form)
+    {
+        // "Preview printed document": render the PDF template with sample/blank
+        // values inline, without persisting a submission or generated document.
+        if ($request->query('document')) {
+            $pdfTemplate = (array) ($form->pdf_template ?? []);
+            $templateHtml = (string) ($pdfTemplate['html'] ?? '');
+
+            if (trim($templateHtml) === '') {
+                abort(404, 'This form has no printed template yet.');
+            }
+
+            $fields = $form->fields()->get();
+            $page = (array) ($pdfTemplate['page'] ?? []);
+            $size = (string) ($page['size'] ?? 'a4');
+            $size = in_array($size, ['a4', 'letter', 'legal'], true) ? $size : 'a4';
+            $orientation = (string) ($page['orientation'] ?? 'portrait');
+            $orientation = in_array($orientation, ['portrait', 'landscape'], true) ? $orientation : 'portrait';
+
+            $body = app(\App\Forms\PdfTemplateRenderer::class)->render(
+                $templateHtml,
+                $this->sampleValues($fields),
+                $fields,
+            );
+
+            $html = view('documents.form-template-pdf', [
+                'form' => $form,
+                'body' => $body,
+                'page' => $page,
+                'font' => (array) ($pdfTemplate['font'] ?? []),
+                'header' => (array) ($pdfTemplate['header'] ?? []),
+                'footer' => (array) ($pdfTemplate['footer'] ?? []),
+            ])->render();
+
+            return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)
+                ->setPaper($size, $orientation)
+                ->stream('preview-'.($form->route_name ?: $form->getKey()).'.pdf');
+        }
+
+        return view('pages.form.render', [
+            'title' => $form->name.' (Preview)',
+            'form' => $form,
+            'fields' => $form->fields()->get(),
+            'preview' => true,
+        ]);
+    }
+
+    /**
+     * Sample values for the printed-document preview: a readable placeholder per
+     * fillable field, keyed by field_key.
+     *
+     * @param  \Illuminate\Support\Collection<int,FormDescription>  $fields
+     * @return array<string,mixed>
+     */
+    private function sampleValues($fields): array
+    {
+        $values = [];
+        foreach ($fields as $field) {
+            if (FieldType::isPresentational($field->field_type) || FieldType::isFileLike($field->field_type)
+                || $field->field_type === FieldType::SIGNATURE) {
+                continue;
+            }
+            $values[$field->field_key] = '['.$field->field_label.']';
+        }
+
+        return $values;
+    }
+
+    /**
+     * Export the current in-wizard template HTML to a downloadable .docx, with
+     * field tokens bridged to `{{field_key}}` text placeholders.
+     */
+    public function exportDocx(Request $request, \App\Services\DocxTemplateService $docx)
+    {
+        $validated = $request->validate([
+            'html' => ['nullable', 'string'],
+        ]);
+
+        $html = $this->sanitizeTemplateHtml((string) ($validated['html'] ?? ''));
+        $path = $docx->htmlToDocx($html);
+
+        return response()->download($path, 'form-template.docx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Import a .docx into the wizard: convert to sanitized HTML and map
+     * `{{field_key}}` placeholders back into field-token chips. Operates on
+     * in-wizard state (no saved form required).
+     */
+    public function importDocx(Request $request, \App\Services\DocxTemplateService $docx)
+    {
+        $request->validate([
+            'docx' => ['required', 'file', 'mimes:docx', 'max:10240'],
+            'fields' => ['nullable', 'string'],
+        ]);
+
+        $fields = collect(json_decode((string) $request->input('fields', '[]'), true) ?: [])
+            ->filter(fn ($f) => is_array($f) && isset($f['key']))
+            ->mapWithKeys(fn ($f) => [(string) $f['key'] => (string) ($f['label'] ?? $f['key'])])
+            ->all();
+
+        try {
+            $html = $docx->docxToHtml($request->file('docx'), $fields);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Could not import this document: '.$e->getMessage()], 422);
+        }
+
+        return response()->json(['html' => $this->sanitizeTemplateHtml($html)]);
     }
 }

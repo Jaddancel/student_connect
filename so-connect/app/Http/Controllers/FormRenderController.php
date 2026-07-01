@@ -42,6 +42,13 @@ class FormRenderController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
+        // Defense in depth: an untemplated form must never accept a submission,
+        // since it could not produce its printed document.
+        $pdfTemplate = (array) ($form->pdf_template ?? []);
+        if (trim((string) ($pdfTemplate['html'] ?? '')) === '') {
+            abort(422, 'This form is not ready to accept submissions yet (no printed template).');
+        }
+
         $fields = $form->fields()->get();
 
         // Build validation rules dynamically from the field catalog.

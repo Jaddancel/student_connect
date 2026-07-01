@@ -4,6 +4,7 @@ import Alpine from 'alpinejs';
 import Collapse from '@alpinejs/collapse';
 import ApexCharts from 'apexcharts';
 import { formBuilder } from './components/form-builder';
+import { pdfTemplateEditor } from './components/pdf-template-editor';
 import { signatureField } from './components/signature-field';
 
 // flatpickr
@@ -21,6 +22,7 @@ window.FullCalendar = Calendar;
 
 Alpine.plugin(Collapse);
 Alpine.data('formBuilder', formBuilder);
+Alpine.data('pdfTemplateEditor', pdfTemplateEditor);
 Alpine.data('signatureField', signatureField);
 Alpine.start();
 

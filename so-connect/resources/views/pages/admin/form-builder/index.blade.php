@@ -10,15 +10,9 @@
             </div>
         @endif
 
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Forms</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Design fill-in forms and their printable PDF layout.</p>
-            </div>
-            <a href="{{ route('admin.form-builder.create') }}"
-                class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">
-                + New Form
-            </a>
+        <div>
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Forms</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Design fill-in forms and their printable PDF layout.</p>
         </div>
 
         <div class="overflow-hidden rounded-2xl border border-gray-200 bg-palette-surface dark:border-gray-800 dark:bg-white/[0.03]">
@@ -47,10 +41,8 @@
                             </td>
                             <td class="px-5 py-3">
                                 <div class="flex justify-end gap-2">
-                                    @if ($form->route_name)
-                                        <a href="{{ url('/forms/'.$form->route_name) }}" target="_blank"
-                                            class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Preview</a>
-                                    @endif
+                                    <a href="{{ route('admin.form-builder.preview', $form) }}" target="_blank"
+                                        class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Preview</a>
                                     <a href="{{ route('admin.form-builder.edit', $form) }}"
                                         class="rounded-lg border border-brand-300 px-3 py-1.5 text-xs font-medium text-brand-600 transition hover:bg-brand-50">Edit</a>
                                     <form action="{{ route('admin.form-builder.destroy', $form) }}" method="POST"
@@ -70,4 +62,6 @@
             </table>
         </div>
     </div>
+
+    <x-common.fab :href="route('admin.form-builder.create')" label="New form" />
 @endsection

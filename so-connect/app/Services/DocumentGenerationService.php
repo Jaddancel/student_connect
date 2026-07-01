@@ -181,14 +181,37 @@ class DocumentGenerationService
                 ->orderBy('field_order')
                 ->get();
 
-            $html = view('documents.form-pdf', [
+            // The printed document is driven by the form's separate PDF template
+            // (rich-text HTML with field tokens), not the online-form layout.
+            $pdfTemplate = (array) ($form->pdf_template ?? []);
+            $templateHtml = (string) ($pdfTemplate['html'] ?? '');
+            if (trim($templateHtml) === '') {
+                throw new RuntimeException('This form has no printed template; a document cannot be generated.');
+            }
+
+            $page = (array) ($pdfTemplate['page'] ?? []);
+            $size = (string) ($page['size'] ?? 'a4');
+            $size = in_array($size, ['a4', 'letter', 'legal'], true) ? $size : 'a4';
+            $orientation = (string) ($page['orientation'] ?? 'portrait');
+            $orientation = in_array($orientation, ['portrait', 'landscape'], true) ? $orientation : 'portrait';
+
+            $body = app(\App\Forms\PdfTemplateRenderer::class)->render(
+                $templateHtml,
+                (array) $submission->payload,
+                $fields,
+                $disk,
+            );
+
+            $html = view('documents.form-template-pdf', [
                 'form' => $form,
-                'fields' => $fields,
-                'payload' => (array) $submission->payload,
-                'submission' => $submission,
+                'body' => $body,
+                'page' => $page,
+                'font' => (array) ($pdfTemplate['font'] ?? []),
+                'header' => (array) ($pdfTemplate['header'] ?? []),
+                'footer' => (array) ($pdfTemplate['footer'] ?? []),
             ])->render();
 
-            $pdf = Pdf::loadHTML($html)->setPaper('a4', 'portrait');
+            $pdf = Pdf::loadHTML($html)->setPaper($size, $orientation);
             Storage::disk($disk)->put($generatedPdfRelativePath, $pdf->output());
 
             // Recognition forms attach the org's approved workplan PDF, if any.

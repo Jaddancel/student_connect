@@ -3,7 +3,7 @@ import Sortable from 'sortablejs';
 /**
  * Alpine component backing the WYSIWYG form-builder editor.
  *
- * The `rows`/`fields`/`header` model is the single source of truth; SortableJS
+ * The `rows`/`fields` model is the single source of truth; SortableJS
  * provides drag-to-reorder UX and writes back into the model on drop. Explicit
  * buttons (add/remove/move/columns) cover everything drag does, so the builder
  * stays usable regardless.
@@ -20,15 +20,28 @@ export function formBuilder(config) {
 
         // --- model ---
         name: config.data.name || '',
+        description_text: config.data.description_text || '',
         route_name: config.data.route_name || '',
         sidebar_group: config.data.sidebar_group || [],
         is_active: config.data.is_active ?? true,
         is_published: config.data.is_published ?? false,
-        header: Object.assign({ align: 'center' }, config.data.header || {}),
         fields: config.data.fields || [],
         rows: config.data.rows || [],
+        // The letterhead (header) and footer belong to the printed document, so
+        // they live under pdf_template alongside the rich-text body and page setup.
+        pdf_template: Object.assign(
+            {
+                html: '',
+                page: { size: 'a4', orientation: 'portrait' },
+                font: { family: "'Times New Roman', Times, serif", size: '12px' },
+                header: { align: 'center' },
+                footer: {},
+            },
+            config.data.pdf_template || {},
+        ),
 
-        // --- ui state ---
+        // --- wizard / ui state ---
+        step: 1,
         selectedKey: null,
         routeTouched: false,
         saving: false,
@@ -49,6 +62,24 @@ export function formBuilder(config) {
             return (v || '').toString().toLowerCase().trim()
                 .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
         },
+
+        // --- wizard navigation ---
+        get hasTemplate() {
+            return (this.pdf_template.html || '').replace(/<[^>]*>/g, '').trim().length > 0
+                || /data-field=/.test(this.pdf_template.html || '');
+        },
+
+        goToStep(n) {
+            this.error = '';
+            if (n === 2 && this.fields.length === 0) {
+                this.error = 'Add at least one field in Step 1 first.';
+                return;
+            }
+            this.step = Math.max(1, Math.min(3, n));
+        },
+
+        nextStep() { this.goToStep(this.step + 1); },
+        prevStep() { this.goToStep(this.step - 1); },
 
         field(key) {
             return this.fields.find((f) => f.field_key === key) || null;
@@ -154,26 +185,6 @@ export function formBuilder(config) {
             return ['image', 'file'].includes(type);
         },
 
-        // --- header asset upload ---
-        async uploadHeader(event, slot) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const body = new FormData();
-            body.append('asset', file);
-            body.append('_token', this.csrf);
-            try {
-                const res = await fetch(this.uploadUrl, { method: 'POST', body });
-                const json = await res.json();
-                if (res.ok && json.path) {
-                    this.header[slot] = json.path;
-                } else {
-                    this.error = (json.message) || 'Upload failed.';
-                }
-            } catch (e) {
-                this.error = 'Upload failed.';
-            }
-        },
-
         // --- drag wiring ---
         wireSortables() {
             this.$root.querySelectorAll('[data-col-list]').forEach((el) => {
@@ -207,18 +218,27 @@ export function formBuilder(config) {
 
         // --- persistence ---
         async save() {
-            this.saving = true;
             this.message = '';
             this.error = '';
+
+            // Require a printed template before a form may be published.
+            if (this.is_published && !this.hasTemplate) {
+                this.step = 2;
+                this.error = 'Add a printed PDF template (Step 2) before publishing this form.';
+                return;
+            }
+
+            this.saving = true;
             const payload = {
                 name: this.name,
+                description_text: this.description_text,
                 route_name: this.route_name,
                 sidebar_group: this.sidebar_group,
                 is_active: this.is_active,
                 is_published: this.is_published,
-                header: this.header,
                 fields: this.fields,
                 rows: this.rows,
+                pdf_template: this.pdf_template,
             };
             try {
                 const res = await fetch(this.isEdit ? this.updateUrl : this.storeUrl, {
