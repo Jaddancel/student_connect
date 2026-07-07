@@ -6,6 +6,7 @@ use App\Forms\FieldType;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
 use App\Models\Form\FormDescription;
+use App\Support\UniversalField;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -155,6 +156,7 @@ class FormBuilderController extends Controller
             'fields.*.is_required' => ['boolean'],
             'fields.*.placeholder_hint' => ['nullable', 'string', 'max:255'],
             'fields.*.field_options' => ['nullable', 'array'],
+            'fields.*.universal_key' => ['nullable', 'string', Rule::in(UniversalField::keys())],
             'rows' => ['present', 'array'],
             'pdf_template' => ['nullable', 'array'],
             'pdf_template.html' => ['nullable', 'string'],
@@ -306,6 +308,7 @@ class FormBuilderController extends Controller
                     'field_order' => $order + 1,
                     'placeholder_hint' => $field['placeholder_hint'] ?? null,
                     'field_options' => $field['field_options'] ?? null,
+                    'universal_key' => ($field['universal_key'] ?? '') !== '' ? $field['universal_key'] : null,
                 ],
             );
         }
@@ -409,6 +412,7 @@ class FormBuilderController extends Controller
             'is_required' => (bool) $f->is_required,
             'placeholder_hint' => $f->placeholder_hint,
             'field_options' => (array) ($f->field_options ?? []),
+            'universal_key' => $f->universal_key ?? '',
         ])->values()->all();
 
         $pdfTemplate = (array) ($form->pdf_template ?? []);

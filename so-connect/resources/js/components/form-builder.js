@@ -99,6 +99,7 @@ export function formBuilder(config) {
                 is_required: false,
                 placeholder_hint: '',
                 field_options: this.defaultOptions(type),
+                universal_key: '',
             };
             this.fields.push(f);
             // Each new field starts in its own full-width row.

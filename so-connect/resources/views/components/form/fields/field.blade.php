@@ -6,7 +6,10 @@
     $key = $field->field_key;
     $opts = (array) ($field->field_options ?? []);
     $required = (bool) $field->is_required;
-    $old = old($key);
+    // Fall back to the universal-field autofill value (from the user's profile)
+    // when there's no old() input yet; a resubmit still wins via old().
+    $prefill = $prefill ?? [];
+    $old = old($key, $prefill[$key] ?? '');
     $placeholder = $field->placeholder_hint ?? '';
     $inputClass = 'dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90 '
         . ($errors->has($key) ? 'border-error-500' : 'border-gray-300');

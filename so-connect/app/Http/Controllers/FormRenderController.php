@@ -6,6 +6,7 @@ use App\Forms\FieldType;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Services\DocumentGenerationService;
+use App\Support\UniversalField;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -19,7 +20,7 @@ use Illuminate\Support\Str;
  */
 class FormRenderController extends Controller
 {
-    public function show(string $routeName)
+    public function show(Request $request, string $routeName)
     {
         $form = Form::query()
             ->where('route_name', $routeName)
@@ -32,7 +33,41 @@ class FormRenderController extends Controller
             'title' => $form->name,
             'form' => $form,
             'fields' => $fields,
+            'prefill' => $this->profilePrefill($request, $fields),
         ]);
+    }
+
+    /**
+     * Build a [field_key => value] map of universal-field autofills sourced from
+     * the signed-in user's profile. Only fields mapped to a universal key with a
+     * non-null profile value are included; file/image fields are skipped (a
+     * browser cannot pre-populate <input type=file>). Empty for guests.
+     *
+     * @param  \Illuminate\Support\Collection<int,\App\Models\Form\FormDescription>  $fields
+     * @return array<string,mixed>
+     */
+    private function profilePrefill(Request $request, $fields): array
+    {
+        // `profile` is a FK column on users and shadows the relation, so
+        // `$user->profile` returns the id — load the related model explicitly.
+        $profile = $request->user()?->profile()->first();
+        if ($profile === null) {
+            return [];
+        }
+
+        $prefill = [];
+        foreach ($fields as $field) {
+            $key = $field->universal_key;
+            if (! $key || FieldType::isFileLike($field->field_type)) {
+                continue;
+            }
+            $value = UniversalField::valueFor($profile, $key);
+            if ($value !== null) {
+                $prefill[$field->field_key] = $value;
+            }
+        }
+
+        return $prefill;
     }
 
     public function submit(Request $request, string $routeName, DocumentGenerationService $docService)

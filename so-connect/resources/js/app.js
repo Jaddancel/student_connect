@@ -6,6 +6,8 @@ import ApexCharts from 'apexcharts';
 import { formBuilder } from './components/form-builder';
 import { pdfTemplateEditor } from './components/pdf-template-editor';
 import { signatureField } from './components/signature-field';
+import { idTemplateEditor } from './components/id-template-editor';
+import { idScanWizard } from './components/id-scan-wizard';
 
 // flatpickr
 import flatpickr from 'flatpickr';
@@ -24,6 +26,8 @@ Alpine.plugin(Collapse);
 Alpine.data('formBuilder', formBuilder);
 Alpine.data('pdfTemplateEditor', pdfTemplateEditor);
 Alpine.data('signatureField', signatureField);
+Alpine.data('idTemplateEditor', idTemplateEditor);
+Alpine.data('idScanWizard', idScanWizard);
 Alpine.start();
 
 // Initialize components on DOM ready

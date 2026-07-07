@@ -3,6 +3,8 @@
 namespace App\Forms;
 
 use App\Models\Form\FormDescription;
+use App\Models\Profile;
+use App\Support\UniversalField;
 use Illuminate\Support\Collection;
 
 /**
@@ -22,8 +24,10 @@ final class PdfTemplateRenderer
     /**
      * @param  array<string,mixed>  $payload  submission payload keyed by field_key
      * @param  Collection<int,FormDescription>  $fields
+     * @param  ?Profile  $profile  submitter's profile, used to resolve
+     *                             `data-universal` tokens; null renders them empty
      */
-    public function render(string $templateHtml, array $payload, Collection $fields, ?string $disk = null): string
+    public function render(string $templateHtml, array $payload, Collection $fields, ?string $disk = null, ?Profile $profile = null): string
     {
         $disk ??= (string) config('documents.disk', 'public');
 
@@ -61,6 +65,31 @@ final class PdfTemplateRenderer
                 $replacement = $field
                     ? $this->replacementNodes($dom, $field, $payload, $disk)
                     : [$dom->createTextNode('')];
+
+                $parent = $token->parentNode;
+                if ($parent === null) {
+                    continue;
+                }
+                foreach ($replacement as $newNode) {
+                    $parent->insertBefore($newNode, $token);
+                }
+                $parent->removeChild($token);
+            }
+        }
+
+        // Universal tokens print a value straight from the submitter's profile,
+        // independent of whether the form has a matching field.
+        $universalTokens = $xpath->query('//span[@data-universal]');
+        if ($universalTokens !== false) {
+            $universalNodes = [];
+            foreach ($universalTokens as $node) {
+                $universalNodes[] = $node;
+            }
+
+            foreach ($universalNodes as $token) {
+                /** @var \DOMElement $token */
+                $key = (string) $token->getAttribute('data-universal');
+                $replacement = $this->universalNodes($dom, $profile, $key, $disk);
 
                 $parent = $token->parentNode;
                 if ($parent === null) {
@@ -127,5 +156,37 @@ final class PdfTemplateRenderer
         $text = SubmissionPresenter::display($payload, $key, $type, $options);
 
         return [$dom->createTextNode($text)];
+    }
+
+    /**
+     * Build the DOM node(s) that replace a single universal token, resolving the
+     * value off the submitter's profile. Image-typed universal fields (photos)
+     * render as an <img>; everything else renders as text. Missing profile or
+     * value degrades to an empty text node.
+     *
+     * @return array<int,\DOMNode>
+     */
+    private function universalNodes(\DOMDocument $dom, ?Profile $profile, string $key, string $disk): array
+    {
+        $value = UniversalField::valueFor($profile, $key);
+        if ($value === null || $value === '') {
+            return [$dom->createTextNode('')];
+        }
+
+        $meta = UniversalField::get($key);
+        if ($meta !== null && $meta['type'] === FieldType::IMAGE) {
+            $uri = SubmissionPresenter::imageDataUris(['__u' => $value], '__u', $disk);
+            if ($uri !== []) {
+                $img = $dom->createElement('img');
+                $img->setAttribute('src', $uri[0]);
+                $img->setAttribute('class', 'token-image');
+
+                return [$img];
+            }
+
+            return [$dom->createTextNode('')];
+        }
+
+        return [$dom->createTextNode((string) $value)];
     }
 }

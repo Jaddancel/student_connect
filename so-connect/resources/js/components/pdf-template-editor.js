@@ -25,6 +25,7 @@ const ALLOWED_TAGS = new Set([
 export function pdfTemplateEditor(config) {
     return {
         fields: config.fields,
+        universalFields: config.universalFields || [],
         model: config.model,
         csrf: config.csrf,
         exportUrl: config.exportUrl,
@@ -87,6 +88,22 @@ export function pdfTemplateEditor(config) {
             this.insertNodeAtCaret(surface, chip);
             // A trailing space keeps the caret editable after the chip.
             this.insertNodeAtCaret(surface, document.createTextNode(' '));
+            this.sync();
+        },
+
+        /** Insert a universal token that prints straight from the profile. */
+        insertUniversal(uf) {
+            const surface = this.$refs.surface;
+            surface.focus();
+
+            const chip = document.createElement('span');
+            chip.className = 'field-token';
+            chip.setAttribute('data-universal', uf.key);
+            chip.setAttribute('contenteditable', 'false');
+            chip.textContent = uf.label || uf.key;
+
+            this.insertNodeAtCaret(surface, chip);
+            this.insertNodeAtCaret(surface, document.createTextNode(' '));
             this.sync();
         },
 
@@ -187,6 +204,7 @@ export function pdfTemplateEditor(config) {
                         return;
                     }
                     const ok = name === 'data-field'
+                        || name === 'data-universal'
                         || name === 'contenteditable'
                         || (name === 'class' && el.classList.contains('field-token'));
                     if (!ok) el.removeAttribute(attr.name);

@@ -6,6 +6,7 @@
     /** @var \App\Models\Form $form */
     /** @var \Illuminate\Support\Collection $fields */
     $preview = $preview ?? false;
+    $prefill = $prefill ?? [];
     $layout = (array) ($form->layout ?? []);
     $header = (array) ($layout['header'] ?? []);
     $rows = $layout['rows'] ?? null;
@@ -91,7 +92,7 @@
                                     @foreach (($col['fields'] ?? []) as $fieldKey)
                                         @php $field = $fieldsByKey[$fieldKey] ?? null; @endphp
                                         @if ($field)
-                                            @include('components.form.fields.field', ['field' => $field])
+                                            @include('components.form.fields.field', ['field' => $field, 'prefill' => $prefill])
                                         @endif
                                     @endforeach
                                 </div>

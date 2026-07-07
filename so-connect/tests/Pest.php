@@ -45,3 +45,40 @@ function something()
 {
     // ..
 }
+
+/**
+ * Create a user (with profile) of the given user_type for records/admin tests.
+ */
+function recordsUser(int $type, array $profileAttributes = []): \App\Models\User
+{
+    $profile = \App\Models\Profile::query()->create(array_merge([
+        'first_name' => 'Rec',
+        'last_name' => 'User'.\Illuminate\Support\Str::random(6),
+        'middle_name' => 'T',
+        'occupation' => 'Staff',
+    ], $profileAttributes));
+
+    return \App\Models\User::query()->create([
+        'user_email' => 'rec'.\Illuminate\Support\Str::random(8).'@example.com',
+        'user_password' => 'password',
+        'user_type' => $type,
+        'profile' => $profile->getKey(),
+    ]);
+}
+
+/**
+ * Create an organization with a detail name for records tests.
+ */
+function recordsOrganization(string $name, ?string $initials = null): \App\Models\Organization
+{
+    $detail = \App\Models\Organization\OrganizationDetail::query()->create([
+        'name' => $name,
+        'initials' => $initials,
+        'detail_text' => $name.' description',
+    ]);
+
+    return \App\Models\Organization::query()->create([
+        'detail' => $detail->getKey(),
+        'organization_type' => 1,
+    ]);
+}

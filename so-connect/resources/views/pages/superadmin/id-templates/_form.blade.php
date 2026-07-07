@@ -1,0 +1,146 @@
+{{--
+    Shared Konva ID-template editor, used by create.blade.php and edit.blade.php.
+    Expects: $templateData (array) and $template (?IdTemplate).
+    The Alpine component `idTemplateEditor` is registered in resources/js/app.js.
+--}}
+<div class="space-y-6"
+    x-data="idTemplateEditor({
+        data: {{ Js::from($templateData) }},
+        storeUrl: '{{ route('superadmin.id-templates.store') }}',
+        updateUrl: '{{ $template ? route('superadmin.id-templates.update', $template) : '' }}',
+        uploadUrl: '{{ route('superadmin.id-templates.upload-image') }}',
+        csrf: '{{ csrf_token() }}',
+        assetBase: '/storage',
+    })">
+
+    {{-- Meta bar: name, toggles, save --}}
+    <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-end">
+            <div class="lg:col-span-1">
+                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                    Template name <span class="text-error-500">*</span>
+                </label>
+                <input type="text" x-model="name" placeholder="e.g. University X Student ID 2026"
+                    class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+            </div>
+            <div class="flex items-center gap-6">
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input type="checkbox" x-model="isActive"
+                        class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                    Active
+                </label>
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input type="checkbox" x-model="isDefault"
+                        class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                    Default (drives scanner)
+                </label>
+            </div>
+            <div class="flex items-center justify-end gap-3">
+                <span x-show="note" x-cloak x-text="note" class="text-xs text-error-500"></span>
+                <a href="{{ route('superadmin.id-templates.index') }}"
+                    class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                    Cancel
+                </a>
+                <button type="button" @click="save()" :disabled="saving"
+                    class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-60">
+                    <span x-show="!saving">Save template</span>
+                    <span x-show="saving" x-cloak>Saving…</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+
+        {{-- Canvas --}}
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Reference image</h3>
+                <label class="cursor-pointer rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                    <span x-text="imagePath ? 'Replace image' : 'Upload image'"></span>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="uploadImage($event)" />
+                </label>
+            </div>
+
+            <p x-show="!imagePath" x-cloak class="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-12 text-center text-sm text-gray-400 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-500">
+                Upload a clear, straight-on photo of the reference ID to begin drawing zones.
+            </p>
+
+            {{-- Konva injects its canvas into this container. --}}
+            <div x-show="imagePath" class="overflow-auto">
+                <div x-ref="stage" class="inline-block rounded-lg border border-gray-200 dark:border-gray-700"></div>
+            </div>
+
+            <p x-show="imagePath" x-cloak class="mt-3 text-xs text-gray-400 dark:text-gray-500">
+                Click a zone to select and resize it. Coordinates are saved in the image's native pixels, so
+                re-opening this editor overlays the zones exactly.
+            </p>
+        </div>
+
+        {{-- Zone panel --}}
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Zones</h3>
+                <button type="button" @click="addZone()"
+                    class="inline-flex items-center gap-1 rounded-lg border border-brand-300 px-2.5 py-1.5 text-xs font-medium text-brand-600 transition hover:bg-brand-50 dark:border-brand-700 dark:text-brand-400 dark:hover:bg-brand-900/20">
+                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add zone
+                </button>
+            </div>
+
+            <p x-show="zones.length === 0" x-cloak class="text-xs text-gray-400 dark:text-gray-500">
+                No zones yet. Add a zone, then position its rectangle over an ID feature (e.g. the student number).
+            </p>
+
+            {{-- Recommended targets: the code-defined universal fields, so a zone
+                 feeds the same key the signup wizard and forms autofill from. Any
+                 other snake_case key stays valid (extraction-only). --}}
+            <datalist id="id-template-field-options">
+                @foreach (\App\Support\UniversalField::catalog() as $ukey => $meta)
+                    <option value="{{ $ukey }}">{{ $meta['label'] }}</option>
+                @endforeach
+            </datalist>
+
+            <div class="space-y-3">
+                <template x-for="(zone, i) in zones" :key="i">
+                    <div class="rounded-xl border p-3 transition"
+                        :class="selectedIndex === i ? 'border-brand-400 ring-1 ring-brand-400 dark:border-brand-600' : 'border-gray-200 dark:border-gray-700'"
+                        @click="selectZone(i)">
+                        <div class="mb-2 flex items-center justify-between">
+                            <span class="text-xs font-semibold text-gray-500 dark:text-gray-400" x-text="'Zone ' + (i + 1)"></span>
+                            <button type="button" @click.stop="removeZone(i)"
+                                class="text-gray-400 transition hover:text-error-500">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+                        <div class="space-y-2">
+                            <div>
+                                <label class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Key (a-z, 0-9, _)</label>
+                                <input type="text" x-model="zone.name" placeholder="student_id"
+                                    class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Label</label>
+                                <input type="text" x-model="zone.label" placeholder="Student ID Number"
+                                    class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Writes to field</label>
+                                <input type="text" x-model="zone.field" list="id-template-field-options" placeholder="student_id"
+                                    class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                <p class="mt-1 text-[10px] text-gray-400 dark:text-gray-500">Universal keys (e.g. <code>student_id</code>, <code>first_name</code>, <code>birthday</code>) pre-fill the signup form; other keys are extraction-only.</p>
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Regex (optional)</label>
+                                <input type="text" x-model="zone.regex" placeholder="\d{2}-\d{4}-\d{3}"
+                                    class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 font-mono text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+</div>

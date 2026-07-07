@@ -6,6 +6,10 @@ use App\Http\Controllers\Admin\AccomplishmentReportRequestController;
 use App\Http\Controllers\Admin\AdminAccountCreationController;
 use App\Http\Controllers\Admin\AdminOfficerCreationController;
 use App\Http\Controllers\Admin\AdminWorkplanController;
+use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\DatabaseViewController;
+use App\Http\Controllers\Admin\IdTemplateController;
+use App\Http\Controllers\Admin\RequestRecordController;
 use App\Http\Controllers\Admin\ActivityRequestController as AdminActivityRequestController;
 use App\Http\Controllers\Admin\FinancialReportRequestController;
 use App\Http\Controllers\Admin\JointStatementRequestController;
@@ -30,6 +34,7 @@ use App\Http\Controllers\Admin\FormBuilderController;
 use App\Http\Controllers\FinancialReportController;
 use App\Http\Controllers\FormDirectoryController;
 use App\Http\Controllers\FormRenderController;
+use App\Http\Controllers\IdScanController;
 use App\Http\Controllers\JointStatementController;
 use App\Http\Controllers\LandingPage;
 use App\Http\Controllers\MembershipRegistrationController;
@@ -408,20 +413,38 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->whereNumber('id')
         ->name('admin.scoring.update');
 
-    Route::get('/admin/export', [ExportController::class, 'adminIndex'])
-        ->name('admin.export');
-    Route::get('/admin/export/org-data/json', [ExportController::class, 'adminExportOrgDataJson'])
-        ->name('admin.export.org-data.json');
-    Route::get('/admin/export/org-data/print', [ExportController::class, 'adminExportOrgDataPrint'])
-        ->name('admin.export.org-data.print');
-    Route::get('/admin/export/request-records/json', [ExportController::class, 'adminExportRequestRecordsJson'])
-        ->name('admin.export.request-records.json');
-    Route::get('/admin/export/request-records/print', [ExportController::class, 'adminExportRequestRecordsPrint'])
-        ->name('admin.export.request-records.print');
-    Route::get('/admin/export/org-data/xlsx', [ExportController::class, 'adminExportOrgDataXlsx'])
-        ->name('admin.export.org-data.xlsx');
-    Route::get('/admin/export/request-records/xlsx', [ExportController::class, 'adminExportRequestRecordsXlsx'])
-        ->name('admin.export.request-records.xlsx');
+    Route::get('/admin/audit-logs', [AuditLogController::class, 'index'])
+        ->name('admin.audit-logs.index');
+    Route::get('/admin/audit-logs/export/json', [AuditLogController::class, 'exportJson'])
+        ->name('admin.audit-logs.export.json');
+    Route::get('/admin/audit-logs/export/print', [AuditLogController::class, 'exportPrint'])
+        ->name('admin.audit-logs.export.print');
+    Route::get('/admin/audit-logs/export/xlsx', [AuditLogController::class, 'exportXlsx'])
+        ->name('admin.audit-logs.export.xlsx');
+
+    Route::get('/admin/request-records', [RequestRecordController::class, 'index'])
+        ->name('admin.request-records.index');
+    Route::get('/admin/request-records/export/json', [RequestRecordController::class, 'exportJson'])
+        ->name('admin.request-records.export.json');
+    Route::get('/admin/request-records/export/print', [RequestRecordController::class, 'exportPrint'])
+        ->name('admin.request-records.export.print');
+    Route::get('/admin/request-records/export/xlsx', [RequestRecordController::class, 'exportXlsx'])
+        ->name('admin.request-records.export.xlsx');
+
+    Route::get('/admin/database-view', [DatabaseViewController::class, 'index'])
+        ->name('admin.database-view.index');
+    Route::get('/admin/database-view/orgs/export/json', [DatabaseViewController::class, 'exportOrgsJson'])
+        ->name('admin.database-view.orgs.export.json');
+    Route::get('/admin/database-view/orgs/export/print', [DatabaseViewController::class, 'exportOrgsPrint'])
+        ->name('admin.database-view.orgs.export.print');
+    Route::get('/admin/database-view/orgs/export/xlsx', [DatabaseViewController::class, 'exportOrgsXlsx'])
+        ->name('admin.database-view.orgs.export.xlsx');
+    Route::get('/admin/database-view/officers/export/json', [DatabaseViewController::class, 'exportOfficersJson'])
+        ->name('admin.database-view.officers.export.json');
+    Route::get('/admin/database-view/officers/export/print', [DatabaseViewController::class, 'exportOfficersPrint'])
+        ->name('admin.database-view.officers.export.print');
+    Route::get('/admin/database-view/officers/export/xlsx', [DatabaseViewController::class, 'exportOfficersXlsx'])
+        ->name('admin.database-view.officers.export.xlsx');
 
     Route::get('/admin/officers/create', [AdminOfficerCreationController::class, 'create'])
         ->name('admin.officers.create');
@@ -923,3 +946,26 @@ Route::get('/api/superadmin/data/export', [SuperAdminController::class, 'apiExpo
 
 Route::post('/api/superadmin/data/import', [SuperAdminController::class, 'apiImport'])
     ->withoutMiddleware([VerifyCsrfToken::class]);
+
+// ── SuperAdmin ID-recognition template editor ───────────────────────────────
+Route::middleware(['auth', 'superadmin'])->group(function () {
+    Route::get('/superadmin/id-templates', [IdTemplateController::class, 'index'])
+        ->name('superadmin.id-templates.index');
+    Route::get('/superadmin/id-templates/create', [IdTemplateController::class, 'create'])
+        ->name('superadmin.id-templates.create');
+    Route::post('/superadmin/id-templates', [IdTemplateController::class, 'store'])
+        ->name('superadmin.id-templates.store');
+    Route::post('/superadmin/id-templates/upload-image', [IdTemplateController::class, 'uploadImage'])
+        ->name('superadmin.id-templates.upload-image');
+    Route::get('/superadmin/id-templates/{idTemplate}/edit', [IdTemplateController::class, 'edit'])
+        ->name('superadmin.id-templates.edit');
+    Route::put('/superadmin/id-templates/{idTemplate}', [IdTemplateController::class, 'update'])
+        ->name('superadmin.id-templates.update');
+    Route::delete('/superadmin/id-templates/{idTemplate}', [IdTemplateController::class, 'destroy'])
+        ->name('superadmin.id-templates.destroy');
+});
+
+// Auto-scan pre-fill for the (public) student-leader-directory signup form.
+// Intentionally NOT behind `auth` — that form is filled by users without an
+// account yet. Fails soft when no active template / sidecar is available.
+Route::post('/id-scan', [IdScanController::class, 'scan'])->name('id-scan.scan');

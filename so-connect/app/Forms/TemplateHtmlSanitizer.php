@@ -105,6 +105,9 @@ final class TemplateHtmlSanitizer
             if ($lower === 'data-field' && $tag === 'span') {
                 continue;
             }
+            if ($lower === 'data-universal' && $tag === 'span') {
+                continue;
+            }
             if ($lower === 'contenteditable' && $tag === 'span') {
                 continue;
             }

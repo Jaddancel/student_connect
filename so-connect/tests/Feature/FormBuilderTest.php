@@ -220,3 +220,102 @@ it('enforces required-field validation on submit', function () {
         ->post(route('forms.render.submit', 'required-form'), [])
         ->assertSessionHasErrors('needed');
 });
+
+it('persists and reloads a field universal_key mapping', function () {
+    $admin = makeUser(2);
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
+        'name' => 'Mapped Form', 'route_name' => 'mapped-form',
+        'is_active' => true, 'is_published' => false,
+        'fields' => [
+            ['field_key' => 'fn', 'field_label' => 'First', 'field_type' => 'text', 'universal_key' => 'first_name'],
+            ['field_key' => 'note', 'field_label' => 'Note', 'field_type' => 'text'],
+        ],
+        'rows' => [],
+        'pdf_template' => ['html' => '', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ])->assertOk();
+
+    $form = Form::where('route_name', 'mapped-form')->first();
+    expect($form->fields()->where('field_key', 'fn')->value('universal_key'))->toBe('first_name');
+    expect($form->fields()->where('field_key', 'note')->value('universal_key'))->toBeNull();
+
+    // Reload path: editorDataFromForm surfaces the mapping back into the editor.
+    $response = $this->actingAs($admin)->get(route('admin.form-builder.edit', $form))->assertOk();
+    $fields = collect($response->viewData('editorData')['fields']);
+    expect($fields->firstWhere('field_key', 'fn')['universal_key'])->toBe('first_name');
+    expect($fields->firstWhere('field_key', 'note')['universal_key'])->toBe('');
+});
+
+it('rejects an unknown universal_key', function () {
+    $admin = makeUser(2);
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
+        'name' => 'Bad Map', 'route_name' => 'bad-map',
+        'is_active' => true, 'is_published' => false,
+        'fields' => [
+            ['field_key' => 'x', 'field_label' => 'X', 'field_type' => 'text', 'universal_key' => 'not_a_field'],
+        ],
+        'rows' => [],
+        'pdf_template' => ['html' => '', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ])->assertStatus(422)->assertJsonValidationErrors('fields.0.universal_key');
+
+    expect(Form::where('route_name', 'bad-map')->exists())->toBeFalse();
+});
+
+it('prefills mapped fields from the signed-in user profile', function () {
+    // makeUser's profile has first_name = 'Form', last_name = 'Builder'.
+    $user = makeUser(3);
+
+    $form = Form::create([
+        'name' => 'Prefill Form', 'route_name' => 'prefill-form',
+        'is_active' => true, 'is_published' => true, 'sidebar_group' => ['admin'],
+        'layout' => ['rows' => []],
+        'pdf_template' => [
+            'html' => '<p><span data-field="fn" contenteditable="false">First</span></p>',
+            'page' => ['size' => 'a4', 'orientation' => 'portrait'],
+        ],
+    ]);
+    FormDescription::create([
+        'form_id' => $form->id, 'field_key' => 'fn', 'field_label' => 'First',
+        'field_type' => 'text', 'field_order' => 1, 'universal_key' => 'first_name',
+    ]);
+    // Unmapped field: must NOT be pre-filled even though the profile has a value.
+    FormDescription::create([
+        'form_id' => $form->id, 'field_key' => 'note', 'field_label' => 'Note',
+        'field_type' => 'text', 'field_order' => 2,
+    ]);
+
+    $html = $this->actingAs($user)->get(route('forms.render', 'prefill-form'))
+        ->assertOk()->getContent();
+
+    expect($html)->toContain('value="Form"')      // mapped field autofilled
+        ->not->toContain('value="Builder"');      // last_name is not mapped anywhere
+});
+
+it('does not prefill when the user has no profile', function () {
+    $user = User::query()->create([
+        'user_email' => 'noprofile@example.com',
+        'user_password' => 'password',
+        'user_type' => 3,
+        'profile' => null,
+    ]);
+
+    $form = Form::create([
+        'name' => 'No Profile Form', 'route_name' => 'no-profile-form',
+        'is_active' => true, 'is_published' => true, 'sidebar_group' => ['admin'],
+        'layout' => ['rows' => []],
+        'pdf_template' => [
+            'html' => '<p><span data-field="fn" contenteditable="false">First</span></p>',
+            'page' => ['size' => 'a4', 'orientation' => 'portrait'],
+        ],
+    ]);
+    FormDescription::create([
+        'form_id' => $form->id, 'field_key' => 'fn', 'field_label' => 'First',
+        'field_type' => 'text', 'field_order' => 1, 'universal_key' => 'first_name',
+    ]);
+
+    $html = $this->actingAs($user)->get(route('forms.render', 'no-profile-form'))
+        ->assertOk()->getContent();
+
+    expect($html)->toContain('name="fn"')->not->toContain('value="Form"');
+});

@@ -3,6 +3,7 @@
 use App\Forms\PdfTemplateRenderer;
 use App\Forms\TemplateHtmlSanitizer;
 use App\Models\Form\FormDescription;
+use App\Models\Profile;
 use Illuminate\Support\Collection;
 
 it('replaces field tokens with submission values by key', function () {
@@ -31,6 +32,55 @@ it('renders a deleted field token as an empty placeholder, not an error', functi
 
     expect($out)->toContain('Value:');
     expect($out)->not->toContain('data-field');
+});
+
+it('renders a data-universal token from the submitter profile', function () {
+    $fields = new Collection([]); // universal tokens need no form field
+    $profile = new Profile(['first_name' => 'Juan', 'student_id' => '21-1234-567']);
+
+    $html = '<p>Name: <span class="field-token" data-universal="first_name" contenteditable="false">First Name</span>, '
+        .'ID: <span class="field-token" data-universal="student_id" contenteditable="false">Student ID</span></p>';
+
+    $out = (new PdfTemplateRenderer())->render($html, [], $fields, null, $profile);
+
+    expect($out)->toContain('Name: Juan,')
+        ->and($out)->toContain('ID: 21-1234-567')
+        ->and($out)->not->toContain('data-universal');
+});
+
+it('renders data-universal tokens empty when there is no profile', function () {
+    $fields = new Collection([]);
+
+    $html = '<p>Name: <span class="field-token" data-universal="first_name" contenteditable="false">First Name</span>.</p>';
+
+    $out = (new PdfTemplateRenderer())->render($html, [], $fields, null, null);
+
+    expect($out)->toContain('Name: .')
+        ->and($out)->not->toContain('data-universal');
+});
+
+it('resolves field and universal tokens together', function () {
+    $fields = new Collection([
+        new FormDescription(['field_key' => 'reason', 'field_label' => 'Reason', 'field_type' => 'text']),
+    ]);
+    $profile = new Profile(['first_name' => 'Ana']);
+
+    $html = '<p><span data-universal="first_name">First</span> — <span data-field="reason">Reason</span></p>';
+
+    $out = (new PdfTemplateRenderer())->render($html, ['reason' => 'field trip'], $fields, null, $profile);
+
+    expect($out)->toContain('Ana — field trip')
+        ->and($out)->not->toContain('data-universal')
+        ->and($out)->not->toContain('data-field');
+});
+
+it('keeps data-universal through sanitization', function () {
+    $dirty = '<p><span class="field-token" data-universal="first_name" onclick="x()" contenteditable="false">First Name</span></p>';
+
+    $clean = TemplateHtmlSanitizer::sanitize($dirty);
+
+    expect($clean)->toContain('data-universal="first_name"')
+        ->and($clean)->not->toContain('onclick');
 });
 
 it('sanitizes template html to the allowed tag set', function () {

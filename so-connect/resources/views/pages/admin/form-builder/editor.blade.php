@@ -1,5 +1,15 @@
 @extends('layouts.app')
 
+@php
+    // Universal-field options for the "Autofill from profile" mapping. Grouped so
+    // the <select> can render <optgroup>s that mirror App\Support\UniversalField.
+    $universalGroups = \App\Support\UniversalField::grouped();
+    $universalGroupLabels = [
+        'name' => 'Name', 'contact' => 'Contact', 'personal' => 'Personal',
+        'academic' => 'Academic', 'id' => 'Identity',
+    ];
+@endphp
+
 @section('content')
     <x-common.page-breadcrumb :pageTitle="$form ? 'Edit Form' : 'New Form'" />
 
@@ -140,6 +150,22 @@
                             <div x-show="!['heading','static-text','signature','image','file','select','radio','checkbox'].includes(f.field_type)">
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Placeholder</label>
                                 <input type="text" x-model="f.placeholder_hint" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
+                            </div>
+
+                            {{-- autofill from profile (universal field mapping) --}}
+                            <div x-show="!['heading','static-text'].includes(f.field_type)">
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Autofill from profile</label>
+                                <select x-model="f.universal_key" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
+                                    <option value="">— none —</option>
+                                    @foreach ($universalGroups as $group => $entries)
+                                        <optgroup label="{{ $universalGroupLabels[$group] ?? ucfirst($group) }}">
+                                            @foreach ($entries as $ukey => $meta)
+                                                <option value="{{ $ukey }}">{{ $meta['label'] }}</option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endforeach
+                                </select>
+                                <p class="mt-1 text-[10px] text-gray-400">Pre-fills this field from the signed-in user's profile.</p>
                             </div>
 
                             {{-- static text body --}}

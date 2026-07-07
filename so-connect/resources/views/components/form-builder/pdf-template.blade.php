@@ -1,5 +1,14 @@
 @props(['exportUrl', 'importUrl'])
-@php $assetBase = rtrim(\Illuminate\Support\Facades\Storage::disk(config('documents.disk', 'public'))->url('/'), '/'); @endphp
+@php
+    $assetBase = rtrim(\Illuminate\Support\Facades\Storage::disk(config('documents.disk', 'public'))->url('/'), '/');
+    // Flat list of universal fields for the "Universal fields" token palette.
+    $universalTokens = [];
+    foreach (\App\Support\UniversalField::grouped() as $group => $entries) {
+        foreach ($entries as $ukey => $meta) {
+            $universalTokens[] = ['key' => $ukey, 'label' => $meta['label'], 'group' => $group];
+        }
+    }
+@endphp
 
 {{--
     Wizard Step 2 — the separate printed-PDF template editor. Nested inside the
@@ -11,6 +20,7 @@
         fields: fields,
         model: pdf_template,
         csrf: csrf,
+        universalFields: {{ Js::from($universalTokens) }},
         uploadUrl: uploadUrl,
         assetBase: '{{ $assetBase }}',
         exportUrl: '{{ $exportUrl }}',
@@ -39,6 +49,24 @@
                 </template>
                 <template x-if="printableFields.length === 0">
                     <p class="text-xs text-gray-400">No fillable fields yet — add some in Step 1.</p>
+                </template>
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+            <h3 class="mb-1 text-sm font-semibold text-gray-800 dark:text-white/90">Universal fields</h3>
+            <p class="mb-3 text-xs text-gray-400">Prints straight from the submitter's profile — no matching form field needed.</p>
+            <div class="space-y-2">
+                <template x-for="uf in universalFields" :key="uf.key">
+                    <button type="button"
+                        @click="insertUniversal(uf)"
+                        class="flex w-full items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:text-gray-300">
+                        <span class="text-gray-300">◈</span>
+                        <span class="min-w-0">
+                            <span class="block truncate" x-text="uf.label"></span>
+                            <span class="block font-mono text-[10px] text-gray-400" x-text="uf.key"></span>
+                        </span>
+                    </button>
                 </template>
             </div>
         </div>

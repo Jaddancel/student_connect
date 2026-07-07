@@ -64,6 +64,7 @@ class MenuHelper
                     ['icon' => 'user-profile', 'name' => 'Profile Manager', 'path' => '/superadmin/profiles'],
                     ['icon' => 'user-profile', 'name' => 'Create Admin', 'path' => '/superadmin/accounts/create'],
                     ['icon' => 'forms', 'name' => 'Form Builder', 'path' => '/admin/form-builder'],
+                    ['icon' => 'pages', 'name' => 'ID Templates', 'path' => '/superadmin/id-templates'],
                     ['icon' => 'tables', 'name' => 'Export Data', 'path' => '/superadmin/export'],
                     ['icon' => 'charts', 'name' => 'Score Audit', 'path' => '/superadmin/scoring/audit'],
                 ],
@@ -77,7 +78,15 @@ class MenuHelper
                     ['icon' => 'pages',    'name' => 'Posts',              'path' => '/posts'],
                     ['icon' => 'forms',    'name' => 'Form Builder',       'path' => '/admin/form-builder'],
                     ['icon' => 'calendar', 'name' => 'Semester Management','path' => '/admin/semesters'],
-                    ['icon' => 'tables',  'name' => 'Export Data',        'path' => '/admin/export'],
+                ],
+            ];
+
+            $menuGroups[] = [
+                'title' => 'Records',
+                'items' => [
+                    ['icon' => 'charts', 'name' => 'Audit Logs',      'path' => '/admin/audit-logs'],
+                    ['icon' => 'task',   'name' => 'Request Records', 'path' => '/admin/request-records'],
+                    ['icon' => 'tables', 'name' => 'Database View',   'path' => '/admin/database-view'],
                 ],
             ];
 

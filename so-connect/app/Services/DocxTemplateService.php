@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\UniversalField;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -91,6 +92,14 @@ class DocxTemplateService
      */
     private function tokensToPlaceholders(string $html): string
     {
+        // Universal tokens use a namespaced `{{profile.key}}` placeholder so they
+        // stay distinguishable from ordinary field tokens on re-import.
+        $html = (string) preg_replace_callback(
+            '/<span\b[^>]*\bdata-universal="([^"]+)"[^>]*>.*?<\/span>/is',
+            fn ($m) => '{{profile.'.$m[1].'}}',
+            $html,
+        );
+
         return (string) preg_replace_callback(
             '/<span\b[^>]*\bdata-field="([^"]+)"[^>]*>.*?<\/span>/is',
             fn ($m) => '{{'.$m[1].'}}',
@@ -106,6 +115,22 @@ class DocxTemplateService
      */
     private function placeholdersToTokens(string $html, array $fields): string
     {
+        // Namespaced `{{profile.key}}` placeholders map back to universal tokens,
+        // resolving their label from the registry. Unknown keys fall through to
+        // the ordinary field pass below.
+        $html = (string) preg_replace_callback(
+            '/\{\{\s*profile\.([A-Za-z0-9_]+)\s*\}\}|\$\{\s*profile\.([A-Za-z0-9_]+)\s*\}/',
+            function ($m) {
+                $key = $m[1] !== '' ? $m[1] : ($m[2] ?? '');
+                if ($key === '' || ! UniversalField::has($key)) {
+                    return $m[0];
+                }
+
+                return '<span class="field-token" data-universal="'.e($key).'" contenteditable="false">'.e(UniversalField::label($key)).'</span>';
+            },
+            $html,
+        );
+
         return (string) preg_replace_callback(
             '/\{\{\s*([A-Za-z0-9_]+)\s*\}\}|\$\{\s*([A-Za-z0-9_]+)\s*\}/',
             function ($m) use ($fields) {
