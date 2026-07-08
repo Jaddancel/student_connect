@@ -46,6 +46,51 @@
 
 {{-- ── MAIN GRID ───────────────────────────────────────────────────────────── --}}
 <div class="grid grid-cols-12 gap-4 md:gap-6">
+    <div class="col-span-12">
+        <div class="rounded-2xl border border-brand-100 bg-gradient-to-r from-brand-50 to-white p-5 shadow-sm dark:border-brand-900/30 dark:from-brand-950/20 dark:to-gray-900">
+            <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <p class="text-sm font-semibold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">Executive reporting</p>
+                        <span class="inline-flex items-center gap-2 rounded-full bg-success-50 px-3 py-1 text-xs font-medium text-success-700 dark:bg-success-500/10 dark:text-success-400">
+                            <span class="h-2 w-2 animate-pulse rounded-full bg-success-500"></span>
+                            Live
+                        </span>
+                    </div>
+                    <h2 class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">Generate and export the admin dashboard report for leadership review and monitor live audit activity.</h2>
+                </div>
+                <a href="{{ route('dashboard-reports.index') }}" class="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700">Open report</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-span-12">
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div class="flex items-center justify-between border-b border-gray-200 pb-4 dark:border-gray-700">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Live Audit Activity</h2>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Recent system actions refresh automatically.</p>
+                </div>
+                <span class="inline-flex items-center gap-2 rounded-full bg-success-50 px-3 py-1 text-xs font-medium text-success-700 dark:bg-success-500/10 dark:text-success-400">
+                    <span class="h-2 w-2 animate-pulse rounded-full bg-success-500"></span>
+                    Live
+                </span>
+            </div>
+            <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                    <tr>
+                        <th class="px-4 py-3">Actor</th>
+                        <th class="px-4 py-3">Event</th>
+                        <th class="px-4 py-3">Timestamp</th>
+                    </tr>
+                    </thead>
+                    <tbody id="superadmin-dashboard-audit-rows">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
     {{-- ══ KPI CARDS ══════════════════════════════════════════════════════════ --}}
 
@@ -397,6 +442,47 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const adminRows = document.getElementById('admin-dashboard-audit-rows');
+    const superAdminRows = document.getElementById('superadmin-dashboard-audit-rows');
+    const endpoint = '{{ route('dashboard-reports.audit-logs.recent') }}';
+
+    async function loadDashboardAuditRows() {
+        try {
+            const response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+            if (!response.ok) {
+                throw new Error('Unable to load audit logs');
+            }
+
+            const entries = await response.json();
+            const markup = (entries && entries.length > 0)
+                ? entries.map((entry) => `
+                    <tr class="border-t border-gray-200 dark:border-gray-700">
+                        <td class="px-4 py-3">${entry.name || entry.user_email || '—'}</td>
+                        <td class="px-4 py-3">${entry.interaction || '—'}</td>
+                        <td class="px-4 py-3">${entry.logged_at || '—'}</td>
+                    </tr>
+                `).join('')
+                : '<tr class="border-t border-gray-200 dark:border-gray-700"><td colspan="3" class="px-4 py-6 text-center text-gray-500 dark:text-gray-400">No audit activity recorded yet.</td></tr>';
+
+            if (adminRows) {
+                adminRows.innerHTML = markup;
+            }
+            if (superAdminRows) {
+                superAdminRows.innerHTML = markup;
+            }
+        } catch (error) {
+            const fallback = '<tr class="border-t border-gray-200 dark:border-gray-700"><td colspan="3" class="px-4 py-6 text-center text-gray-500 dark:text-gray-400">Unable to load live audit activity.</td></tr>';
+            if (adminRows) {
+                adminRows.innerHTML = fallback;
+            }
+            if (superAdminRows) {
+                superAdminRows.innerHTML = fallback;
+            }
+        }
+    }
+
+    loadDashboardAuditRows();
+    setInterval(loadDashboardAuditRows, 15000);
     const isDark     = document.documentElement.classList.contains('dark');
     const gridColor  = isDark ? 'rgba(255,255,255,0.05)' : '#f3f4f6';
     const labelColor = isDark ? '#6b7280' : '#9ca3af';

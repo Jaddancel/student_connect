@@ -61,6 +61,7 @@ class MenuHelper
                 'title' => 'Admin',
                 'items' => [
                     ['icon' => 'dashboard', 'name' => 'System Dashboard', 'path' => '/superadmin/dashboard'],
+                    ['icon' => 'charts', 'name' => 'Executive Report', 'path' => '/dashboard-reports'],
                     ['icon' => 'user-profile', 'name' => 'Profile Manager', 'path' => '/superadmin/profiles'],
                     ['icon' => 'user-profile', 'name' => 'Create Admin', 'path' => '/superadmin/accounts/create'],
                     ['icon' => 'forms', 'name' => 'Form Builder', 'path' => '/admin/form-builder'],
@@ -75,6 +76,7 @@ class MenuHelper
             $menuGroups[] = [
                 'title' => 'Admin',
                 'items' => [
+                    ['icon' => 'charts', 'name' => 'Executive Report', 'path' => '/dashboard-reports'],
                     ['icon' => 'pages',    'name' => 'Posts',              'path' => '/posts'],
                     ['icon' => 'forms',    'name' => 'Form Builder',       'path' => '/admin/form-builder'],
                     ['icon' => 'calendar', 'name' => 'Semester Management','path' => '/admin/semesters'],

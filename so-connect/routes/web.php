@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\AdminAccountCreationController;
 use App\Http\Controllers\Admin\AdminOfficerCreationController;
 use App\Http\Controllers\Admin\AdminWorkplanController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\DashboardReportController;
 use App\Http\Controllers\Admin\DatabaseViewController;
 use App\Http\Controllers\Admin\IdTemplateController;
 use App\Http\Controllers\Admin\RequestRecordController;
@@ -316,6 +317,19 @@ Route::middleware('auth')->group(function () {
     Route::get('/forms', [FormDirectoryController::class, 'index'])->name('forms.directory');
     Route::get('/forms/{routeName}', [FormRenderController::class, 'show'])->name('forms.render');
     Route::post('/forms/{routeName}', [FormRenderController::class, 'submit'])->name('forms.render.submit');
+});
+
+Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
+    Route::get('/dashboard-reports', [DashboardReportController::class, 'index'])
+        ->name('dashboard-reports.index');
+    Route::get('/dashboard-reports/export/csv', [DashboardReportController::class, 'exportCsv'])
+        ->name('dashboard-reports.export.csv');
+    Route::get('/dashboard-reports/export/excel', [DashboardReportController::class, 'exportExcel'])
+        ->name('dashboard-reports.export.excel');
+    Route::get('/dashboard-reports/export/pdf', [DashboardReportController::class, 'exportPdf'])
+        ->name('dashboard-reports.export.pdf');
+    Route::get('/dashboard-reports/audit-logs/recent', [DashboardReportController::class, 'recentAuditLogs'])
+        ->name('dashboard-reports.audit-logs.recent');
 });
 
 Route::middleware(['auth', 'admin'])->group(function () {
