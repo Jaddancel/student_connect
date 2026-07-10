@@ -433,6 +433,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
     Route::get('/admin/database-view', [DatabaseViewController::class, 'index'])
         ->name('admin.database-view.index');
+    Route::get('/admin/database-view/officers', [DatabaseViewController::class, 'officers'])
+        ->name('admin.database-view.officers');
     Route::get('/admin/database-view/orgs/export/json', [DatabaseViewController::class, 'exportOrgsJson'])
         ->name('admin.database-view.orgs.export.json');
     Route::get('/admin/database-view/orgs/export/print', [DatabaseViewController::class, 'exportOrgsPrint'])

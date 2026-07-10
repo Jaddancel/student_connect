@@ -2,12 +2,14 @@
  * Two-step signup wizard for the student-leader directory form.
  *
  * Step 1 is a live-camera ID scanner (with an ID-card finder overlay and an
- * upload fallback): a captured/uploaded front-ID photo is POSTed to `/id-scan`,
- * and the returned universal-keyed `fields` map pre-fills Step 2's inputs. The
- * captured frame is written into the real `id_photo_front` file input via a
+ * upload fallback) that captures BOTH sides of the ID in sequence: the user
+ * scans the front, then the back. Each captured/uploaded photo is POSTed to
+ * `/id-scan` with its `side`, and the returned universal-keyed `fields` maps are
+ * MERGED (front wins ties) to pre-fill Step 2's inputs. The captured frames are
+ * written into the real `id_photo_front` / `id_photo_back` file inputs via a
  * DataTransfer so the server's existing `store()` handling is untouched.
  *
- * Step 2 is the existing directory form, shown once the user continues.
+ * Step 2 is the existing directory form, shown once both sides are captured.
  *
  * Only the client UI changes — the same multipart POST is submitted either way.
  */
@@ -38,22 +40,47 @@ export function idScanWizard(config = {}) {
         step: 1,
         scanUrl: config.scanUrl,
         csrf: config.csrf,
+        // 'vertical' (portrait, default) | 'horizontal' — sizes the finder overlay
+        // to match the active template's ID orientation.
+        orientation: config.orientation === 'horizontal' ? 'horizontal' : 'vertical',
         stream: null,
         cameraOn: false,
         cameraError: '',
         scanning: false,
         scanNote: '',
+        scanSide: 'front', // which side the camera/upload currently targets
         frontPreview: null,
-        detected: {}, // universal_key => value we applied to an input
+        backPreview: null,
+        detected: {}, // universal_key => value we applied to an input (across both sides)
 
         init() {
             // A failed submit round-trips old() into Step 2 — land the user there.
             if (config.hasErrors) this.step = 2;
         },
 
+        /** CSS aspect-ratio for the finder overlay, per orientation. */
+        get overlayAspect() {
+            return this.orientation === 'vertical' ? '1 / 1.586' : '1.586 / 1';
+        },
+
+        /** Both sides captured — required before continuing to the form. */
+        get canContinue() {
+            return !!this.frontPreview && !!this.backPreview;
+        },
+
+        previewFor(side) {
+            return side === 'back' ? this.backPreview : this.frontPreview;
+        },
+
         /** Detected fields as a list for x-for rendering. */
         get detectedEntries() {
             return Object.entries(this.detected).map(([key, value]) => ({ key, value }));
+        },
+
+        // --- side selection ---
+        selectSide(side) {
+            this.scanSide = side === 'back' ? 'back' : 'front';
+            this.scanNote = '';
         },
 
         // --- camera ---
@@ -85,11 +112,12 @@ export function idScanWizard(config = {}) {
             this.cameraOn = false;
         },
 
-        /** Grab the current video frame and treat it as the front-ID photo. */
+        /** Grab the current video frame as the current side's ID photo. */
         capture() {
             const video = this.$refs.video;
             if (!video || !video.videoWidth) return;
 
+            const side = this.scanSide;
             const canvas = this.$refs.canvas;
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
@@ -97,40 +125,43 @@ export function idScanWizard(config = {}) {
 
             canvas.toBlob((blob) => {
                 if (!blob) return;
-                const file = new File([blob], 'id-front.jpg', { type: 'image/jpeg' });
-                this.applyFrontFile(file);
+                const file = new File([blob], `id-${side}.jpg`, { type: 'image/jpeg' });
+                this.applyFile(file, side);
                 this.stopCamera();
             }, 'image/jpeg', 0.92);
         },
 
         // --- upload fallback ---
-        onUploadFront(event) {
+        onUpload(event, side) {
             const file = event.target.files && event.target.files[0];
-            if (file) this.applyFrontFile(file, true); // file is already on the input
+            if (file) this.applyFile(file, side, true); // file is already on the input
         },
 
         /**
-         * Put the front-ID file onto the real `id_photo_front` input (unless the
+         * Put a captured file onto the real `id_photo_<side>` input (unless the
          * native change already did), preview it, and scan it.
          */
-        applyFrontFile(file, alreadyOnInput = false) {
-            const input = document.getElementById('id_photo_front');
+        applyFile(file, side, alreadyOnInput = false) {
+            const inputId = side === 'back' ? 'id_photo_back' : 'id_photo_front';
+            const input = document.getElementById(inputId);
             if (input && !alreadyOnInput) {
                 const dt = new DataTransfer();
                 dt.items.add(file);
                 input.files = dt.files;
             }
-            if (this.frontPreview) URL.revokeObjectURL(this.frontPreview);
-            this.frontPreview = URL.createObjectURL(file);
-            this.scan(file);
+            const key = side === 'back' ? 'backPreview' : 'frontPreview';
+            if (this[key]) URL.revokeObjectURL(this[key]);
+            this[key] = URL.createObjectURL(file);
+            this.scan(file, side);
         },
 
-        async scan(file) {
+        async scan(file, side) {
             this.scanning = true;
-            this.scanNote = 'Reading your ID…';
+            this.scanNote = `Reading the ${side} of your ID…`;
             try {
                 const body = new FormData();
                 body.append('photo', file);
+                body.append('side', side);
                 body.append('_token', this.csrf);
                 const res = await fetch(this.scanUrl, { method: 'POST', body });
                 const json = await res.json();
@@ -149,14 +180,19 @@ export function idScanWizard(config = {}) {
                 this.scanNote = 'Could not read the ID — you can fill the form manually.';
             } finally {
                 this.scanning = false;
+                // After the front, nudge the user to capture the back next.
+                if (side === 'front' && !this.backPreview) this.selectSide('back');
             }
         },
 
-        /** Map universal keys onto this form's inputs, never clobbering typed values. */
+        /**
+         * Merge universal keys onto this form's inputs, never clobbering typed
+         * values and never overwriting a value already detected from the other side.
+         */
         applyPrefill(fields) {
-            this.detected = {};
             Object.entries(fields || {}).forEach(([key, value]) => {
                 if (value === null || value === undefined || value === '') return;
+                if (this.detected[key]) return; // first side to detect a key wins
                 const name = UNIVERSAL_TO_INPUT[key];
                 if (!name) return;
                 const input = document.querySelector(`[name="${name}"]`);

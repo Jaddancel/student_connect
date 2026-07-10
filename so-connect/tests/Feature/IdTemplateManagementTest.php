@@ -16,6 +16,7 @@ function idTemplatePayload(array $overrides = []): array
 {
     return array_merge([
         'name' => 'University X Student ID 2026',
+        'orientation' => 'vertical',
         'image_path' => 'id-templates/reference.jpg',
         'image_width' => 1000,
         'image_height' => 600,
@@ -27,6 +28,16 @@ function idTemplatePayload(array $overrides = []): array
             'x1' => 100, 'y1' => 300, 'x2' => 500, 'y2' => 360,
             'regex' => '\\d{2}-\\d{4}-\\d{3}',
             'field' => 'student_id',
+        ]],
+        'back_image_path' => 'id-templates/reference-back.jpg',
+        'back_image_width' => 1000,
+        'back_image_height' => 600,
+        'back_zones' => [[
+            'name' => 'home_address',
+            'label' => 'Home Address',
+            'x1' => 50, 'y1' => 100, 'x2' => 600, 'y2' => 200,
+            'regex' => null,
+            'field' => 'home_address',
         ]],
     ], $overrides);
 }
@@ -53,6 +64,38 @@ it('stores a template preserving native zone coordinates', function () {
     expect($template->zones[0]['x2'])->toBe(500);
     expect($template->zones[0]['field'])->toBe('student_id');
     expect($template->is_default)->toBeTrue();
+});
+
+it('stores both the front and back sides', function () {
+    $this->actingAs(recordsUser(1))
+        ->postJson(route('superadmin.id-templates.store'), idTemplatePayload())
+        ->assertOk();
+
+    $template = IdTemplate::query()->firstOrFail();
+
+    expect($template->orientation)->toBe('vertical');
+    expect($template->back_image_path)->toBe('id-templates/reference-back.jpg');
+    expect($template->back_zones)->toBeArray()->toHaveCount(1);
+    expect($template->back_zones[0]['field'])->toBe('home_address');
+});
+
+it('requires zones on the back side', function () {
+    $payload = idTemplatePayload();
+    unset($payload['back_zones']);
+
+    $this->actingAs(recordsUser(1))
+        ->postJson(route('superadmin.id-templates.store'), $payload)
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['back_zones']);
+});
+
+it('rejects a back-side zone outside the image bounds', function () {
+    $payload = idTemplatePayload();
+    $payload['back_zones'][0]['x2'] = 1200; // wider than the 1000px reference
+
+    $this->actingAs(recordsUser(1))
+        ->postJson(route('superadmin.id-templates.store'), $payload)
+        ->assertStatus(422);
 });
 
 it('rejects a zero/negative-width zone', function () {
@@ -147,6 +190,36 @@ it('returns universal-keyed fields for the signup wizard to prefill', function (
             'birthday' => '2003-05-01',
         ],
     ]);
+});
+
+it('scans the back side against the back zones', function () {
+    // The sidecar echoes text keyed by zone name; a back scan must map the
+    // back zone (home_address) rather than any front zone.
+    Http::fake(['*/scan' => Http::response(['fields' => [
+        'home_address' => '123 Rizal St, Cebu City',
+    ], 'raw' => []], 200)]);
+
+    IdTemplate::query()->create(idTemplatePayload());
+
+    $this->post(route('id-scan.scan'), [
+        'photo' => UploadedFile::fake()->image('back.jpg', 1000, 600),
+        'side' => 'back',
+    ])->assertOk()->assertJson([
+        'fields' => ['home_address' => '123 Rizal St, Cebu City'],
+    ]);
+});
+
+it('returns empty for a back scan when the template has no back zones', function () {
+    Http::fake(['*/scan' => Http::response(['fields' => ['home_address' => 'X'], 'raw' => []], 200)]);
+
+    IdTemplate::query()->create(idTemplatePayload(['back_zones' => []]));
+
+    $this->post(route('id-scan.scan'), [
+        'photo' => UploadedFile::fake()->image('back.jpg', 1000, 600),
+        'side' => 'back',
+    ])->assertOk()->assertJson(['fields' => [], 'note' => 'no back zones']);
+
+    Http::assertNothingSent();
 });
 
 it('degrades gracefully when the OCR sidecar is unreachable', function () {

@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
         $this->call(AdminSeeder::class);
         $this->call(FormPageSeeder::class);
         $this->call(BuilderFormSeeder::class);
+        $this->call(TemplateSeeder::class);
         $this->call(EventPlanSeeder::class);
         $this->call(SemesterSeeder::class);
     }

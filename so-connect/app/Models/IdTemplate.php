@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
  * A SuperAdmin-authored "ID template": a reference ID image plus a set of named
@@ -15,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class IdTemplate extends Model
 {
+    use HasFactory;
+
     protected $table = 'id_templates';
 
     protected $primaryKey = 'id_template_id';
@@ -25,6 +28,11 @@ class IdTemplate extends Model
         'image_width',
         'image_height',
         'zones',
+        'back_image_path',
+        'back_image_width',
+        'back_image_height',
+        'back_zones',
+        'orientation',
         'is_active',
         'is_default',
         'created_by',
@@ -34,10 +42,13 @@ class IdTemplate extends Model
     {
         return [
             'zones' => 'array',
+            'back_zones' => 'array',
             'is_active' => 'boolean',
             'is_default' => 'boolean',
             'image_width' => 'integer',
             'image_height' => 'integer',
+            'back_image_width' => 'integer',
+            'back_image_height' => 'integer',
         ];
     }
 
@@ -58,19 +69,33 @@ class IdTemplate extends Model
     }
 
     /**
+     * The zone list for a side ('front' | 'back'), in native image pixels.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function zonesForSide(string $side = 'front'): array
+    {
+        return (array) ($side === 'back' ? $this->back_zones : $this->zones);
+    }
+
+    /**
      * The frozen request payload the OCR sidecar consumes (see
-     * docs/ocr-template-contract.md).
+     * docs/ocr-template-contract.md), built for one side of the ID. The sidecar
+     * contract is single-reference; the two-sided template scans each side with
+     * its own payload.
      *
      * @return array<string,mixed>
      */
-    public function toScannerPayload(): array
+    public function toScannerPayload(string $side = 'front'): array
     {
+        $isBack = $side === 'back';
+
         return [
             'template_id' => $this->getKey(),
             'name' => $this->name,
             'reference' => [
-                'width' => (int) $this->image_width,
-                'height' => (int) $this->image_height,
+                'width' => (int) ($isBack ? $this->back_image_width : $this->image_width),
+                'height' => (int) ($isBack ? $this->back_image_height : $this->image_height),
             ],
             'zones' => array_map(static function (array $zone): array {
                 return [
@@ -83,7 +108,7 @@ class IdTemplate extends Model
                     'regex' => $zone['regex'] ?? null,
                     'field' => $zone['field'] ?? ($zone['name'] ?? ''),
                 ];
-            }, (array) $this->zones),
+            }, $this->zonesForSide($side)),
         ];
     }
 }

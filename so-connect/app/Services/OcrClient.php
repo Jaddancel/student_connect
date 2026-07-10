@@ -20,7 +20,7 @@ class OcrClient
     /**
      * @return array{fields: array<string,string>, student_id: ?string, ok: bool, note?: string}
      */
-    public function scan(IdTemplate $template, UploadedFile|string $photo): array
+    public function scan(IdTemplate $template, UploadedFile|string $photo, string $side = 'front'): array
     {
         $url = rtrim((string) config('services.ocr.url'), '/').'/scan';
         $timeout = (int) config('services.ocr.timeout', 60);
@@ -39,7 +39,7 @@ class OcrClient
             }
 
             $response = $request->post($url, [
-                'template' => json_encode($template->toScannerPayload()),
+                'template' => json_encode($template->toScannerPayload($side)),
             ]);
 
             if (! $response->successful()) {
@@ -48,7 +48,7 @@ class OcrClient
                 return $this->empty('scanner error');
             }
 
-            return $this->mapFields($template, (array) $response->json('fields', []));
+            return $this->mapFields($template, (array) $response->json('fields', []), $side);
         } catch (\Throwable $e) {
             Log::warning('OCR sidecar unreachable: '.$e->getMessage());
 
@@ -63,10 +63,10 @@ class OcrClient
      * @param  array<string,mixed>  $raw
      * @return array{fields: array<string,string>, student_id: ?string, ok: bool}
      */
-    private function mapFields(IdTemplate $template, array $raw): array
+    private function mapFields(IdTemplate $template, array $raw, string $side = 'front'): array
     {
         $fields = [];
-        foreach ((array) $template->zones as $zone) {
+        foreach ($template->zonesForSide($side) as $zone) {
             $name = $zone['name'] ?? null;
             $field = $zone['field'] ?? $name;
             if (! $name || ! $field) {

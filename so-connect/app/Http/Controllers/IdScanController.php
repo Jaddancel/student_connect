@@ -21,9 +21,11 @@ class IdScanController extends Controller
 {
     public function scan(Request $request, OcrClient $ocr): JsonResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'photo' => ['required', 'image', 'max:2048'],
+            'side' => ['nullable', 'string', 'in:front,back'],
         ]);
+        $side = ($validated['side'] ?? 'front') === 'back' ? 'back' : 'front';
 
         $template = IdTemplate::scannerTemplate();
         if (! $template) {
@@ -34,7 +36,17 @@ class IdScanController extends Controller
             ]);
         }
 
-        $result = $ocr->scan($template, $request->file('photo'));
+        // The back side is optional at scan time: if this template has no back
+        // zones there is nothing to extract, so return empty rather than error.
+        if ($side === 'back' && empty($template->zonesForSide('back'))) {
+            return response()->json([
+                'student_id' => null,
+                'fields' => [],
+                'note' => 'no back zones',
+            ]);
+        }
+
+        $result = $ocr->scan($template, $request->file('photo'), $side);
 
         return response()->json([
             'student_id' => $result['student_id'] ?? null,

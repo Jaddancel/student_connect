@@ -87,11 +87,11 @@ class IdTemplateController extends Controller
 
     public function destroy(IdTemplate $idTemplate): RedirectResponse
     {
-        $path = $idTemplate->image_path;
+        $paths = array_filter([$idTemplate->image_path, $idTemplate->back_image_path]);
         $idTemplate->delete();
 
-        if ($path) {
-            Storage::disk((string) config('documents.disk', 'public'))->delete($path);
+        if ($paths) {
+            Storage::disk((string) config('documents.disk', 'public'))->delete($paths);
         }
 
         return redirect()->route('superadmin.id-templates.index')
@@ -136,58 +136,81 @@ class IdTemplateController extends Controller
      */
     private function validatePayload(Request $request): array
     {
-        $validated = $request->validate([
+        // Both sides carry the same shape; validate them symmetrically. The `back_`
+        // prefix mirrors the model columns so a single ruleset covers each side.
+        $rules = [
             'name' => ['required', 'string', 'max:150'],
-            'image_path' => ['required', 'string', 'max:2048'],
-            'image_width' => ['required', 'integer', 'min:1'],
-            'image_height' => ['required', 'integer', 'min:1'],
+            'orientation' => ['nullable', 'string', 'in:vertical,horizontal'],
             'is_active' => ['boolean'],
             'is_default' => ['boolean'],
-            'zones' => ['required', 'array', 'min:1'],
-            'zones.*.name' => ['required', 'string', 'max:100', 'regex:/^[a-z0-9_]+$/', 'distinct'],
-            'zones.*.label' => ['required', 'string', 'max:150'],
-            'zones.*.x1' => ['required', 'integer', 'min:0'],
-            'zones.*.y1' => ['required', 'integer', 'min:0'],
-            'zones.*.x2' => ['required', 'integer', 'gt:zones.*.x1'],
-            'zones.*.y2' => ['required', 'integer', 'gt:zones.*.y1'],
-            'zones.*.regex' => ['nullable', 'string', 'max:255'],
-            'zones.*.field' => ['required', 'string', 'max:100', 'regex:/^[a-z0-9_]+$/'],
-        ], [
-            'zones.*.name.regex' => 'Zone keys may only contain lowercase letters, numbers and underscores.',
-            'zones.*.field.regex' => 'Zone fields may only contain lowercase letters, numbers and underscores.',
-            'zones.*.x2.gt' => 'Each zone must have a positive width.',
-            'zones.*.y2.gt' => 'Each zone must have a positive height.',
-        ]);
+        ];
+        $messages = [];
 
-        $width = (int) $validated['image_width'];
-        $height = (int) $validated['image_height'];
+        foreach (['front' => '', 'back' => 'back_'] as $side => $prefix) {
+            $img = "{$prefix}image_path";
+            $w = "{$prefix}image_width";
+            $h = "{$prefix}image_height";
+            $z = "{$prefix}zones";
 
-        // Coordinates must sit inside the reference image, and each regex must
-        // be a compilable PCRE pattern (validated here so a bad pattern is a 422,
-        // not a 500 later in the OCR path).
-        foreach ($validated['zones'] as $i => $zone) {
-            if ((int) $zone['x2'] > $width || (int) $zone['y2'] > $height) {
-                throw ValidationException::withMessages([
-                    "zones.$i" => 'Zone falls outside the reference image bounds.',
-                ]);
-            }
-
-            $pattern = $zone['regex'] ?? null;
-            if ($pattern !== null && $pattern !== '' && @preg_match('/'.$pattern.'/', '') === false) {
-                throw ValidationException::withMessages([
-                    "zones.$i.regex" => 'This is not a valid regular expression.',
-                ]);
-            }
+            $rules += [
+                $img => ['required', 'string', 'max:2048'],
+                $w => ['required', 'integer', 'min:1'],
+                $h => ['required', 'integer', 'min:1'],
+                $z => ['required', 'array', 'min:1'],
+                "$z.*.name" => ['required', 'string', 'max:100', 'regex:/^[a-z0-9_]+$/', 'distinct'],
+                "$z.*.label" => ['required', 'string', 'max:150'],
+                "$z.*.x1" => ['required', 'integer', 'min:0'],
+                "$z.*.y1" => ['required', 'integer', 'min:0'],
+                "$z.*.x2" => ['required', 'integer', "gt:$z.*.x1"],
+                "$z.*.y2" => ['required', 'integer', "gt:$z.*.y1"],
+                "$z.*.regex" => ['nullable', 'string', 'max:255'],
+                "$z.*.field" => ['required', 'string', 'max:100', 'regex:/^[a-z0-9_]+$/'],
+            ];
+            $messages += [
+                "$z.*.name.regex" => 'Zone keys may only contain lowercase letters, numbers and underscores.',
+                "$z.*.field.regex" => 'Zone fields may only contain lowercase letters, numbers and underscores.',
+                "$z.*.x2.gt" => 'Each zone must have a positive width.',
+                "$z.*.y2.gt" => 'Each zone must have a positive height.',
+                "$z.required" => 'Add at least one zone on both the front and back of the ID.',
+            ];
         }
 
-        return [
+        $validated = $request->validate($rules, $messages);
+
+        $out = [
             'name' => $validated['name'],
-            'image_path' => $validated['image_path'],
-            'image_width' => $width,
-            'image_height' => $height,
+            'orientation' => ($validated['orientation'] ?? '') === 'horizontal' ? 'horizontal' : 'vertical',
             'is_active' => (bool) ($validated['is_active'] ?? true),
             'is_default' => (bool) ($validated['is_default'] ?? false),
-            'zones' => array_map(static fn (array $z) => [
+        ];
+
+        foreach (['front' => '', 'back' => 'back_'] as $side => $prefix) {
+            $width = (int) $validated["{$prefix}image_width"];
+            $height = (int) $validated["{$prefix}image_height"];
+            $zones = $validated["{$prefix}zones"];
+
+            // Coordinates must sit inside this side's reference image, and each regex
+            // must be a compilable PCRE pattern (validated here so a bad pattern is a
+            // 422, not a 500 later in the OCR path).
+            foreach ($zones as $i => $zone) {
+                if ((int) $zone['x2'] > $width || (int) $zone['y2'] > $height) {
+                    throw ValidationException::withMessages([
+                        "{$prefix}zones.$i" => 'Zone falls outside the reference image bounds.',
+                    ]);
+                }
+
+                $pattern = $zone['regex'] ?? null;
+                if ($pattern !== null && $pattern !== '' && @preg_match('/'.$pattern.'/', '') === false) {
+                    throw ValidationException::withMessages([
+                        "{$prefix}zones.$i.regex" => 'This is not a valid regular expression.',
+                    ]);
+                }
+            }
+
+            $out["{$prefix}image_path"] = $validated["{$prefix}image_path"];
+            $out["{$prefix}image_width"] = $width;
+            $out["{$prefix}image_height"] = $height;
+            $out["{$prefix}zones"] = array_map(static fn (array $z) => [
                 'name' => $z['name'],
                 'label' => $z['label'],
                 'x1' => (int) $z['x1'],
@@ -196,8 +219,10 @@ class IdTemplateController extends Controller
                 'y2' => (int) $z['y2'],
                 'regex' => ($z['regex'] ?? '') !== '' ? $z['regex'] : null,
                 'field' => $z['field'],
-            ], $validated['zones']),
-        ];
+            ], $zones);
+        }
+
+        return $out;
     }
 
     /**
@@ -208,12 +233,17 @@ class IdTemplateController extends Controller
         return [
             'id' => null,
             'name' => '',
+            'orientation' => 'vertical',
             'image_path' => '',
             'image_width' => 0,
             'image_height' => 0,
+            'zones' => [],
+            'back_image_path' => '',
+            'back_image_width' => 0,
+            'back_image_height' => 0,
+            'back_zones' => [],
             'is_active' => true,
             'is_default' => false,
-            'zones' => [],
         ];
     }
 
@@ -225,12 +255,17 @@ class IdTemplateController extends Controller
         return [
             'id' => $template->getKey(),
             'name' => $template->name,
+            'orientation' => $template->orientation ?: 'vertical',
             'image_path' => $template->image_path,
             'image_width' => (int) $template->image_width,
             'image_height' => (int) $template->image_height,
+            'zones' => (array) $template->zones,
+            'back_image_path' => (string) $template->back_image_path,
+            'back_image_width' => (int) $template->back_image_width,
+            'back_image_height' => (int) $template->back_image_height,
+            'back_zones' => (array) $template->back_zones,
             'is_active' => (bool) $template->is_active,
             'is_default' => (bool) $template->is_default,
-            'zones' => (array) $template->zones,
         ];
     }
 }

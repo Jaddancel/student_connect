@@ -5,7 +5,18 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-it('lists organizations with an anchored officers section', function () {
+it('lists organizations on the index page with a link to their officers', function () {
+    $admin = recordsUser(2);
+    $org = recordsOrganization('Test Org', 'TO');
+
+    $this->actingAs($admin)
+        ->get(route('admin.database-view.index'))
+        ->assertOk()
+        ->assertSee('Test Org')
+        ->assertSee(route('admin.database-view.officers', ['organization_id' => $org->organization_id]), false);
+});
+
+it('shows the officer roster on the officers page', function () {
     $admin = recordsUser(2);
     $org = recordsOrganization('Test Org', 'TO');
 
@@ -19,11 +30,29 @@ it('lists organizations with an anchored officers section', function () {
     ]);
 
     $this->actingAs($admin)
-        ->get(route('admin.database-view.index'))
+        ->get(route('admin.database-view.officers'))
         ->assertOk()
         ->assertSee('Test Org')
         ->assertSee('id="org-'.$org->organization_id.'"', false)
         ->assertSee($president->user_email);
+});
+
+it('filters the officers page to a single organization', function () {
+    $admin = recordsUser(2);
+    $orgA = recordsOrganization('Alpha Org', 'AO');
+    $orgB = recordsOrganization('Beta Org', 'BO');
+
+    $presidentA = recordsUser(3);
+    Officer::create(['role' => 'president', 'organization' => $orgA->organization_id, 'user' => $presidentA->getKey(), 'member_since' => now()]);
+
+    $presidentB = recordsUser(3);
+    Officer::create(['role' => 'president', 'organization' => $orgB->organization_id, 'user' => $presidentB->getKey(), 'member_since' => now()]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.database-view.officers', ['organization_id' => $orgA->organization_id]))
+        ->assertOk()
+        ->assertSee($presidentA->user_email)
+        ->assertDontSee($presidentB->user_email);
 });
 
 it('excludes plain members from the officer roster', function () {

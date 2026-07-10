@@ -41,7 +41,7 @@
                     class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
                     Cancel
                 </a>
-                <button type="button" @click="save()" :disabled="saving"
+                <button type="button" @click="save()" :disabled="saving" x-show="mode === 'zones'"
                     class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-60">
                     <span x-show="!saving">Save template</span>
                     <span x-show="saving" x-cloak>Saving…</span>
@@ -50,28 +50,154 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+    {{-- Front / Back side switcher. Both sides must be completed before saving. --}}
+    <div class="flex items-center gap-2 rounded-2xl border border-gray-200 bg-white p-2 dark:border-gray-800 dark:bg-white/[0.03]">
+        <template x-for="side in ['front', 'back']" :key="side">
+            <button type="button" @click="switchSide(side)"
+                class="flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition"
+                :class="currentSide === side
+                    ? 'bg-brand-500 text-white'
+                    : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'">
+                <span x-text="side === 'front' ? 'Front of ID' : 'Back of ID'"></span>
+                <span x-show="isSideReady(side)" x-cloak
+                    class="inline-flex h-4 w-4 items-center justify-center rounded-full"
+                    :class="currentSide === side ? 'bg-white/25 text-white' : 'bg-success-500 text-white'">
+                    <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                </span>
+            </button>
+        </template>
+    </div>
+
+    {{-- Empty state: no image picked yet for this side. --}}
+    <div x-show="mode !== 'crop' && mode !== 'zones'"
+        class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="mb-4 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">
+                Reference image — <span x-text="currentSide === 'front' ? 'front of ID' : 'back of ID'"></span>
+            </h3>
+            <label class="cursor-pointer rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                Upload image
+                <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="uploadImage($event)" />
+            </label>
+        </div>
+        <p class="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-12 text-center text-sm text-gray-400 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-500">
+            Upload a photo of the <span x-text="currentSide === 'front' ? 'front' : 'back'"></span> of the reference ID.
+            You'll crop and straighten it before drawing zones. Both sides are required.
+        </p>
+    </div>
+
+    {{-- Crop / straighten step: drag the 4 corners, preview the de-skewed result. --}}
+    <div x-show="mode === 'crop'" x-cloak class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Straighten the ID</h3>
+                <label class="cursor-pointer rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                    Replace image
+                    <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="uploadImage($event)" />
+                </label>
+            </div>
+
+            {{-- Konva crop stage: image + 4 draggable corner anchors. --}}
+            <div class="overflow-auto">
+                <div x-ref="cropStage" class="inline-block rounded-lg border border-gray-200 dark:border-gray-700"></div>
+            </div>
+
+            <p class="mt-3 text-xs text-gray-400 dark:text-gray-500">
+                Drag the four blue corners to the edges of the card. The preview shows the straightened result.
+            </p>
+        </div>
+
+        {{-- Crop controls + live preview. --}}
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+            <h3 class="mb-4 text-sm font-semibold text-gray-800 dark:text-white/90">Output</h3>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="mb-1.5 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Orientation</label>
+                    <select x-model="orientation" @change="onAspectChange()"
+                        class="dark:bg-dark-900 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                        <option value="vertical">Vertical (portrait)</option>
+                        <option value="horizontal">Horizontal (landscape)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="mb-1.5 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Aspect ratio</label>
+                    <select x-model="aspectMode" @change="onAspectChange()"
+                        class="dark:bg-dark-900 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                        <option value="id1">Standard ID card (85.6 × 54)</option>
+                        <option value="free">Free (from corners)</option>
+                        <option value="custom">Custom…</option>
+                    </select>
+                </div>
+
+                <div x-show="aspectMode === 'custom'" x-cloak class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="mb-1.5 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Width</label>
+                        <input type="number" min="1" x-model.number="customW" @input="onAspectChange()"
+                            class="dark:bg-dark-900 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Height</label>
+                        <input type="number" min="1" x-model.number="customH" @input="onAspectChange()"
+                            class="dark:bg-dark-900 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="mb-1.5 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Output long edge (px)</label>
+                    <input type="number" min="64" step="1" x-model.number="outputLongEdge" @input="onAspectChange()"
+                        class="dark:bg-dark-900 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                </div>
+
+                <div>
+                    <label class="mb-1.5 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Preview</label>
+                    <div class="flex items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900/30">
+                        <canvas x-ref="preview" class="max-h-56 max-w-full rounded"></canvas>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2 pt-1">
+                    <button type="button" @click="straighten()" :disabled="saving"
+                        class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-60">
+                        <span x-show="!saving">Straighten &amp; continue</span>
+                        <span x-show="saving" x-cloak>Working…</span>
+                    </button>
+                    <button type="button" @click="skipStraighten()" :disabled="saving"
+                        class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                        Skip &amp; use as-is
+                    </button>
+                    <span x-show="note" x-cloak x-text="note" class="text-xs text-error-500"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Zone-drawing step. --}}
+    <div x-show="mode === 'zones'" x-cloak class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
 
         {{-- Canvas --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
             <div class="mb-4 flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Reference image</h3>
-                <label class="cursor-pointer rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
-                    <span x-text="imagePath ? 'Replace image' : 'Upload image'"></span>
-                    <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="uploadImage($event)" />
-                </label>
+                <div class="flex items-center gap-2">
+                    <button type="button" @click="reCrop()" x-show="canReCrop"
+                        class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                        Re-crop
+                    </button>
+                    <label class="cursor-pointer rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                        Replace image
+                        <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="uploadImage($event)" />
+                    </label>
+                </div>
             </div>
 
-            <p x-show="!imagePath" x-cloak class="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-12 text-center text-sm text-gray-400 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-500">
-                Upload a clear, straight-on photo of the reference ID to begin drawing zones.
-            </p>
-
             {{-- Konva injects its canvas into this container. --}}
-            <div x-show="imagePath" class="overflow-auto">
+            <div class="overflow-auto">
                 <div x-ref="stage" class="inline-block rounded-lg border border-gray-200 dark:border-gray-700"></div>
             </div>
 
-            <p x-show="imagePath" x-cloak class="mt-3 text-xs text-gray-400 dark:text-gray-500">
+            <p class="mt-3 text-xs text-gray-400 dark:text-gray-500">
                 Click a zone to select and resize it. Coordinates are saved in the image's native pixels, so
                 re-opening this editor overlays the zones exactly.
             </p>

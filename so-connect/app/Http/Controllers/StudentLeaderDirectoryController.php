@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Form;
 use App\Models\FormSubmission;
+use App\Models\IdTemplate;
 use App\Models\Request as ActionRequest;
 use App\Models\Semester;
 use Illuminate\Http\Request;
@@ -24,10 +25,11 @@ class StudentLeaderDirectoryController extends Controller
         $currentSemester = Semester::current();
 
         return view('pages.form.student-leader-directory', [
-            'title'             => 'Directory of Student Leader',
-            'organizations'     => $organizations,
-            'currentSchoolYear' => Semester::currentSchoolYear(),
-            'currentSemester'   => $currentSemester?->semesterLabel() ?? '',
+            'title'              => 'Directory of Student Leader',
+            'organizations'      => $organizations,
+            'currentSchoolYear'  => Semester::currentSchoolYear(),
+            'currentSemester'    => $currentSemester?->semesterLabel() ?? '',
+            'scannerOrientation' => IdTemplate::scannerTemplate()?->orientation ?: 'vertical',
         ]);
     }
 
