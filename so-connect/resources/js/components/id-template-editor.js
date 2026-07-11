@@ -68,6 +68,7 @@ export function idTemplateEditor(config) {
     let transformer = null;
     let imageNode = null;
     const rects = []; // Konva.Rect[], index-aligned with `this.zones`
+    const labels = []; // Konva.Label[], index-aligned with `this.zones` (the on-canvas tag)
     let scale = 1; // naturalWidth / displayWidth
     let displayWidth = 0;
 
@@ -212,7 +213,7 @@ export function idTemplateEditor(config) {
             if (target === this.currentSide) return;
             this._snapshotCurrent();
 
-            if (stage) { stage.destroy(); stage = null; rects.length = 0; }
+            if (stage) { stage.destroy(); stage = null; rects.length = 0; labels.length = 0; }
             if (cropStage) { cropStage.destroy(); cropStage = null; cropAnchors.length = 0; }
             transformer = null;
             this.selectedIndex = null;
@@ -560,7 +561,7 @@ export function idTemplateEditor(config) {
             const container = this.$refs.stage;
             if (!container || !this.naturalWidth) return;
 
-            if (stage) { stage.destroy(); rects.length = 0; }
+            if (stage) { stage.destroy(); rects.length = 0; labels.length = 0; }
 
             // Lock the display width at build time; never reflow on resize (that
             // would change `scale` and drift the saved coordinates).
@@ -607,10 +608,62 @@ export function idTemplateEditor(config) {
                 name: 'zone',
             });
             rect.on('click tap', () => this.selectZone(index));
-            rect.on('transformend dragend', () => { this._bake(rect); });
+            rect.on('transformend dragend', () => { this._bake(rect); this._positionLabel(index); });
+            // Keep the tag glued to the box as it is dragged/resized live.
+            rect.on('dragmove transform', () => this._positionLabel(index));
             layer.add(rect);
             rects[index] = rect;
+            this._addLabel(index);
             layer.draw();
+        },
+
+        /** The tag text for a zone: its Label, else its Key, else a positional fallback. */
+        _labelText(index) {
+            const z = this.zones[index];
+            if (!z) return `Zone ${index + 1}`;
+            return (z.label && z.label.trim()) || (z.name && z.name.trim()) || `Zone ${index + 1}`;
+        },
+
+        /** Create the on-canvas name tag for a zone (mirrors the pic's boxed labels). */
+        _addLabel(index) {
+            const label = new Konva.Label({ listening: false });
+            label.add(new Konva.Tag({ fill: '#ef4444', cornerRadius: 2 }));
+            label.add(new Konva.Text({
+                text: this._labelText(index),
+                fontSize: 12,
+                fontStyle: 'bold',
+                fontFamily: 'sans-serif',
+                fill: '#ffffff',
+                padding: 3,
+            }));
+            layer.add(label);
+            labels[index] = label;
+            this._positionLabel(index);
+        },
+
+        /** Park a zone's tag just above its box's top-left (tucked inside if it'd clip). */
+        _positionLabel(index) {
+            const rect = rects[index];
+            const label = labels[index];
+            if (!rect || !label) return;
+            const lh = label.height();
+            const y = rect.y() - lh;
+            label.position({ x: rect.x(), y: y < 0 ? rect.y() : y });
+            layer.batchDraw();
+        },
+
+        /** Refresh a tag's text + position after its label/key or index changed. */
+        _refreshLabel(index) {
+            const label = labels[index];
+            if (!label) return;
+            const text = label.findOne('Text');
+            if (text) text.text(this._labelText(index));
+            this._positionLabel(index);
+        },
+
+        /** Bound from the zone Key/Label inputs so the canvas tag tracks edits. */
+        updateZoneLabel(index) {
+            this._refreshLabel(index);
         },
 
         /** Fold a Transformer's scaleX/scaleY back into width/height. */
@@ -640,18 +693,23 @@ export function idTemplateEditor(config) {
 
         removeZone(i) {
             if (rects[i]) rects[i].destroy();
+            if (labels[i]) labels[i].destroy();
             rects.splice(i, 1);
+            labels.splice(i, 1);
             this.zones.splice(i, 1);
             this._reindexRects();
             this.selectZone(null);
             if (layer) layer.draw();
         },
 
-        /** Re-bind click handlers after a splice shifts rect indices. */
+        /** Re-bind handlers + refresh tags after a splice shifts zone indices. */
         _reindexRects() {
             rects.forEach((r, idx) => {
-                r.off('click tap');
+                r.off('click tap dragmove transform transformend dragend');
                 r.on('click tap', () => this.selectZone(idx));
+                r.on('transformend dragend', () => { this._bake(r); this._positionLabel(idx); });
+                r.on('dragmove transform', () => this._positionLabel(idx));
+                this._refreshLabel(idx);
             });
         },
 
@@ -662,6 +720,8 @@ export function idTemplateEditor(config) {
                 transformer.nodes([]);
             } else {
                 transformer.nodes([rects[i]]);
+                // Keep the resize anchors clickable above the on-canvas tags.
+                transformer.moveToTop();
             }
             layer.draw();
         },

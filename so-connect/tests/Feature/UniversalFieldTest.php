@@ -20,7 +20,25 @@ it('exposes a catalog keyed by canonical universal keys', function () {
 it('no longer exposes the removed universal fields', function () {
     $keys = UniversalField::keys();
 
-    expect($keys)->not->toContain('contact_number', 'age', 'nationality', 'birthday', 'course_year', 'student_id', 'id_photo_front', 'photo', 'address');
+    expect($keys)->not->toContain('contact_number', 'age', 'nationality', 'course_year', 'student_id', 'id_photo_front', 'photo', 'address');
+});
+
+it('exposes birthday as a personal profile field', function () {
+    expect(UniversalField::keys())->toContain('birthday')
+        ->and(UniversalField::keysBySource('profile'))->toContain('birthday')
+        ->and(UniversalField::get('birthday')['group'])->toBe('personal')
+        ->and(UniversalField::get('birthday')['profile_column'])->toBe('birthday');
+});
+
+it('formats a birthday as "Month Day, Year"', function () {
+    $profile = new Profile(['birthday' => '2000-01-05']);
+
+    expect(UniversalField::valueFor($profile, 'birthday'))->toBe('January 5, 2000');
+});
+
+it('leaves an unparseable birthday untouched and null when empty', function () {
+    expect(UniversalField::valueFor(new Profile(['birthday' => 'not-a-date']), 'birthday'))->toBe('not-a-date')
+        ->and(UniversalField::valueFor(new Profile(['birthday' => '']), 'birthday'))->toBeNull();
 });
 
 it('separates profile-source from org-source keys', function () {
