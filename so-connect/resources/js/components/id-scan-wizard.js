@@ -3,7 +3,9 @@
  *
  * Step 1 is a live-camera ID scanner (with an ID-card finder overlay and an
  * upload fallback) that captures BOTH sides of the ID in sequence: the user
- * scans the front, then the back. Each captured/uploaded photo is normalized
+ * scans the front, then the back. Camera captures are cropped to the finder
+ * silhouette — only the framed card is scanned, matching the template's
+ * tightly-cropped reference image. Each captured/uploaded photo is normalized
  * (downscaled/re-encoded under the server's 2 MB cap) and POSTed to `/id-scan`
  * with its `side`, and the returned universal-keyed `fields` maps are MERGED
  * (front wins ties) to pre-fill Step 2's inputs. The normalized photos are
@@ -44,6 +46,38 @@ const UNIVERSAL_TO_INPUT = {
 const PHOTO_MAX_EDGE = 1600; // px, long edge after downscale — ample for zone OCR
 const PHOTO_MAX_BYTES = 1900 * 1024; // safely under the 2048 KB validation cap
 const PHOTO_QUALITIES = [0.85, 0.7, 0.55]; // JPEG quality ladder, first fit wins
+
+/**
+ * Map a box measured over an `object-fit: cover` element back into intrinsic
+ * source-frame pixels. `view` and `box` are DOMRect-likes in the same
+ * coordinate space (both from getBoundingClientRect()).
+ *
+ * The wizard uses this to crop a webcam capture to the ID finder silhouette:
+ * the OCR template's zones are authored against a tightly-cropped reference
+ * image of the ID, so only the framed card — never the scene around it — may
+ * be sent to the scanner. Returns null when the mapping is degenerate.
+ */
+export function mapCoverBoxToFrame(frame, view, box) {
+    const scale = Math.max(view.width / frame.width, view.height / frame.height);
+    if (!Number.isFinite(scale) || scale <= 0) return null;
+
+    // cover centers the scaled frame inside the element and crops the overflow.
+    const offsetX = (view.width - frame.width * scale) / 2;
+    const offsetY = (view.height - frame.height * scale) / 2;
+    const sx = (box.left - view.left - offsetX) / scale;
+    const sy = (box.top - view.top - offsetY) / scale;
+    const sw = box.width / scale;
+    const sh = box.height / scale;
+
+    // Clamp to the frame to absorb border and rounding slop.
+    const x1 = Math.max(0, Math.min(frame.width, sx));
+    const y1 = Math.max(0, Math.min(frame.height, sy));
+    const x2 = Math.max(0, Math.min(frame.width, sx + sw));
+    const y2 = Math.max(0, Math.min(frame.height, sy + sh));
+    if (x2 - x1 < 1 || y2 - y1 < 1) return null;
+
+    return { sx: x1, sy: y1, sw: x2 - x1, sh: y2 - y1 };
+}
 
 export function idScanWizard(config = {}) {
     return {
@@ -122,16 +156,26 @@ export function idScanWizard(config = {}) {
             this.cameraOn = false;
         },
 
-        /** Grab the current video frame as the current side's ID photo. */
+        /**
+         * Grab the finder-silhouette region of the current video frame as the
+         * current side's ID photo — cropping to what the overlay told the user
+         * is being scanned, so the photo matches the template's tightly-cropped
+         * reference geometry.
+         */
         capture() {
             const video = this.$refs.video;
             if (!video || !video.videoWidth) return;
 
             const side = this.scanSide;
             const canvas = this.$refs.canvas;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            const region = this.finderRegion(video);
+            canvas.width = Math.round(region.sw);
+            canvas.height = Math.round(region.sh);
+            canvas.getContext('2d').drawImage(
+                video,
+                region.sx, region.sy, region.sw, region.sh,
+                0, 0, canvas.width, canvas.height,
+            );
 
             canvas.toBlob((blob) => {
                 if (!blob) return;
@@ -139,6 +183,27 @@ export function idScanWizard(config = {}) {
                 this.applyFile(file, side);
                 this.stopCamera();
             }, 'image/jpeg', 0.92);
+        },
+
+        /**
+         * The finder-overlay rectangle in intrinsic video-frame pixels — the
+         * only part of the frame the user was told is being scanned. Falls back
+         * to the full frame when the overlay cannot be measured.
+         */
+        finderRegion(video) {
+            const full = { sx: 0, sy: 0, sw: video.videoWidth, sh: video.videoHeight };
+            const finder = this.$refs.finder;
+            if (!finder) return full;
+
+            const view = video.getBoundingClientRect();
+            const box = finder.getBoundingClientRect();
+            if (!view.width || !view.height || !box.width || !box.height) return full;
+
+            return mapCoverBoxToFrame(
+                { width: video.videoWidth, height: video.videoHeight },
+                view,
+                box,
+            ) || full;
         },
 
         // --- upload fallback ---
@@ -271,6 +336,9 @@ export function idScanWizard(config = {}) {
             }
             if (note === 'scanner unavailable' || note === 'scanner error') {
                 return 'The ID reader is temporarily unavailable — please fill the form manually.';
+            }
+            if (note === 'no back zones') {
+                return 'Nothing is read from the back of this ID — you can continue to the form.';
             }
             if (Object.keys(this.detected).length) {
                 return 'Auto-filled from your ID — please verify each field.';
