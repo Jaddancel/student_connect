@@ -92,7 +92,7 @@
                                     @foreach (($col['fields'] ?? []) as $fieldKey)
                                         @php $field = $fieldsByKey[$fieldKey] ?? null; @endphp
                                         @if ($field)
-                                            @include('components.form.fields.field', ['field' => $field, 'prefill' => $prefill])
+                                            @include('components.form.fields.field', ['field' => $field, 'prefill' => $prefill, 'advisers' => $advisers ?? []])
                                         @endif
                                     @endforeach
                                 </div>

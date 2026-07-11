@@ -474,6 +474,7 @@ class FormBuilderController extends Controller
                 $templateHtml,
                 $this->sampleValues($fields),
                 $fields,
+                organization: \App\Support\OrganizationField::resolveOrganization($request->user()),
             );
 
             $html = view('documents.form-template-pdf', [

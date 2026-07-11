@@ -6,7 +6,7 @@
     $universalGroups = \App\Support\UniversalField::grouped();
     $universalGroupLabels = [
         'name' => 'Name', 'contact' => 'Contact', 'personal' => 'Personal',
-        'academic' => 'Academic', 'id' => 'Identity',
+        'academic' => 'Academic', 'id' => 'Identity', 'organization' => 'Organization',
     ];
 @endphp
 

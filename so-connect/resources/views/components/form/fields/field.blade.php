@@ -29,6 +29,19 @@
             @if ($required)<span class="text-error-500">*</span>@endif
         </label>
 
+        @if ($field->universal_key === 'adviser')
+            {{-- "Advisers" universal field: a dropdown of the org's known advisers
+                 that also accepts a new name (persisted on submit via a datalist). --}}
+            <input type="text" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}"
+                list="adviser-list-{{ $key }}" placeholder="{{ $placeholder ?: 'Select or type an adviser' }}"
+                class="{{ $inputClass }}" autocomplete="off" />
+            <datalist id="adviser-list-{{ $key }}">
+                @foreach (($advisers ?? []) as $adviserName)
+                    <option value="{{ $adviserName }}"></option>
+                @endforeach
+            </datalist>
+            <p class="mt-1 text-xs text-gray-400">Pick a previous adviser, or type a new name to add it.</p>
+        @else
         @switch($type)
             @case(FieldType::TEXTAREA)
                 <textarea id="{{ $key }}" name="{{ $key }}" rows="{{ (int) ($opts['rows'] ?? 5) }}"
@@ -122,6 +135,7 @@
                     @isset($opts['max']) maxlength="{{ $opts['max'] }}" @endisset
                     class="{{ $inputClass }}" />
         @endswitch
+        @endif
 
         @error($key)
             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>

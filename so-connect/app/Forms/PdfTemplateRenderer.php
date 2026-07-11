@@ -3,7 +3,9 @@
 namespace App\Forms;
 
 use App\Models\Form\FormDescription;
+use App\Models\Organization;
 use App\Models\Profile;
+use App\Support\OrganizationField;
 use App\Support\UniversalField;
 use Illuminate\Support\Collection;
 
@@ -24,10 +26,12 @@ final class PdfTemplateRenderer
     /**
      * @param  array<string,mixed>  $payload  submission payload keyed by field_key
      * @param  Collection<int,FormDescription>  $fields
-     * @param  ?Profile  $profile  submitter's profile, used to resolve
+     * @param  ?Profile  $profile  submitter's profile, used to resolve profile-source
      *                             `data-universal` tokens; null renders them empty
+     * @param  ?Organization  $organization  submitter's org, used to resolve
+     *                             org-source `data-universal` tokens (president/…)
      */
-    public function render(string $templateHtml, array $payload, Collection $fields, ?string $disk = null, ?Profile $profile = null): string
+    public function render(string $templateHtml, array $payload, Collection $fields, ?string $disk = null, ?Profile $profile = null, ?Organization $organization = null): string
     {
         $disk ??= (string) config('documents.disk', 'public');
 
@@ -89,7 +93,7 @@ final class PdfTemplateRenderer
             foreach ($universalNodes as $token) {
                 /** @var \DOMElement $token */
                 $key = (string) $token->getAttribute('data-universal');
-                $replacement = $this->universalNodes($dom, $profile, $key, $disk);
+                $replacement = $this->universalNodes($dom, $profile, $organization, $key, $disk);
 
                 $parent = $token->parentNode;
                 if ($parent === null) {
@@ -166,9 +170,11 @@ final class PdfTemplateRenderer
      *
      * @return array<int,\DOMNode>
      */
-    private function universalNodes(\DOMDocument $dom, ?Profile $profile, string $key, string $disk): array
+    private function universalNodes(\DOMDocument $dom, ?Profile $profile, ?Organization $organization, string $key, string $disk): array
     {
-        $value = UniversalField::valueFor($profile, $key);
+        $value = UniversalField::isOrgField($key)
+            ? OrganizationField::value($organization, $key)
+            : UniversalField::valueFor($profile, $key);
         if ($value === null || $value === '') {
             return [$dom->createTextNode('')];
         }

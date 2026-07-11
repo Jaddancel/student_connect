@@ -44,4 +44,12 @@ return [
         'timeout' => (int) env('OCR_TIMEOUT', 60),
     ],
 
+    // Google OAuth for the admin/officer "Sign in with Google" pre-fill. See
+    // GOOGLE-AUTH-SETUP.md. Left blank, the feature is inert (button errors gracefully).
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+    ],
+
 ];

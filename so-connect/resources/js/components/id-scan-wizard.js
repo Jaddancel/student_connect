@@ -173,9 +173,7 @@ export function idScanWizard(config = {}) {
                 }
 
                 this.applyPrefill(fields);
-                this.scanNote = Object.keys(this.detected).length
-                    ? 'Auto-filled from your ID — please verify each field.'
-                    : 'No details detected — you can fill the form manually.';
+                this.scanNote = this.noteFor(json);
             } catch (e) {
                 this.scanNote = 'Could not read the ID — you can fill the form manually.';
             } finally {
@@ -183,6 +181,24 @@ export function idScanWizard(config = {}) {
                 // After the front, nudge the user to capture the back next.
                 if (side === 'front' && !this.backPreview) this.selectSide('back');
             }
+        },
+
+        /**
+         * Choose the status message after a scan, distinguishing "read something"
+         * from the actionable failure reasons the server reports via `note`.
+         */
+        noteFor(json) {
+            if (Object.keys(this.detected).length) {
+                return 'Auto-filled from your ID — please verify each field.';
+            }
+            const note = json && json.note;
+            if (note === 'no active template') {
+                return 'ID scanning isn’t configured yet — please fill the form manually.';
+            }
+            if (note === 'scanner unavailable' || note === 'scanner error') {
+                return 'The ID reader is temporarily unavailable — please fill the form manually.';
+            }
+            return 'No details detected — you can fill the form manually.';
         },
 
         /**

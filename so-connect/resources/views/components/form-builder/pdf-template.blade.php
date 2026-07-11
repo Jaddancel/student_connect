@@ -17,7 +17,7 @@
     and edits flow into the wizard's single POST payload.
 --}}
 <div x-data="pdfTemplateEditor({
-        fields: fields,
+        getFields: () => fields,
         model: pdf_template,
         csrf: csrf,
         universalFields: {{ Js::from($universalTokens) }},

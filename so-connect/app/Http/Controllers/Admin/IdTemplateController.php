@@ -117,18 +117,25 @@ class IdTemplateController extends Controller
     }
 
     /**
-     * When the given template is the default, clear the flag on every other row.
+     * Keep exactly one default template. When the given template is the default,
+     * clear the flag on every other row. Otherwise, if it is active and no
+     * default currently exists, promote it — so an admin who merely activates a
+     * template still ends up with a working, badged scanner default.
      */
     private function enforceSingleDefault(IdTemplate $template): void
     {
-        if (! $template->is_default) {
+        if ($template->is_default) {
+            IdTemplate::query()
+                ->where($template->getKeyName(), '!=', $template->getKey())
+                ->where('is_default', true)
+                ->update(['is_default' => false]);
+
             return;
         }
 
-        IdTemplate::query()
-            ->where($template->getKeyName(), '!=', $template->getKey())
-            ->where('is_default', true)
-            ->update(['is_default' => false]);
+        if ($template->is_active && ! IdTemplate::query()->where('is_default', true)->exists()) {
+            $template->forceFill(['is_default' => true])->save();
+        }
     }
 
     /**

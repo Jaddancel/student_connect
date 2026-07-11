@@ -26,6 +26,11 @@ class Organization extends Model
         return $this->hasMany(Officer::class, 'organization', 'organization_id');
     }
 
+    public function advisers()
+    {
+        return $this->hasMany(OrganizationAdviser::class, 'organization_id', 'organization_id');
+    }
+
     public function detail()
     {
         return $this->belongsTo(OrganizationDetail::class, 'detail', 'organization_detail_id');

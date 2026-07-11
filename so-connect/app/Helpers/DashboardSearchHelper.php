@@ -19,17 +19,36 @@ class DashboardSearchHelper
         $items[] = ['name' => 'Profile', 'path' => '/profile', 'icon' => 'user-profile', 'category' => 'Account', 'keywords' => 'user personal info account'];
 
         // Officer/President forms
+        $isAdmin = in_array($type, [1, 2], true);
         $isOfficerOrPresident = $user->officers()->whereIn('role', ['officer', 'president'])->exists();
 
         if ($isOfficerOrPresident) {
             $items[] = ['name' => 'Event Plans', 'path' => '/event-plans', 'icon' => 'calendar', 'category' => 'Organization', 'keywords' => 'event plans activities calendar submit'];
+        }
+
+        // Published builder forms are searchable by name AND purpose. Admins and
+        // superadmins can find every published form; officers/presidents only see
+        // forms whose sidebar_group targets a role they hold (mirrors
+        // FormDirectoryController so search and the directory agree).
+        if ($isAdmin || $isOfficerOrPresident) {
+            $roles = $isAdmin
+                ? []
+                : $user->officers()->pluck('role')->map(fn ($r) => (string) $r)->all();
 
             $publishedForms = \App\Models\Form::whereNotNull('route_name')
                 ->where('is_published', true)
+                ->where('is_active', true)
                 ->orderBy('name')
-                ->get(['name', 'route_name', 'description_text']);
+                ->get(['name', 'route_name', 'description_text', 'sidebar_group']);
 
             foreach ($publishedForms as $form) {
+                if (! $isAdmin) {
+                    $groups = (array) ($form->sidebar_group ?? []);
+                    if (! empty($groups) && count(array_intersect($groups, $roles)) === 0) {
+                        continue;
+                    }
+                }
+
                 $items[] = [
                     'name' => $form->name,
                     'path' => '/forms/' . $form->route_name,

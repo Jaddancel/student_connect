@@ -13,9 +13,11 @@
  * is written back into the shared `model.html` (the parent wizard's
  * `pdf_template.html`), so the parent's single POST persists it.
  *
- * `config.fields` and `config.model` are the parent wizard's reactive objects,
- * passed by reference, so the palette stays in sync with Step 1 and edits flow
- * straight into the payload.
+ * `config.getFields` is a live getter onto the parent wizard's reactive `fields`
+ * array (NOT a snapshot: the parent reassigns `fields` on remove, so a captured
+ * reference would go stale), and `config.model` is the parent's reactive
+ * `pdf_template` object passed by reference — so the palette stays in sync with
+ * Step 1 and edits flow straight into the payload.
  */
 const ALLOWED_TAGS = new Set([
     'H1', 'H2', 'H3', 'P', 'BR', 'STRONG', 'B', 'EM', 'I', 'U',
@@ -24,7 +26,9 @@ const ALLOWED_TAGS = new Set([
 
 export function pdfTemplateEditor(config) {
     return {
-        fields: config.fields,
+        // Live getter onto the parent's `fields` (see file header). Falls back to
+        // an empty list if omitted so the palette simply renders nothing.
+        getFields: config.getFields || (() => []),
         universalFields: config.universalFields || [],
         model: config.model,
         csrf: config.csrf,
@@ -58,8 +62,8 @@ export function pdfTemplateEditor(config) {
 
         /** Fields eligible to print (everything except pure layout blocks). */
         get printableFields() {
-            return (this.fields || []).filter(
-                (f) => !['heading', 'static-text'].includes(f.field_type),
+            return (this.getFields() || []).filter(
+                (f) => f && f.field_key && !['heading', 'static-text'].includes(f.field_type),
             );
         },
 
@@ -132,7 +136,7 @@ export function pdfTemplateEditor(config) {
             const key = event.dataTransfer.getData('application/x-field-key');
             if (!key) return;
             event.preventDefault();
-            const field = (this.fields || []).find((f) => f.field_key === key);
+            const field = (this.getFields() || []).find((f) => f.field_key === key);
             if (!field) return;
             // Place caret at the drop point when the browser supports it.
             if (document.caretRangeFromPoint) {
@@ -277,7 +281,7 @@ export function pdfTemplateEditor(config) {
                 body.append('_token', this.csrf);
                 // Send current field keys so the server can map {{key}} back to chips.
                 body.append('fields', JSON.stringify(
-                    (this.fields || []).map((f) => ({ key: f.field_key, label: f.field_label })),
+                    (this.getFields() || []).map((f) => ({ key: f.field_key, label: f.field_label })),
                 ));
                 const res = await fetch(this.importUrl, { method: 'POST', body });
                 const json = await res.json();

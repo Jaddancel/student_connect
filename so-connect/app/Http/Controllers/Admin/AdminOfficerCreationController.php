@@ -51,6 +51,8 @@ class AdminOfficerCreationController extends Controller
             'town'                 => ['required', 'string', 'max:255'],
             'barangay'             => ['required', 'string', 'max:255'],
             'photo'                => ['nullable', 'file', 'mimes:jpeg,png', 'max:2048'],
+            // Optional Google link captured by the "Sign in with Google" popup.
+            'google_id'            => ['nullable', 'string', 'max:255', 'unique:users,google_id'],
         ]);
 
         $orgId = (int) $validated['organization_id'];
@@ -93,6 +95,9 @@ class AdminOfficerCreationController extends Controller
 
             $user = User::create([
                 'user_email'     => $validated['email'],
+                'google_id'      => $validated['google_id'] ?? null,
+                // A Google-linked email is already verified by Google.
+                'email_verified_at' => ! empty($validated['google_id']) ? now() : null,
                 'user_password'  => 'tAU100!!',
                 'user_type'      => 3,
                 'profile'        => (int) $profile->profile_id,

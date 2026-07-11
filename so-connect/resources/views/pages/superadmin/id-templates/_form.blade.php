@@ -3,6 +3,22 @@
     Expects: $templateData (array) and $template (?IdTemplate).
     The Alpine component `idTemplateEditor` is registered in resources/js/app.js.
 --}}
+@php
+    // Zone-field targets for the ID scanner: the profile-source universal fields
+    // (names, sex, address, …) plus ID-specific extraction keys that map to the
+    // signup form but aren't profile fields. `full_name` is split into
+    // first/middle/last by the scanner (OcrClient::expandName). Org-scoped
+    // universal fields are intentionally excluded — they don't live on an ID.
+    $scanFieldGroups = \App\Support\UniversalField::groupedBySource('profile');
+    $scanFieldGroups['identity'] = [
+        'student_id' => ['label' => 'Student ID'],
+        'full_name' => ['label' => 'Full Name (LAST, FIRST MIDDLE)'],
+    ];
+    $scanFieldKeys = [];
+    foreach ($scanFieldGroups as $group) {
+        $scanFieldKeys = array_merge($scanFieldKeys, array_keys($group));
+    }
+@endphp
 <div class="space-y-6"
     x-data="idTemplateEditor({
         data: {{ Js::from($templateData) }},
@@ -11,6 +27,7 @@
         uploadUrl: '{{ route('superadmin.id-templates.upload-image') }}',
         csrf: '{{ csrf_token() }}',
         assetBase: '/storage',
+        universalKeys: {{ Js::from($scanFieldKeys) }},
     })">
 
     {{-- Meta bar: name, toggles, save --}}
@@ -220,15 +237,6 @@
                 No zones yet. Add a zone, then position its rectangle over an ID feature (e.g. the student number).
             </p>
 
-            {{-- Recommended targets: the code-defined universal fields, so a zone
-                 feeds the same key the signup wizard and forms autofill from. Any
-                 other snake_case key stays valid (extraction-only). --}}
-            <datalist id="id-template-field-options">
-                @foreach (\App\Support\UniversalField::catalog() as $ukey => $meta)
-                    <option value="{{ $ukey }}">{{ $meta['label'] }}</option>
-                @endforeach
-            </datalist>
-
             <div class="space-y-3">
                 <template x-for="(zone, i) in zones" :key="i">
                     <div class="rounded-xl border p-3 transition"
@@ -253,10 +261,41 @@
                                     class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                             </div>
                             <div>
-                                <label class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Writes to field</label>
-                                <input type="text" x-model="zone.field" list="id-template-field-options" placeholder="student_id"
-                                    class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
-                                <p class="mt-1 text-[10px] text-gray-400 dark:text-gray-500">Universal keys (e.g. <code>student_id</code>, <code>first_name</code>, <code>birthday</code>) pre-fill the signup form; other keys are extraction-only.</p>
+                                <div class="mb-1 flex items-center justify-between gap-3">
+                                    <label class="block text-[11px] font-medium text-gray-500 dark:text-gray-400">Writes to field</label>
+                                    <div class="inline-flex rounded-full border border-gray-200 bg-gray-50 p-0.5 text-[10px] font-medium dark:border-gray-700 dark:bg-gray-900/40">
+                                        <button type="button" @click.stop="setZoneFieldMode(zone, 'universal')"
+                                            class="rounded-full px-2.5 py-1 transition"
+                                            :class="zone.fieldMode === 'universal' ? 'bg-brand-500 text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'">
+                                            Universal
+                                        </button>
+                                        <button type="button" @click.stop="setZoneFieldMode(zone, 'custom')"
+                                            class="rounded-full px-2.5 py-1 transition"
+                                            :class="zone.fieldMode === 'custom' ? 'bg-brand-500 text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'">
+                                            Custom
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div x-show="zone.fieldMode === 'universal'" x-cloak>
+                                    <select x-model="zone.universalField" @change="setZoneUniversalField(zone)"
+                                        class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                                        @foreach ($scanFieldGroups as $group => $fields)
+                                            <optgroup label="{{ ucfirst($group) }}">
+                                                @foreach ($fields as $ukey => $meta)
+                                                    <option value="{{ $ukey }}">{{ $meta['label'] }} ({{ $ukey }})</option>
+                                                @endforeach
+                                            </optgroup>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div x-show="zone.fieldMode === 'custom'" x-cloak>
+                                    <input type="text" x-model="zone.customField" @input="setZoneCustomField(zone)" placeholder="student_id"
+                                        class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                </div>
+
+                                <p class="mt-1 text-[10px] text-gray-400 dark:text-gray-500">Universal fields pre-fill the signup form; custom keys stay extraction-only.</p>
                             </div>
                             <div>
                                 <label class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Regex (optional)</label>

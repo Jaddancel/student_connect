@@ -77,11 +77,83 @@ class OcrClient
             }
         }
 
+        $fields = $this->expandName($fields);
+
         return [
             'fields' => $fields,
             'student_id' => $fields['student_id'] ?? null,
             'ok' => true,
         ];
+    }
+
+    /**
+     * PH IDs print the name as `LAST, FIRST MIDDLE`. When a template captures the
+     * whole name into a single zone — either a dedicated `full_name`/`name` field
+     * or a `first_name` zone that actually swallowed the comma-form — split it
+     * into the canonical `first_name` / `middle_name` / `last_name` keys the
+     * signup form understands. Explicit per-part zones are never overwritten.
+     *
+     * @param  array<string,string>  $fields
+     * @return array<string,string>
+     */
+    private function expandName(array $fields): array
+    {
+        if (isset($fields['full_name']) || isset($fields['name'])) {
+            $parts = $this->splitFullName((string) ($fields['full_name'] ?? $fields['name']));
+            unset($fields['full_name'], $fields['name']);
+            foreach ($parts as $key => $value) {
+                if (($fields[$key] ?? '') === '') {
+                    $fields[$key] = $value;
+                }
+            }
+        } elseif (isset($fields['first_name']) && str_contains((string) $fields['first_name'], ',')) {
+            // The comma-form was mis-captured into first_name; replace it wholesale.
+            foreach ($this->splitFullName((string) $fields['first_name']) as $key => $value) {
+                $fields[$key] = $value;
+            }
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Parse a full name into its parts. Handles the canonical
+     * `LAST, FIRST MIDDLE...` form and falls back to `FIRST MIDDLE LAST` when no
+     * comma is present.
+     *
+     * @return array<string,string>  subset of first_name/middle_name/last_name
+     */
+    private function splitFullName(string $raw): array
+    {
+        $value = trim((string) preg_replace('/\s+/', ' ', $raw));
+        if ($value === '') {
+            return [];
+        }
+
+        if (str_contains($value, ',')) {
+            [$last, $rest] = array_pad(explode(',', $value, 2), 2, '');
+            $tokens = array_values(array_filter(explode(' ', trim($rest)), static fn ($t) => $t !== ''));
+
+            return array_filter([
+                'last_name' => trim($last),
+                'first_name' => $tokens[0] ?? '',
+                'middle_name' => implode(' ', array_slice($tokens, 1)),
+            ], static fn ($v) => $v !== '');
+        }
+
+        $tokens = array_values(array_filter(explode(' ', $value), static fn ($t) => $t !== ''));
+        if (count($tokens) === 1) {
+            return ['first_name' => $tokens[0]];
+        }
+
+        $first = array_shift($tokens);
+        $last = array_pop($tokens);
+
+        return array_filter([
+            'first_name' => $first,
+            'middle_name' => implode(' ', $tokens),
+            'last_name' => $last,
+        ], static fn ($v) => $v !== '');
     }
 
     /**

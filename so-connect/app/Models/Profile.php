@@ -27,6 +27,8 @@ class Profile extends Model
         'nationality',
         'birthday',
         'course_year',
+        'course',
+        'year_section',
         'occupation',
         'address',
         'position',

@@ -227,6 +227,8 @@
                             An invitation email will be sent here. The new admin will set their own password upon first login.
                         </p>
                     </div>
+
+                    <x-google-link-field />
                 </div>
             </div>
 

@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Forms\FieldType;
 use App\Models\Form;
 use App\Models\FormSubmission;
+use App\Models\Organization;
 use App\Services\DocumentGenerationService;
+use App\Support\OrganizationField;
 use App\Support\UniversalField;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -28,32 +30,33 @@ class FormRenderController extends Controller
             ->firstOrFail();
 
         $fields = $form->fields()->get();
+        $organization = OrganizationField::resolveOrganization($request->user());
 
         return view('pages.form.render', [
             'title' => $form->name,
             'form' => $form,
             'fields' => $fields,
-            'prefill' => $this->profilePrefill($request, $fields),
+            'prefill' => $this->profilePrefill($request, $fields, $organization),
+            // Option list for any field mapped to the "Advisers" universal field.
+            'advisers' => OrganizationField::advisers($organization),
         ]);
     }
 
     /**
-     * Build a [field_key => value] map of universal-field autofills sourced from
-     * the signed-in user's profile. Only fields mapped to a universal key with a
-     * non-null profile value are included; file/image fields are skipped (a
-     * browser cannot pre-populate <input type=file>). Empty for guests.
+     * Build a [field_key => value] map of universal-field autofills. Profile-source
+     * keys read from the signed-in user's profile; org-source keys (president /
+     * auditor / secretary) read from their organization's current officeholders.
+     * File/image fields are skipped (a browser cannot pre-populate <input
+     * type=file>), and `adviser` has no autofill value (it's a dropdown choice).
      *
      * @param  \Illuminate\Support\Collection<int,\App\Models\Form\FormDescription>  $fields
      * @return array<string,mixed>
      */
-    private function profilePrefill(Request $request, $fields): array
+    private function profilePrefill(Request $request, $fields, ?Organization $organization): array
     {
         // `profile` is a FK column on users and shadows the relation, so
         // `$user->profile` returns the id — load the related model explicitly.
         $profile = $request->user()?->profile()->first();
-        if ($profile === null) {
-            return [];
-        }
 
         $prefill = [];
         foreach ($fields as $field) {
@@ -61,8 +64,12 @@ class FormRenderController extends Controller
             if (! $key || FieldType::isFileLike($field->field_type)) {
                 continue;
             }
-            $value = UniversalField::valueFor($profile, $key);
-            if ($value !== null) {
+
+            $value = UniversalField::isOrgField($key)
+                ? OrganizationField::value($organization, $key)
+                : ($profile ? UniversalField::valueFor($profile, $key) : null);
+
+            if ($value !== null && $value !== '') {
                 $prefill[$field->field_key] = $value;
             }
         }
@@ -134,6 +141,15 @@ class FormRenderController extends Controller
         }
 
         $user = $request->user();
+
+        // Persist any newly-typed adviser name so the org's dropdown offers it next time.
+        $organization = OrganizationField::resolveOrganization($user);
+        foreach ($fields as $field) {
+            if ($field->universal_key === 'adviser') {
+                OrganizationField::rememberAdviser($organization, $payload[$field->field_key] ?? null);
+            }
+        }
+
         $submission = FormSubmission::query()->create([
             'form_id' => (int) $form->getKey(),
             'organization_id' => $form->organization_id,

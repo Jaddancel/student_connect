@@ -58,13 +58,18 @@ class IdTemplate extends Model
     }
 
     /**
-     * The template the live scanner uses: active + default.
+     * The template the live scanner uses. Prefers the active+default template,
+     * but falls back to the most-recent *active* template so the scanner still
+     * works when an admin activated a template without explicitly flagging it as
+     * default (the previous strict active+default rule made scanning "fail
+     * instantly" in that common case).
      */
     public static function scannerTemplate(): ?self
     {
         return static::query()
             ->where('is_active', true)
-            ->where('is_default', true)
+            ->orderByDesc('is_default')
+            ->orderByDesc('id_template_id')
             ->first();
     }
 

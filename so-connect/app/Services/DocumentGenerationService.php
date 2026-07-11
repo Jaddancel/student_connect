@@ -14,6 +14,7 @@ use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
 use App\Models\User;
 use App\Models\Workplan;
+use App\Support\OrganizationField;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -196,12 +197,14 @@ class DocumentGenerationService
             $orientation = (string) ($page['orientation'] ?? 'portrait');
             $orientation = in_array($orientation, ['portrait', 'landscape'], true) ? $orientation : 'portrait';
 
-            // Resolve the submitter's profile so `data-universal` tokens print
-            // from it. `profile` is a FK column that shadows the relation, so the
-            // related model must be loaded explicitly.
-            $submitterProfile = $submission->submitted_by
-                ? User::find((int) $submission->submitted_by)?->profile()->first()
+            // Resolve the submitter's profile + organization so `data-universal`
+            // tokens print from them. `profile` is a FK column that shadows the
+            // relation, so the related model must be loaded explicitly.
+            $submitter = $submission->submitted_by
+                ? User::find((int) $submission->submitted_by)
                 : null;
+            $submitterProfile = $submitter?->profile()->first();
+            $submitterOrganization = OrganizationField::resolveOrganization($submitter);
 
             $body = app(\App\Forms\PdfTemplateRenderer::class)->render(
                 $templateHtml,
@@ -209,6 +212,7 @@ class DocumentGenerationService
                 $fields,
                 $disk,
                 $submitterProfile,
+                $submitterOrganization,
             );
 
             $html = view('documents.form-template-pdf', [

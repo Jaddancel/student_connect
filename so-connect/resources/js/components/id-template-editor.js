@@ -123,6 +123,7 @@ export function idTemplateEditor(config) {
         uploadUrl: config.uploadUrl,
         csrf: config.csrf,
         assetBase: config.assetBase || '/storage',
+        universalKeys: config.universalKeys || [],
 
         // Native coords loaded from the snapshot, consumed once when the stage is
         // (re)built. Editing thereafter reads geometry from the Konva rects.
@@ -152,6 +153,9 @@ export function idTemplateEditor(config) {
                     name: z.name || '',
                     label: z.label || '',
                     field: z.field || 'student_id',
+                    fieldMode: this.isUniversalField(z.field || 'student_id') ? 'universal' : 'custom',
+                    universalField: this.isUniversalField(z.field || '') ? (z.field || 'student_id') : 'student_id',
+                    customField: this.isUniversalField(z.field || '') ? '' : (z.field || ''),
                     regex: z.regex || '',
                 })),
                 coords: list.map((z) => ({
@@ -165,6 +169,32 @@ export function idTemplateEditor(config) {
                 imagePath: '', naturalWidth: 0, naturalHeight: 0, mode: null,
                 canReCrop: false, rawImg: null, rawFile: null, zones: [], coords: [],
             };
+        },
+
+        isUniversalField(key) {
+            return !!key && this.universalKeys.includes(key);
+        },
+
+        setZoneFieldMode(zone, mode) {
+            zone.fieldMode = mode === 'custom' ? 'custom' : 'universal';
+            if (zone.fieldMode === 'universal') {
+                zone.universalField = this.isUniversalField(zone.field) ? zone.field : (zone.universalField || 'student_id');
+                zone.field = zone.universalField || 'student_id';
+            } else {
+                zone.customField = !this.isUniversalField(zone.field) ? zone.field : (zone.customField || '');
+                zone.field = zone.customField || '';
+            }
+        },
+
+        setZoneUniversalField(zone) {
+            zone.fieldMode = 'universal';
+            zone.field = zone.universalField || 'student_id';
+        },
+
+        setZoneCustomField(zone) {
+            zone.fieldMode = 'custom';
+            zone.customField = zone.customField || '';
+            zone.field = zone.customField;
         },
 
         /** True when a side has an image AND at least one zone (drives badges). */
@@ -212,7 +242,13 @@ export function idTemplateEditor(config) {
                 rawImg,
                 rawFile,
                 zones: this.zones.map((z) => ({
-                    name: z.name, label: z.label, field: z.field, regex: z.regex,
+                    name: z.name,
+                    label: z.label,
+                    field: z.field,
+                    fieldMode: z.fieldMode,
+                    universalField: z.universalField,
+                    customField: z.customField,
+                    regex: z.regex,
                 })),
                 coords,
             };
@@ -591,6 +627,9 @@ export function idTemplateEditor(config) {
             this.zones.push({
                 name: `zone_${i + 1}`,
                 label: `Zone ${i + 1}`,
+                fieldMode: 'universal',
+                universalField: 'student_id',
+                customField: '',
                 field: 'student_id',
                 regex: '',
             });
@@ -639,8 +678,11 @@ export function idTemplateEditor(config) {
                 y1 = Math.max(0, Math.min(y1, s.naturalHeight));
                 y2 = Math.max(0, Math.min(y2, s.naturalHeight));
                 return {
-                    name: z.name, label: z.label, field: z.field,
-                    regex: z.regex || null, x1, y1, x2, y2,
+                    name: z.name,
+                    label: z.label,
+                    field: z.field,
+                    regex: z.regex || null,
+                    x1, y1, x2, y2,
                 };
             });
             return {
