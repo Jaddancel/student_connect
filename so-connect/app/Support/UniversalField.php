@@ -31,8 +31,9 @@ final class UniversalField
      * - `source`         'profile' | 'org'
      * - `profile_column` the {@see Profile} column (profile source only)
      * - `group`          palette grouping: name | contact | academic | personal | organization
+     * - `format`         optional presentation format applied in valueFor() (e.g. `date:F j, Y`)
      *
-     * @return array<string, array{label:string, type:string, source:string, group:string, profile_column?:string}>
+     * @return array<string, array{label:string, type:string, source:string, group:string, profile_column?:string, format?:string}>
      */
     public static function catalog(): array
     {
@@ -48,6 +49,9 @@ final class UniversalField
 
             'sex'           => ['label' => 'Sex',          'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'sex',          'group' => 'personal'],
             'religion'      => ['label' => 'Religion',     'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'religion',     'group' => 'personal'],
+            // `birthday` is stored as a date but presented spelled-out (e.g. "January 5, 2000");
+            // `format` is applied in valueFor() so every consumer gets the same rendering.
+            'birthday'      => ['label' => 'Birthday',     'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'birthday',     'group' => 'personal', 'format' => 'date:F j, Y'],
 
             // Organization-scoped: resolved from the submitter's org (see OrganizationField).
             'adviser'       => ['label' => 'Adviser',                'type' => FieldType::SELECT, 'source' => 'org', 'group' => 'organization'],
@@ -86,7 +90,7 @@ final class UniversalField
     }
 
     /**
-     * @return array{label:string, type:string, source:string, group:string, profile_column?:string}|null
+     * @return array{label:string, type:string, source:string, group:string, profile_column?:string, format?:string}|null
      */
     public static function get(string $key): ?array
     {
@@ -162,7 +166,20 @@ final class UniversalField
         }
 
         $value = $profile->getAttribute($meta['profile_column']);
+        if ($value === '' || $value === null) {
+            return null;
+        }
 
-        return ($value === '' || $value === null) ? null : $value;
+        // Optional presentation formatting (e.g. `date:F j, Y` spells a birthday out).
+        $format = $meta['format'] ?? null;
+        if (is_string($format) && str_starts_with($format, 'date:')) {
+            try {
+                return \Illuminate\Support\Carbon::parse((string) $value)->format(substr($format, 5));
+            } catch (\Throwable) {
+                return $value;
+            }
+        }
+
+        return $value;
     }
 }

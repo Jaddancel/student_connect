@@ -56,9 +56,10 @@
 
             <div class="relative mx-auto aspect-video w-full max-w-md overflow-hidden rounded-xl bg-black">
                 <video x-ref="video" playsinline muted class="h-full w-full object-cover"></video>
-                {{-- ID-1 (ISO 7810) finder overlay; aspect follows the template orientation --}}
+                {{-- ID-1 (ISO 7810) finder overlay; aspect follows the template orientation.
+                     x-ref="finder": capture() crops the frame to exactly this rectangle. --}}
                 <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
-                    <div class="rounded-xl border-2 border-palette-lime shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"
+                    <div x-ref="finder" class="rounded-xl border-2 border-palette-lime shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"
                         :style="'aspect-ratio: ' + overlayAspect + '; ' + (orientation === 'vertical' ? 'height: 90%;' : 'width: 82%;')"></div>
                 </div>
                 <template x-if="!cameraOn && !previewFor(scanSide)">

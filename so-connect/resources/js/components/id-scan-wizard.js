@@ -3,9 +3,12 @@
  *
  * Step 1 is a live-camera ID scanner (with an ID-card finder overlay and an
  * upload fallback) that captures BOTH sides of the ID in sequence: the user
- * scans the front, then the back. Each captured/uploaded photo is POSTed to
- * `/id-scan` with its `side`, and the returned universal-keyed `fields` maps are
- * MERGED (front wins ties) to pre-fill Step 2's inputs. The captured frames are
+ * scans the front, then the back. Camera captures are cropped to the finder
+ * silhouette — only the framed card is scanned, matching the template's
+ * tightly-cropped reference image. Each captured/uploaded photo is normalized
+ * (downscaled/re-encoded under the server's 2 MB cap) and POSTed to `/id-scan`
+ * with its `side`, and the returned universal-keyed `fields` maps are MERGED
+ * (front wins ties) to pre-fill Step 2's inputs. The normalized photos are
  * written into the real `id_photo_front` / `id_photo_back` file inputs via a
  * DataTransfer so the server's existing `store()` handling is untouched.
  *
@@ -34,6 +37,47 @@ const UNIVERSAL_TO_INPUT = {
     talents_hobbies: 'talents_hobbies',
     student_id: 'student_id',
 };
+
+// Every scanned photo is re-encoded through a canvas to fit the server's 2 MB
+// upload cap (`max:2048` on both /id-scan and the final form submit) — phone
+// captures/uploads routinely exceed it, which made scanning fail the instant a
+// photo landed. Re-encoding also bakes EXIF rotation into the pixels; the OCR
+// sidecar reads pixels only, so a sideways phone photo would miss every zone.
+const PHOTO_MAX_EDGE = 1600; // px, long edge after downscale — ample for zone OCR
+const PHOTO_MAX_BYTES = 1900 * 1024; // safely under the 2048 KB validation cap
+const PHOTO_QUALITIES = [0.85, 0.7, 0.55]; // JPEG quality ladder, first fit wins
+
+/**
+ * Map a box measured over an `object-fit: cover` element back into intrinsic
+ * source-frame pixels. `view` and `box` are DOMRect-likes in the same
+ * coordinate space (both from getBoundingClientRect()).
+ *
+ * The wizard uses this to crop a webcam capture to the ID finder silhouette:
+ * the OCR template's zones are authored against a tightly-cropped reference
+ * image of the ID, so only the framed card — never the scene around it — may
+ * be sent to the scanner. Returns null when the mapping is degenerate.
+ */
+export function mapCoverBoxToFrame(frame, view, box) {
+    const scale = Math.max(view.width / frame.width, view.height / frame.height);
+    if (!Number.isFinite(scale) || scale <= 0) return null;
+
+    // cover centers the scaled frame inside the element and crops the overflow.
+    const offsetX = (view.width - frame.width * scale) / 2;
+    const offsetY = (view.height - frame.height * scale) / 2;
+    const sx = (box.left - view.left - offsetX) / scale;
+    const sy = (box.top - view.top - offsetY) / scale;
+    const sw = box.width / scale;
+    const sh = box.height / scale;
+
+    // Clamp to the frame to absorb border and rounding slop.
+    const x1 = Math.max(0, Math.min(frame.width, sx));
+    const y1 = Math.max(0, Math.min(frame.height, sy));
+    const x2 = Math.max(0, Math.min(frame.width, sx + sw));
+    const y2 = Math.max(0, Math.min(frame.height, sy + sh));
+    if (x2 - x1 < 1 || y2 - y1 < 1) return null;
+
+    return { sx: x1, sy: y1, sw: x2 - x1, sh: y2 - y1 };
+}
 
 export function idScanWizard(config = {}) {
     return {
@@ -112,16 +156,26 @@ export function idScanWizard(config = {}) {
             this.cameraOn = false;
         },
 
-        /** Grab the current video frame as the current side's ID photo. */
+        /**
+         * Grab the finder-silhouette region of the current video frame as the
+         * current side's ID photo — cropping to what the overlay told the user
+         * is being scanned, so the photo matches the template's tightly-cropped
+         * reference geometry.
+         */
         capture() {
             const video = this.$refs.video;
             if (!video || !video.videoWidth) return;
 
             const side = this.scanSide;
             const canvas = this.$refs.canvas;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            const region = this.finderRegion(video);
+            canvas.width = Math.round(region.sw);
+            canvas.height = Math.round(region.sh);
+            canvas.getContext('2d').drawImage(
+                video,
+                region.sx, region.sy, region.sw, region.sh,
+                0, 0, canvas.width, canvas.height,
+            );
 
             canvas.toBlob((blob) => {
                 if (!blob) return;
@@ -131,28 +185,99 @@ export function idScanWizard(config = {}) {
             }, 'image/jpeg', 0.92);
         },
 
+        /**
+         * The finder-overlay rectangle in intrinsic video-frame pixels — the
+         * only part of the frame the user was told is being scanned. Falls back
+         * to the full frame when the overlay cannot be measured.
+         */
+        finderRegion(video) {
+            const full = { sx: 0, sy: 0, sw: video.videoWidth, sh: video.videoHeight };
+            const finder = this.$refs.finder;
+            if (!finder) return full;
+
+            const view = video.getBoundingClientRect();
+            const box = finder.getBoundingClientRect();
+            if (!view.width || !view.height || !box.width || !box.height) return full;
+
+            return mapCoverBoxToFrame(
+                { width: video.videoWidth, height: video.videoHeight },
+                view,
+                box,
+            ) || full;
+        },
+
         // --- upload fallback ---
         onUpload(event, side) {
             const file = event.target.files && event.target.files[0];
-            if (file) this.applyFile(file, side, true); // file is already on the input
+            if (file) this.applyFile(file, side);
         },
 
         /**
-         * Put a captured file onto the real `id_photo_<side>` input (unless the
-         * native change already did), preview it, and scan it.
+         * Normalize a captured/uploaded photo, put it onto the real
+         * `id_photo_<side>` input (replacing any oversized original so the
+         * eventual form POST passes the same 2 MB cap), preview it, and scan it.
          */
-        applyFile(file, side, alreadyOnInput = false) {
+        async applyFile(file, side) {
+            const prepared = await this.normalizePhoto(file, side);
+
             const inputId = side === 'back' ? 'id_photo_back' : 'id_photo_front';
             const input = document.getElementById(inputId);
-            if (input && !alreadyOnInput) {
+            if (input) {
                 const dt = new DataTransfer();
-                dt.items.add(file);
+                dt.items.add(prepared);
                 input.files = dt.files;
             }
             const key = side === 'back' ? 'backPreview' : 'frontPreview';
             if (this[key]) URL.revokeObjectURL(this[key]);
-            this[key] = URL.createObjectURL(file);
-            this.scan(file, side);
+            this[key] = URL.createObjectURL(prepared);
+            this.scan(prepared, side);
+        },
+
+        /**
+         * Downscale + re-encode a photo as JPEG within PHOTO_MAX_EDGE /
+         * PHOTO_MAX_BYTES. Returns the original file when it cannot be decoded
+         * — the server then reports it as an invalid photo instead of us
+         * guessing here.
+         */
+        async normalizePhoto(file, side) {
+            let source = null;
+            let objectUrl = null;
+            try {
+                if (window.createImageBitmap) {
+                    source = await createImageBitmap(file);
+                } else {
+                    objectUrl = URL.createObjectURL(file);
+                    source = new Image();
+                    source.src = objectUrl;
+                    await source.decode();
+                }
+                const width = source.naturalWidth || source.width;
+                const height = source.naturalHeight || source.height;
+                if (!width || !height) return file;
+
+                const scale = Math.min(1, PHOTO_MAX_EDGE / Math.max(width, height));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(width * scale));
+                canvas.height = Math.max(1, Math.round(height * scale));
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#fff'; // PNG transparency would turn black in JPEG
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+
+                let blob = null;
+                for (const quality of PHOTO_QUALITIES) {
+                    blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+                    if (blob && blob.size <= PHOTO_MAX_BYTES) break;
+                }
+                if (!blob) return file;
+
+                return new File([blob], `id-${side}.jpg`, { type: 'image/jpeg' });
+            } catch (e) {
+                return file;
+            } finally {
+                if (objectUrl) URL.revokeObjectURL(objectUrl);
+                if (source && typeof source.close === 'function') source.close();
+            }
         },
 
         async scan(file, side) {
@@ -163,7 +288,20 @@ export function idScanWizard(config = {}) {
                 body.append('photo', file);
                 body.append('side', side);
                 body.append('_token', this.csrf);
-                const res = await fetch(this.scanUrl, { method: 'POST', body });
+                // Ask for JSON explicitly so validation/session errors come back
+                // parseable instead of as an HTML redirect, which used to make
+                // every problem look like an instant, unexplained scan failure.
+                const res = await fetch(this.scanUrl, {
+                    method: 'POST',
+                    body,
+                    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                if (!res.ok) {
+                    this.scanNote = res.status === 419
+                        ? 'This page sat open for a while — refresh it and scan again.'
+                        : 'The ID reader hit a problem — you can fill the form manually.';
+                    return;
+                }
                 const json = await res.json();
 
                 const fields = (json && json.fields) || {};
@@ -184,19 +322,26 @@ export function idScanWizard(config = {}) {
         },
 
         /**
-         * Choose the status message after a scan, distinguishing "read something"
-         * from the actionable failure reasons the server reports via `note`.
+         * Choose the status message after a scan. Actionable failure reasons the
+         * server reports via `note` win over the "read something" message, so a
+         * failing side is never masked by an earlier successful one.
          */
         noteFor(json) {
-            if (Object.keys(this.detected).length) {
-                return 'Auto-filled from your ID — please verify each field.';
-            }
             const note = json && json.note;
+            if (note === 'invalid photo') {
+                return 'That photo couldn’t be used — retake it or upload a clear JPG/PNG under 2 MB.';
+            }
             if (note === 'no active template') {
                 return 'ID scanning isn’t configured yet — please fill the form manually.';
             }
             if (note === 'scanner unavailable' || note === 'scanner error') {
                 return 'The ID reader is temporarily unavailable — please fill the form manually.';
+            }
+            if (note === 'no back zones') {
+                return 'Nothing is read from the back of this ID — you can continue to the form.';
+            }
+            if (Object.keys(this.detected).length) {
+                return 'Auto-filled from your ID — please verify each field.';
             }
             return 'No details detected — you can fill the form manually.';
         },

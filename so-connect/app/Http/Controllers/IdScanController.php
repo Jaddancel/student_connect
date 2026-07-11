@@ -6,6 +6,7 @@ use App\Models\IdTemplate;
 use App\Services\OcrClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Client-side auto-scan endpoint. The student-leader-directory signup form POSTs
@@ -21,10 +22,24 @@ class IdScanController extends Controller
 {
     public function scan(Request $request, OcrClient $ocr): JsonResponse
     {
-        $validated = $request->validate([
-            'photo' => ['required', 'image', 'max:2048'],
-            'side' => ['nullable', 'string', 'in:front,back'],
-        ]);
+        // This endpoint is consumed exclusively by the wizard's fetch(), which
+        // cannot follow the redirect Laravel issues for a failed validation on
+        // a non-JSON request — that used to surface as an instant, unexplained
+        // scan failure. Fail soft with the same JSON shape as every other
+        // "can't scan" condition instead.
+        try {
+            $validated = $request->validate([
+                'photo' => ['required', 'image', 'max:2048'],
+                'side' => ['nullable', 'string', 'in:front,back'],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'student_id' => null,
+                'fields' => [],
+                'note' => 'invalid photo',
+                'errors' => $e->errors(),
+            ]);
+        }
         $side = ($validated['side'] ?? 'front') === 'back' ? 'back' : 'front';
 
         $template = IdTemplate::scannerTemplate();

@@ -222,6 +222,37 @@ it('returns empty for a back scan when the template has no back zones', function
     Http::assertNothingSent();
 });
 
+it('returns a JSON note instead of redirecting when the photo is too large', function () {
+    // The wizard posts plain multipart with no JSON Accept header; a failed
+    // validation used to answer with a 302 the client could not parse, making
+    // every oversized phone photo an instant, unexplained scan failure.
+    Http::fake();
+
+    IdTemplate::query()->create(idTemplatePayload());
+
+    $this->post(route('id-scan.scan'), [
+        'photo' => UploadedFile::fake()->image('huge.jpg', 1000, 600)->size(3072),
+    ])->assertOk()->assertJson([
+        'student_id' => null,
+        'fields' => [],
+        'note' => 'invalid photo',
+    ]);
+
+    Http::assertNothingSent();
+});
+
+it('returns a JSON note when the upload is not an image at all', function () {
+    Http::fake();
+
+    IdTemplate::query()->create(idTemplatePayload());
+
+    $this->post(route('id-scan.scan'), [
+        'photo' => UploadedFile::fake()->create('id.pdf', 100, 'application/pdf'),
+    ])->assertOk()->assertJson(['note' => 'invalid photo']);
+
+    Http::assertNothingSent();
+});
+
 it('degrades gracefully when the OCR sidecar is unreachable', function () {
     Http::fake(function () {
         throw new ConnectionException('sidecar down');

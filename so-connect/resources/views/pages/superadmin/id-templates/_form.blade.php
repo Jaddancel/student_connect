@@ -252,12 +252,12 @@
                         <div class="space-y-2">
                             <div>
                                 <label class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Key (a-z, 0-9, _)</label>
-                                <input type="text" x-model="zone.name" placeholder="student_id"
+                                <input type="text" x-model="zone.name" @input="updateZoneLabel(i)" placeholder="student_id"
                                     class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                             </div>
                             <div>
                                 <label class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Label</label>
-                                <input type="text" x-model="zone.label" placeholder="Student ID Number"
+                                <input type="text" x-model="zone.label" @input="updateZoneLabel(i)" placeholder="Student ID Number"
                                     class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                             </div>
                             <div>
