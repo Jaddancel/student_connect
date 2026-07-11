@@ -19,7 +19,7 @@ class GoogleLinkController extends Controller
 {
     public function redirect(Request $request)
     {
-        if (! $this->configured()) {
+        if (! self::isConfigured()) {
             return $this->closePopup(['error' => 'Google sign-in is not configured yet. See GOOGLE-AUTH-SETUP.md.']);
         }
 
@@ -31,7 +31,7 @@ class GoogleLinkController extends Controller
 
     public function callback(Request $request)
     {
-        if (! $this->configured()) {
+        if (! self::isConfigured()) {
             return $this->closePopup(['error' => 'Google sign-in is not configured yet. See GOOGLE-AUTH-SETUP.md.']);
         }
 
@@ -50,7 +50,12 @@ class GoogleLinkController extends Controller
         ]);
     }
 
-    private function configured(): bool
+    /**
+     * Whether the three GOOGLE_* env keys are filled. Exposed publicly so
+     * views can skip opening the popup altogether (and show the message
+     * immediately) instead of flashing an empty window that closes itself.
+     */
+    public static function isConfigured(): bool
     {
         return filled(config('services.google.client_id'))
             && filled(config('services.google.client_secret'))

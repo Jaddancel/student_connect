@@ -236,11 +236,14 @@ class RequestDecisionController extends Controller
                 ]);
 
                 $newUser = User::create([
-                    'user_email'      => (string) ($payload['email'] ?? ''),
-                    'user_password'   => (string) ($payload['password'] ?? Hash::make(Str::random(16))),
-                    'user_type'       => 3,
-                    'profile'         => (int) $profile->profile_id,
-                    'profile_pending' => false,
+                    'user_email'        => (string) ($payload['email'] ?? ''),
+                    'google_id'         => $payload['google_id'] ?? null,
+                    // A Google-linked email is already verified by Google.
+                    'email_verified_at' => ! empty($payload['google_id']) ? now() : null,
+                    'user_password'     => (string) ($payload['password'] ?? Hash::make(Str::random(16))),
+                    'user_type'         => 3,
+                    'profile'           => (int) $profile->profile_id,
+                    'profile_pending'   => false,
                 ]);
 
                 $orgId = (int) ($payload['organization_id'] ?? 0);

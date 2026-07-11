@@ -50,6 +50,11 @@ Legend: `[ ]` not started · `[S]` in progress · `[X]` finished
 - [X] Bordered note + "Sign in with Google" button — shared `x-google-link-field` component on both admin-account and officer create forms
 - [X] `store()` persists `google_id`, sets `email_verified_at` (both AdminAccountCreation + AdminOfficerCreation)
 - [X] `GOOGLE-AUTH-SETUP.md` (in `so-connect/`) with manual Google Cloud + `.env` steps
+- [X] Public landing-page "Sign Up with Google" (extends Feature 5, not in original plan):
+  - Dropped `auth` middleware from the google redirect/callback routes — stateless, safe to make fully public
+  - Landing page auth section: new button opens the same popup, then navigates to `/signup?google_id=&first_name=&last_name=&email=` on success
+  - `StudentLeaderDirectoryController::index` reads those query params → `$googlePrefill`; Step 2 form pre-fills first/last name + email and carries a hidden `google_id`
+  - `store()` validates optional `google_id`; `RequestDecisionController`'s new-officer approval path persists `google_id`/`email_verified_at` on the created User
 - [ ] End-to-end verify (needs real Google OAuth creds in `.env`)
 
 ## Cross-cutting

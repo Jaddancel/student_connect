@@ -1,9 +1,13 @@
 # Google "Sign in with Google" setup
 
-The admin and officer account-creation forms have an optional **Sign in with
-Google** button that pre-fills the applicant's name and email and links their
-Google account (`google_id`). It runs a popup OAuth flow that **never logs the
-applicant in** — the signed-in SuperAdmin/Admin keeps their own session.
+The admin and officer account-creation forms, and the public landing page's
+**Sign Up with Google** button, share one optional **Sign in with Google**
+popup that pre-fills the applicant's name and email and links their Google
+account (`google_id`). It runs a popup OAuth flow that **never logs anyone
+in** — on the admin forms the signed-in SuperAdmin/Admin keeps their own
+session; on the landing page the visitor stays signed out and is handed off
+to the officer registration wizard (`/signup`) with their name/email
+pre-filled.
 
 The feature stays **inert** until the three `.env` keys below are filled: the
 button will just report "Google sign-in is not configured yet." No code changes
@@ -65,6 +69,7 @@ php artisan config:clear
 
 ## 4. Test
 
+**Admin/officer creation forms:**
 1. Sign in as a SuperAdmin and open **Create Admin Account** (or as an Admin,
    **Create Officer**).
 2. Click **Sign in with Google** — a popup opens.
@@ -72,6 +77,17 @@ php artisan config:clear
 4. The popup closes and the form's first name, last name, and email fill in;
    a hidden `google_id` is captured. Submit to create the linked account
    (its email is marked verified because Google vouched for it).
+
+**Public landing page:**
+1. Sign out (or use a private window) and open the landing page's **Login /
+   Sign Up** section.
+2. Click **Sign Up with Google** — a popup opens.
+3. Authorize with a Google account listed under **Test users**.
+4. The popup closes and the browser navigates to the officer registration
+   wizard (`/signup`) with the Google name/email carried over as query
+   params. Complete Step 1 (ID scan) — Step 2's name/email fields and a
+   hidden `google_id` are pre-filled. The linked account is created once a
+   SuperAdmin/Admin approves the resulting request.
 
 ---
 

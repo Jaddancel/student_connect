@@ -204,7 +204,7 @@
                             First Name <span class="text-error-500">*</span>
                         </label>
                         <input type="text" id="first_name" name="first_name" placeholder="First name"
-                            value="{{ old('first_name') }}"
+                            value="{{ old('first_name', $googlePrefill['first_name'] ?? '') }}"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('first_name') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         @error('first_name')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
@@ -225,7 +225,7 @@
                             Last Name <span class="text-error-500">*</span>
                         </label>
                         <input type="text" id="last_name" name="last_name" placeholder="Last name"
-                            value="{{ old('last_name') }}"
+                            value="{{ old('last_name', $googlePrefill['last_name'] ?? '') }}"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('last_name') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         @error('last_name')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
@@ -240,11 +240,20 @@
                             Email Address <span class="text-error-500">*</span>
                         </label>
                         <input type="email" id="email" name="email" placeholder="New officer's login email"
-                            value="{{ old('email') }}"
+                            value="{{ old('email', $googlePrefill['email'] ?? '') }}"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('email') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         @error('email')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                         @enderror
+                        <input type="hidden" name="google_id" value="{{ old('google_id', $googlePrefill['google_id'] ?? '') }}" />
+                        @if (old('google_id', $googlePrefill['google_id'] ?? ''))
+                            <p class="mt-2 flex items-center gap-1.5 text-xs font-medium text-success-600 dark:text-success-400">
+                                <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Linked to your Google account.
+                            </p>
+                        @endif
                     </div>
 
                     <div>

@@ -603,14 +603,15 @@ Route::post('/superadmin/accounts/create', [AdminAccountCreationController::clas
     ->name('superadmin.accounts.store');
 
 // Google "Sign in" popup for pre-filling admin (SuperAdmin) and officer (Admin)
-// creation forms. Shared by both forms; reads the applicant's Google profile
-// only — never logs them in. Path matches GOOGLE_REDIRECT_URI in .env.
-Route::middleware(['auth'])->group(function () {
-    Route::get('/admin/accounts/google/redirect', [GoogleLinkController::class, 'redirect'])
-        ->name('admin.accounts.google.redirect');
-    Route::get('/admin/accounts/google/callback', [GoogleLinkController::class, 'callback'])
-        ->name('admin.accounts.google.callback');
-});
+// creation forms, AND the public landing-page "Sign up with Google" button.
+// Shared by all three; stateless and reads the applicant's Google profile
+// only — never logs anyone in — so it's intentionally public (no auth/guest
+// middleware): the admin forms use it while signed in, the landing page uses
+// it signed out. Path matches GOOGLE_REDIRECT_URI in .env.
+Route::get('/admin/accounts/google/redirect', [GoogleLinkController::class, 'redirect'])
+    ->name('admin.accounts.google.redirect');
+Route::get('/admin/accounts/google/callback', [GoogleLinkController::class, 'callback'])
+    ->name('admin.accounts.google.callback');
 
 Route::get('/superadmin/scoring/audit', [OrganizationScoringController::class, 'audit'])
     ->middleware(['auth', 'superadmin'])

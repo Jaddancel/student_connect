@@ -30,6 +30,15 @@ class StudentLeaderDirectoryController extends Controller
             'currentSchoolYear'  => Semester::currentSchoolYear(),
             'currentSemester'    => $currentSemester?->semesterLabel() ?? '',
             'scannerOrientation' => IdTemplate::scannerTemplate()?->orientation ?: 'vertical',
+            // Carried over from the landing page's "Sign up with Google" button
+            // (see landingpage.blade.php) as query params after the OAuth popup
+            // resolves. Only used to pre-fill Step 2 — the ID scan is still required.
+            'googlePrefill'      => [
+                'google_id'  => (string) $request->query('google_id', ''),
+                'first_name' => (string) $request->query('first_name', ''),
+                'last_name'  => (string) $request->query('last_name', ''),
+                'email'      => (string) $request->query('email', ''),
+            ],
         ]);
     }
 
@@ -76,6 +85,9 @@ class StudentLeaderDirectoryController extends Controller
             'student_id'           => ['required', 'digits_between:1,50'],
             'id_photo_front'       => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
             'id_photo_back'        => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            // Optional Google link captured by the landing page's "Sign up with
+            // Google" popup; carried through to the account created on approval.
+            'google_id'            => ['nullable', 'string', 'max:255', 'unique:users,google_id'],
         ]);
 
         $organizationId = (int) $validated['organization_id'];
@@ -166,6 +178,7 @@ class StudentLeaderDirectoryController extends Controller
             'student_id'            => $validated['student_id'] ?? '',
             'id_photo_front'        => $idPhotoFrontPath,
             'id_photo_back'         => $idPhotoBackPath,
+            'google_id'             => $validated['google_id'] ?? null,
         ];
 
         // Create the FormSubmission first so its ID can be stored in the request payload

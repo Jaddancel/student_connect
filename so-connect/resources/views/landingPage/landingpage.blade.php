@@ -627,6 +627,35 @@
                     <div style="flex:1;height:1px;background:#d4d0c8;"></div>
                 </div>
 
+                {{-- Sign Up with Google — opens the OAuth popup, then continues to
+                     the officer registration wizard with name/email pre-filled. --}}
+                <button type="button" id="signup-google-btn" onclick="startGoogleSignup()" style="
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    gap:10px;
+                    width:100%;
+                    padding:13px 24px;
+                    margin-bottom:12px;
+                    background:#fff;
+                    color:#3c4043;
+                    border:1.5px solid #d4d0c8;
+                    border-radius:8px;
+                    font-family:'Lato',sans-serif;
+                    font-size:0.9rem;
+                    font-weight:700;
+                    letter-spacing:0.02em;
+                    cursor:pointer;
+                    transition:background 0.2s,box-shadow 0.2s;
+                "
+                onmouseover="this.style.background='#f7f7f5'"
+                onmouseout="this.style.background='#fff'"
+                >
+                    <i class="fab fa-google" style="color:#4285F4;font-size:1rem;"></i>
+                    Sign Up with Google
+                </button>
+                <p id="signup-google-status" style="display:none;margin:0 0 12px;font-family:'Lato',sans-serif;font-size:0.8rem;text-align:center;"></p>
+
                 {{-- Sign Up CTA --}}
                 <a href="/signup" style="
                     display:block;
@@ -678,6 +707,55 @@
         }
     });
     @endif
+
+    // "Sign Up with Google" — opens the stateless Google OAuth popup (shared
+    // with the admin/officer account-creation forms), then hands the
+    // applicant's name/email off to the officer registration wizard
+    // (/signup) as query params for pre-fill. Never logs the visitor in here.
+    function startGoogleSignup() {
+        var status = document.getElementById('signup-google-status');
+        status.style.display = 'block';
+
+        if (!@json(\App\Http\Controllers\Auth\GoogleLinkController::isConfigured())) {
+            status.style.color = '#dc3545';
+            status.textContent = 'Google sign-in is not configured yet. See GOOGLE-AUTH-SETUP.md.';
+            return;
+        }
+
+        status.style.color = '#6b7a6f';
+        status.textContent = 'Opening Google…';
+
+        var w = 500, h = 600;
+        var left = window.screenX + (window.outerWidth - w) / 2;
+        var top = window.screenY + (window.outerHeight - h) / 2;
+        window.open(
+            '{{ route('admin.accounts.google.redirect') }}',
+            'google-signup',
+            'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top
+        );
+    }
+
+    window.addEventListener('message', function (event) {
+        if (event.origin !== window.location.origin) { return; }
+        var data = event.data || {};
+        if (data.source !== 'google-link') { return; }
+
+        var status = document.getElementById('signup-google-status');
+        if (data.error) {
+            status.style.display = 'block';
+            status.style.color = '#dc3545';
+            status.textContent = data.error;
+            return;
+        }
+
+        var params = new URLSearchParams({
+            google_id: data.google_id || '',
+            first_name: data.first_name || '',
+            last_name: data.last_name || '',
+            email: data.email || '',
+        });
+        window.location.href = '{{ route('signup') }}?' + params.toString();
+    });
     </script>
     <!-- Recent Activity Section -->
     <section class="page-section bg-light" id="activity">

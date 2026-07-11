@@ -37,6 +37,7 @@
         <script>
             (function () {
                 var redirectUrl = @json(route('admin.accounts.google.redirect'));
+                var configured = @json(\App\Http\Controllers\Auth\GoogleLinkController::isConfigured());
                 var origin = window.location.origin;
                 var popup = null;
 
@@ -55,6 +56,10 @@
 
                 document.querySelectorAll('[data-google-link]').forEach(function (btn) {
                     btn.addEventListener('click', function () {
+                        if (!configured) {
+                            setStatus('Google sign-in is not configured yet. See GOOGLE-AUTH-SETUP.md.', true);
+                            return;
+                        }
                         setStatus('Opening Google…', false);
                         var w = 500, h = 600;
                         var left = window.screenX + (window.outerWidth - w) / 2;
