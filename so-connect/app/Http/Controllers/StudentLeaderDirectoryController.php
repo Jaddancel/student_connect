@@ -206,6 +206,7 @@ class StudentLeaderDirectoryController extends Controller
         ActionRequest::query()->create([
             'action'       => "0|{$organizationId}|new_officer",
             'action_type'  => 11,
+            'form_id'      => $form ? (int) $form->getKey() : null,
             'payload'      => array_merge($payload, ['form_submission_id' => $submissionId]),
             'user'         => $userId > 0 ? $userId : null,
             'requested_at' => now(),

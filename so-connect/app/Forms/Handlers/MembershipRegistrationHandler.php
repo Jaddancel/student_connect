@@ -73,6 +73,7 @@ class MembershipRegistrationHandler implements SystemFunctionHandler
             'action' => $organizationId.'|'.$userId,
             'action_type' => 1,
             'request_type_id' => (int) $requestType->getKey(),
+            'form_id' => (int) $form->getKey(),
             'organization_id' => $organizationId,
             'requested_by' => $userId,
             'payload' => array_merge($payload, [

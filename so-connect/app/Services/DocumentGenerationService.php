@@ -57,6 +57,7 @@ class DocumentGenerationService
             ),
             'action_type' => FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION,
             'request_type_id' => (int) $requestType->getKey(),
+            'form_id' => $formId ?: null,
             'organization_id' => $organizationId ?: null,
             'requested_by' => $requesterUserId,
             'payload' => [

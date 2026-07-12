@@ -163,7 +163,7 @@ class RecordQueryService
 
     public function getRequestRecords(?string $orgId, bool $excludeAdminUsers = false): array
     {
-        $query = ActionRequest::with(['requestType', 'requester'])->orderByDesc('requested_at');
+        $query = ActionRequest::with(['requestType', 'requester', 'form'])->orderByDesc('requested_at');
 
         if ($orgId) {
             $query->where('organization_id', $orgId);
@@ -187,7 +187,11 @@ class RecordQueryService
                 'user_id' => $req->user !== null ? $req->user : 'Guest',
                 'org_id' => $req->organization_id,
                 'request_time' => optional($req->requested_at)->toDateTimeString(),
-                'request_type' => optional($req->requestType)->name ?? 'Unknown',
+                // The request type is named after the form page the request was
+                // made from; requests with no originating form fall back to
+                // their request-type name.
+                'request_type' => $req->form?->name
+                    ?? (optional($req->requestType)->name ?? 'Unknown'),
             ];
 
             if (isset($rejectedIds[$req->request_id])) {

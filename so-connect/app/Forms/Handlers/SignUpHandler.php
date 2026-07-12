@@ -56,6 +56,7 @@ class SignUpHandler implements SystemFunctionHandler
         ActionRequest::query()->create([
             'action' => "0|{$organizationId}|new_officer",
             'action_type' => 11,
+            'form_id' => (int) $form->getKey(),
             'payload' => $requestPayload,
             'user' => $request->user() ? (int) $request->user()->getKey() : null,
             'requested_at' => now(),
