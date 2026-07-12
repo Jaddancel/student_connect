@@ -67,6 +67,7 @@ class MenuHelper
                     ['icon' => 'pages', 'name' => 'ID Templates', 'path' => '/superadmin/id-templates'],
                     ['icon' => 'tables', 'name' => 'Export Data', 'path' => '/superadmin/export'],
                     ['icon' => 'charts', 'name' => 'Score Audit', 'path' => '/superadmin/scoring/audit'],
+                    ['icon' => 'task', 'name' => 'Action Logs', 'path' => '/superadmin/action-logs'],
                 ],
             ];
         }

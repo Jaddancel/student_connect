@@ -64,6 +64,14 @@ class IdTemplateController extends Controller
             return $template;
         });
 
+        \App\Services\ActionLogger::log(
+            \App\Services\ActionLogger::CATEGORY_ID_TEMPLATE,
+            'created',
+            'Created ID template "'.$template->name.'"',
+            ['id_template_id' => (int) $template->getKey()],
+            $template,
+        );
+
         // The editor navigates to the edit page next; greet it with the toast.
         session()->flash('toast', 'Saved!');
 
@@ -82,6 +90,14 @@ class IdTemplateController extends Controller
             $this->enforceSingleDefault($idTemplate);
         });
 
+        \App\Services\ActionLogger::log(
+            \App\Services\ActionLogger::CATEGORY_ID_TEMPLATE,
+            'updated',
+            'Updated ID template "'.$idTemplate->name.'"',
+            ['id_template_id' => (int) $idTemplate->getKey()],
+            $idTemplate,
+        );
+
         return response()->json([
             'message' => 'Saved!',
             'redirect' => route('superadmin.id-templates.edit', $idTemplate),
@@ -96,6 +112,13 @@ class IdTemplateController extends Controller
         if ($paths) {
             Storage::disk((string) config('documents.disk', 'public'))->delete($paths);
         }
+
+        \App\Services\ActionLogger::log(
+            \App\Services\ActionLogger::CATEGORY_ID_TEMPLATE,
+            'deleted',
+            'Deleted ID template "'.$idTemplate->name.'"',
+            ['id_template_id' => (int) $idTemplate->getKey()],
+        );
 
         return redirect()->route('superadmin.id-templates.index')
             ->with('success', 'ID template deleted.');

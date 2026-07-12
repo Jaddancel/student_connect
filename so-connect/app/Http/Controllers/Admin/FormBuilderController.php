@@ -76,6 +76,14 @@ class FormBuilderController extends Controller
             return $form;
         });
 
+        \App\Services\ActionLogger::log(
+            \App\Services\ActionLogger::CATEGORY_FORM_BUILDER,
+            'created',
+            'Created form "'.$form->name.'"',
+            ['form_id' => (int) $form->getKey(), 'route_name' => $form->route_name, 'system_function' => $form->system_function],
+            $form,
+        );
+
         return response()->json([
             'message' => 'Form created.',
             'redirect' => route('admin.form-builder.edit', $form),
@@ -102,6 +110,14 @@ class FormBuilderController extends Controller
             $this->syncFields($form, $data['fields']);
         });
 
+        \App\Services\ActionLogger::log(
+            \App\Services\ActionLogger::CATEGORY_FORM_BUILDER,
+            'updated',
+            'Updated form "'.$form->name.'"',
+            ['form_id' => (int) $form->getKey(), 'route_name' => $form->route_name, 'system_function' => $form->system_function],
+            $form,
+        );
+
         return response()->json([
             'message' => 'Form saved.',
             'redirect' => route('admin.form-builder.edit', $form),
@@ -112,6 +128,13 @@ class FormBuilderController extends Controller
     {
         $form->fields()->delete();
         $form->delete();
+
+        \App\Services\ActionLogger::log(
+            \App\Services\ActionLogger::CATEGORY_FORM_BUILDER,
+            'deleted',
+            'Deleted form "'.$form->name.'"',
+            ['form_id' => (int) $form->getKey(), 'route_name' => $form->route_name],
+        );
 
         return redirect()->route('admin.form-builder.index')
             ->with('success', 'Form deleted.');

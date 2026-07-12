@@ -990,6 +990,17 @@ Route::middleware(['auth', 'superadmin'])->group(function () {
         ->name('superadmin.id-templates.update');
     Route::delete('/superadmin/id-templates/{idTemplate}', [IdTemplateController::class, 'destroy'])
         ->name('superadmin.id-templates.destroy');
+
+    // Administrator action log (login/logout, scoring, form + ID-template
+    // editing, scoring-rule changes) — searchable and exportable.
+    Route::get('/superadmin/action-logs', [\App\Http\Controllers\Admin\ActionLogController::class, 'index'])
+        ->name('superadmin.action-logs.index');
+    Route::get('/superadmin/action-logs/export/json', [\App\Http\Controllers\Admin\ActionLogController::class, 'exportJson'])
+        ->name('superadmin.action-logs.export.json');
+    Route::get('/superadmin/action-logs/export/pdf', [\App\Http\Controllers\Admin\ActionLogController::class, 'exportPdf'])
+        ->name('superadmin.action-logs.export.pdf');
+    Route::get('/superadmin/action-logs/export/xlsx', [\App\Http\Controllers\Admin\ActionLogController::class, 'exportXlsx'])
+        ->name('superadmin.action-logs.export.xlsx');
 });
 
 // Auto-scan pre-fill for the (public) student-leader-directory signup form.

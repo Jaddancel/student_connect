@@ -138,7 +138,7 @@ class OrganizationScoringController extends Controller
         $payload = $this->normalizePayload($validated['payload'] ?? []);
         $scores  = $this->computeScores($payload);
 
-        OrganizationScore::query()->create([
+        $score = OrganizationScore::query()->create([
             'organization_id'     => $organizationId,
             'semester_id'         => $semesterId,
             'scored_by'           => $request->user()?->user_id,
@@ -147,6 +147,14 @@ class OrganizationScoringController extends Controller
             'total_weighted_score' => $scores['total'],
             'scored_at'           => now(),
         ]);
+
+        \App\Services\ActionLogger::log(
+            \App\Services\ActionLogger::CATEGORY_SCORING,
+            'score_saved',
+            'Saved organization score',
+            ['organization_id' => $organizationId, 'semester_id' => $semesterId, 'total' => $scores['total']],
+            $score,
+        );
 
         return redirect()->route('admin.scoring.index', ['semester_id' => $semesterId])
             ->with('success', 'Organization score saved.');
@@ -199,6 +207,14 @@ class OrganizationScoringController extends Controller
             'scored_at'           => now(),
         ]);
         $score->save();
+
+        \App\Services\ActionLogger::log(
+            \App\Services\ActionLogger::CATEGORY_SCORING,
+            'score_updated',
+            'Updated organization score',
+            ['organization_id' => (int) $score->organization_id, 'semester_id' => (int) $score->semester_id, 'total' => $scores['total']],
+            $score,
+        );
 
         return redirect()->route('admin.scoring.index', ['semester_id' => $score->semester_id])
             ->with('success', 'Organization score updated.');
