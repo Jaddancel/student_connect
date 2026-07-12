@@ -10,47 +10,7 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-    <script>
-        document.addEventListener('alpine:init', () => {
-            Alpine.store('theme', {
-                init() {
-                    const saved = localStorage.getItem('theme');
-                    const sys = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-                    this.theme = saved || sys;
-                    this.updateTheme();
-                },
-                theme: 'light',
-                toggle() {
-                    this.theme = this.theme === 'light' ? 'dark' : 'light';
-                    localStorage.setItem('theme', this.theme);
-                    this.updateTheme();
-                },
-                updateTheme() {
-                    const html = document.documentElement;
-                    const body = document.body;
-                    if (this.theme === 'dark') {
-                        html.classList.add('dark');
-                        body.classList.add('dark', 'bg-gray-900');
-                    } else {
-                        html.classList.remove('dark');
-                        body.classList.remove('dark', 'bg-gray-900');
-                    }
-                }
-            });
-        });
-    </script>
-
-    <script>
-        (function () {
-            const saved = localStorage.getItem('theme');
-            const sys = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-            const theme = saved || sys;
-            if (theme === 'dark') {
-                document.documentElement.classList.add('dark');
-                document.body.classList.add('dark', 'bg-gray-900');
-            }
-        })();
-    </script>
+    @include('layouts.partials.theme-boot')
 </head>
 
 <body class="min-h-full bg-gray-50 dark:bg-gray-900">
