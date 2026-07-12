@@ -40,9 +40,18 @@ curl localhost:5000/health      # -> {"status":"ok","ocr":true}
 ```
 
 > **⚠ Automated tests:** `phpunit.xml` points at the real `so_connect` MySQL database —
-> a bare `php artisan test` WIPES it. Only ever run:
-> `DB_CONNECTION=sqlite DB_DATABASE=:memory: php artisan test`
-> (~15 pre-existing failures are known and unrelated to this branch).
+> a bare `php artisan test` WIPES it. sqlite `:memory:` does NOT work either (the
+> `2026_05_19_200000_merge_members_into_organization_officers` migration uses MySQL-only
+> `UPDATE … JOIN`). Run the suite against a dedicated MySQL `testing` database instead:
+>
+> ```bash
+> DB_CONNECTION=mysql DB_HOST=127.0.0.1 DB_DATABASE=testing DB_USERNAME=sail \
+>   DB_PASSWORD=password php artisan test
+> ```
+>
+> (16 pre-existing failures are known and unrelated to this branch: the retired
+> document-form workflow and old seeded-form fixtures. `tests/Feature/ScoringParityTest.php`
+> guards WP6's score-parity contract and must pass.)
 
 Accounts needed: one superadmin (user_type 1), one admin (user_type 2), one regular
 officer/user (user_type 3).
@@ -143,8 +152,9 @@ ID scan:
 
 Score parity (do this FIRST, before authoring any rules):
 - ☐ For an existing organization score, open its edit page and re-save without changes →
-  `total_weighted_score` is **unchanged** (catalog-driven math must equal the old hardcoded
-  math; an automated 500-case parity check already passed in CI-less form).
+  `total_weighted_score` is **unchanged**. The parity contract is also guarded by a committed
+  regression test — `tests/Feature/ScoringParityTest.php` (seeded-catalog and empty-table
+  fallback paths, 200 random payloads each) — which must pass in the test suite.
 
 Editor:
 - ☐ Admin sidebar → Evaluation → **Scoring Rules** lists the 6 categories with the 38 seeded
