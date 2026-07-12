@@ -425,6 +425,30 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->whereNumber('id')
         ->name('admin.scoring.update');
 
+    // Scratch-like trigger editor for the scoring system's criteria.
+    Route::get('/admin/scoring-rules', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'index'])
+        ->name('admin.scoring.rules.index');
+    Route::post('/admin/scoring-rules/criteria', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'storeCriterion'])
+        ->name('admin.scoring.criteria.store');
+    Route::put('/admin/scoring-rules/criteria/{criterion}', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'updateCriterion'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.criteria.update');
+    Route::delete('/admin/scoring-rules/criteria/{criterion}', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'destroyCriterion'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.criteria.destroy');
+    Route::get('/admin/scoring-rules/{criterion}/edit', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'editRule'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.rules.edit');
+    Route::put('/admin/scoring-rules/{criterion}', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'updateRule'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.rules.update');
+    Route::patch('/admin/scoring-rules/{criterion}/toggle', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'toggleRule'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.rules.toggle');
+    Route::delete('/admin/scoring-rules/{criterion}/rule', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'destroyRule'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.rules.destroy');
+
     Route::get('/admin/audit-logs', [AuditLogController::class, 'index'])
         ->name('admin.audit-logs.index');
     Route::get('/admin/audit-logs/export/json', [AuditLogController::class, 'exportJson'])

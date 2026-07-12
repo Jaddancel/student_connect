@@ -112,6 +112,7 @@ class MenuHelper
                 'items' => [
                     ['icon' => 'charts', 'name' => 'Organization Scoring', 'path' => '/admin/scoring'],
                     ['icon' => 'charts', 'name' => 'Rankings', 'path' => '/admin/scoring/rankings'],
+                    ['icon' => 'task', 'name' => 'Scoring Rules', 'path' => '/admin/scoring-rules'],
                 ],
             ];
 

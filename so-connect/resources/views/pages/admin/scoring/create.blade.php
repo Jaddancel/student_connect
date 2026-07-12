@@ -562,6 +562,49 @@
                 </div>
             </div>
 
+            {{-- Custom criteria (admin-authored in the Scoring Rules editor) --}}
+            @if (!empty($customCriteria ?? []))
+                <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                    <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Custom Criteria</h3>
+                        <p class="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+                            Added via the Scoring Rules editor. Instances are tallied automatically by their
+                            triggers (editable here); points are included in each category's capped total on save.
+                        </p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full min-w-[560px] text-left text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-100 dark:border-gray-800">
+                                    <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Criterion</th>
+                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400">Category</th>
+                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400">Points / Instance</th>
+                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400">Instances</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                @foreach ($customCriteria as $catKey => $criteria)
+                                    @foreach ($criteria as $ckey => $meta)
+                                        <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                            <td class="px-6 py-3 text-gray-700 dark:text-gray-300">{{ $meta['label'] }}</td>
+                                            <td class="px-4 py-3 text-center text-xs text-gray-500 dark:text-gray-400">
+                                                {{ ($categoryMeta[$catKey]['label'] ?? $catKey) }}
+                                            </td>
+                                            <td class="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{{ $meta['weight'] }}</td>
+                                            <td class="px-4 py-3 text-center">
+                                                <input type="number" name="payload[{{ $ckey }}]" min="0"
+                                                    value="{{ (int) ($payload[$ckey] ?? 0) }}"
+                                                    class="h-8 w-20 rounded-lg border border-gray-300 bg-transparent px-2 text-center text-sm text-gray-800 focus:border-brand-400 focus:ring-1 focus:ring-brand-400 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endif
+
             {{-- Grand Total --}}
             <div class="rounded-2xl border-2 border-brand-300 bg-brand-50 p-5 dark:border-brand-700/50 dark:bg-brand-900/10">
                 <div class="flex items-center justify-between">

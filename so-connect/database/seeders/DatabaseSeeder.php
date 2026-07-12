@@ -22,5 +22,6 @@ class DatabaseSeeder extends Seeder
         $this->call(TemplateSeeder::class);
         $this->call(EventPlanSeeder::class);
         $this->call(SemesterSeeder::class);
+        $this->call(ScoringConfigSeeder::class);
     }
 }

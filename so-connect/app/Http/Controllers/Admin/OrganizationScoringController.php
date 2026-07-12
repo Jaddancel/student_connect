@@ -116,6 +116,8 @@ class OrganizationScoringController extends Controller
             'payload'          => $this->computeAutoInstances($organizationId, $semester),
             'score'            => null,
             'isEdit'           => false,
+            'customCriteria'   => \App\Services\Scoring\ScoringCatalog::customByCategory(),
+            'categoryMeta'     => \App\Services\Scoring\ScoringCatalog::categories(),
         ]);
     }
 
@@ -181,6 +183,8 @@ class OrganizationScoringController extends Controller
             'payload'          => $mergedPayload,
             'score'            => $score,
             'isEdit'           => true,
+            'customCriteria'   => \App\Services\Scoring\ScoringCatalog::customByCategory(),
+            'categoryMeta'     => \App\Services\Scoring\ScoringCatalog::categories(),
         ]);
     }
 
@@ -252,46 +256,7 @@ class OrganizationScoringController extends Controller
 
     private function buildAuditData(Request $request): array
     {
-        $manualFields = [
-            'cat1_seminar_college'        => 'Seminars - College Level (>=15 members)',
-            'cat1_seminar_univ'           => 'Seminars - University Level (>=30 members)',
-            'cat1_activities_related'     => 'Activities Related to Org (>=15 members)',
-            'cat1_activities_not_related' => 'Activities Not Related to Org (>=15 members)',
-            'cat1_donation_cash'          => 'Donation - Cash (>=PHP 200, per approved project)',
-            'cat1_donation_kinds'         => 'Donation - In Kind (per in-kind row)',
-            'cat1_cosponsor_pts'          => 'Co-sponsorship Points (pre-computed)',
-            'cat1_income'                 => 'Income Generated (per PHP 500)',
-            'cat2_other_orgs'             => 'Activities co-sponsored by other orgs',
-            'cat2_rep_local'              => 'Representative - Local scope',
-            'cat2_rep_provincial'         => 'Representative - Provincial scope',
-            'cat2_rep_regional'           => 'Representative - Regional scope',
-            'cat2_rep_national'           => 'Representative - National scope',
-            'cat2_rep_international'      => 'Representative - International scope',
-            'cat2_ssc_osa_activities'     => 'SSC/OSA-sponsored activities',
-            'cat2_ssc_seminars'           => 'SSC-sponsored seminars',
-            'cat2_other_seminars'         => 'Other org seminars/conferences',
-            'cat2_osa_seminars'           => 'OSA/Admin seminars',
-            'cat2_ssc_meeting_rep'        => 'SSC meeting - Representative',
-            'cat2_ssc_meeting_proxy'      => 'SSC meeting - Proxy',
-            'cat2_help_ssc_osa'           => 'Preparation/help for SSC/OSA',
-            'cat2_help_others'            => 'Preparation/help for other orgs',
-            'cat3_group_intl'             => 'Group Award - International',
-            'cat3_group_national'         => 'Group Award - National',
-            'cat3_group_regional'         => 'Group Award - Regional',
-            'cat3_group_provincial'       => 'Group Award - Provincial',
-            'cat3_group_local'            => 'Group Award - Local',
-            'cat3_individual_intl'        => 'Individual Award - International',
-            'cat3_individual_national'    => 'Individual Award - National',
-            'cat3_individual_regional'    => 'Individual Award - Regional',
-            'cat3_individual_provincial'  => 'Individual Award - Provincial',
-            'cat3_individual_local'       => 'Individual Award - Local',
-            'cat4_extension_groups'       => 'Extension Service Groups (>=10 members)',
-            'cat5_tangible_projects'      => 'Approved Tangible Projects',
-            'cat6_documents'              => 'Required Documents Submitted',
-            'cat6_meetings'               => 'General Meetings with Minutes (>30 min)',
-            'cat6_leadership'             => 'Leadership Training Participated',
-            'cat6_transparency'           => 'Financial/Transparency Report Submitted',
-        ];
+        $manualFields = \App\Services\Scoring\ScoringCatalog::labels();
 
         $semesters = Semester::query()->orderByDesc('starts_at')->get();
         $semesterFilter = $request->integer('semester_id') ?: null;
@@ -397,7 +362,31 @@ class OrganizationScoringController extends Controller
         ]);
     }
 
+    /**
+     * Auto-tallied instances per criterion: the legacy hardcoded conditions
+     * compute the baseline, then any criterion with an enabled admin-authored
+     * rule (Scoring Rules editor) is overridden by the rule engine's tally.
+     * Admin-created custom criteria only ever come from the engine.
+     */
     private function computeAutoInstances(int $organizationId, Semester $semester): array
+    {
+        $legacy = $this->legacyAutoInstances($organizationId, $semester);
+
+        $auto = [];
+        foreach (\App\Services\Scoring\ScoringCatalog::keys() as $key) {
+            $auto[$key] = (int) ($legacy[$key] ?? 0);
+        }
+
+        foreach (app(\App\Services\Scoring\ScoringRuleEngine::class)->instancesFor($organizationId, $semester) as $key => $value) {
+            if (array_key_exists($key, $auto)) {
+                $auto[$key] = (int) $value;
+            }
+        }
+
+        return $auto;
+    }
+
+    private function legacyAutoInstances(int $organizationId, Semester $semester): array
     {
         $semesterStart = $semester->starts_at;
         $semesterEnd   = $semester->endsAt() ?? now();
@@ -742,81 +731,33 @@ class OrganizationScoringController extends Controller
     {
         $get = fn (string $key): int => max(0, (int) ($payload[$key] ?? 0));
 
-        $cat1 = min(100,
-            $get('cat1_seminar_college') * 10 +
-            $get('cat1_seminar_univ') * 15 +
-            $get('cat1_activities_related') * 10 +
-            $get('cat1_activities_not_related') * 7 +
-            $get('cat1_donation_cash') * 2 +
-            $get('cat1_donation_kinds') * 10 +
-            $get('cat1_cosponsor_pts') +
-            $get('cat1_income')
-        );
+        // Weighted sums per category, clamped by each category's cap. The
+        // catalog seeds the exact weights/caps this method used to hardcode,
+        // so existing scores recompute identically.
+        $categories = \App\Services\Scoring\ScoringCatalog::categories();
+        $sums = array_fill_keys(array_keys($categories), 0);
 
-        $cat2 = min(100,
-            $get('cat2_other_orgs') * 10 +
-            $get('cat2_rep_local') * 2 +
-            $get('cat2_rep_provincial') * 4 +
-            $get('cat2_rep_regional') * 6 +
-            $get('cat2_rep_national') * 8 +
-            $get('cat2_rep_international') * 10 +
-            $get('cat2_ssc_osa_activities') * 10 +
-            $get('cat2_ssc_seminars') * 10 +
-            $get('cat2_other_seminars') * 7 +
-            $get('cat2_osa_seminars') * 5 +
-            $get('cat2_ssc_meeting_rep') * 2 +
-            $get('cat2_ssc_meeting_proxy') * 1 +
-            $get('cat2_help_ssc_osa') * 5 +
-            $get('cat2_help_others') * 3
-        );
+        foreach (\App\Services\Scoring\ScoringCatalog::criteria() as $key => $meta) {
+            $category = $meta['category'];
+            if (array_key_exists($category, $sums)) {
+                $sums[$category] += $get($key) * $meta['weight'];
+            }
+        }
 
-        $cat3 = min(50,
-            $get('cat3_group_intl') * 20 +
-            $get('cat3_group_national') * 10 +
-            $get('cat3_group_regional') * 7 +
-            $get('cat3_group_provincial') * 5 +
-            $get('cat3_group_local') * 3 +
-            $get('cat3_individual_intl') * 10 +
-            $get('cat3_individual_national') * 7 +
-            $get('cat3_individual_regional') * 5 +
-            $get('cat3_individual_provincial') * 2 +
-            $get('cat3_individual_local') * 1
-        );
+        $scores = [];
+        $total = 0;
+        foreach ($categories as $categoryKey => $meta) {
+            $scores[$categoryKey] = min($meta['cap'], $sums[$categoryKey]);
+            $total += $scores[$categoryKey];
+        }
+        $scores['total'] = $total;
 
-        $cat4 = min(100, $get('cat4_extension_groups') * 10);
-
-        $cat5 = min(100, $get('cat5_tangible_projects') * 100);
-
-        $cat6 = min(100,
-            $get('cat6_documents') * 50 +
-            $get('cat6_meetings') * 25 +
-            $get('cat6_leadership') * 15 +
-            $get('cat6_transparency') * 10
-        );
-
-        $total = $cat1 + $cat2 + $cat3 + $cat4 + $cat5 + $cat6;
-
-        return compact('cat1', 'cat2', 'cat3', 'cat4', 'cat5', 'cat6', 'total');
+        return $scores;
     }
 
     private function normalizePayload(array $payload): array
     {
-        $keys = [
-            'cat1_seminar_college', 'cat1_seminar_univ', 'cat1_activities_related',
-            'cat1_activities_not_related', 'cat1_donation_cash', 'cat1_donation_kinds',
-            'cat1_cosponsor_pts', 'cat1_income',
-            'cat2_other_orgs', 'cat2_rep_local', 'cat2_rep_provincial', 'cat2_rep_regional',
-            'cat2_rep_national', 'cat2_rep_international', 'cat2_ssc_osa_activities',
-            'cat2_ssc_seminars', 'cat2_other_seminars', 'cat2_osa_seminars',
-            'cat2_ssc_meeting_rep', 'cat2_ssc_meeting_proxy', 'cat2_help_ssc_osa', 'cat2_help_others',
-            'cat3_group_intl', 'cat3_group_national', 'cat3_group_regional',
-            'cat3_group_provincial', 'cat3_group_local',
-            'cat3_individual_intl', 'cat3_individual_national', 'cat3_individual_regional',
-            'cat3_individual_provincial', 'cat3_individual_local',
-            'cat4_extension_groups',
-            'cat5_tangible_projects',
-            'cat6_documents', 'cat6_meetings', 'cat6_leadership', 'cat6_transparency',
-        ];
+        $keys = \App\Services\Scoring\ScoringCatalog::keys();
 
         $normalized = [];
         foreach ($keys as $key) {
@@ -834,22 +775,7 @@ class OrganizationScoringController extends Controller
             'payload'         => ['nullable', 'array'],
         ];
 
-        $intFields = [
-            'cat1_seminar_college', 'cat1_seminar_univ', 'cat1_activities_related',
-            'cat1_activities_not_related', 'cat1_donation_cash', 'cat1_donation_kinds',
-            'cat1_cosponsor_pts', 'cat1_income',
-            'cat2_other_orgs', 'cat2_rep_local', 'cat2_rep_provincial', 'cat2_rep_regional',
-            'cat2_rep_national', 'cat2_rep_international', 'cat2_ssc_osa_activities',
-            'cat2_ssc_seminars', 'cat2_other_seminars', 'cat2_osa_seminars',
-            'cat2_ssc_meeting_rep', 'cat2_ssc_meeting_proxy', 'cat2_help_ssc_osa', 'cat2_help_others',
-            'cat3_group_intl', 'cat3_group_national', 'cat3_group_regional',
-            'cat3_group_provincial', 'cat3_group_local',
-            'cat3_individual_intl', 'cat3_individual_national', 'cat3_individual_regional',
-            'cat3_individual_provincial', 'cat3_individual_local',
-            'cat4_extension_groups',
-            'cat5_tangible_projects',
-            'cat6_documents', 'cat6_meetings', 'cat6_leadership', 'cat6_transparency',
-        ];
+        $intFields = \App\Services\Scoring\ScoringCatalog::keys();
 
         foreach ($intFields as $field) {
             $rules["payload.{$field}"] = ['nullable', 'integer', 'min:0'];
