@@ -119,14 +119,53 @@
                 @break
 
             @case(FieldType::SIGNATURE)
-                <div x-data="signatureField('{{ $key }}')" class="space-y-2">
+                @php
+                    // A saved profile signature arrives as a stored path via prefill;
+                    // a re-submitted draw arrives as a data-URL via old().
+                    $savedSignatureUrl = (is_string($old) && $old !== '' && ! str_starts_with($old, 'data:'))
+                        ? \Illuminate\Support\Facades\Storage::disk(\App\Support\SignatureImage::disk())->url($old)
+                        : null;
+                @endphp
+                <div x-data="signatureField({ verifyUrl: @js(auth()->check() ? route('signature.verify') : null) })" class="space-y-2">
+                    @if ($savedSignatureUrl)
+                        <div class="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-white/[0.03]">
+                            <img src="{{ $savedSignatureUrl }}" alt="Saved signature"
+                                 class="h-12 w-auto rounded bg-white object-contain p-1" />
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                Using your saved signature — draw below to replace it for this submission.
+                            </p>
+                        </div>
+                    @endif
                     <canvas x-ref="canvas" width="500" height="160"
                         class="w-full rounded-lg border border-gray-300 bg-white touch-none dark:border-gray-700"></canvas>
                     <input type="hidden" name="{{ $key }}" x-ref="input" value="{{ $old }}" />
-                    <button type="button" @click="clear()"
-                        class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
-                        Clear signature
-                    </button>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button type="button" @click="clear()"
+                            class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
+                            Clear signature
+                        </button>
+                        {{-- Advisory recognition badge; never blocks submission. --}}
+                        <span x-cloak x-show="verifyState === 'checking'" class="inline-flex items-center gap-1.5 text-xs text-gray-400">
+                            <svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                            </svg>
+                            Checking signature…
+                        </span>
+                        <span x-cloak x-show="verifyState === 'recognized'" class="inline-flex items-center gap-1 rounded-full bg-success-50 px-2.5 py-1 text-xs font-medium text-success-600 dark:bg-success-500/15 dark:text-success-500">
+                            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+                            <span>Signature recognized<template x-if="matchedName"><span> as <span x-text="matchedName"></span></span></template></span>
+                        </span>
+                        <span x-cloak x-show="verifyState === 'not_recognized'" class="inline-flex items-center gap-1 rounded-full bg-warning-50 px-2.5 py-1 text-xs font-medium text-warning-600 dark:bg-warning-500/15 dark:text-orange-400">
+                            Not recognized in the system — you can still submit
+                        </span>
+                        <span x-cloak x-show="verifyState === 'no_signatures'" class="text-xs text-gray-400">
+                            No saved signatures to compare against yet
+                        </span>
+                        <span x-cloak x-show="verifyState === 'unavailable'" class="text-xs text-gray-400">
+                            Signature recognition is unavailable right now
+                        </span>
+                    </div>
                 </div>
                 @break
 

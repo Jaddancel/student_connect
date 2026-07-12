@@ -233,6 +233,7 @@ class RequestDecisionController extends Controller
                     'student_id'              => (string) ($payload['student_id'] ?? ''),
                     'id_photo_front'          => (string) ($payload['id_photo_front'] ?? ''),
                     'id_photo_back'           => (string) ($payload['id_photo_back'] ?? ''),
+                    'signature_path'          => (string) ($payload['signature'] ?? ''),
                 ]);
 
                 $newUser = User::create([

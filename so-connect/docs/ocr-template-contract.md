@@ -19,7 +19,8 @@ An `App\Models\IdTemplate` is serialized by `IdTemplate::toScannerPayload()`:
       "label": "Student ID Number",
       "x1": 120, "y1": 340, "x2": 560, "y2": 400,
       "regex": "\\b\\d{2}-\\d{4}-\\d{3}\\b",
-      "field": "student_id"
+      "field": "student_id",
+      "type": "text"
     }
   ]
 }
@@ -35,6 +36,8 @@ An `App\Models\IdTemplate` is serialized by `IdTemplate::toScannerPayload()`:
   zone's OCR text, first match wins. Invalid patterns fall back to raw text.
 - `zones[].field` — destination key. `student_id` is written through to the
   directory form's Student ID input; other snake_case keys are extraction-only.
+- `zones[].type` — `"text"` (default, OCR'd) or `"signature"`: the zone's crop
+  is returned as a base64 PNG under `images` instead of being OCR'd.
 
 ## Request
 
@@ -50,16 +53,39 @@ An `App\Models\IdTemplate` is serialized by `IdTemplate::toScannerPayload()`:
 ```json
 {
   "fields": { "student_id": "21-1234-567" },
-  "raw":    { "student_id": "ID No 21-1234-567" }
+  "raw":    { "student_id": "ID No 21-1234-567" },
+  "images": { "signature_zone": "data:image/png;base64,..." }
 }
 ```
 
 - `fields[name]` — the regex-extracted value per zone `name` (empty string if the
   regex found nothing).
 - `raw[name]` — the unfiltered OCR text for that zone (diagnostics).
+- `images[name]` — for `type: "signature"` zones only: the zone's crop as a
+  base64 PNG data-URL (such zones appear in neither `fields` nor `raw`).
 
-`OcrClient` remaps `fields` keyed by zone `name` onto each zone's `field`, and
-surfaces `student_id` explicitly.
+`OcrClient` remaps `fields`/`images` keyed by zone `name` onto each zone's
+`field`, and surfaces `student_id` explicitly.
+
+## Signature identification
+
+`POST {OCR_SERVICE_URL}/signature-identify` — `multipart/form-data`:
+
+| part | type | notes |
+|---|---|---|
+| `probe` | file | the freshly-drawn signature (png) |
+| `candidates` | string | JSON `[{"id": 7, "image": "<base64 png>"}, ...]` |
+
+Response:
+
+```json
+{ "ok": true, "match": true, "best": { "id": 7, "score": 0.62 }, "threshold": 0.45 }
+```
+
+Each image is normalized (grayscale → Otsu ink mask → crop to ink → 320×160
+frame) and scored `0.5·NCC + 0.5·ORB match ratio` against the probe; `match` is
+true when the best score clears `SIGNATURE_MATCH_THRESHOLD` (env, default 0.45).
+An empty/blank probe returns `match: false` with `"note": "empty probe"`.
 
 ## Health
 

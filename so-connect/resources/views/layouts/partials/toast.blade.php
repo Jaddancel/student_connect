@@ -26,6 +26,8 @@
 <div x-data x-cloak x-show="$store.toast.show"
      @if (session('toast'))
          x-init="$store.toast.open(@js(session('toast')))"
+     @elseif (session('toast_error'))
+         x-init="$store.toast.open(@js(session('toast_error')), 'error')"
      @endif
      x-transition:enter="transition ease-out duration-200"
      x-transition:enter-start="opacity-0 translate-y-2"

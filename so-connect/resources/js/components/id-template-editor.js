@@ -168,6 +168,7 @@ export function idTemplateEditor(config) {
                 zones: list.map((z, i) => ({
                     name: z.name || '',
                     label: z.label || '',
+                    type: z.type === 'signature' ? 'signature' : 'text',
                     field: z.field || 'student_id',
                     fieldMode: this.isUniversalField(z.field || 'student_id') ? 'universal' : 'custom',
                     universalField: this.isUniversalField(z.field || '') ? (z.field || 'student_id') : 'student_id',
@@ -212,6 +213,23 @@ export function idTemplateEditor(config) {
             zone.fieldMode = 'custom';
             zone.customField = zone.customField || '';
             zone.field = zone.customField;
+        },
+
+        /**
+         * Switch a zone between OCR text extraction and signature-image capture.
+         * A signature zone is not OCR'd (regex is meaningless) and defaults its
+         * destination to the universal `signature` field.
+         */
+        setZoneType(zone, type) {
+            zone.type = type === 'signature' ? 'signature' : 'text';
+            if (zone.type === 'signature') {
+                zone.regex = '';
+                if (this.isUniversalField('signature')) {
+                    zone.fieldMode = 'universal';
+                    zone.universalField = 'signature';
+                    zone.field = 'signature';
+                }
+            }
         },
 
         /** True when a side has an image AND at least one zone (drives badges). */
@@ -261,6 +279,7 @@ export function idTemplateEditor(config) {
                 zones: this.zones.map((z) => ({
                     name: z.name,
                     label: z.label,
+                    type: z.type,
                     field: z.field,
                     fieldMode: z.fieldMode,
                     universalField: z.universalField,
@@ -714,6 +733,7 @@ export function idTemplateEditor(config) {
             this.zones.push({
                 name: `zone_${i + 1}`,
                 label: `Zone ${i + 1}`,
+                type: 'text',
                 fieldMode: 'universal',
                 universalField: 'student_id',
                 customField: '',
@@ -775,6 +795,7 @@ export function idTemplateEditor(config) {
                 return {
                     name: z.name,
                     label: z.label,
+                    type: z.type === 'signature' ? 'signature' : 'text',
                     field: z.field,
                     regex: z.regex || null,
                     color: z.color || null,

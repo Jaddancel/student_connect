@@ -8,10 +8,9 @@ use App\Models\FormSubmission;
 use App\Models\Organization;
 use App\Services\DocumentGenerationService;
 use App\Support\OrganizationField;
+use App\Support\SignatureImage;
 use App\Support\UniversalField;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 /**
  * Generic renderer for WYSIWYG builder forms. One controller serves every form
@@ -133,7 +132,7 @@ class FormRenderController extends Controller
             }
 
             if ($type === FieldType::SIGNATURE) {
-                $payload[$key] = $this->storeSignature($validated[$key] ?? null, $form->route_name);
+                $payload[$key] = $this->resolveSignature($validated[$key] ?? null, $form->route_name, $request);
                 continue;
             }
 
@@ -174,28 +173,23 @@ class FormRenderController extends Controller
     }
 
     /**
-     * Persist a captured signature (a base64 PNG data-URL) as a file and return
-     * its disk-relative path, or null if nothing was drawn.
+     * Resolve a submitted signature value to a stored path. A freshly-drawn
+     * data-URL is persisted as a new PNG; the submitter's own saved profile
+     * signature (offered as prefill) is kept as its existing path. Anything
+     * else — notably an arbitrary path a client could inject — is dropped.
      */
-    private function storeSignature(?string $dataUrl, string $routeName): ?string
+    private function resolveSignature(?string $value, string $routeName, Request $request): ?string
     {
-        if (! is_string($dataUrl) || ! str_starts_with($dataUrl, 'data:image')) {
+        if (! is_string($value) || $value === '') {
             return null;
         }
 
-        $parts = explode(',', $dataUrl, 2);
-        if (count($parts) !== 2) {
-            return null;
+        if (str_starts_with($value, 'data:image')) {
+            return SignatureImage::storeDataUrl($value, 'form-uploads/'.$routeName.'/signatures');
         }
 
-        $binary = base64_decode($parts[1], true);
-        if ($binary === false) {
-            return null;
-        }
+        $profileSignature = $request->user()?->profile()->first()?->signature_path;
 
-        $path = 'form-uploads/'.$routeName.'/signatures/'.Str::random(20).'.png';
-        Storage::disk((string) config('documents.disk', 'public'))->put($path, $binary);
-
-        return $path;
+        return ($profileSignature !== null && $value === $profileSignature) ? $value : null;
     }
 }

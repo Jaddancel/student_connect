@@ -66,6 +66,9 @@ class IdScanController extends Controller
         return response()->json([
             'student_id' => $result['student_id'] ?? null,
             'fields' => $result['fields'] ?? [],
+            // field => data-URL crops from signature-type zones (e.g. the
+            // signer's signature image, which the wizard feeds into the form).
+            'images' => $result['images'] ?? [],
             'note' => $result['note'] ?? null,
         ]);
     }

@@ -264,6 +264,17 @@
                                     class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                             </div>
                             <div>
+                                <label class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Type</label>
+                                <select x-model="zone.type" @change="setZoneType(zone, $event.target.value)"
+                                    class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                                    <option value="text">Text (OCR)</option>
+                                    <option value="signature">Signature (image capture)</option>
+                                </select>
+                                <p x-show="zone.type === 'signature'" x-cloak class="mt-1 text-[10px] text-gray-400 dark:text-gray-500">
+                                    The zone's crop is saved as the signer's signature image instead of being read as text.
+                                </p>
+                            </div>
+                            <div>
                                 <div class="mb-1 flex items-center justify-between gap-3">
                                     <label class="block text-[11px] font-medium text-gray-500 dark:text-gray-400">Writes to field</label>
                                     <div class="inline-flex rounded-full border border-gray-200 bg-gray-50 p-0.5 text-[10px] font-medium dark:border-gray-700 dark:bg-gray-900/40">
@@ -300,7 +311,7 @@
 
                                 <p class="mt-1 text-[10px] text-gray-400 dark:text-gray-500">Universal fields pre-fill the signup form; custom keys stay extraction-only.</p>
                             </div>
-                            <div>
+                            <div x-show="zone.type !== 'signature'">
                                 <label class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Regex (optional)</label>
                                 <input type="text" x-model="zone.regex" placeholder="\d{2}-\d{4}-\d{3}"
                                     class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 font-mono text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />

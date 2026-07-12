@@ -112,6 +112,8 @@ class IdTemplate extends Model
                     'y2' => (int) ($zone['y2'] ?? 0),
                     'regex' => $zone['regex'] ?? null,
                     'field' => $zone['field'] ?? ($zone['name'] ?? ''),
+                    // 'signature' zones come back as an image crop, not OCR text.
+                    'type' => ($zone['type'] ?? 'text') === 'signature' ? 'signature' : 'text',
                 ];
             }, $this->zonesForSide($side)),
         ];

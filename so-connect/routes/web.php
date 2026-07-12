@@ -649,6 +649,8 @@ Route::get('/profile', function () {
 
 Route::get('/profile/create', [ProfileController::class, 'profileForm'])->middleware('auth')->name('profile.create');
 Route::post('/profile/create', [ProfileController::class, 'store'])->middleware('auth')->name('profile.store');
+Route::post('/profile/signature', [ProfileController::class, 'updateSignature'])->middleware('auth')->name('profile.signature');
+Route::post('/signature/verify', [\App\Http\Controllers\SignatureVerificationController::class, 'verify'])->middleware('auth')->name('signature.verify');
 
 // form pages
 Route::get('/form-elements', function () {

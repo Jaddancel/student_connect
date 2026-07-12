@@ -311,6 +311,7 @@ export function idScanWizard(config = {}) {
                 }
 
                 this.applyPrefill(fields);
+                this.applySignatureCrop((json && json.images) || {});
                 this.scanNote = this.noteFor(json);
             } catch (e) {
                 this.scanNote = 'Could not read the ID — you can fill the form manually.';
@@ -365,6 +366,36 @@ export function idScanWizard(config = {}) {
                 input.classList.add('id-autofilled');
                 this.detected[key] = value;
             });
+        },
+
+        /**
+         * A signature-type template zone returns its crop as a data-URL under
+         * `images.signature`. Feed it into the form's signature file input (via
+         * DataTransfer, like the ID photos) so the scanned signature is what
+         * gets submitted and eventually stored on the approved profile. A file
+         * the user already picked manually is never replaced.
+         */
+        applySignatureCrop(images) {
+            const dataUrl = images && images.signature;
+            if (!dataUrl || this.detected.signature) return;
+            const input = document.querySelector('input[type="file"][name="signature"]');
+            if (!input || input.files.length) return;
+
+            try {
+                const [meta, b64] = dataUrl.split(',', 2);
+                const mime = (meta.match(/^data:([^;]+)/) || [])[1] || 'image/png';
+                const bytes = atob(b64);
+                const buf = new Uint8Array(bytes.length);
+                for (let i = 0; i < bytes.length; i++) buf[i] = bytes.charCodeAt(i);
+                const dt = new DataTransfer();
+                dt.items.add(new File([buf], 'id-signature.png', { type: mime }));
+                input.files = dt.files;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                input.classList.add('id-autofilled');
+                this.detected.signature = 'captured from ID';
+            } catch (e) {
+                // A malformed crop just means no auto-filled signature.
+            }
         },
 
         // --- navigation ---

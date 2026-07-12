@@ -48,12 +48,74 @@ class OcrClient
                 return $this->empty('scanner error');
             }
 
-            return $this->mapFields($template, (array) $response->json('fields', []), $side);
+            $result = $this->mapFields($template, (array) $response->json('fields', []), $side);
+            $result['images'] = $this->mapImages($template, (array) $response->json('images', []), $side);
+
+            return $result;
         } catch (\Throwable $e) {
             Log::warning('OCR sidecar unreachable: '.$e->getMessage());
 
             return $this->empty('scanner unavailable');
         }
+    }
+
+    /**
+     * Ask the sidecar which stored signature (if any) a freshly-drawn one
+     * matches. Candidates are [{id, image}] with base64-encoded image bytes.
+     *
+     * @param  array<int,array{id:int|string, image:string}>  $candidates
+     * @return array{ok: bool, match: bool, best: ?array{id: int|string, score: float}, note?: string}
+     */
+    public function identifySignature(string $probePng, array $candidates): array
+    {
+        $url = rtrim((string) config('services.ocr.url'), '/').'/signature-identify';
+        $timeout = (int) config('services.ocr.timeout', 60);
+
+        try {
+            $response = Http::timeout($timeout)
+                ->attach('probe', $probePng, 'probe.png')
+                ->post($url, ['candidates' => json_encode($candidates)]);
+
+            if (! $response->successful()) {
+                Log::warning('Signature identify returned non-200', ['status' => $response->status()]);
+
+                return ['ok' => false, 'match' => false, 'best' => null, 'note' => 'scanner error'];
+            }
+
+            return [
+                'ok' => true,
+                'match' => (bool) $response->json('match', false),
+                'best' => $response->json('best'),
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Signature identify unreachable: '.$e->getMessage());
+
+            return ['ok' => false, 'match' => false, 'best' => null, 'note' => 'scanner unavailable'];
+        }
+    }
+
+    /**
+     * Map the sidecar's zone-name → image-crop results (signature zones) onto
+     * each zone's destination `field`, mirroring mapFields().
+     *
+     * @param  array<string,mixed>  $raw
+     * @return array<string,string>
+     */
+    private function mapImages(IdTemplate $template, array $raw, string $side = 'front'): array
+    {
+        $images = [];
+        foreach ($template->zonesForSide($side) as $zone) {
+            $name = $zone['name'] ?? null;
+            $field = $zone['field'] ?? $name;
+            if (! $name || ! $field) {
+                continue;
+            }
+            if (is_string($raw[$name] ?? null) && str_starts_with($raw[$name], 'data:image')) {
+                $images[$field] = $raw[$name];
+            }
+        }
+
+        return $images;
     }
 
     /**
@@ -157,10 +219,10 @@ class OcrClient
     }
 
     /**
-     * @return array{fields: array<string,string>, student_id: ?string, ok: bool, note: string}
+     * @return array{fields: array<string,string>, images: array<string,string>, student_id: ?string, ok: bool, note: string}
      */
     private function empty(string $note): array
     {
-        return ['fields' => [], 'student_id' => null, 'ok' => false, 'note' => $note];
+        return ['fields' => [], 'images' => [], 'student_id' => null, 'ok' => false, 'note' => $note];
     }
 }

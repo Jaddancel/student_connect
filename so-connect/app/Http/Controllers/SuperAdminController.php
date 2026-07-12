@@ -695,6 +695,18 @@ public function searchProfiles(Request $request): JsonResponse
                 'profile' => (int) $selectedProfileId,
                 'profile_pending' => false,
             ]);
+
+            // A signature drawn during profile creation rides in the request
+            // payload; give it to the linked profile unless one is already set.
+            $signaturePath = (string) (((array) ($actionRequest->payload ?? []))['signature_path'] ?? '');
+            if ($signaturePath !== '') {
+                Profile::query()
+                    ->where('profile_id', (int) $selectedProfileId)
+                    ->where(function ($query) {
+                        $query->whereNull('signature_path')->orWhere('signature_path', '');
+                    })
+                    ->update(['signature_path' => $signaturePath]);
+            }
         } else {
             $targetUser->update([
                 'profile_pending' => false,

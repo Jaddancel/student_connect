@@ -176,6 +176,7 @@ class IdTemplateController extends Controller
                 "$z.*.regex" => ['nullable', 'string', 'max:255'],
                 "$z.*.field" => ['required', 'string', 'max:100', 'regex:/^[a-z0-9_]+$/'],
                 "$z.*.color" => ['nullable', 'string', 'regex:/^#[0-9a-f]{6}$/i'],
+                "$z.*.type" => ['nullable', 'string', 'in:text,signature'],
             ];
             $messages += [
                 "$z.*.name.regex" => 'Zone keys may only contain lowercase letters, numbers and underscores.',
@@ -231,6 +232,7 @@ class IdTemplateController extends Controller
                 'regex' => ($z['regex'] ?? '') !== '' ? $z['regex'] : null,
                 'field' => $z['field'],
                 'color' => ($z['color'] ?? '') !== '' ? strtolower($z['color']) : null,
+                'type' => ($z['type'] ?? 'text') === 'signature' ? 'signature' : 'text',
             ], $zones);
         }
 
