@@ -317,6 +317,17 @@ Route::middleware('auth')->group(function () {
     Route::get('/forms', [FormDirectoryController::class, 'index'])->name('forms.directory');
     Route::get('/forms/{routeName}', [FormRenderController::class, 'show'])->name('forms.render');
     Route::post('/forms/{routeName}', [FormRenderController::class, 'submit'])->name('forms.render.submit');
+
+    // Stable entry point for a system function's bound form page (sign_up,
+    // new_event, new_workplan, membership_registration — see SystemFunction).
+    Route::get('/functions/{fn}', function (string $fn) {
+        abort_unless(\App\Forms\SystemFunction::has($fn), 404);
+        $form = \App\Forms\SystemFunction::form($fn);
+        abort_if(! $form || ! $form->route_name, 404,
+            'No form is bound to the "'.\App\Forms\SystemFunction::label($fn).'" function yet.');
+
+        return redirect()->route('forms.render', $form->route_name);
+    })->name('functions.show');
 });
 
 Route::middleware(['auth', 'admin'])->group(function () {

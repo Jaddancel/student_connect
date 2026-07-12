@@ -239,6 +239,22 @@
                     </div>
 
                     <div>
+                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">System function</label>
+                        <select x-model="system_function"
+                            class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                            <option value="">— None (regular form page) —</option>
+                            @foreach (\App\Forms\SystemFunction::catalog() as $fnKey => $fnMeta)
+                                <option value="{{ $fnKey }}">{{ $fnMeta['label'] }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-gray-400">
+                            Binding makes this page drive that fixed system flow: submissions become requests an
+                            admin approves (accept writes to the system, reject sends the user back to the form).
+                            Each function can be bound to only one form.
+                        </p>
+                    </div>
+
+                    <div>
                         <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Show in sidebar for</label>
                         <div class="flex flex-wrap gap-3 text-xs text-gray-600 dark:text-gray-300">
                             @foreach (['admin' => 'Admin', 'president' => 'President', 'officer' => 'Officer'] as $val => $label)

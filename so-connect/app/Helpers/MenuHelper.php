@@ -160,14 +160,16 @@ class MenuHelper
     {
         $approvedIds = DB::table('approvals')->select('request')->whereNotNull('request');
 
-        $activityFormId = DB::table('forms')->where('route_name', 'activity-request')->value('id');
+        // Function-backed badges resolve through the binding (bound form or
+        // legacy seeded route); purpose-specific ones only exist as legacy forms.
+        $activityFormId = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_EVENT)?->getKey();
 
         $projectFormId             = DB::table('forms')->where('route_name', 'project-request')->value('id');
         $jointFormId               = DB::table('forms')->where('route_name', 'joint-statement')->value('id');
         $accomplishmentFormId      = DB::table('forms')->where('route_name', 'accomplishment-report')->value('id');
         $financialFormId           = DB::table('forms')->where('route_name', 'financial-report')->value('id');
         $recognitionFormId         = DB::table('forms')->where('route_name', 'organization-recognition')->value('id');
-        $workplanFormId            = DB::table('forms')->where('route_name', 'workplan')->value('id');
+        $workplanFormId            = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_WORKPLAN)?->getKey();
 
         $pendingByForm = function (?int $formId) use ($approvedIds): int {
             if (! $formId) {

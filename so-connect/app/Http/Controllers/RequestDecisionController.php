@@ -704,7 +704,7 @@ class RequestDecisionController extends Controller
         int $promotionRequestId,
         int $approverUserId,
     ): void {
-        $form = Form::query()->where('route_name', 'student-leader-directory')->first();
+        $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::SIGN_UP);
 
         if (! $form) {
             return;

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Forms\FieldType;
+use App\Forms\SystemFunction;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Organization;
@@ -149,6 +150,13 @@ class FormRenderController extends Controller
             }
         }
 
+        // A form bound to a system function routes its submission into that
+        // function's request-approval flow instead of generating immediately.
+        $handler = SystemFunction::handlerForForm($form);
+        if ($handler) {
+            $handler->validatePayload($form, $payload, $request);
+        }
+
         $submission = FormSubmission::query()->create([
             'form_id' => (int) $form->getKey(),
             'organization_id' => $form->organization_id,
@@ -156,6 +164,10 @@ class FormRenderController extends Controller
             'payload' => $payload,
             'submitted_at' => now(),
         ]);
+
+        if ($handler) {
+            return $handler->handle($form, $submission, $payload, $request);
+        }
 
         try {
             $docService->generateFromSubmission(

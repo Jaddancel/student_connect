@@ -335,7 +335,7 @@ class EventController extends Controller
             'collegeDean'                      => $validated['college_dean'] ?? '',
         ];
 
-        $form = \App\Models\Form::query()->where('route_name', 'activity-request')->firstOrFail();
+        $form = \App\Forms\SystemFunction::formOrFail(\App\Forms\SystemFunction::NEW_EVENT);
 
         $submission = \App\Models\FormSubmission::query()->create([
             'form_id'         => (int) $form->getKey(),

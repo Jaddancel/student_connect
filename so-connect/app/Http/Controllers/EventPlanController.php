@@ -247,7 +247,7 @@ class EventPlanController extends Controller
             'collegeDean'                      => $validated['college_dean'] ?? '',
         ];
 
-        $form = Form::query()->where('route_name', 'activity-request')->firstOrFail();
+        $form = \App\Forms\SystemFunction::formOrFail(\App\Forms\SystemFunction::NEW_EVENT);
 
         $submission = FormSubmission::query()->create([
             'form_id'         => (int) $form->getKey(),
@@ -394,7 +394,7 @@ class EventPlanController extends Controller
                 'collegeDean'                      => $validated['college_dean'] ?? '',
             ];
 
-            $form = Form::query()->where('route_name', 'activity-request')->firstOrFail();
+            $form = \App\Forms\SystemFunction::formOrFail(\App\Forms\SystemFunction::NEW_EVENT);
 
             $submission = FormSubmission::query()->create([
                 'form_id'         => (int) $form->getKey(),

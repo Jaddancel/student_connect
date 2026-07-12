@@ -200,7 +200,12 @@ class OrganizationRecognitionController extends Controller
             'create_organization' => $c1,
         ];
 
-        $form = Form::query()->where('route_name', 'organization-recognition')->firstOrFail();
+        $form = Form::query()->where('route_name', 'organization-recognition')->first();
+        if (! $form) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'form' => 'The document form backing this page no longer exists — ask an admin to recreate it in the Form Builder.',
+            ]);
+        }
 
         $submission = FormSubmission::query()->create([
             'form_id'         => (int) $form->getKey(),

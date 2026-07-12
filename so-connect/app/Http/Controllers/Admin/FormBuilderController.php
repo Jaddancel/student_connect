@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Forms\FieldType;
+use App\Forms\SystemFunction;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
 use App\Models\Form\FormDescription;
@@ -62,6 +63,7 @@ class FormBuilderController extends Controller
                 'description_text' => $data['description_text'],
                 'route_name' => $data['route_name'],
                 'sidebar_group' => $data['sidebar_group'],
+                'system_function' => $data['system_function'],
                 'is_active' => $data['is_active'],
                 'is_published' => $data['is_published'],
                 'created_by' => $request->user()?->getKey(),
@@ -90,6 +92,7 @@ class FormBuilderController extends Controller
                 'description_text' => $data['description_text'],
                 'route_name' => $data['route_name'],
                 'sidebar_group' => $data['sidebar_group'],
+                'system_function' => $data['system_function'],
                 'is_active' => $data['is_active'],
                 'is_published' => $data['is_published'],
                 'layout' => ['rows' => $data['rows']],
@@ -147,6 +150,10 @@ class FormBuilderController extends Controller
             ],
             'sidebar_group' => ['nullable', 'array'],
             'sidebar_group.*' => ['string', Rule::in(['officer', 'president', 'superadmin', 'admin'])],
+            'system_function' => [
+                'nullable', 'string', Rule::in(SystemFunction::keys()),
+                Rule::unique('forms', 'system_function')->ignore($formId),
+            ],
             'is_active' => ['boolean'],
             'is_published' => ['boolean'],
             'fields' => ['present', 'array'],
@@ -195,6 +202,7 @@ class FormBuilderController extends Controller
             'description_text' => $validated['description_text'] ?? null,
             'route_name' => $validated['route_name'],
             'sidebar_group' => array_values($validated['sidebar_group'] ?? []),
+            'system_function' => ($validated['system_function'] ?? '') !== '' ? $validated['system_function'] : null,
             'is_active' => (bool) ($validated['is_active'] ?? true),
             'is_published' => $isPublished,
             'fields' => $validated['fields'],
@@ -384,6 +392,7 @@ class FormBuilderController extends Controller
             'description_text' => '',
             'route_name' => '',
             'sidebar_group' => ['admin'],
+            'system_function' => '',
             'is_active' => true,
             'is_published' => false,
             'fields' => [],
@@ -426,6 +435,7 @@ class FormBuilderController extends Controller
             'description_text' => $form->description_text,
             'route_name' => $form->route_name,
             'sidebar_group' => (array) ($form->sidebar_group ?? []),
+            'system_function' => (string) ($form->system_function ?? ''),
             'is_active' => (bool) $form->is_active,
             'is_published' => (bool) $form->is_published,
             'fields' => $fields,

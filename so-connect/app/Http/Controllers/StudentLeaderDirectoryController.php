@@ -183,7 +183,7 @@ class StudentLeaderDirectoryController extends Controller
 
         // Create the FormSubmission first so its ID can be stored in the request payload
         $submissionId = null;
-        $form = Form::query()->where('route_name', 'student-leader-directory')->first();
+        $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::SIGN_UP);
 
         if ($form) {
             $submission = FormSubmission::query()->create([

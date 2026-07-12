@@ -313,7 +313,7 @@ class DocumentGenerationService
             return null;
         }
 
-        $workplanForm = Form::query()->where('route_name', 'workplan')->first();
+        $workplanForm = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_WORKPLAN);
         if (! $workplanForm) {
             Log::warning('DocumentGenerationService: workplan form not configured; skipping PDF merge.');
             return null;
