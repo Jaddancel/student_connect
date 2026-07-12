@@ -243,7 +243,10 @@
                         :class="selectedIndex === i ? 'border-brand-400 ring-1 ring-brand-400 dark:border-brand-600' : 'border-gray-200 dark:border-gray-700'"
                         @click="selectZone(i)">
                         <div class="mb-2 flex items-center justify-between">
-                            <span class="text-xs font-semibold text-gray-500 dark:text-gray-400" x-text="'Zone ' + (i + 1)"></span>
+                            <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                <span class="inline-block h-2.5 w-2.5 rounded-full" :style="{ backgroundColor: zone.color }"></span>
+                                <span x-text="'Zone ' + (i + 1)"></span>
+                            </span>
                             <button type="button" @click.stop="removeZone(i)"
                                 class="text-gray-400 transition hover:text-error-500">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>

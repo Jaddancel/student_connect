@@ -64,6 +64,9 @@ class IdTemplateController extends Controller
             return $template;
         });
 
+        // The editor navigates to the edit page next; greet it with the toast.
+        session()->flash('toast', 'Saved!');
+
         return response()->json([
             'message' => 'ID template created.',
             'redirect' => route('superadmin.id-templates.edit', $template),
@@ -80,7 +83,7 @@ class IdTemplateController extends Controller
         });
 
         return response()->json([
-            'message' => 'ID template saved.',
+            'message' => 'Saved!',
             'redirect' => route('superadmin.id-templates.edit', $idTemplate),
         ]);
     }
@@ -172,6 +175,7 @@ class IdTemplateController extends Controller
                 "$z.*.y2" => ['required', 'integer', "gt:$z.*.y1"],
                 "$z.*.regex" => ['nullable', 'string', 'max:255'],
                 "$z.*.field" => ['required', 'string', 'max:100', 'regex:/^[a-z0-9_]+$/'],
+                "$z.*.color" => ['nullable', 'string', 'regex:/^#[0-9a-f]{6}$/i'],
             ];
             $messages += [
                 "$z.*.name.regex" => 'Zone keys may only contain lowercase letters, numbers and underscores.',
@@ -226,6 +230,7 @@ class IdTemplateController extends Controller
                 'y2' => (int) $z['y2'],
                 'regex' => ($z['regex'] ?? '') !== '' ? $z['regex'] : null,
                 'field' => $z['field'],
+                'color' => ($z['color'] ?? '') !== '' ? strtolower($z['color']) : null,
             ], $zones);
         }
 

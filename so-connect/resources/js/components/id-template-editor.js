@@ -23,9 +23,24 @@ import Konva from 'konva';
 import { warp } from '../lib/perspective-warp';
 
 const MAX_DISPLAY_WIDTH = 900;
+// Zone stage caps height too, so a portrait/tall straightened ID fits the
+// viewport instead of scaling to full width and overflowing it vertically.
+const MAX_DISPLAY_HEIGHT = 560;
 // Crop stage also caps height so a portrait/tall photo fits the viewport
 // instead of scaling to full width and overflowing.
 const MAX_CROP_DISPLAY_HEIGHT = 520;
+
+// Zones cycle through visually distinct colors so adjacent boxes stay
+// tell-apart-able; the color is persisted with the zone.
+const ZONE_PALETTE = [
+    '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#06b6d4',
+    '#ec4899', '#84cc16', '#f97316', '#14b8a6', '#6366f1', '#d946ef',
+];
+
+function hexToRgba(hex, alpha) {
+    const n = parseInt(hex.slice(1), 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
 // ISO/IEC 7810 ID-1 (bank/most student cards): 85.60 × 53.98 mm. Stored as the
 // landscape (long/short) ratio; a vertical ID is the reciprocal.
 const ID1_LONG = 85.6;
@@ -150,7 +165,7 @@ export function idTemplateEditor(config) {
                 canReCrop: false,
                 rawImg: null,
                 rawFile: null,
-                zones: list.map((z) => ({
+                zones: list.map((z, i) => ({
                     name: z.name || '',
                     label: z.label || '',
                     field: z.field || 'student_id',
@@ -158,6 +173,7 @@ export function idTemplateEditor(config) {
                     universalField: this.isUniversalField(z.field || '') ? (z.field || 'student_id') : 'student_id',
                     customField: this.isUniversalField(z.field || '') ? '' : (z.field || ''),
                     regex: z.regex || '',
+                    color: z.color || ZONE_PALETTE[i % ZONE_PALETTE.length],
                 })),
                 coords: list.map((z) => ({
                     x1: z.x1 || 0, y1: z.y1 || 0, x2: z.x2 || 0, y2: z.y2 || 0,
@@ -250,6 +266,7 @@ export function idTemplateEditor(config) {
                     universalField: z.universalField,
                     customField: z.customField,
                     regex: z.regex,
+                    color: z.color,
                 })),
                 coords,
             };
@@ -564,10 +581,13 @@ export function idTemplateEditor(config) {
             if (stage) { stage.destroy(); rects.length = 0; labels.length = 0; }
 
             // Lock the display width at build time; never reflow on resize (that
-            // would change `scale` and drift the saved coordinates).
-            displayWidth = Math.min(container.clientWidth || MAX_DISPLAY_WIDTH, MAX_DISPLAY_WIDTH);
+            // would change `scale` and drift the saved coordinates). Fit within
+            // BOTH the container width and a max height, like the crop stage.
+            const maxW = Math.min(container.clientWidth || MAX_DISPLAY_WIDTH, MAX_DISPLAY_WIDTH);
+            const fit = Math.min(maxW / this.naturalWidth, MAX_DISPLAY_HEIGHT / this.naturalHeight);
+            displayWidth = Math.max(1, Math.round(this.naturalWidth * fit));
             scale = this.naturalWidth / displayWidth;
-            const displayHeight = (displayWidth * this.naturalHeight) / this.naturalWidth;
+            const displayHeight = Math.max(1, Math.round(this.naturalHeight * fit));
 
             stage = new Konva.Stage({ container, width: displayWidth, height: displayHeight });
             layer = new Konva.Layer();
@@ -596,14 +616,28 @@ export function idTemplateEditor(config) {
             layer.draw();
         },
 
+        /** A random palette color, avoiding ones already in use when possible. */
+        _nextZoneColor() {
+            const used = new Set(this.zones.map((z) => z.color));
+            const free = ZONE_PALETTE.filter((c) => !used.has(c));
+            const pool = free.length ? free : ZONE_PALETTE;
+            return pool[Math.floor(Math.random() * pool.length)];
+        },
+
+        _zoneColor(index) {
+            return (this.zones[index] && this.zones[index].color) ||
+                ZONE_PALETTE[index % ZONE_PALETTE.length];
+        },
+
         _addRect(x, y, w, h, index) {
+            const color = this._zoneColor(index);
             const rect = new Konva.Rect({
                 x, y,
                 width: Math.max(5, w),
                 height: Math.max(5, h),
-                stroke: '#ef4444',
+                stroke: color,
                 strokeWidth: 2,
-                fill: 'rgba(239,68,68,0.15)',
+                fill: hexToRgba(color, 0.15),
                 draggable: true,
                 name: 'zone',
             });
@@ -627,7 +661,7 @@ export function idTemplateEditor(config) {
         /** Create the on-canvas name tag for a zone (mirrors the pic's boxed labels). */
         _addLabel(index) {
             const label = new Konva.Label({ listening: false });
-            label.add(new Konva.Tag({ fill: '#ef4444', cornerRadius: 2 }));
+            label.add(new Konva.Tag({ fill: this._zoneColor(index), cornerRadius: 2 }));
             label.add(new Konva.Text({
                 text: this._labelText(index),
                 fontSize: 12,
@@ -685,6 +719,7 @@ export function idTemplateEditor(config) {
                 customField: '',
                 field: 'student_id',
                 regex: '',
+                color: this._nextZoneColor(),
             });
             this._addRect(20, 20 + i * 12, displayWidth * 0.3, 40, i);
             this.selectZone(i);
@@ -742,6 +777,7 @@ export function idTemplateEditor(config) {
                     label: z.label,
                     field: z.field,
                     regex: z.regex || null,
+                    color: z.color || null,
                     x1, y1, x2, y2,
                 };
             });
@@ -801,9 +837,18 @@ export function idTemplateEditor(config) {
                     body: JSON.stringify(payload),
                 });
                 const json = await res.json();
-                if (res.ok && json.redirect) {
-                    window.location.href = json.redirect;
-                    return;
+                if (res.ok) {
+                    if (this.id) {
+                        // Editing in place: stay on the page and confirm.
+                        window.Alpine?.store('toast')?.open(json.message || 'Saved!');
+                        return;
+                    }
+                    if (json.redirect) {
+                        // First save: the create page becomes the edit page; the
+                        // controller flashed the toast for the destination.
+                        window.location.href = json.redirect;
+                        return;
+                    }
                 }
                 if (res.status === 422 && json.errors) {
                     this.note = Object.values(json.errors).flat()[0] || 'Validation failed.';
