@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\IdTemplate;
+use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -17,6 +18,23 @@ use Illuminate\Support\Facades\Log;
  */
 class OcrClient
 {
+    /**
+     * Generational suffixes that belong to the surname, not the given/middle
+     * names. Bare "V" is deliberately absent — trailing single letters are far
+     * more often middle initials than "the fifth".
+     */
+    private const NAME_SUFFIXES = ['JR', 'SR', 'II', 'III', 'IV', 'VI'];
+
+    /**
+     * Filipino/Hispanic surname particles: a trailing "CRUZ" preceded by any
+     * chain of these belongs to one compound surname ("DELA CRUZ",
+     * "DELOS SANTOS", "SAN JUAN").
+     */
+    private const SURNAME_PARTICLES = [
+        'DE', 'DEL', 'DELA', 'DELAS', 'DELOS', 'LA', 'LOS',
+        'SAN', 'SANTA', 'SANTO', 'STA', 'STO', 'VAN', 'VON', 'DER',
+    ];
+
     /**
      * @return array{fields: array<string,string>, student_id: ?string, ok: bool, note?: string}
      */
@@ -140,12 +158,78 @@ class OcrClient
         }
 
         $fields = $this->expandName($fields);
+        $fields = $this->normalizeDates($fields);
 
         return [
             'fields' => $fields,
             'student_id' => $fields['student_id'] ?? null,
             'ok' => true,
         ];
+    }
+
+    /**
+     * IDs print dates as e.g. `JANUARY 5, 2003`, but every consumer of the
+     * scanned value (`<input type="date">` on the signup form, flatpickr on
+     * rendered forms) needs `Y-m-d` — anything else is silently discarded by
+     * the browser. Normalize the date-typed universal keys.
+     *
+     * @param  array<string,string>  $fields
+     * @return array<string,string>
+     */
+    private function normalizeDates(array $fields): array
+    {
+        if (isset($fields['birthday'])) {
+            $fields['birthday'] = self::normalizeDate($fields['birthday']) ?? $fields['birthday'];
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Parse the date layouts commonly printed on IDs into `Y-m-d`.
+     * Returns null when the text can't be read as a date (caller keeps the
+     * raw string, which is no worse than before).
+     */
+    public static function normalizeDate(string $raw): ?string
+    {
+        $value = trim((string) preg_replace('/\s+/', ' ', $raw), " \t.,");
+        if ($value === '') {
+            return null;
+        }
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return $value;
+        }
+
+        // PHP's month-name parsing wants `January`, not `JANUARY`.
+        $cased = preg_match('/[A-Za-z]/', $value) ? ucwords(strtolower($value)) : $value;
+
+        $formats = [
+            'F j, Y', 'F j Y', 'M j, Y', 'M. j, Y', 'M j Y',
+            'n/j/Y', 'n-j-Y', 'Y-n-j', 'Y/n/j', 'j F Y', 'j M Y',
+        ];
+
+        foreach ($formats as $format) {
+            try {
+                $parsed = Carbon::createFromFormat('!'.$format, $cased);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if ($parsed !== false && (int) $parsed->year >= 1900 && (int) $parsed->year <= 2100) {
+                return $parsed->format('Y-m-d');
+            }
+        }
+
+        try {
+            $parsed = Carbon::parse($cased);
+
+            return ((int) $parsed->year >= 1900 && (int) $parsed->year <= 2100)
+                ? $parsed->format('Y-m-d')
+                : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -161,7 +245,7 @@ class OcrClient
     private function expandName(array $fields): array
     {
         if (isset($fields['full_name']) || isset($fields['name'])) {
-            $parts = $this->splitFullName((string) ($fields['full_name'] ?? $fields['name']));
+            $parts = self::splitFullName((string) ($fields['full_name'] ?? $fields['name']));
             unset($fields['full_name'], $fields['name']);
             foreach ($parts as $key => $value) {
                 if (($fields[$key] ?? '') === '') {
@@ -170,7 +254,7 @@ class OcrClient
             }
         } elseif (isset($fields['first_name']) && str_contains((string) $fields['first_name'], ',')) {
             // The comma-form was mis-captured into first_name; replace it wholesale.
-            foreach ($this->splitFullName((string) $fields['first_name']) as $key => $value) {
+            foreach (self::splitFullName((string) $fields['first_name']) as $key => $value) {
                 $fields[$key] = $value;
             }
         }
@@ -179,13 +263,23 @@ class OcrClient
     }
 
     /**
-     * Parse a full name into its parts. Handles the canonical
-     * `LAST, FIRST MIDDLE...` form and falls back to `FIRST MIDDLE LAST` when no
-     * comma is present.
+     * Parse a full name into its parts.
+     *
+     * Comma form `LAST, FIRST [MIDDLE-INITIAL] [SUFFIX]`: everything before the
+     * comma is the surname; after it, only a trailing initial is treated as the
+     * middle name — the rest is the (possibly compound) first name, so
+     * "DELA CRUZ, JUAN MIGUEL P." → first "JUAN MIGUEL", middle "P.".
+     *
+     * No-comma form `FIRST [MIDDLE-INITIAL] LAST [SUFFIX]`: the surname is the
+     * final token plus any preceding particle chain ("JUAN MIGUEL DELA CRUZ" →
+     * last "DELA CRUZ"). Generational suffixes stay with the surname.
+     *
+     * Full-word middle names are indistinguishable from compound first names on
+     * a printed ID, so they intentionally stay in first_name.
      *
      * @return array<string,string>  subset of first_name/middle_name/last_name
      */
-    private function splitFullName(string $raw): array
+    public static function splitFullName(string $raw): array
     {
         $value = trim((string) preg_replace('/\s+/', ' ', $raw));
         if ($value === '') {
@@ -194,28 +288,80 @@ class OcrClient
 
         if (str_contains($value, ',')) {
             [$last, $rest] = array_pad(explode(',', $value, 2), 2, '');
-            $tokens = array_values(array_filter(explode(' ', trim($rest)), static fn ($t) => $t !== ''));
+            [$lastTokens, $lastSuffix] = self::stripSuffix(self::tokenize($last));
+            [$tokens, $restSuffix] = self::stripSuffix(self::tokenize($rest));
+            $suffix = $lastSuffix !== '' ? $lastSuffix : $restSuffix;
+
+            $middle = '';
+            if (count($tokens) >= 2 && self::isInitial(end($tokens))) {
+                $middle = array_pop($tokens);
+            }
 
             return array_filter([
-                'last_name' => trim($last),
-                'first_name' => $tokens[0] ?? '',
-                'middle_name' => implode(' ', array_slice($tokens, 1)),
+                'first_name' => implode(' ', $tokens),
+                'middle_name' => $middle,
+                'last_name' => trim(implode(' ', $lastTokens).($suffix !== '' ? ' '.$suffix : '')),
             ], static fn ($v) => $v !== '');
         }
 
-        $tokens = array_values(array_filter(explode(' ', $value), static fn ($t) => $t !== ''));
+        [$tokens, $suffix] = self::stripSuffix(self::tokenize($value));
+        if ($tokens === []) {
+            return [];
+        }
         if (count($tokens) === 1) {
             return ['first_name' => $tokens[0]];
         }
 
-        $first = array_shift($tokens);
-        $last = array_pop($tokens);
+        $lastParts = [array_pop($tokens)];
+        while (count($tokens) > 1 && self::isSurnameParticle(end($tokens))) {
+            array_unshift($lastParts, array_pop($tokens));
+        }
+
+        $middle = '';
+        if (count($tokens) >= 2 && self::isInitial(end($tokens))) {
+            $middle = array_pop($tokens);
+        }
 
         return array_filter([
-            'first_name' => $first,
-            'middle_name' => implode(' ', $tokens),
-            'last_name' => $last,
+            'first_name' => implode(' ', $tokens),
+            'middle_name' => $middle,
+            'last_name' => trim(implode(' ', $lastParts).($suffix !== '' ? ' '.$suffix : '')),
         ], static fn ($v) => $v !== '');
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private static function tokenize(string $value): array
+    {
+        return array_values(array_filter(explode(' ', trim($value)), static fn ($t) => $t !== ''));
+    }
+
+    /**
+     * Split a trailing generational suffix off a token list.
+     *
+     * @param  array<int,string>  $tokens
+     * @return array{0: array<int,string>, 1: string}  [remaining tokens, suffix ('' when none)]
+     */
+    private static function stripSuffix(array $tokens): array
+    {
+        if (count($tokens) >= 2 && in_array(strtoupper(rtrim((string) end($tokens), '.')), self::NAME_SUFFIXES, true)) {
+            $suffix = array_pop($tokens);
+
+            return [$tokens, $suffix];
+        }
+
+        return [$tokens, ''];
+    }
+
+    private static function isInitial(string $token): bool
+    {
+        return (bool) preg_match('/^[A-Za-z]\.?$/', $token);
+    }
+
+    private static function isSurnameParticle(string $token): bool
+    {
+        return in_array(strtoupper(rtrim($token, '.')), self::SURNAME_PARTICLES, true);
     }
 
     /**
