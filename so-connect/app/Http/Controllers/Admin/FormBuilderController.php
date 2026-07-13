@@ -62,7 +62,6 @@ class FormBuilderController extends Controller
                 'name' => $data['name'],
                 'description_text' => $data['description_text'],
                 'route_name' => $data['route_name'],
-                'sidebar_group' => $data['sidebar_group'],
                 'system_function' => $data['system_function'],
                 'is_active' => $data['is_active'],
                 'is_published' => $data['is_published'],
@@ -99,7 +98,6 @@ class FormBuilderController extends Controller
                 'name' => $data['name'],
                 'description_text' => $data['description_text'],
                 'route_name' => $data['route_name'],
-                'sidebar_group' => $data['sidebar_group'],
                 'system_function' => $data['system_function'],
                 'is_active' => $data['is_active'],
                 'is_published' => $data['is_published'],
@@ -171,14 +169,10 @@ class FormBuilderController extends Controller
                 'required', 'string', 'max:255', 'regex:/^[a-z0-9-]+$/',
                 Rule::unique('forms', 'route_name')->ignore($formId),
             ],
-            'sidebar_group' => ['nullable', 'array'],
-            'sidebar_group.*' => ['string', Rule::in(['officer', 'president', 'superadmin', 'admin'])],
             'system_function' => [
                 'nullable', 'string', Rule::in(SystemFunction::keys()),
                 Rule::unique('forms', 'system_function')->ignore($formId),
             ],
-            'is_active' => ['boolean'],
-            'is_published' => ['boolean'],
             'fields' => ['present', 'array'],
             'fields.*.field_key' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9_]+$/'],
             'fields.*.field_label' => ['required', 'string', 'max:255'],
@@ -210,24 +204,17 @@ class FormBuilderController extends Controller
         }
 
         $pdfTemplate = $this->cleanPdfTemplate($validated['pdf_template'] ?? []);
-        $isPublished = (bool) ($validated['is_published'] ?? false);
-
-        // A form requires a printed PDF template before it can be published.
-        if ($isPublished && ! $this->templateHasContent($pdfTemplate['html'])) {
-            abort(response()->json([
-                'message' => 'A printed PDF template (Step 2) is required before this form can be published.',
-                'errors' => ['pdf_template' => ['A printed PDF template is required before publishing.']],
-            ], 422));
-        }
 
         return [
             'name' => $validated['name'],
             'description_text' => $validated['description_text'] ?? null,
             'route_name' => $validated['route_name'],
-            'sidebar_group' => array_values($validated['sidebar_group'] ?? []),
             'system_function' => ($validated['system_function'] ?? '') !== '' ? $validated['system_function'] : null,
-            'is_active' => (bool) ($validated['is_active'] ?? true),
-            'is_published' => $isPublished,
+            // Saving publishes: there is no draft state. A form without a
+            // printed template stays unpublished (it can't accept submissions
+            // yet) and goes live automatically once the template is added.
+            'is_active' => true,
+            'is_published' => $this->templateHasContent($pdfTemplate['html']),
             'fields' => $validated['fields'],
             'rows' => $this->cleanRows($validated['rows'] ?? [], $keys),
             'pdf_template' => $pdfTemplate,
@@ -414,10 +401,7 @@ class FormBuilderController extends Controller
             'name' => '',
             'description_text' => '',
             'route_name' => '',
-            'sidebar_group' => ['admin'],
             'system_function' => '',
-            'is_active' => true,
-            'is_published' => false,
             'fields' => [],
             'rows' => [],
             'pdf_template' => [
@@ -457,10 +441,7 @@ class FormBuilderController extends Controller
             'name' => $form->name,
             'description_text' => $form->description_text,
             'route_name' => $form->route_name,
-            'sidebar_group' => (array) ($form->sidebar_group ?? []),
             'system_function' => (string) ($form->system_function ?? ''),
-            'is_active' => (bool) $form->is_active,
-            'is_published' => (bool) $form->is_published,
             'fields' => $fields,
             'rows' => $layout['rows'] ?? [],
             'pdf_template' => [

@@ -2,42 +2,38 @@
 
 namespace App\Http\Controllers;
 
+use App\Forms\SystemFunction;
 use App\Models\Form;
 use Illuminate\Http\Request;
 
 /**
- * Public-facing directory of published builder forms, searchable by name and
- * purpose (`description_text`). Complements the global top-bar search with a
- * dedicated browsable page. The literal `/forms` route is registered before the
- * generic `/forms/{routeName}` renderer so it always wins.
+ * Directory of published builder forms, searchable by name and purpose
+ * (`description_text`). Complements the global top-bar search with a dedicated
+ * browsable page. The literal `/forms` route is registered before the generic
+ * `/forms/{routeName}` renderer so it always wins.
+ *
+ * Built forms are available to organization officers/presidents (user type 3)
+ * only; everyone else gets an empty directory. Forms bound to the sign-up /
+ * new-event / new-workplan system functions are reached through their own
+ * dedicated flows, so they are not listed here.
  */
 class FormDirectoryController extends Controller
 {
     public function index(Request $request)
     {
-        $user = $request->user();
-        $isAdmin = $user && in_array((int) $user->user_type, [1, 2], true);
+        $forms = collect();
 
-        $query = Form::query()
-            ->whereNotNull('route_name')
-            ->where('is_published', true)
-            ->where('is_active', true)
-            ->orderBy('name');
-
-        $forms = $query->get(['id', 'name', 'route_name', 'description_text', 'sidebar_group']);
-
-        // Non-admins only see forms whose sidebar_group targets a role they hold
-        // (or forms with no group restriction).
-        if (! $isAdmin && $user) {
-            $roles = $user->officers()->pluck('role')->map(fn ($r) => (string) $r)->all();
-            $forms = $forms->filter(function (Form $form) use ($roles) {
-                $groups = (array) ($form->sidebar_group ?? []);
-                if (empty($groups)) {
-                    return true;
-                }
-
-                return count(array_intersect($groups, $roles)) > 0;
-            })->values();
+        if (Form::isAccessibleBy($request->user())) {
+            $forms = Form::query()
+                ->whereNotNull('route_name')
+                ->where('is_published', true)
+                ->where('is_active', true)
+                ->where(function ($query) {
+                    $query->whereNull('system_function')
+                        ->orWhere('system_function', SystemFunction::MEMBERSHIP_REGISTRATION);
+                })
+                ->orderBy('name')
+                ->get(['id', 'name', 'route_name', 'description_text']);
         }
 
         return view('pages.form.directory', [

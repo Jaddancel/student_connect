@@ -22,10 +22,7 @@ export function formBuilder(config) {
         name: config.data.name || '',
         description_text: config.data.description_text || '',
         route_name: config.data.route_name || '',
-        sidebar_group: config.data.sidebar_group || [],
         system_function: config.data.system_function || '',
-        is_active: config.data.is_active ?? true,
-        is_published: config.data.is_published ?? false,
         fields: config.data.fields || [],
         rows: config.data.rows || [],
         // The letterhead (header) and footer belong to the printed document, so
@@ -299,22 +296,13 @@ export function formBuilder(config) {
             this.message = '';
             this.error = '';
 
-            // Require a printed template before a form may be published.
-            if (this.is_published && !this.hasTemplate) {
-                this.step = 2;
-                this.error = 'Add a printed PDF template (Step 2) before publishing this form.';
-                return;
-            }
-
             this.saving = true;
+            // Saving publishes — active/published/sidebar are server-decided.
             const payload = {
                 name: this.name,
                 description_text: this.description_text,
                 route_name: this.route_name,
-                sidebar_group: this.sidebar_group,
                 system_function: this.system_function || null,
-                is_active: this.is_active,
-                is_published: this.is_published,
                 fields: this.fields.map(({ _keyLocked, ...field }) => field),
                 rows: this.rows,
                 pdf_template: this.pdf_template,

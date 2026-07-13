@@ -118,41 +118,41 @@ class MenuHelper
 
         }
 
-        $isOfficerOrPresident = $user->officers()->whereIn('role', ['officer', 'president'])->exists();
+        // Built forms are for user-type-3 officers/presidents only (matches
+        // Form::isAccessibleBy) — admins author forms, they don't fill them.
+        $isOfficerOrPresident = (int) $user->user_type === 3
+            && $user->officers()->whereIn('role', ['officer', 'president'])->exists();
 
         if ($isOfficerOrPresident) {
             $menuGroups[] = [
                 'title' => 'Organization',
                 'items' => [
                     ['icon' => 'calendar', 'name' => 'Event Plans',          'path' => '/event-plans'],
-                    ['icon' => 'forms',    'name' => 'Joint Statement',      'path' => '/forms/joint-statement'],
                 ],
             ];
 
+            // Every published form is listed; forms bound to sign-up /
+            // new-event / new-workplan live in their own dedicated flows.
             $publishedForms = \App\Models\Form::whereNotNull('route_name')
                 ->where('is_published', true)
-                ->where('route_name', '!=', 'workplan')
-                ->whereJsonLength('sidebar_group', '>', 0)
+                ->where('is_active', true)
+                ->where(function ($query) {
+                    $query->whereNull('system_function')
+                        ->orWhere('system_function', \App\Forms\SystemFunction::MEMBERSHIP_REGISTRATION);
+                })
                 ->orderBy('name')
-                ->get(['id', 'name', 'route_name', 'sidebar_group']);
+                ->get(['id', 'name', 'route_name']);
 
-            $grouped = $publishedForms->groupBy(fn ($f) => $f->sidebar_group[0] ?? 'president');
-
-            foreach ($grouped as $group => $groupForms) {
-                $title = match ($group) {
-                    'president' => 'Organization Forms',
-                    default => ucfirst($group) . ' Forms',
-                };
+            if ($publishedForms->isNotEmpty()) {
                 $menuGroups[] = [
-                    'title' => $title,
-                    'items' => $groupForms->map(fn ($f) => [
+                    'title' => 'Organization Forms',
+                    'items' => $publishedForms->map(fn ($f) => [
                         'icon' => 'forms',
                         'name' => $f->name,
                         'path' => '/forms/' . $f->route_name,
                     ])->all(),
                 ];
             }
-
         }
 
         return $menuGroups;

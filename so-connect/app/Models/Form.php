@@ -87,6 +87,20 @@ class Form extends Model
         return self::sidebarGroupLabel($roleLevel);
     }
 
+    /**
+     * Whether a user may view/submit rendered form pages: built forms are for
+     * user-type-3 accounts holding an officer or president role in some org
+     * (admins author forms in the builder; they don't fill them).
+     */
+    public static function isAccessibleBy(?User $user): bool
+    {
+        if ($user === null || (int) $user->user_type !== 3) {
+            return false;
+        }
+
+        return $user->officers()->whereIn('role', ['officer', 'president'])->exists();
+    }
+
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class, 'organization_id', 'organization_id');

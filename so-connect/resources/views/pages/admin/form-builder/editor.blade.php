@@ -40,7 +40,7 @@
                 @endif
                 <button type="button" @click="save()" :disabled="saving"
                     class="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-60">
-                    <span x-show="!saving">{{ $form ? 'Save form' : 'Save draft' }}</span>
+                    <span x-show="!saving">Save form</span>
                     <span x-show="saving">Saving…</span>
                 </button>
             </div>
@@ -277,28 +277,14 @@
                         </p>
                     </div>
 
-                    <div>
-                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Show in sidebar for</label>
-                        <div class="flex flex-wrap gap-3 text-xs text-gray-600 dark:text-gray-300">
-                            @foreach (['admin' => 'Admin', 'president' => 'President', 'officer' => 'Officer'] as $val => $label)
-                                <label class="flex items-center gap-1.5">
-                                    <input type="checkbox" value="{{ $val }}" x-model="sidebar_group" class="h-4 w-4 rounded border-gray-300 text-brand-500" />
-                                    {{ $label }}
-                                </label>
-                            @endforeach
-                        </div>
-                    </div>
-
-                    <div class="flex gap-4 text-xs text-gray-600 dark:text-gray-300">
-                        <label class="flex items-center gap-1.5"><input type="checkbox" x-model="is_active" class="h-4 w-4 rounded border-gray-300 text-brand-500" /> Active</label>
-                        <label class="flex items-center gap-1.5"><input type="checkbox" x-model="is_published" class="h-4 w-4 rounded border-gray-300 text-brand-500" /> Published</label>
-                    </div>
-
-                    <template x-if="is_published && !hasTemplate">
-                        <p class="rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600 dark:bg-error-500/10">
-                            A printed PDF template (Step 2) is required before this form can be published.
-                        </p>
-                    </template>
+                    {{-- Forms publish on save — no draft/sidebar-targeting config. --}}
+                    <p class="rounded-lg px-3 py-2 text-xs font-medium"
+                        :class="hasTemplate
+                            ? 'bg-success-50 text-success-600 dark:bg-success-500/10 dark:text-success-500'
+                            : 'bg-warning-50 text-warning-600 dark:bg-warning-500/10 dark:text-orange-400'"
+                        x-text="hasTemplate
+                            ? 'Saving publishes this form to officers immediately.'
+                            : 'This form goes live to officers once it has a printed template (Step 2).'"></p>
                 </div>
             </div>
         </div>

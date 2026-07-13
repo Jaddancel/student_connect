@@ -29,6 +29,9 @@ class FormRenderController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
+        abort_unless(Form::isAccessibleBy($request->user()), 403,
+            'Form pages are available to organization officers only.');
+
         $fields = $form->fields()->get();
         $organization = OrganizationField::resolveOrganization($request->user());
 
@@ -83,6 +86,9 @@ class FormRenderController extends Controller
             ->where('route_name', $routeName)
             ->where('is_active', true)
             ->firstOrFail();
+
+        abort_unless(Form::isAccessibleBy($request->user()), 403,
+            'Form pages are available to organization officers only.');
 
         // Defense in depth: an untemplated form must never accept a submission,
         // since it could not produce its printed document.
