@@ -25,6 +25,12 @@ export function scoringRuleEditor(config) {
 
                 blocks.defineScoringBlocks(Blockly, config.variables || {});
 
+                // Reveal the container before injecting: Blockly measures the
+                // target element on inject and renders an empty, zero-size
+                // canvas if it is still display:none (x-show="!loading").
+                this.loading = false;
+                await this.$nextTick();
+
                 workspace = Blockly.inject(this.$refs.blockly, {
                     toolbox: blocks.TOOLBOX,
                     renderer: 'zelos', // the Scratch-look renderer
