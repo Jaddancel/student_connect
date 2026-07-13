@@ -341,6 +341,20 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/semesters/{semester}/edit', [SemesterController::class, 'edit'])->name('admin.semesters.edit');
     Route::patch('/admin/semesters/{semester}', [SemesterController::class, 'update'])->name('admin.semesters.update');
 
+    // Generic per-form request pages: every form page has its own queue
+    // (forms bound to sign-up/new-event/new-workplan 404 — dedicated flows).
+    Route::get('/admin/form-requests/{form}', [\App\Http\Controllers\Admin\FormRequestController::class, 'index'])
+        ->whereNumber('form')
+        ->name('admin.form-requests.index');
+    Route::get('/admin/form-requests/{form}/{requestId}', [\App\Http\Controllers\Admin\FormRequestController::class, 'show'])
+        ->whereNumber('form')
+        ->whereNumber('requestId')
+        ->name('admin.form-requests.show');
+    Route::post('/admin/form-requests/{form}/{requestId}/decide', [\App\Http\Controllers\Admin\FormRequestController::class, 'decide'])
+        ->whereNumber('form')
+        ->whereNumber('requestId')
+        ->name('admin.form-requests.decide');
+
     Route::get('/admin/activity-requests', [AdminActivityRequestController::class, 'index'])
         ->name('admin.activity-requests.index');
     Route::get('/admin/activity-requests/{requestId}', [AdminActivityRequestController::class, 'show'])

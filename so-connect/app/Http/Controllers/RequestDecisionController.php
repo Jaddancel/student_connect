@@ -33,6 +33,7 @@ class RequestDecisionController extends Controller
     {
         $validated = $request->validate([
             'decision' => ['required', 'string', Rule::in(['approve', 'reject'])],
+            'rejection_reason' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $actionRequest = ActionRequest::query()->with('requestType')->findOrFail($requestId);
@@ -92,6 +93,9 @@ class RequestDecisionController extends Controller
                 'admin' => (int) $user->getKey(),
                 'approved_at' => now(),
                 'is_rejected' => $validated['decision'] === 'reject',
+                'rejection_reason' => $validated['decision'] === 'reject'
+                    ? (($validated['rejection_reason'] ?? '') !== '' ? $validated['rejection_reason'] : null)
+                    : null,
             ]
         );
 

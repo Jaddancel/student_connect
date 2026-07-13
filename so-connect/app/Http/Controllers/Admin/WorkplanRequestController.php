@@ -25,7 +25,7 @@ class WorkplanRequestController extends Controller
 
     public function index()
     {
-        $form = Form::query()->where('route_name', self::FORM_ROUTE)->first();
+        $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_WORKPLAN);
 
         if (! $form) {
             return view('pages.admin.workplan-requests.index', [
@@ -192,7 +192,7 @@ class WorkplanRequestController extends Controller
 
         $actionRequest = ActionRequest::query()->findOrFail($requestId);
 
-        $form = Form::query()->where('route_name', self::FORM_ROUTE)->first();
+        $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_WORKPLAN);
         if (! $form) {
             return back()->withErrors(['form' => 'Form is not configured.']);
         }

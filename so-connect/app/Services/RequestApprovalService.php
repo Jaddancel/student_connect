@@ -40,8 +40,18 @@ class RequestApprovalService
                 'admin' => $approverUserId,
                 'approved_at' => now(),
                 'is_rejected' => false,
+                'rejection_reason' => null,
             ]
         );
+
+        // Link the document generated above back to its approval (matches the
+        // per-form admin pages, which read GeneratedDocument.approval_id).
+        if ($this->isDocumentGenerationRequest($actionType, $systemKey)) {
+            \App\Models\GeneratedDocument::query()
+                ->where('request_id', (int) $actionRequest->getKey())
+                ->whereNull('approval_id')
+                ->update(['approval_id' => (int) $approval->getKey()]);
+        }
 
         if ($this->isMembershipRequest($actionType, $systemKey)) {
             [$targetOrganizationId, $targetUserId] = $this->resolveMembershipDetails($actionRequest);
@@ -124,6 +134,40 @@ class RequestApprovalService
 
             if ($eventPlanId > 0) {
                 EventPlan::query()->where('event_plan_id', $eventPlanId)->update(['status' => 'approved']);
+            }
+        }
+
+        return $approval;
+    }
+
+    /**
+     * The reject counterpart of {@see approve()}: records the rejection (with
+     * an optional reason) and flips the event-plan status where applicable —
+     * rejection has no other domain side effects (the requester starts over).
+     */
+    public function reject(ActionRequest $actionRequest, int $adminUserId, ?string $reason = null): Approval
+    {
+        $actionRequest->loadMissing('requestType');
+
+        $actionType = (int) $actionRequest->action_type;
+        $systemKey = (string) ($actionRequest->requestType?->system_key ?? '');
+
+        $approval = Approval::query()->updateOrCreate(
+            ['request' => (int) $actionRequest->getKey()],
+            [
+                'admin' => $adminUserId,
+                'approved_at' => now(),
+                'is_rejected' => true,
+                'rejection_reason' => ($reason !== null && trim($reason) !== '') ? trim($reason) : null,
+            ]
+        );
+
+        if ($this->isEventPlanRequest($actionType, $systemKey)) {
+            $payload = (array) ($actionRequest->payload ?? []);
+            $eventPlanId = (int) ($payload['event_plan_id'] ?? 0);
+
+            if ($eventPlanId > 0) {
+                EventPlan::query()->where('event_plan_id', $eventPlanId)->update(['status' => 'rejected']);
             }
         }
 
