@@ -100,6 +100,18 @@
                     class="{{ $inputClass }}" autocomplete="off" />
                 @break
 
+            @case(FieldType::TIME)
+                <input type="text" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder ?: 'Select a time' }}"
+                    x-data x-init="window.flatpickr && window.flatpickr($el, { enableTime: true, noCalendar: true, dateFormat: 'H:i', time_24hr: true })"
+                    class="{{ $inputClass }}" autocomplete="off" />
+                @break
+
+            @case(FieldType::DATETIME)
+                <input type="text" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder ?: 'Select a date and time' }}"
+                    x-data x-init="window.flatpickr && window.flatpickr($el, { enableTime: true, dateFormat: 'Y-m-d H:i', time_24hr: true })"
+                    class="{{ $inputClass }}" autocomplete="off" />
+                @break
+
             @case(FieldType::NUMBER)
             @case(FieldType::AGE)
                 <input type="number" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder }}"
@@ -117,8 +129,11 @@
             @case(FieldType::IMAGE)
             @case(FieldType::FILE)
                 <input type="file" id="{{ $key }}" name="{{ $key }}"
-                    @if ($type === FieldType::IMAGE) accept="image/*" @elseif (! empty($opts['accept'])) accept="{{ $opts['accept'] }}" @endif
+                    accept="{{ FieldType::uploadAcceptAttribute($type, $opts) }}"
                     class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 dark:focus:border-brand-800 w-full rounded-lg border bg-transparent text-sm text-gray-500 file:mr-4 file:border-0 file:bg-brand-50 file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-brand-600 dark:border-gray-700 {{ $errors->has($key) ? 'border-error-500' : 'border-gray-300' }}" />
+                <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    Allowed: {{ strtoupper(implode(', ', array_diff(FieldType::effectiveUploadExtensions($type, $opts), ['jpg', 'heif']))) }}
+                </p>
                 @break
 
             @case(FieldType::SIGNATURE)

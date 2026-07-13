@@ -21,6 +21,8 @@ final class FieldType
     public const AGE = 'age';
     public const EMAIL = 'email';
     public const DATE = 'date';
+    public const TIME = 'time';
+    public const DATETIME = 'datetime';
     public const SELECT = 'select';
     public const RADIO = 'radio';
     public const CHECKBOX = 'checkbox';
@@ -29,6 +31,13 @@ final class FieldType
     public const FILE = 'file';
     public const HEADING = 'heading';
     public const STATIC_TEXT = 'static-text';
+
+    /**
+     * Hard upload allowlists — uploads are limited to JPEG/PNG/HEIC (+ PDF for
+     * generic files) no matter what a field's `accept` config says.
+     */
+    private const IMAGE_EXTENSIONS = ['jpeg', 'jpg', 'png', 'heic', 'heif'];
+    private const FILE_EXTENSIONS = ['jpeg', 'jpg', 'png', 'heic', 'heif', 'pdf'];
 
     /**
      * Field types that store no submission value (presentation only).
@@ -74,6 +83,8 @@ final class FieldType
             self::AGE         => ['label' => 'Age',         'icon' => 'age',       'group' => 'basic'],
             self::EMAIL       => ['label' => 'Email',       'icon' => 'email',     'group' => 'basic'],
             self::DATE        => ['label' => 'Date',        'icon' => 'date',      'group' => 'basic'],
+            self::TIME        => ['label' => 'Time',        'icon' => 'date',      'group' => 'basic'],
+            self::DATETIME    => ['label' => 'Date + Time', 'icon' => 'date',      'group' => 'basic'],
             self::SELECT      => ['label' => 'Dropdown',    'icon' => 'select',    'group' => 'choice'],
             self::RADIO       => ['label' => 'Radio',       'icon' => 'radio',     'group' => 'choice'],
             self::CHECKBOX    => ['label' => 'Checkbox',    'icon' => 'checkbox',  'group' => 'choice'],
@@ -91,6 +102,18 @@ final class FieldType
     public static function all(): array
     {
         return array_keys(self::catalog());
+    }
+
+    /**
+     * The catalog the builder palette offers for NEW fields. `age` is retired
+     * from the palette (Number/Date cover it) but stays in catalog()/all() so
+     * existing forms keep validating and rendering.
+     *
+     * @return array<string, array{label:string, icon:string, group:string}>
+     */
+    public static function paletteCatalog(): array
+    {
+        return array_diff_key(self::catalog(), [self::AGE => true]);
     }
 
     public static function isValid(string $type): bool
@@ -167,6 +190,14 @@ final class FieldType
                 $rules[] = 'date';
                 break;
 
+            case self::TIME:
+                $rules[] = 'date_format:H:i';
+                break;
+
+            case self::DATETIME:
+                $rules[] = 'date_format:Y-m-d H:i';
+                break;
+
             case self::SELECT:
             case self::RADIO:
                 $choices = self::optionValues($options);
@@ -193,27 +224,83 @@ final class FieldType
 
             case self::IMAGE:
             case self::FILE:
-                // Files are handled separately as uploads; the presence rule still applies.
+                // Files are handled separately as uploads; the presence rule
+                // still applies. The type allowlist is enforced server-side
+                // regardless of the field's `accept` config. (Laravel's bare
+                // `image` rule would reject HEIC, hence explicit mimes.)
                 $rules[] = 'file';
-                if ($type === self::IMAGE) {
-                    $rules[] = 'image';
-                }
-                $accept = $options['accept'] ?? null;
-                if (is_string($accept) && $accept !== '') {
-                    $exts = collect(explode(',', $accept))
-                        ->map(fn ($e) => ltrim(trim($e), '.'))
-                        ->filter()
-                        ->implode(',');
-                    if ($exts !== '') {
-                        $rules[] = 'mimes:'.$exts;
-                    }
-                }
+                $rules[] = 'mimes:'.implode(',', self::effectiveUploadExtensions($type, $options));
                 $maxKb = (int) ($options['max_kb'] ?? 5120);
                 $rules[] = 'max:'.$maxKb;
                 break;
         }
 
         return $rules;
+    }
+
+    /**
+     * The upload extensions a field type may ever accept.
+     *
+     * @return string[]
+     */
+    public static function allowedUploadExtensions(string $type): array
+    {
+        return $type === self::FILE ? self::FILE_EXTENSIONS : self::IMAGE_EXTENSIONS;
+    }
+
+    /**
+     * The extensions a specific field actually accepts: its `accept` config
+     * intersected with the hard allowlist (an empty/invalid accept means the
+     * whole allowlist).
+     *
+     * @param  array<string,mixed>  $options
+     * @return string[]
+     */
+    public static function effectiveUploadExtensions(string $type, array $options = []): array
+    {
+        $allowed = self::allowedUploadExtensions($type);
+
+        $accept = $options['accept'] ?? null;
+        if (! is_string($accept) || trim($accept) === '') {
+            return $allowed;
+        }
+
+        $picked = collect(explode(',', $accept))
+            ->map(fn ($e) => strtolower(ltrim(trim($e), '.')))
+            ->map(fn ($e) => $e === 'jpg' ? 'jpeg' : $e)
+            ->filter()
+            ->unique()
+            ->all();
+
+        // jpg/jpeg are one type; expand back so the mimes rule accepts both.
+        $effective = array_values(array_filter($allowed, function (string $ext) use ($picked) {
+            return in_array($ext === 'jpg' ? 'jpeg' : $ext, $picked, true);
+        }));
+
+        return $effective === [] ? $allowed : $effective;
+    }
+
+    /**
+     * The `accept` attribute for a rendered upload input, mirroring the
+     * server-side allowlist.
+     *
+     * @param  array<string,mixed>  $options
+     */
+    public static function uploadAcceptAttribute(string $type, array $options = []): string
+    {
+        $mimes = [
+            'jpeg' => 'image/jpeg',
+            'jpg' => 'image/jpeg',
+            'png' => 'image/png',
+            'heic' => 'image/heic',
+            'heif' => 'image/heif',
+            'pdf' => 'application/pdf',
+        ];
+
+        return collect(self::effectiveUploadExtensions($type, $options))
+            ->map(fn (string $ext) => $mimes[$ext] ?? '.'.$ext)
+            ->unique()
+            ->implode(',');
     }
 
     /**

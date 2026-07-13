@@ -39,7 +39,7 @@ class FormBuilderController extends Controller
             'title' => 'New Form',
             'form' => null,
             'editorData' => $this->blankEditorData(),
-            'fieldCatalog' => FieldType::catalog(),
+            'fieldCatalog' => FieldType::paletteCatalog(),
         ]);
     }
 
@@ -49,7 +49,7 @@ class FormBuilderController extends Controller
             'title' => 'Edit Form',
             'form' => $form,
             'editorData' => $this->editorDataFromForm($form),
-            'fieldCatalog' => FieldType::catalog(),
+            'fieldCatalog' => FieldType::paletteCatalog(),
         ]);
     }
 

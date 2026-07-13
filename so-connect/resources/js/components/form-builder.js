@@ -90,6 +90,19 @@ export function formBuilder(config) {
             return (this.catalog[type] && this.catalog[type].label) || type;
         },
 
+        // --- palette sections ---
+        get fieldPalette() {
+            return Object.fromEntries(
+                Object.entries(this.catalog).filter(([, meta]) => meta.group !== 'layout'),
+            );
+        },
+
+        get layoutPalette() {
+            return Object.fromEntries(
+                Object.entries(this.catalog).filter(([, meta]) => meta.group === 'layout'),
+            );
+        },
+
         // --- field creation ---
         addField(type) {
             const key = this.uniqueKey(type);
@@ -185,6 +198,31 @@ export function formBuilder(config) {
         },
         isFileLike(type) {
             return ['image', 'file'].includes(type);
+        },
+
+        // --- upload accept (checkboxes over the server's hard allowlist) ---
+        acceptChoices(type) {
+            return type === 'file' ? ['jpeg', 'png', 'heic', 'pdf'] : ['jpeg', 'png', 'heic'];
+        },
+        acceptList(f) {
+            return String(f.field_options.accept || '')
+                .split(',')
+                .map((e) => e.trim().replace(/^\./, '').toLowerCase())
+                .map((e) => (e === 'jpg' ? 'jpeg' : e))
+                .filter(Boolean);
+        },
+        // An empty accept means "everything the allowlist permits".
+        acceptHas(f, ext) {
+            const list = this.acceptList(f);
+            return !list.length || list.includes(ext);
+        },
+        toggleAccept(f, ext) {
+            const choices = this.acceptChoices(f.field_type);
+            let list = this.acceptList(f);
+            if (!list.length) list = [...choices];
+            list = list.includes(ext) ? list.filter((e) => e !== ext) : [...list, ext];
+            list = choices.filter((e) => list.includes(e));
+            f.field_options.accept = list.length === choices.length ? '' : list.join(',');
         },
 
         // --- drag wiring ---

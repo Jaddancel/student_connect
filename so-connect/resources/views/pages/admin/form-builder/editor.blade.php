@@ -56,9 +56,18 @@
                 <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                     <h3 class="mb-3 text-sm font-semibold text-gray-800 dark:text-white/90">Field palette</h3>
                     <div class="grid grid-cols-2 gap-2">
-                        <template x-for="(meta, type) in catalog" :key="type">
+                        <template x-for="(meta, type) in fieldPalette" :key="type">
                             <button type="button" @click="addField(type)"
                                 class="rounded-lg border border-gray-200 px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:text-gray-300"
+                                x-text="meta.label"></button>
+                        </template>
+                    </div>
+                    {{-- Layout elements: presentation only, no submitted value --}}
+                    <h3 class="mb-2 mt-4 text-sm font-semibold text-gray-800 dark:text-white/90">Layout</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <template x-for="(meta, type) in layoutPalette" :key="type">
+                            <button type="button" @click="addField(type)"
+                                class="rounded-lg border border-dashed border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-500 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:text-gray-400"
                                 x-text="meta.label"></button>
                         </template>
                     </div>
@@ -181,10 +190,21 @@
                                 <div><label class="mb-1 block text-[10px] text-gray-500">Step</label><input type="number" x-model="f.field_options.step" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:text-white/90" /></div>
                             </div>
 
-                            {{-- file accept --}}
+                            {{-- file accept — checkboxes over the hard allowlist --}}
                             <div x-show="isFileLike(f.field_type)">
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Accepted types</label>
-                                <input type="text" x-model="f.field_options.accept" placeholder="jpg,png,pdf" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
+                                <div class="flex flex-wrap gap-x-3 gap-y-1.5">
+                                    <template x-for="ext in acceptChoices(f.field_type)" :key="ext">
+                                        <label class="flex cursor-pointer items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
+                                            <input type="checkbox" :checked="acceptHas(f, ext)" @change="toggleAccept(f, ext)"
+                                                class="h-3.5 w-3.5 rounded border-gray-300 text-brand-500" />
+                                            <span x-text="ext.toUpperCase()"></span>
+                                        </label>
+                                    </template>
+                                </div>
+                                <p class="mt-1 text-[10px] text-gray-400">
+                                    Uploads are limited to JPEG, PNG and HEIC<span x-show="f.field_type === 'file'"> — plus PDF for file fields</span>.
+                                </p>
                             </div>
 
                             {{-- choice options --}}
