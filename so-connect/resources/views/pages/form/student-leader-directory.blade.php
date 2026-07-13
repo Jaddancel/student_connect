@@ -2,7 +2,7 @@
 
 @section('content')
     <div class="space-y-6"
-        x-data="idScanWizard({ scanUrl: '{{ route('id-scan.scan') }}', csrf: '{{ csrf_token() }}', orientation: '{{ $scannerOrientation ?? 'vertical' }}', hasErrors: {{ $errors->any() ? 'true' : 'false' }} })"
+        x-data="idScanWizard({ scanUrl: '{{ route('id-scan.scan') }}', csrf: '{{ csrf_token() }}', orientation: '{{ $scannerOrientation ?? 'vertical' }}', templates: {{ Illuminate\Support\Js::from($scannerTemplates ?? []) }}, hasErrors: {{ $errors->any() ? 'true' : 'false' }} })"
         x-init="init()">
 
         {{-- ── FORM HEADER ─────────────────────────────────────────────── --}}
@@ -36,11 +36,42 @@
         {{-- ── STEP 1 · LIVE-CAMERA ID SCANNER (both sides) ────────────── --}}
         <div x-show="step === 1" x-cloak class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
             <h3 class="mb-1 text-base font-semibold text-gray-800 dark:text-white/90">Step 1 · Scan both sides of your ID</h3>
+
+            {{-- ID-type chooser — shown while 2+ templates are active and none is picked --}}
+            <div x-show="needsChooser" x-cloak>
+                <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                    More than one kind of ID can be scanned — pick the one that matches yours to start.
+                </p>
+                <div class="mx-auto grid max-w-lg grid-cols-1 gap-3 sm:grid-cols-2">
+                    <template x-for="t in templates" :key="t.id">
+                        <button type="button" @click="chooseTemplate(t.id)"
+                            class="group flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white/60 p-3 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
+                            <template x-if="t.photo">
+                                <img :src="t.photo" :alt="t.name" class="h-28 w-full rounded-lg bg-gray-100 object-contain dark:bg-gray-900" />
+                            </template>
+                            <template x-if="!t.photo">
+                                <div class="grid h-28 w-full place-items-center rounded-lg bg-gray-100 text-xs text-gray-400 dark:bg-gray-900">No preview</div>
+                            </template>
+                            <span class="text-sm font-medium text-gray-700 group-hover:text-brand-600 dark:text-gray-200 dark:group-hover:text-brand-400" x-text="t.name"></span>
+                        </button>
+                    </template>
+                </div>
+            </div>
+
+            <div x-show="!needsChooser">
             <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
                 Fit the <strong x-text="scanSide === 'front' ? 'front of your ID' : 'back of your ID'"></strong>
                 inside the frame and capture — we'll read your details to save you typing. Prefer not to use the camera?
                 Upload a photo instead. <strong>Both the front and back are required.</strong>
             </p>
+
+            {{-- Chosen ID type + switcher (only meaningful with 2+ templates) --}}
+            <div x-show="templates.length >= 2 && templateId" x-cloak
+                class="mx-auto mb-3 flex max-w-md items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <span>ID type: <strong class="text-gray-700 dark:text-gray-200" x-text="selectedTemplate ? selectedTemplate.name : ''"></strong></span>
+                <span aria-hidden="true">·</span>
+                <button type="button" @click="changeTemplate()" class="font-medium text-brand-500 transition hover:text-brand-600">Change ID type</button>
+            </div>
 
             {{-- Front / Back selector with captured-state ticks --}}
             <div class="mx-auto mb-4 flex max-w-md items-center gap-2 rounded-xl border border-gray-200 bg-white/60 p-1.5 dark:border-gray-800 dark:bg-white/[0.02]">
@@ -102,6 +133,16 @@
                     </div>
                     <div class="min-w-0 flex-1">
                         <p x-show="scanNote" x-text="scanNote" class="text-sm font-medium text-brand-600 dark:text-brand-400"></p>
+                        {{-- Signature capture status — scanned, or none was scanned --}}
+                        <template x-if="signatureNote">
+                            <p class="mt-1 text-xs font-medium"
+                                :class="{
+                                    'text-success-600 dark:text-success-500': signatureNote.tone === 'success',
+                                    'text-warning-600 dark:text-orange-400': signatureNote.tone === 'warning',
+                                    'text-gray-400 dark:text-gray-500': signatureNote.tone === 'muted',
+                                }"
+                                x-text="signatureNote.text"></p>
+                        </template>
                         <template x-if="detectedEntries.length">
                             <dl class="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
                                 <template x-for="d in detectedEntries" :key="d.key">
@@ -123,6 +164,7 @@
                     Continue to the form →
                 </button>
             </div>
+            </div> {{-- /x-show="!needsChooser" --}}
         </div>
 
         @if($errors->any())
@@ -824,6 +866,7 @@
                                 x-text="preview ? 'Change signature' : 'Click to upload signature'"></span>
                             <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
                             <input id="signature" name="signature" type="file" accept="image/jpeg,image/png"
+                                data-universal-key="signature"
                                 class="hidden"
                                 @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
                         </label>

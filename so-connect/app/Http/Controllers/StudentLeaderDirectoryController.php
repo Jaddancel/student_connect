@@ -30,6 +30,8 @@ class StudentLeaderDirectoryController extends Controller
             'currentSchoolYear'  => Semester::currentSchoolYear(),
             'currentSemester'    => $currentSemester?->semesterLabel() ?? '',
             'scannerOrientation' => IdTemplate::scannerTemplate()?->orientation ?: 'vertical',
+            // Every active template, for the wizard's chooser (shown when 2+).
+            'scannerTemplates'   => IdTemplate::scannerChoices(),
             // Carried over from the landing page's "Sign up with Google" button
             // (see landingpage.blade.php) as query params after the OAuth popup
             // resolves. Only used to pre-fill Step 2 — the ID scan is still required.

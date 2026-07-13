@@ -23,7 +23,10 @@
 @elseif ($type === FieldType::STATIC_TEXT)
     <p class="whitespace-pre-line text-sm text-gray-600 dark:text-gray-400">{{ $opts['content'] ?? $field->field_label }}</p>
 @else
-    <div>
+    {{-- data-universal-key lets the ID-scan wizard find and fill whichever
+         input is bound to a universal field (the signature case carries the
+         marker on its own component root, where the events are handled). --}}
+    <div @if ($field->universal_key && $type !== FieldType::SIGNATURE) data-universal-key="{{ $field->universal_key }}" @endif>
         <label for="{{ $key }}" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
             {{ $field->field_label }}
             @if ($required)<span class="text-error-500">*</span>@endif
@@ -126,7 +129,10 @@
                         ? \Illuminate\Support\Facades\Storage::disk(\App\Support\SignatureImage::disk())->url($old)
                         : null;
                 @endphp
-                <div x-data="signatureField({ verifyUrl: @js(auth()->check() ? route('signature.verify') : null) })" class="space-y-2">
+                <div x-data="signatureField({ verifyUrl: @js(auth()->check() ? route('signature.verify') : null) })" class="space-y-2"
+                    @if ($field->universal_key) data-universal-key="{{ $field->universal_key }}" @endif
+                    @signature-set="fromDataUrl($event.detail.dataUrl)"
+                    @signature-clear="clearFromScan()">
                     @if ($savedSignatureUrl)
                         <div class="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-white/[0.03]">
                             <img src="{{ $savedSignatureUrl }}" alt="Saved signature"

@@ -31,6 +31,7 @@ class IdScanController extends Controller
             $validated = $request->validate([
                 'photo' => ['required', 'image', 'max:2048'],
                 'side' => ['nullable', 'string', 'in:front,back'],
+                'template_id' => ['nullable', 'integer'],
             ]);
         } catch (ValidationException $e) {
             return response()->json([
@@ -42,7 +43,14 @@ class IdScanController extends Controller
         }
         $side = ($validated['side'] ?? 'front') === 'back' ? 'back' : 'front';
 
-        $template = IdTemplate::scannerTemplate();
+        // The wizard's template chooser (2+ active templates) sends the pick;
+        // anything missing, inactive, or unknown falls back to the default
+        // scanner template so single-template setups behave exactly as before.
+        $templateId = (int) ($validated['template_id'] ?? 0);
+        $template = $templateId > 0
+            ? IdTemplate::query()->where('is_active', true)->find($templateId)
+            : null;
+        $template = $template ?: IdTemplate::scannerTemplate();
         if (! $template) {
             return response()->json([
                 'student_id' => null,

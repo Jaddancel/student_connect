@@ -74,6 +74,48 @@ class IdTemplate extends Model
     }
 
     /**
+     * All active templates, best-first (default template leads), shaped for the
+     * scan wizard's template chooser: id, name, orientation, a public photo URL
+     * of the front reference image, and which sides carry a signature zone.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function scannerChoices(): array
+    {
+        return static::query()
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->orderByDesc('id_template_id')
+            ->get()
+            ->map(fn (self $template) => [
+                'id' => (int) $template->getKey(),
+                'name' => (string) $template->name,
+                'orientation' => $template->orientation === 'horizontal' ? 'horizontal' : 'vertical',
+                'photo' => $template->image_path
+                    ? \Illuminate\Support\Facades\Storage::disk(config('documents.disk', 'public'))->url($template->image_path)
+                    : null,
+                'signature_sides' => [
+                    'front' => $template->hasSignatureZone('front'),
+                    'back' => $template->hasSignatureZone('back'),
+                ],
+            ])
+            ->values()
+            ->all();
+    }
+
+    /** Whether a side has at least one signature-type zone. */
+    public function hasSignatureZone(string $side): bool
+    {
+        foreach ($this->zonesForSide($side) as $zone) {
+            if (($zone['type'] ?? 'text') === 'signature') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The zone list for a side ('front' | 'back'), in native image pixels.
      *
      * @return array<int,array<string,mixed>>
