@@ -64,6 +64,13 @@ class WipeForms extends Command
                 DB::table('scoring_rules')->update(['enabled' => false]);
             }
 
+            // Per-form request types (system_key form:<id>) lose their form;
+            // deactivate rather than delete — historical requests reference
+            // them and the Request Records page still reads their names.
+            DB::table('request_types')
+                ->where('system_key', 'like', \App\Services\RequestTypeService::FORM_KEY_PREFIX.'%')
+                ->update(['is_active' => false]);
+
             DB::table('forms')->delete();
         });
 

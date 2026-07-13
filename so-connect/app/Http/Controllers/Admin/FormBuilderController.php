@@ -72,6 +72,7 @@ class FormBuilderController extends Controller
             ]);
 
             $this->syncFields($form, $data['fields']);
+            $this->syncRequestType($form, $request->user()?->getKey());
 
             return $form;
         });
@@ -94,7 +95,7 @@ class FormBuilderController extends Controller
     {
         $data = $this->validatePayload($request, $form);
 
-        DB::transaction(function () use ($data, $form) {
+        DB::transaction(function () use ($data, $form, $request) {
             $form->update([
                 'name' => $data['name'],
                 'description_text' => $data['description_text'],
@@ -107,6 +108,7 @@ class FormBuilderController extends Controller
             ]);
 
             $this->syncFields($form, $data['fields']);
+            $this->syncRequestType($form, $request->user()?->getKey());
         });
 
         \App\Services\ActionLogger::log(
@@ -226,6 +228,31 @@ class FormBuilderController extends Controller
             'rows' => $this->cleanRows($validated['rows'] ?? [], $keys),
             'pdf_template' => $pdfTemplate,
         ];
+    }
+
+    /**
+     * Provision/sync the form's own request type (see
+     * RequestTypeService::resolveFormType). Forms bound to sign-up /
+     * new-event / new-workplan are excepted — their handlers own dedicated
+     * request flows — and lose the link if they had one from before binding.
+     */
+    private function syncRequestType(Form $form, ?int $userId): void
+    {
+        $excepted = in_array((string) $form->system_function, [
+            SystemFunction::SIGN_UP,
+            SystemFunction::NEW_EVENT,
+            SystemFunction::NEW_WORKPLAN,
+        ], true);
+
+        if ($excepted) {
+            if ($form->request_type_id !== null) {
+                $form->forceFill(['request_type_id' => null])->save();
+            }
+
+            return;
+        }
+
+        app(\App\Services\RequestTypeService::class)->resolveFormType($form, $userId);
     }
 
     /**

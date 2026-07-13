@@ -62,17 +62,22 @@ class MembershipRegistrationHandler implements SystemFunctionHandler
         $userId = (int) $request->user()->getKey();
         $organizationId = (int) $this->payloadValue($form, $payload, 'organization_id');
 
-        $requestType = app(RequestTypeService::class)->resolveSystemType(
-            RequestType::SYSTEM_KEY_MEMBERSHIP,
-            'Membership Request',
-            RequestType::CATEGORY_ORGANIZATION,
-            $userId,
-        );
+        // Prefer the bound form's own request type (membership-bound forms
+        // get one like any other form page); the membership system type is
+        // the fallback. action_type=1 keeps approval dispatch identical.
+        $requestTypeId = $form->request_type_id
+            ? (int) $form->request_type_id
+            : (int) app(RequestTypeService::class)->resolveSystemType(
+                RequestType::SYSTEM_KEY_MEMBERSHIP,
+                'Membership Request',
+                RequestType::CATEGORY_ORGANIZATION,
+                $userId,
+            )->getKey();
 
         $actionRequest = ActionRequest::query()->create([
             'action' => $organizationId.'|'.$userId,
             'action_type' => 1,
-            'request_type_id' => (int) $requestType->getKey(),
+            'request_type_id' => $requestTypeId,
             'form_id' => (int) $form->getKey(),
             'organization_id' => $organizationId,
             'requested_by' => $userId,
