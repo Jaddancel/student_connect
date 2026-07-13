@@ -144,12 +144,15 @@
                         <div class="space-y-3" x-data="{ get f() { return field(selectedKey); } }">
                             <div>
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Label</label>
-                                <input type="text" x-model="f.field_label" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
+                                <input type="text" x-model="f.field_label" @input="onLabelInput(f)" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
                             </div>
                             <div>
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Field key</label>
-                                <input type="text" x-model="f.field_key" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 font-mono text-xs dark:border-gray-700 dark:text-white/90" disabled />
-                                <p class="mt-1 text-[10px] text-gray-400">Stored in the submission payload.</p>
+                                <p class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-xs text-gray-600 dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-300" x-text="f.field_key"></p>
+                                <p class="mt-1 text-[10px] text-gray-400"
+                                    x-text="f._keyLocked
+                                        ? 'Stored in the submission payload — locked after save.'
+                                        : 'Generated from the label; locks once the form is saved.'"></p>
                             </div>
                             <div x-show="!['heading','static-text'].includes(f.field_type)">
                                 <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">

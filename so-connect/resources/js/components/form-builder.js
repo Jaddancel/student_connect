@@ -50,6 +50,11 @@ export function formBuilder(config) {
         error: '',
 
         init() {
+            // Keys of already-saved fields are frozen: syncFields() upserts by
+            // (form_id, field_key), so renaming one would prune the row and
+            // orphan its submissions and scoring variables.
+            this.fields.forEach((f) => { f._keyLocked = true; });
+
             // Auto-slug the route name from the title while creating.
             if (!this.isEdit) {
                 this.$watch('name', (v) => {
@@ -105,15 +110,17 @@ export function formBuilder(config) {
 
         // --- field creation ---
         addField(type) {
-            const key = this.uniqueKey(type);
+            const label = this.labelFor(type);
+            const key = this.keyFromLabel(label);
             const f = {
                 field_key: key,
-                field_label: this.labelFor(type),
+                field_label: label,
                 field_type: type,
                 is_required: false,
                 placeholder_hint: '',
                 field_options: this.defaultOptions(type),
                 universal_key: '',
+                _keyLocked: false, // client-only: key follows the label until saved
             };
             this.fields.push(f);
             // Each new field starts in its own full-width row.
@@ -131,16 +138,47 @@ export function formBuilder(config) {
             return {};
         },
 
-        uniqueKey(type) {
-            const base = type.replace(/[^a-z0-9]+/gi, '_');
-            let i = 1;
-            let key = `${base}_${i}`;
-            const taken = new Set(this.fields.map((f) => f.field_key));
-            while (taken.has(key)) {
-                i += 1;
-                key = `${base}_${i}`;
-            }
-            return key;
+        /**
+         * Auto-generate a field key from its label ("Event Title" →
+         * `event_title`), unique within this form (`_2`, `_3`… on collision).
+         */
+        keyFromLabel(label, excludeKey = null) {
+            const base = (label || '').toString().toLowerCase().trim()
+                .replace(/[^a-z0-9]+/g, '_')
+                .replace(/^_+|_+$/g, '') || 'field';
+            const taken = new Set(
+                this.fields.filter((f) => f.field_key !== excludeKey).map((f) => f.field_key),
+            );
+            if (!taken.has(base)) return base;
+            let i = 2;
+            while (taken.has(`${base}_${i}`)) i += 1;
+            return `${base}_${i}`;
+        },
+
+        /** Live key regeneration while the label of an unsaved field is edited. */
+        onLabelInput(f) {
+            if (f._keyLocked) return;
+            const fresh = this.keyFromLabel(f.field_label, f.field_key);
+            if (fresh !== f.field_key) this.renameFieldKey(f.field_key, fresh);
+        },
+
+        /** Rename a field key everywhere the model references it. */
+        renameFieldKey(oldKey, newKey) {
+            const f = this.field(oldKey);
+            if (!f) return;
+            f.field_key = newKey;
+            this.rows.forEach((row) => {
+                row.columns.forEach((col) => {
+                    col.fields = col.fields.map((k) => (k === oldKey ? newKey : k));
+                });
+            });
+            this.fields.forEach((other) => {
+                if (other.field_options && other.field_options.visible_when
+                    && other.field_options.visible_when.field === oldKey) {
+                    other.field_options.visible_when.field = newKey;
+                }
+            });
+            if (this.selectedKey === oldKey) this.selectedKey = newKey;
         },
 
         removeField(key) {
@@ -277,7 +315,7 @@ export function formBuilder(config) {
                 system_function: this.system_function || null,
                 is_active: this.is_active,
                 is_published: this.is_published,
-                fields: this.fields,
+                fields: this.fields.map(({ _keyLocked, ...field }) => field),
                 rows: this.rows,
                 pdf_template: this.pdf_template,
             };
@@ -294,6 +332,8 @@ export function formBuilder(config) {
                 const json = await res.json();
                 if (res.ok) {
                     this.message = json.message || 'Saved.';
+                    // Every field is now persisted — its key is frozen for good.
+                    this.fields.forEach((f) => { f._keyLocked = true; });
                     if (!this.isEdit && json.redirect) {
                         window.location = json.redirect;
                     }
