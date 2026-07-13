@@ -45,7 +45,49 @@ class FormRenderController extends Controller
             'advisers' => OrganizationField::advisers($organization),
             // Per-field visibility conditions for the client-side toggling.
             'conditions' => ConditionEvaluator::clientConditions($fields),
+            'recentSubmissions' => $this->recentSubmissions($request, $form),
         ]);
+    }
+
+    /**
+     * The signed-in user's latest requests for this form, with their decision
+     * state — the pending/approved/rejected(+reason) feedback loop of the
+     * request lifecycle. Rejected → the user simply fills the form again.
+     *
+     * @return array<int,array{requested_at:?string, status:string, reason:string}>
+     */
+    private function recentSubmissions(Request $request, Form $form): array
+    {
+        $user = $request->user();
+        if (! $user) {
+            return [];
+        }
+
+        $requests = \App\Models\Request::query()
+            ->where('form_id', (int) $form->getKey())
+            ->where('requested_by', (int) $user->getKey())
+            ->orderByDesc('requested_at')
+            ->limit(5)
+            ->get();
+
+        if ($requests->isEmpty()) {
+            return [];
+        }
+
+        $approvals = \App\Models\Approval::query()
+            ->whereIn('request', $requests->pluck('request_id'))
+            ->get()
+            ->keyBy('request');
+
+        return $requests->map(function (\App\Models\Request $req) use ($approvals) {
+            $approval = $approvals->get($req->getKey());
+
+            return [
+                'requested_at' => optional($req->requested_at)->format('M j, Y g:i A'),
+                'status' => $approval === null ? 'pending' : ($approval->is_rejected ? 'rejected' : 'approved'),
+                'reason' => (string) ($approval?->rejection_reason ?? ''),
+            ];
+        })->all();
     }
 
     /**
@@ -180,9 +222,16 @@ class FormRenderController extends Controller
             $handler->validatePayload($form, $payload, $request);
         }
 
+        // Bound forms keep the form's own org scoping (previous behavior);
+        // a plain form's submission belongs to the submitter's organization —
+        // the approval-time org check and the scoring joins both key on it.
+        $submissionOrgId = $handler
+            ? $form->organization_id
+            : ($organization?->getKey() ?? $form->organization_id);
+
         $submission = FormSubmission::query()->create([
             'form_id' => (int) $form->getKey(),
-            'organization_id' => $form->organization_id,
+            'organization_id' => $submissionOrgId,
             'submitted_by' => $user ? (int) $user->getKey() : null,
             'payload' => $payload,
             'submitted_at' => now(),
@@ -192,19 +241,19 @@ class FormRenderController extends Controller
             return $handler->handle($form, $submission, $payload, $request);
         }
 
-        try {
-            $docService->generateFromSubmission(
-                $submission->fresh('form'),
-                null,
-                $user ? (int) $user->getKey() : 0,
-            );
+        // Plain forms follow the request-approval lifecycle: the submission
+        // waits as a pending request on the form's own admin request page;
+        // the document is generated when an admin approves, and a rejection
+        // sends the submitter back to this form.
+        $docService->createDocumentGenerationRequest(
+            $submissionOrgId ? (int) $submissionOrgId : null,
+            (int) $submission->getKey(),
+            (int) $form->getKey(),
+            $user ? (int) $user->getKey() : 0,
+        );
 
-            return redirect()->route('documents.index')
-                ->with('success', $form->name.' submitted and the PDF has been generated.');
-        } catch (\Throwable $e) {
-            return redirect()->route('forms.render', $form->route_name)
-                ->with('success', $form->name.' submitted, but PDF generation failed: '.$e->getMessage());
-        }
+        return redirect()->route('forms.render', $form->route_name)
+            ->with('success', $form->name.' submitted for approval — the document will be generated once an admin approves it.');
     }
 
     /**

@@ -214,13 +214,30 @@ it('renders a published builder form and generates a PDF on submit', function ()
         'photo' => UploadedFile::fake()->image('id.jpg', 100, 100),
     ]);
 
-    $response->assertRedirect(route('documents.index'));
+    // The lifecycle: submit → pending request; no document until approval.
+    $response->assertRedirect(route('forms.render', 'renderable-form'));
 
     $submission = FormSubmission::where('form_id', $form->id)->first();
     expect($submission)->not->toBeNull();
     expect($submission->payload['full_name'])->toBe('Juan Dela Cruz');
     expect($submission->payload['favorite'])->toBe('b');
     expect($submission->payload['photo'])->not->toBeNull();
+    // The submission is scoped to the submitter's organization.
+    $officerOrgId = (int) DB::table('organization_officers')->where('user', $officer->getKey())->value('organization');
+    expect((int) $submission->organization_id)->toBe($officerOrgId);
+
+    $actionRequest = \App\Models\Request::query()
+        ->where('form_id', $form->id)
+        ->where('action_type', \App\Helpers\FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION)
+        ->first();
+    expect($actionRequest)->not->toBeNull()
+        ->and((int) ($actionRequest->payload['submission_id'] ?? 0))->toBe((int) $submission->getKey())
+        ->and((int) $actionRequest->organization_id)->toBe($officerOrgId);
+    expect(GeneratedDocument::where('form_submission_id', $submission->getKey())->exists())->toBeFalse();
+
+    // Admin approval generates the document end-to-end.
+    $admin = makeUser(2);
+    app(\App\Services\RequestApprovalService::class)->approve($actionRequest, (int) $admin->getKey());
 
     $generated = GeneratedDocument::where('form_submission_id', $submission->getKey())->first();
     expect($generated)->not->toBeNull();
