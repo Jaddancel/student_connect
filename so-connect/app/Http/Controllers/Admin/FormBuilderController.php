@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Forms\ConditionEvaluator;
 use App\Forms\FieldType;
 use App\Forms\SystemFunction;
 use App\Http\Controllers\Controller;
@@ -180,6 +181,10 @@ class FormBuilderController extends Controller
             'fields.*.is_required' => ['boolean'],
             'fields.*.placeholder_hint' => ['nullable', 'string', 'max:255'],
             'fields.*.field_options' => ['nullable', 'array'],
+            'fields.*.field_options.visible_when' => ['nullable', 'array'],
+            'fields.*.field_options.visible_when.field' => ['nullable', 'string', 'max:255'],
+            'fields.*.field_options.visible_when.op' => ['nullable', 'string', Rule::in(ConditionEvaluator::OPS)],
+            'fields.*.field_options.visible_when.value' => ['nullable', 'string', 'max:255'],
             'fields.*.universal_key' => ['nullable', 'string', Rule::in(UniversalField::keys())],
             'rows' => ['present', 'array'],
             'pdf_template' => ['nullable', 'array'],
@@ -203,6 +208,8 @@ class FormBuilderController extends Controller
             abort(response()->json(['message' => 'Field keys must be unique within a form.'], 422));
         }
 
+        $validated['fields'] = $this->normalizeVisibilityConditions($validated['fields']);
+
         $pdfTemplate = $this->cleanPdfTemplate($validated['pdf_template'] ?? []);
 
         return [
@@ -219,6 +226,81 @@ class FormBuilderController extends Controller
             'rows' => $this->cleanRows($validated['rows'] ?? [], $keys),
             'pdf_template' => $pdfTemplate,
         ];
+    }
+
+    /**
+     * Validate + normalise per-field `visible_when` conditions: the
+     * controlling field must exist in this form, differ from the field
+     * itself, carry a value (no layout/upload/signature controllers), the
+     * comparison ops need an expected value, and chains must be acyclic.
+     *
+     * @param  array<int,array<string,mixed>>  $fields
+     * @return array<int,array<string,mixed>>
+     */
+    private function normalizeVisibilityConditions(array $fields): array
+    {
+        $byKey = collect($fields)->keyBy('field_key');
+
+        foreach ($fields as $i => $field) {
+            $condition = (array) (($field['field_options'] ?? [])['visible_when'] ?? []);
+            $controllerKey = trim((string) ($condition['field'] ?? ''));
+
+            if ($controllerKey === '') {
+                unset($fields[$i]['field_options']['visible_when']);
+                continue;
+            }
+
+            $label = (string) ($field['field_label'] ?? $field['field_key']);
+            $op = (string) ($condition['op'] ?? 'equals');
+
+            if ($controllerKey === ($field['field_key'] ?? '')) {
+                abort(response()->json(['message' => "\"{$label}\" cannot depend on itself."], 422));
+            }
+
+            $controller = $byKey->get($controllerKey);
+            if (! $controller) {
+                abort(response()->json(['message' => "\"{$label}\" depends on a field that does not exist on this form."], 422));
+            }
+
+            $controllerType = (string) ($controller['field_type'] ?? FieldType::TEXT);
+            if (FieldType::isPresentational($controllerType) || FieldType::isFileLike($controllerType)
+                || $controllerType === FieldType::SIGNATURE) {
+                abort(response()->json(['message' => "\"{$label}\" cannot depend on a layout, upload or signature field."], 422));
+            }
+
+            if (in_array($op, ConditionEvaluator::VALUE_OPS, true)
+                && trim((string) ($condition['value'] ?? '')) === '') {
+                abort(response()->json(['message' => "The visibility condition on \"{$label}\" needs a comparison value."], 422));
+            }
+
+            $fields[$i]['field_options']['visible_when'] = [
+                'field' => $controllerKey,
+                'op' => $op,
+                'value' => (string) ($condition['value'] ?? ''),
+            ];
+        }
+
+        // Reject circular chains (A shown when B … B shown when A).
+        $edges = [];
+        foreach ($fields as $field) {
+            $condition = ($field['field_options'] ?? [])['visible_when'] ?? null;
+            if (is_array($condition)) {
+                $edges[$field['field_key']] = (string) $condition['field'];
+            }
+        }
+        foreach (array_keys($edges) as $start) {
+            $seen = [];
+            $node = $start;
+            while (isset($edges[$node])) {
+                if (in_array($node, $seen, true)) {
+                    abort(response()->json(['message' => 'Field visibility conditions form a loop — break the circular dependency.'], 422));
+                }
+                $seen[] = $node;
+                $node = $edges[$node];
+            }
+        }
+
+        return array_values($fields);
     }
 
     /**

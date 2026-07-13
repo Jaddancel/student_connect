@@ -186,8 +186,38 @@ export function formBuilder(config) {
                 });
             });
             this.rows = this.rows.filter((row) => row.columns.some((c) => c.fields.length));
+            // Conditions pointing at the removed field would dangle — drop them.
+            this.fields.forEach((f) => {
+                if (f.field_options && f.field_options.visible_when && f.field_options.visible_when.field === key) {
+                    delete f.field_options.visible_when;
+                }
+            });
             if (this.selectedKey === key) this.selectedKey = null;
             this.$nextTick(() => this.wireSortables());
+        },
+
+        // --- conditional visibility ---
+        setVisibilityMode(f, mode) {
+            if (mode === 'conditional') {
+                if (!f.field_options.visible_when) {
+                    f.field_options.visible_when = { field: '', op: 'equals', value: '' };
+                }
+            } else if (f.field_options.visible_when) {
+                delete f.field_options.visible_when;
+            }
+        },
+        /** Fields that may control a condition (they must carry a value). */
+        conditionSources(exceptKey) {
+            return this.fields.filter((f) => f.field_key !== exceptKey
+                && !['heading', 'static-text', 'image', 'file', 'signature'].includes(f.field_type));
+        },
+        conditionController(f) {
+            const key = f.field_options.visible_when && f.field_options.visible_when.field;
+            return key ? this.field(key) : null;
+        },
+        needsConditionValue(f) {
+            const op = f.field_options.visible_when && f.field_options.visible_when.op;
+            return !!op && !['filled', 'empty'].includes(op);
         },
 
         // --- row / column controls ---

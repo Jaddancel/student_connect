@@ -317,6 +317,100 @@ it('rejects an unknown universal_key', function () {
     expect(Form::where('route_name', 'bad-map')->exists())->toBeFalse();
 });
 
+it('skips validation and drops the value of a conditionally hidden field', function () {
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+
+    $officer = makeOfficerUser();
+
+    $form = Form::create([
+        'name' => 'Conditional Form', 'route_name' => 'conditional-form',
+        'is_active' => true, 'is_published' => true,
+        'layout' => ['rows' => []],
+        'pdf_template' => [
+            'html' => '<p><span class="field-token" data-field="kind" contenteditable="false">Kind</span></p>',
+            'page' => ['size' => 'a4', 'orientation' => 'portrait'],
+        ],
+    ]);
+    FormDescription::create([
+        'form_id' => $form->id, 'field_key' => 'kind', 'field_label' => 'Kind',
+        'field_type' => 'select', 'is_required' => true, 'field_order' => 1,
+        'field_options' => ['options' => [['value' => 'standard', 'label' => 'Standard'], ['value' => 'other', 'label' => 'Other']]],
+    ]);
+    // Required — but only when kind = other.
+    FormDescription::create([
+        'form_id' => $form->id, 'field_key' => 'other_details', 'field_label' => 'Other details',
+        'field_type' => 'text', 'is_required' => true, 'field_order' => 2,
+        'field_options' => ['visible_when' => ['field' => 'kind', 'op' => 'equals', 'value' => 'other']],
+    ]);
+
+    // Condition unmet: the required hidden field must not block, and any
+    // smuggled value must be dropped from the payload.
+    $this->actingAs($officer)->post(route('forms.render.submit', 'conditional-form'), [
+        'kind' => 'standard',
+        'other_details' => 'client-side tampering',
+    ])->assertSessionHasNoErrors();
+
+    $submission = FormSubmission::where('form_id', $form->id)->latest('form_submission_id')->first();
+    expect($submission->payload['kind'])->toBe('standard')
+        ->and($submission->payload['other_details'])->toBeNull();
+
+    // Condition met: the field is required again.
+    $this->actingAs($officer)->post(route('forms.render.submit', 'conditional-form'), [
+        'kind' => 'other',
+    ])->assertSessionHasErrors('other_details');
+});
+
+it('rejects self-referencing, circular and dangling visibility conditions', function () {
+    $admin = makeUser(2);
+
+    $base = fn (array $fields) => [
+        'name' => 'Cond Rules', 'route_name' => 'cond-rules',
+        'fields' => $fields, 'rows' => [],
+        'pdf_template' => ['html' => '', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ];
+
+    // Self-reference
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), $base([
+        ['field_key' => 'a', 'field_label' => 'A', 'field_type' => 'text',
+            'field_options' => ['visible_when' => ['field' => 'a', 'op' => 'filled']]],
+    ]))->assertStatus(422);
+
+    // Cycle
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), $base([
+        ['field_key' => 'a', 'field_label' => 'A', 'field_type' => 'text',
+            'field_options' => ['visible_when' => ['field' => 'b', 'op' => 'filled']]],
+        ['field_key' => 'b', 'field_label' => 'B', 'field_type' => 'text',
+            'field_options' => ['visible_when' => ['field' => 'a', 'op' => 'filled']]],
+    ]))->assertStatus(422);
+
+    // Dangling controller
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), $base([
+        ['field_key' => 'a', 'field_label' => 'A', 'field_type' => 'text',
+            'field_options' => ['visible_when' => ['field' => 'ghost', 'op' => 'filled']]],
+    ]))->assertStatus(422);
+
+    // equals without a comparison value
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), $base([
+        ['field_key' => 'a', 'field_label' => 'A', 'field_type' => 'text'],
+        ['field_key' => 'b', 'field_label' => 'B', 'field_type' => 'text',
+            'field_options' => ['visible_when' => ['field' => 'a', 'op' => 'equals', 'value' => '']]],
+    ]))->assertStatus(422);
+
+    expect(Form::where('route_name', 'cond-rules')->exists())->toBeFalse();
+
+    // A valid condition saves and persists.
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), $base([
+        ['field_key' => 'a', 'field_label' => 'A', 'field_type' => 'text'],
+        ['field_key' => 'b', 'field_label' => 'B', 'field_type' => 'text',
+            'field_options' => ['visible_when' => ['field' => 'a', 'op' => 'filled']]],
+    ]))->assertOk();
+
+    $form = Form::where('route_name', 'cond-rules')->firstOrFail();
+    expect($form->fields()->where('field_key', 'b')->first()->field_options['visible_when'])
+        ->toBe(['field' => 'a', 'op' => 'filled', 'value' => '']);
+});
+
 it('prefills mapped fields from the signed-in user profile', function () {
     // makeUser's profile has first_name = 'Form', last_name = 'Builder'.
     $user = makeOfficerUser();

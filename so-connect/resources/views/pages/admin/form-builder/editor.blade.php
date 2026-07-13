@@ -210,6 +210,54 @@
                                 </p>
                             </div>
 
+                            {{-- conditional visibility --}}
+                            <div>
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Visibility</label>
+                                <select :value="f.field_options.visible_when ? 'conditional' : 'always'"
+                                    @change="setVisibilityMode(f, $event.target.value)"
+                                    class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                    <option value="always">Always shown</option>
+                                    <option value="conditional">Only when a condition holds</option>
+                                </select>
+                                <template x-if="f.field_options.visible_when">
+                                    <div class="mt-2 space-y-2">
+                                        <select x-model="f.field_options.visible_when.field"
+                                            class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                            <option value="">— when this field… —</option>
+                                            <template x-for="c in conditionSources(f.field_key)" :key="c.field_key">
+                                                <option :value="c.field_key" x-text="c.field_label"></option>
+                                            </template>
+                                        </select>
+                                        <select x-model="f.field_options.visible_when.op"
+                                            class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                            <option value="equals">equals</option>
+                                            <option value="not_equals">does not equal</option>
+                                            <option value="contains">contains / includes</option>
+                                            <option value="filled">is filled in</option>
+                                            <option value="empty">is empty</option>
+                                        </select>
+                                        <template x-if="needsConditionValue(f)">
+                                            <div>
+                                                <template x-if="conditionController(f) && isOptioned(conditionController(f).field_type)">
+                                                    <select x-model="f.field_options.visible_when.value"
+                                                        class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                                        <option value="">— choose an option —</option>
+                                                        <template x-for="opt in ((conditionController(f).field_options || {}).options || [])" :key="opt.value">
+                                                            <option :value="opt.value" x-text="opt.label"></option>
+                                                        </template>
+                                                    </select>
+                                                </template>
+                                                <template x-if="!conditionController(f) || !isOptioned(conditionController(f).field_type)">
+                                                    <input type="text" x-model="f.field_options.visible_when.value" placeholder="Comparison value"
+                                                        class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <p class="text-[10px] text-gray-400">The field is shown (and required) only while the condition holds; otherwise its value is not submitted.</p>
+                                    </div>
+                                </template>
+                            </div>
+
                             {{-- choice options --}}
                             <div x-show="isOptioned(f.field_type)">
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Options</label>

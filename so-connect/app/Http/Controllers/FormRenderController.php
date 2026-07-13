@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Forms\ConditionEvaluator;
 use App\Forms\FieldType;
 use App\Forms\SystemFunction;
 use App\Models\Form;
@@ -42,6 +43,8 @@ class FormRenderController extends Controller
             'prefill' => $this->profilePrefill($request, $fields, $organization),
             // Option list for any field mapped to the "Advisers" universal field.
             'advisers' => OrganizationField::advisers($organization),
+            // Per-field visibility conditions for the client-side toggling.
+            'conditions' => ConditionEvaluator::clientConditions($fields),
         ]);
     }
 
@@ -99,10 +102,19 @@ class FormRenderController extends Controller
 
         $fields = $form->fields()->get();
 
+        // Conditional visibility is enforced server-side against the raw
+        // input, regardless of what the client showed: hidden fields skip
+        // validation entirely and their values are dropped from the payload.
+        $visibility = ConditionEvaluator::visibilityMap(
+            $fields,
+            fn (string $key) => $request->input($key),
+        );
+        $isHidden = fn (string $key): bool => ($visibility[$key] ?? true) === false;
+
         // Build validation rules dynamically from the field catalog.
         $rules = [];
         foreach ($fields as $field) {
-            if (FieldType::isPresentational($field->field_type)) {
+            if (FieldType::isPresentational($field->field_type) || $isHidden($field->field_key)) {
                 continue;
             }
             $fieldRules = FieldType::validationRules(
@@ -123,6 +135,11 @@ class FormRenderController extends Controller
             $type = $field->field_type;
 
             if (FieldType::isPresentational($type)) {
+                continue;
+            }
+
+            if ($isHidden($key)) {
+                $payload[$key] = null;
                 continue;
             }
 
