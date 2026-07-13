@@ -57,6 +57,7 @@ final class UniversalField
             'signature'     => ['label' => 'Signature',    'type' => FieldType::SIGNATURE, 'source' => 'profile', 'profile_column' => 'signature_path', 'group' => 'personal'],
 
             // Organization-scoped: resolved from the submitter's org (see OrganizationField).
+            'org_name'      => ['label' => 'Organization Name',      'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'adviser'       => ['label' => 'Adviser',                'type' => FieldType::SELECT, 'source' => 'org', 'group' => 'organization'],
             'org_president'  => ['label' => 'Organization President', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_auditor'    => ['label' => 'Organization Auditor',   'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],

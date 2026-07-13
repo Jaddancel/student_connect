@@ -7,11 +7,12 @@ use App\Models\Organization;
 use App\Models\User;
 
 /**
- * Resolves the organization-scoped universal fields (`org_president`,
- * `org_auditor`, `org_secretary`, `adviser`) that {@see UniversalField} declares
- * but cannot read off a profile. Values come from the submitter's organization:
- * current officeholders for the role fields, and the extensible adviser list for
- * `adviser`.
+ * Resolves the organization-scoped universal fields (`org_name`,
+ * `org_president`, `org_auditor`, `org_secretary`, `adviser`) that
+ * {@see UniversalField} declares but cannot read off a profile. Values come
+ * from the submitter's organization: its registered name for `org_name`,
+ * current officeholders for the role fields, and the extensible adviser list
+ * for `adviser`.
  */
 final class OrganizationField
 {
@@ -41,6 +42,13 @@ final class OrganizationField
     {
         if ($organization === null) {
             return null;
+        }
+
+        if ($key === 'org_name') {
+            // `detail` is a FK column that shadows the relation — query it.
+            $name = $organization->detail()->first()?->name;
+
+            return trim((string) $name) !== '' ? $name : null;
         }
 
         $officer = match ($key) {
