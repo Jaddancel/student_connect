@@ -72,12 +72,12 @@ class IdTemplateController extends Controller
             $template,
         );
 
-        // The editor navigates to the edit page next; greet it with the toast.
+        // The editor navigates back to the listing next; greet it with the toast.
         session()->flash('toast', 'Saved!');
 
         return response()->json([
             'message' => 'ID template created.',
-            'redirect' => route('superadmin.id-templates.edit', $template),
+            'redirect' => route('superadmin.id-templates.index'),
         ]);
     }
 
@@ -98,9 +98,12 @@ class IdTemplateController extends Controller
             $idTemplate,
         );
 
+        // The editor navigates back to the listing next; greet it with the toast.
+        session()->flash('toast', 'Saved!');
+
         return response()->json([
             'message' => 'Saved!',
-            'redirect' => route('superadmin.id-templates.edit', $idTemplate),
+            'redirect' => route('superadmin.id-templates.index'),
         ]);
     }
 

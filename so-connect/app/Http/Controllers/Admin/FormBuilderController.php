@@ -85,9 +85,12 @@ class FormBuilderController extends Controller
             $form,
         );
 
+        // The editor navigates back to the listing next; greet it with the toast.
+        session()->flash('toast', 'Form created.');
+
         return response()->json([
             'message' => 'Form created.',
-            'redirect' => route('admin.form-builder.edit', $form),
+            'redirect' => route('admin.form-builder.index'),
         ]);
     }
 
@@ -119,9 +122,12 @@ class FormBuilderController extends Controller
             $form,
         );
 
+        // The editor navigates back to the listing next; greet it with the toast.
+        session()->flash('toast', 'Form saved.');
+
         return response()->json([
             'message' => 'Form saved.',
-            'redirect' => route('admin.form-builder.edit', $form),
+            'redirect' => route('admin.form-builder.index'),
         ]);
     }
 
@@ -183,6 +189,19 @@ class FormBuilderController extends Controller
             'fields.*.is_required' => ['boolean'],
             'fields.*.placeholder_hint' => ['nullable', 'string', 'max:255'],
             'fields.*.field_options' => ['nullable', 'array'],
+            // Choice controls (select/radio/checkbox). Each option is a
+            // {value,label} pair; these MUST be whitelisted or validate()
+            // silently drops them and the field renders with no choices.
+            'fields.*.field_options.options' => ['nullable', 'array'],
+            'fields.*.field_options.options.*.value' => ['nullable', 'string', 'max:255'],
+            'fields.*.field_options.options.*.label' => ['nullable', 'string', 'max:255'],
+            // Presentational + numeric + upload option keys the builder emits.
+            'fields.*.field_options.content' => ['nullable', 'string', 'max:5000'],
+            'fields.*.field_options.rows' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'fields.*.field_options.min' => ['nullable', 'numeric'],
+            'fields.*.field_options.max' => ['nullable', 'numeric'],
+            'fields.*.field_options.step' => ['nullable', 'numeric'],
+            'fields.*.field_options.accept' => ['nullable', 'string', 'max:255'],
             'fields.*.field_options.visible_when' => ['nullable', 'array'],
             'fields.*.field_options.visible_when.field' => ['nullable', 'string', 'max:255'],
             'fields.*.field_options.visible_when.op' => ['nullable', 'string', Rule::in(ConditionEvaluator::OPS)],

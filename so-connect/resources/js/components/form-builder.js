@@ -206,9 +206,20 @@ export function formBuilder(config) {
                 delete f.field_options.visible_when;
             }
         },
-        /** Fields that may control a condition (they must carry a value). */
+        /** Keys of the fields sharing a row with the given field (self excluded). */
+        rowSiblingKeys(fieldKey) {
+            const row = this.rows.find((r) => r.columns.some((c) => c.fields.includes(fieldKey)));
+            if (!row) return [];
+            return row.columns.flatMap((c) => c.fields).filter((k) => k !== fieldKey);
+        },
+        /**
+         * Fields that may control a condition: they must sit in the same row as
+         * the dependent field (a field can only react to its row-mates) and
+         * carry a value (layout/upload/signature controls are excluded).
+         */
         conditionSources(exceptKey) {
-            return this.fields.filter((f) => f.field_key !== exceptKey
+            const siblings = new Set(this.rowSiblingKeys(exceptKey));
+            return this.fields.filter((f) => siblings.has(f.field_key)
                 && !['heading', 'static-text', 'image', 'file', 'signature'].includes(f.field_type));
         },
         conditionController(f) {

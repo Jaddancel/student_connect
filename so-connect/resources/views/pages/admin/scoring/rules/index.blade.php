@@ -9,10 +9,10 @@
                 <div>
                     <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Scoring System Triggers</h3>
                     <p class="mt-1 max-w-2xl text-xs text-gray-500 dark:text-gray-400">
-                        Each criterion of the organization scoring system can be given a block-built trigger that
+                        Each criterion of the organization scoring system is given a block-built trigger that
                         tallies its instances automatically from approved form submissions and event plans.
-                        Criteria without a trigger keep their built-in behavior. Changes here are recorded in the
-                        administrator action logs.
+                        A criterion without a trigger is not tallied — it scores 0 until you build one. Changes
+                        here are recorded in the administrator action logs.
                     </p>
                 </div>
                 <button type="button" @click="addOpen = !addOpen"
@@ -85,7 +85,7 @@
                                                 {{ $criterion->rule->enabled ? 'Trigger active' : 'Trigger disabled' }}
                                             </span>
                                         @else
-                                            <span class="text-xs text-gray-400 dark:text-gray-500">Built-in behavior</span>
+                                            <span class="text-xs text-gray-400 dark:text-gray-500">No trigger — scores 0</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3">
@@ -103,7 +103,7 @@
                                                     </button>
                                                 </form>
                                                 <form method="POST" action="{{ route('admin.scoring.rules.destroy', $criterion) }}"
-                                                    onsubmit="return confirm('Remove this trigger? The criterion falls back to its built-in behavior.');">
+                                                    onsubmit="return confirm('Remove this trigger? The criterion will not be tallied until you add a new one.');">
                                                     @csrf @method('DELETE')
                                                     <button type="submit"
                                                         class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">

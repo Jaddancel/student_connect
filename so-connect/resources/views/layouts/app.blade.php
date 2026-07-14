@@ -106,6 +106,7 @@ window.addEventListener('resize', checkMobile);">
 
     @include('layouts.partials.auto-hide-alerts')
     @include('layouts.partials.toast')
+    @include('layouts.partials.semester-alert')
 
     {{-- File-type warning toast --}}
     <div x-data x-show="$store.fileAlert.show" x-cloak
@@ -115,7 +116,7 @@ window.addEventListener('resize', checkMobile);">
          x-transition:leave="transition ease-in duration-150"
          x-transition:leave-start="opacity-100 translate-y-0"
          x-transition:leave-end="opacity-0 translate-y-2"
-         class="fixed top-6 right-6 z-[9999] w-80 rounded-xl border border-error-200 bg-white shadow-xl dark:border-error-500/30 dark:bg-gray-900"
+         class="fixed top-6 right-6 z-[100000] w-80 rounded-xl border border-error-200 bg-white shadow-xl dark:border-error-500/30 dark:bg-gray-900"
          role="alert">
         <div class="flex items-start gap-3 p-4">
             <span class="mt-0.5 flex-shrink-0 text-error-500">

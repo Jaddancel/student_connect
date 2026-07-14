@@ -111,7 +111,10 @@
                                                     :class="selectedKey === key ? 'border-brand-500 ring-1 ring-brand-300' : 'border-gray-200 dark:border-gray-700'">
                                                     <div class="flex items-center justify-between gap-2">
                                                         <div class="min-w-0">
-                                                            <div class="truncate text-sm font-medium text-gray-800 dark:text-white/90" x-text="field(key)?.field_label"></div>
+                                                            <div class="flex items-center gap-1 text-sm font-medium text-gray-800 dark:text-white/90">
+                                                                <span class="truncate" x-text="field(key)?.field_label"></span>
+                                                                <span x-show="field(key)?.is_required" class="text-error-500" title="Required">*</span>
+                                                            </div>
                                                             <div class="text-[10px] uppercase tracking-wide text-gray-400" x-text="field(key)?.field_type"></div>
                                                         </div>
                                                         <div class="flex items-center gap-1">
@@ -222,8 +225,9 @@
                                 <template x-if="f.field_options.visible_when">
                                     <div class="mt-2 space-y-2">
                                         <select x-model="f.field_options.visible_when.field"
-                                            class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                                            <option value="">— when this field… —</option>
+                                            :disabled="conditionSources(f.field_key).length === 0"
+                                            class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                            <option value="" x-text="conditionSources(f.field_key).length === 0 ? '— no other fields in this row —' : '— when this field… —'"></option>
                                             <template x-for="c in conditionSources(f.field_key)" :key="c.field_key">
                                                 <option :value="c.field_key" x-text="c.field_label"></option>
                                             </template>

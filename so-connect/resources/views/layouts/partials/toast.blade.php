@@ -35,7 +35,7 @@
      x-transition:leave="transition ease-in duration-150"
      x-transition:leave-start="opacity-100 translate-y-0"
      x-transition:leave-end="opacity-0 translate-y-2"
-     class="fixed top-6 right-6 z-[9999] w-80 rounded-xl border bg-white shadow-xl dark:bg-gray-900"
+     class="fixed top-6 right-6 z-[100000] w-80 rounded-xl border bg-white shadow-xl dark:bg-gray-900"
      :class="$store.toast.variant === 'error'
          ? 'border-error-200 dark:border-error-500/30'
          : 'border-success-200 dark:border-success-500/30'"

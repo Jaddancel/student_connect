@@ -7,6 +7,7 @@ export function scoringRuleEditor(config) {
     let workspace = null; // Konva-style: keep non-reactive refs out of Alpine's proxy
     let BlocklyRef = null;
     let compileRef = null;
+    let resizeObserver = null;
 
     return {
         loading: true,
@@ -42,10 +43,33 @@ export function scoringRuleEditor(config) {
                     config.workspace && config.workspace.blocks ? config.workspace : blocks.STARTER_WORKSPACE,
                     workspace,
                 );
+
+                // Blockly measures the container once at inject time and renders
+                // its SVG to that snapshot. When the flex/grid layout settles a
+                // frame later the canvas is left too small (palette clipped) until
+                // a window resize forces a recompute. Re-measure once now, and keep
+                // the SVG in sync with the container via a ResizeObserver so it
+                // always fills the parent regardless of window resizes.
+                BlocklyRef.svgResize(workspace);
+                resizeObserver = new ResizeObserver(() => {
+                    if (workspace) BlocklyRef.svgResize(workspace);
+                });
+                resizeObserver.observe(this.$refs.blockly);
             } catch (e) {
                 this.error = 'The block editor failed to load: ' + e.message;
             } finally {
                 this.loading = false;
+            }
+        },
+
+        destroy() {
+            if (resizeObserver) {
+                resizeObserver.disconnect();
+                resizeObserver = null;
+            }
+            if (workspace) {
+                workspace.dispose();
+                workspace = null;
             }
         },
 
