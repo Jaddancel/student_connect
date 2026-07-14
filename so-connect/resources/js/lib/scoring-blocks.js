@@ -69,7 +69,7 @@ export function defineScoringBlocks(Blockly, variables) {
                 .appendField(new Blockly.FieldTextInput(''), 'VALUE');
             this.setOutput(true, 'Boolean');
             this.setColour(210);
-            this.setTooltip('Compare a variable against a value (numbers compare numerically; yes/no and true/false are interchangeable).');
+            this.setTooltip('Compare a variable against a value (numbers compare numerically; yes/no and true/false are interchangeable). For a checkbox, use 1 for checked and 0 for unchecked.');
         },
     };
 

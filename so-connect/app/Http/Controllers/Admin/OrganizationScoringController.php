@@ -59,12 +59,26 @@ class OrganizationScoringController extends Controller
                 ->get()
                 ->keyBy('organization_id');
 
-            $rows = $organizations->map(fn ($organization) => [
-                'organization_id'   => (int) $organization->organization_id,
-                'organization_name' => $organization->name,
-                'organization_type' => (int) $organization->organization_type,
-                'score'             => $scores->get($organization->organization_id),
-            ]);
+            $rows = $organizations->map(function ($organization) use ($scores, $selectedSemester) {
+                $orgId = (int) $organization->organization_id;
+                $score = $scores->get($orgId);
+
+                // A saved score means the org is verified: its weighted total is
+                // locked. Otherwise show the live partial score currently tallied
+                // from the block triggers (Scoring Rules editor) for this semester.
+                $partial = $score
+                    ? (float) $score->total_weighted_score
+                    : (float) $this->computeScores($this->computeAutoInstances($orgId, $selectedSemester))['total'];
+
+                return [
+                    'organization_id'   => $orgId,
+                    'organization_name' => $organization->name,
+                    'organization_type' => (int) $organization->organization_type,
+                    'score'             => $score,
+                    'partial_score'     => $partial,
+                    'verified'          => (bool) $score,
+                ];
+            });
 
             $groupedRows = $rows->groupBy('organization_type');
         }
@@ -107,13 +121,14 @@ class OrganizationScoringController extends Controller
         $semester = Semester::query()->findOrFail($semesterId);
 
         return view('pages.admin.scoring.create', [
-            'title'            => 'Score Organization',
+            'title'            => 'Verify Organization Score',
             'organization'     => $organization,
             'organizationName' => $organizationName,
             'semester'         => $semester,
             'payload'          => $this->computeAutoInstances($organizationId, $semester),
             'score'            => null,
             'isEdit'           => false,
+            'readOnly'         => false,
             'customCriteria'   => \App\Services\Scoring\ScoringCatalog::customByCategory(),
             'categoryMeta'     => \App\Services\Scoring\ScoringCatalog::categories(),
         ]);
@@ -174,13 +189,15 @@ class OrganizationScoringController extends Controller
         $mergedPayload  = array_merge($autoInstances, $existingPayload);
 
         return view('pages.admin.scoring.create', [
-            'title'            => 'Edit Organization Score',
+            'title'            => 'Review Organization Score',
             'organization'     => $organization,
             'organizationName' => $organizationName,
             'semester'         => $semester,
             'payload'          => $mergedPayload,
             'score'            => $score,
             'isEdit'           => true,
+            // A saved score is a verified score: lock the form to read-only review.
+            'readOnly'         => true,
             'customCriteria'   => \App\Services\Scoring\ScoringCatalog::customByCategory(),
             'categoryMeta'     => \App\Services\Scoring\ScoringCatalog::categories(),
         ]);

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-    <x-common.page-breadcrumb pageTitle="{{ $isEdit ? 'Edit Organization Score' : 'Score Organization' }}" />
+    <x-common.page-breadcrumb pageTitle="{{ $readOnly ? 'Review Organization Score' : 'Verify Organization Score' }}" />
 
     @php
         $pv = fn (string $key) => (int) ($payload[$key] ?? 0);
@@ -199,6 +199,16 @@
             <input type="hidden" name="organization_id" value="{{ $organization->organization_id }}" />
             <input type="hidden" name="semester_id" value="{{ $semester->semester_id }}" />
 
+            @if ($readOnly)
+                <div class="flex items-center gap-2 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm font-medium text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400">
+                    <svg class="h-4 w-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                    This score is verified. Inputs are locked for review.
+                </div>
+            @endif
+
+            {{-- A disabled fieldset locks every contained input for verified scores. --}}
+            <fieldset @disabled($readOnly) class="space-y-5 disabled:opacity-95">
+
             {{-- CATEGORY I --}}
             <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                 <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
@@ -235,11 +245,11 @@
                             ];
                             @endphp
                             @foreach ($cat1rows as [$field, $label, $ppi, $manual, $auto])
-                                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02] {{ $manual ? 'cursor-pointer ring-1 ring-inset ring-brand-200/60 dark:ring-brand-700/40' : '' }} {{ $auto ? 'bg-success-50/30 dark:bg-success-500/5' : '' }}"
-                                    @if ($manual) @click="openModal('{{ $field }}')" @endif>
+                                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02] {{ $manual && !$readOnly ? 'cursor-pointer ring-1 ring-inset ring-brand-200/60 dark:ring-brand-700/40' : '' }} {{ $auto ? 'bg-success-50/30 dark:bg-success-500/5' : '' }}"
+                                    @if ($manual && !$readOnly) @click="openModal('{{ $field }}')" @endif>
                                     <td class="px-6 py-3 text-gray-700 dark:text-gray-300">
                                         {{ $label }}
-                                        @if ($manual)
+                                        @if ($manual && !$readOnly)
                                             <span class="ml-1 text-xs text-brand-500 dark:text-brand-400">(click to enter)</span>
                                         @elseif ($auto)
                                             <span class="ml-1.5 inline-flex items-center rounded-full bg-success-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success-700 dark:bg-success-500/15 dark:text-success-400">Auto</span>
@@ -524,11 +534,11 @@
                             ];
                             @endphp
                             @foreach ($cat6rows as [$field, $label, $ppi, $manual])
-                                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02] {{ $manual ? 'cursor-pointer ring-1 ring-inset ring-brand-200/60 dark:ring-brand-700/40' : '' }}"
-                                    @if ($manual) @click="openModal('{{ $field }}')" @endif>
+                                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02] {{ $manual && !$readOnly ? 'cursor-pointer ring-1 ring-inset ring-brand-200/60 dark:ring-brand-700/40' : '' }}"
+                                    @if ($manual && !$readOnly) @click="openModal('{{ $field }}')" @endif>
                                     <td class="px-6 py-3 text-gray-700 dark:text-gray-300">
                                         {{ $label }}
-                                        @if ($manual)
+                                        @if ($manual && !$readOnly)
                                             <span class="ml-1 text-xs text-brand-500 dark:text-brand-400">(click to enter)</span>
                                         @endif
                                     </td>
@@ -618,6 +628,8 @@
                 <p class="mt-1 text-right text-xs text-gray-400" x-text="Math.min(100, Math.round(grand_total / 550 * 100)) + '% of max'"></p>
             </div>
 
+            </fieldset>
+
             {{-- Manual Input Modal --}}
             <div x-show="modalOpen" x-cloak
                  class="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -664,12 +676,14 @@
             <div class="flex justify-end gap-3">
                 <a href="{{ route('admin.scoring.index', ['semester_id' => $semester->semester_id]) }}"
                     class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
-                    Cancel
+                    {{ $readOnly ? 'Back to Scoring' : 'Cancel' }}
                 </a>
-                <button type="submit"
-                    class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">
-                    {{ $isEdit ? 'Update Score' : 'Save Score' }}
-                </button>
+                @unless ($readOnly)
+                    <button type="submit"
+                        class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">
+                        Verify Score
+                    </button>
+                @endunless
             </div>
         </form>
     </div>

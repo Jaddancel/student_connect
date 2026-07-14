@@ -157,9 +157,54 @@ final class PdfTemplateRenderer
             return [$dom->createTextNode(implode(', ', $names))];
         }
 
+        if ($type === FieldType::CHECKBOX) {
+            $optionValues = FieldType::optionValues($options);
+
+            // A lone checkmark prints a single ticked/empty box.
+            if ($optionValues === []) {
+                return [$this->checkboxNode($dom, SubmissionPresenter::isChecked($payload, $key))];
+            }
+
+            // A checkbox group prints one box per option, ticked when chosen,
+            // each followed by its label.
+            $selected = array_map('strval', (array) SubmissionPresenter::raw($payload, $key));
+            $nodes = [];
+            foreach (FieldType::optionPairs($options) as $i => $pair) {
+                if ($i > 0) {
+                    $nodes[] = $dom->createTextNode("\u{00A0}\u{00A0}");
+                }
+                $nodes[] = $this->checkboxNode($dom, in_array($pair['value'], $selected, true));
+                $nodes[] = $dom->createTextNode("\u{00A0}".$pair['label']);
+            }
+
+            return $nodes ?: [$dom->createTextNode('')];
+        }
+
         $text = SubmissionPresenter::display($payload, $key, $type, $options);
 
         return [$dom->createTextNode($text)];
+    }
+
+    /**
+     * A printed checkbox: a bordered box drawn with CSS (font-independent) with a
+     * check mark inside when ticked. Rendered this way rather than as a Unicode
+     * ballot glyph so it prints reliably under dompdf's default font.
+     */
+    private function checkboxNode(\DOMDocument $dom, bool $checked): \DOMElement
+    {
+        $box = $dom->createElement('span');
+        $box->setAttribute('class', 'token-checkbox'.($checked ? ' is-checked' : ''));
+        $box->setAttribute(
+            'style',
+            'display:inline-block;width:10px;height:10px;border:1px solid #111;'
+            .'line-height:10px;text-align:center;font-size:9px;vertical-align:middle;',
+        );
+        if ($checked) {
+            // U+2713 CHECK MARK — present in dompdf's default DejaVu Sans.
+            $box->appendChild($dom->createTextNode("\u{2713}"));
+        }
+
+        return $box;
     }
 
     /**

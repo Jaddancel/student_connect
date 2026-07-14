@@ -127,7 +127,8 @@ export function formBuilder(config) {
         },
 
         defaultOptions(type) {
-            if (['select', 'radio', 'checkbox'].includes(type)) {
+            // A checkbox is a single yes/no checkmark — it carries no option list.
+            if (['select', 'radio'].includes(type)) {
                 return { options: [{ value: 'option_1', label: 'Option 1' }] };
             }
             if (type === 'age') return { min: 0, max: 150, step: 1 };
@@ -267,7 +268,9 @@ export function formBuilder(config) {
             f.field_options.options.splice(i, 1);
         },
         isOptioned(type) {
-            return ['select', 'radio', 'checkbox'].includes(type);
+            // Checkbox intentionally excluded: it is a single checkmark, not a
+            // multi-option group, so the builder offers no option editor for it.
+            return ['select', 'radio'].includes(type);
         },
         isNumeric(type) {
             return ['number', 'age'].includes(type);

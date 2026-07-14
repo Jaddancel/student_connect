@@ -202,6 +202,16 @@ class FormRenderController extends Controller
                 continue;
             }
 
+            // A single checkmark (no option list) is a boolean the browser omits
+            // entirely when unticked. Store it as 1 (checked) / 0 (unchecked) so
+            // scoring-rule conditions can reliably test it (`field:key = 1`/`= 0`).
+            // Checkbox groups keep their submitted array of chosen values.
+            if ($type === FieldType::CHECKBOX
+                && FieldType::optionValues((array) ($field->field_options ?? [])) === []) {
+                $payload[$key] = ! empty($validated[$key] ?? null) ? 1 : 0;
+                continue;
+            }
+
             $payload[$key] = $validated[$key] ?? null;
         }
 
