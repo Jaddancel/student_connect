@@ -186,25 +186,30 @@ final class PdfTemplateRenderer
     }
 
     /**
-     * A printed checkbox: a bordered box drawn with CSS (font-independent) with a
-     * check mark inside when ticked. Rendered this way rather than as a Unicode
-     * ballot glyph so it prints reliably under dompdf's default font.
+     * A printed checkbox: an inline SVG image drawing a square outline plus a
+     * tick when checked. Rendered as an SVG data-URI (through dompdf's image
+     * pipeline) rather than a Unicode ballot glyph or a text check mark, so it
+     * prints identically regardless of the document font's glyph coverage
+     * (the default Times family has no check-mark glyph).
      */
     private function checkboxNode(\DOMDocument $dom, bool $checked): \DOMElement
     {
-        $box = $dom->createElement('span');
-        $box->setAttribute('class', 'token-checkbox'.($checked ? ' is-checked' : ''));
-        $box->setAttribute(
-            'style',
-            'display:inline-block;width:10px;height:10px;border:1px solid #111;'
-            .'line-height:10px;text-align:center;font-size:9px;vertical-align:middle;',
-        );
-        if ($checked) {
-            // U+2713 CHECK MARK — present in dompdf's default DejaVu Sans.
-            $box->appendChild($dom->createTextNode("\u{2713}"));
-        }
+        $tick = $checked
+            ? '<path d="M2.2 5.2 L4.3 7.4 L7.9 2.6" fill="none" stroke="#111" '
+                .'stroke-width="1.3" stroke-linecap="square" stroke-linejoin="miter"/>'
+            : '';
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10">'
+            .'<rect x="0.6" y="0.6" width="8.8" height="8.8" rx="1" fill="none" stroke="#111" stroke-width="1"/>'
+            .$tick
+            .'</svg>';
 
-        return $box;
+        $img = $dom->createElement('img');
+        $img->setAttribute('src', 'data:image/svg+xml;base64,'.base64_encode($svg));
+        $img->setAttribute('class', 'token-checkbox'.($checked ? ' is-checked' : ''));
+        $img->setAttribute('style', 'width:10px;height:10px;vertical-align:middle;');
+        $img->setAttribute('alt', $checked ? '[x]' : '[ ]');
+
+        return $img;
     }
 
     /**
