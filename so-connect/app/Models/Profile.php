@@ -43,6 +43,7 @@ class Profile extends Model
         'student_id',
         'id_photo_front',
         'id_photo_back',
+        'signature_path',
     ];
 
     protected function casts(): array

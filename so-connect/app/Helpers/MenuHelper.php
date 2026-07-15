@@ -67,6 +67,7 @@ class MenuHelper
                     ['icon' => 'pages', 'name' => 'ID Templates', 'path' => '/superadmin/id-templates'],
                     ['icon' => 'tables', 'name' => 'Export Data', 'path' => '/superadmin/export'],
                     ['icon' => 'charts', 'name' => 'Score Audit', 'path' => '/superadmin/scoring/audit'],
+                    ['icon' => 'task', 'name' => 'Action Logs', 'path' => '/superadmin/action-logs'],
                 ],
             ];
         }
@@ -92,18 +93,36 @@ class MenuHelper
 
             $badges = self::getAdminRequestBadges();
 
+            // Function-backed queues first, then one entry per form page —
+            // every form has its own request page (forms bound to sign-up /
+            // new-event / new-workplan are covered by the dedicated queues).
+            $requestItems = [
+                ['icon' => 'task',  'name' => 'Activity Requests',    'path' => '/admin/activity-requests', 'badge' => $badges['activity_requests']],
+                ['icon' => 'forms', 'name' => 'Workplan Submissions', 'path' => '/admin/workplan-requests', 'badge' => $badges['workplan']],
+                ['icon' => 'user-profile', 'name' => 'Promotion Requests', 'path' => '/promotion-requests', 'badge' => $badges['promotion_requests']],
+            ];
+
+            $formRequestPages = \App\Models\Form::query()
+                ->where('is_active', true)
+                ->where(function ($query) {
+                    $query->whereNull('system_function')
+                        ->orWhere('system_function', \App\Forms\SystemFunction::MEMBERSHIP_REGISTRATION);
+                })
+                ->orderBy('name')
+                ->get(['id', 'name']);
+
+            foreach ($formRequestPages as $formPage) {
+                $requestItems[] = [
+                    'icon' => 'forms',
+                    'name' => $formPage->name,
+                    'path' => '/admin/form-requests/'.$formPage->id,
+                    'badge' => (int) ($badges['form'][$formPage->id] ?? 0),
+                ];
+            }
+
             $menuGroups[] = [
                 'title' => 'Requests',
-                'items' => [
-                    ['icon' => 'task',  'name' => 'Activity Requests',          'path' => '/admin/activity-requests',               'badge' => $badges['activity_requests']],
-                    ['icon' => 'forms', 'name' => 'Project Requests',          'path' => '/admin/project-requests',                'badge' => $badges['project']],
-                    ['icon' => 'forms', 'name' => 'Joint Statements',          'path' => '/admin/joint-statement-requests',        'badge' => $badges['joint_statement']],
-                    ['icon' => 'forms', 'name' => 'Accomplishment Reports',    'path' => '/admin/accomplishment-report-requests',  'badge' => $badges['accomplishment_report']],
-                    ['icon' => 'forms', 'name' => 'Financial Reports',         'path' => '/admin/financial-report-requests',       'badge' => $badges['financial_report']],
-                    ['icon' => 'forms', 'name' => 'Recognition Applications',  'path' => '/admin/recognition-requests',            'badge' => $badges['recognition']],
-                    ['icon' => 'forms', 'name' => 'Workplan Submissions',       'path' => '/admin/workplan-requests',               'badge' => $badges['workplan']],
-                    ['icon' => 'user-profile', 'name' => 'Promotion Requests', 'path' => '/promotion-requests',                   'badge' => $badges['promotion_requests']],
-                ],
+                'items' => $requestItems,
             ];
 
             $menuGroups[] = [
@@ -111,46 +130,47 @@ class MenuHelper
                 'items' => [
                     ['icon' => 'charts', 'name' => 'Organization Scoring', 'path' => '/admin/scoring'],
                     ['icon' => 'charts', 'name' => 'Rankings', 'path' => '/admin/scoring/rankings'],
+                    ['icon' => 'task', 'name' => 'Scoring Rules', 'path' => '/admin/scoring-rules'],
                 ],
             ];
 
         }
 
-        $isOfficerOrPresident = $user->officers()->whereIn('role', ['officer', 'president'])->exists();
+        // Built forms are for user-type-3 officers/presidents only (matches
+        // Form::isAccessibleBy) — admins author forms, they don't fill them.
+        $isOfficerOrPresident = (int) $user->user_type === 3
+            && $user->officers()->whereIn('role', ['officer', 'president'])->exists();
 
         if ($isOfficerOrPresident) {
             $menuGroups[] = [
                 'title' => 'Organization',
                 'items' => [
                     ['icon' => 'calendar', 'name' => 'Event Plans',          'path' => '/event-plans'],
-                    ['icon' => 'forms',    'name' => 'Joint Statement',      'path' => '/forms/joint-statement'],
                 ],
             ];
 
+            // Every published form is listed; forms bound to sign-up /
+            // new-event / new-workplan live in their own dedicated flows.
             $publishedForms = \App\Models\Form::whereNotNull('route_name')
                 ->where('is_published', true)
-                ->where('route_name', '!=', 'workplan')
-                ->whereJsonLength('sidebar_group', '>', 0)
+                ->where('is_active', true)
+                ->where(function ($query) {
+                    $query->whereNull('system_function')
+                        ->orWhere('system_function', \App\Forms\SystemFunction::MEMBERSHIP_REGISTRATION);
+                })
                 ->orderBy('name')
-                ->get(['id', 'name', 'route_name', 'sidebar_group']);
+                ->get(['id', 'name', 'route_name']);
 
-            $grouped = $publishedForms->groupBy(fn ($f) => $f->sidebar_group[0] ?? 'president');
-
-            foreach ($grouped as $group => $groupForms) {
-                $title = match ($group) {
-                    'president' => 'Organization Forms',
-                    default => ucfirst($group) . ' Forms',
-                };
+            if ($publishedForms->isNotEmpty()) {
                 $menuGroups[] = [
-                    'title' => $title,
-                    'items' => $groupForms->map(fn ($f) => [
+                    'title' => 'Organization Forms',
+                    'items' => $publishedForms->map(fn ($f) => [
                         'icon' => 'forms',
                         'name' => $f->name,
                         'path' => '/forms/' . $f->route_name,
                     ])->all(),
                 ];
             }
-
         }
 
         return $menuGroups;
@@ -160,14 +180,9 @@ class MenuHelper
     {
         $approvedIds = DB::table('approvals')->select('request')->whereNotNull('request');
 
-        $activityFormId = DB::table('forms')->where('route_name', 'activity-request')->value('id');
-
-        $projectFormId             = DB::table('forms')->where('route_name', 'project-request')->value('id');
-        $jointFormId               = DB::table('forms')->where('route_name', 'joint-statement')->value('id');
-        $accomplishmentFormId      = DB::table('forms')->where('route_name', 'accomplishment-report')->value('id');
-        $financialFormId           = DB::table('forms')->where('route_name', 'financial-report')->value('id');
-        $recognitionFormId         = DB::table('forms')->where('route_name', 'organization-recognition')->value('id');
-        $workplanFormId            = DB::table('forms')->where('route_name', 'workplan')->value('id');
+        // Function-backed badges resolve through the binding.
+        $activityFormId = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_EVENT)?->getKey();
+        $workplanFormId = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_WORKPLAN)?->getKey();
 
         $pendingByForm = function (?int $formId) use ($approvedIds): int {
             if (! $formId) {
@@ -185,15 +200,23 @@ class MenuHelper
             ->whereNotIn('request_id', DB::table('approvals')->select('request')->whereNotNull('request'))
             ->count();
 
+        // One grouped count feeds every per-form request page badge
+        // (membership + doc-gen requests, keyed by the indexed form_id).
+        $pendingPerForm = DB::table('requests')
+            ->whereNotNull('form_id')
+            ->whereIn('action_type', [1, 3])
+            ->whereNotIn('request_id', $approvedIds)
+            ->groupBy('form_id')
+            ->selectRaw('form_id, COUNT(*) as pending')
+            ->pluck('pending', 'form_id')
+            ->map(fn ($count) => (int) $count)
+            ->all();
+
         return [
-            'activity_requests'    => $pendingByForm($activityFormId ? (int) $activityFormId : null),
-            'project'              => $pendingByForm($projectFormId ? (int) $projectFormId : null),
-            'joint_statement'      => $pendingByForm($jointFormId ? (int) $jointFormId : null),
-            'accomplishment_report' => $pendingByForm($accomplishmentFormId ? (int) $accomplishmentFormId : null),
-            'financial_report'     => $pendingByForm($financialFormId ? (int) $financialFormId : null),
-            'recognition'          => $pendingByForm($recognitionFormId ? (int) $recognitionFormId : null),
-            'workplan'             => $pendingByForm($workplanFormId ? (int) $workplanFormId : null),
-            'promotion_requests'   => $pendingPromotions,
+            'activity_requests'  => $pendingByForm($activityFormId ? (int) $activityFormId : null),
+            'workplan'           => $pendingByForm($workplanFormId ? (int) $workplanFormId : null),
+            'promotion_requests' => $pendingPromotions,
+            'form'               => $pendingPerForm,
         ];
     }
 

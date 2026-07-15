@@ -60,6 +60,32 @@
             </div>
         @endif
 
+        {{-- The submitter's latest requests for this form + decision state --}}
+        @if (! $preview && ! empty($recentSubmissions ?? []))
+            <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <h3 class="mb-3 text-sm font-semibold text-gray-800 dark:text-white/90">Your recent submissions</h3>
+                <ul class="space-y-2">
+                    @foreach ($recentSubmissions as $entry)
+                        <li class="flex flex-wrap items-center gap-2 text-sm">
+                            <span class="text-gray-500 dark:text-gray-400">{{ $entry['requested_at'] ?? '—' }}</span>
+                            @if ($entry['status'] === 'pending')
+                                <span class="rounded-full bg-warning-50 px-2.5 py-0.5 text-xs font-medium text-warning-600 dark:bg-warning-500/15 dark:text-orange-400">Awaiting admin approval</span>
+                            @elseif ($entry['status'] === 'approved')
+                                <span class="rounded-full bg-success-50 px-2.5 py-0.5 text-xs font-medium text-success-600 dark:bg-success-500/15 dark:text-success-500">Approved</span>
+                                <a href="{{ route('documents.index') }}" class="text-xs font-medium text-brand-500 hover:text-brand-600">View documents →</a>
+                            @else
+                                <span class="rounded-full bg-error-50 px-2.5 py-0.5 text-xs font-medium text-error-600 dark:bg-error-500/15 dark:text-error-400">Rejected</span>
+                                @if ($entry['reason'] !== '')
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">— {{ $entry['reason'] }}</span>
+                                @endif
+                                <span class="text-xs text-gray-400">You can fill the form again below.</span>
+                            @endif
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         {{-- Header / letterhead --}}
         @if (! empty($header['image']) || ! empty($header['logo']) || ! empty($header['title']) || ! empty($header['subtitle']))
             <div class="{{ $alignClass }} rounded-2xl border border-gray-200 bg-palette-lime-pale p-5 shadow-[inset_0_4px_0_var(--color-palette-lime)] dark:border-gray-800 dark:bg-white/[0.03]">
@@ -79,7 +105,10 @@
             </div>
         @endif
 
-        <form action="{{ $preview ? '#' : route('forms.render.submit', $form->route_name) }}" method="POST" enctype="multipart/form-data" class="space-y-6" @if ($preview) onsubmit="return false;" @endif>
+        <form action="{{ $preview ? '#' : route('forms.render.submit', $form->route_name) }}" method="POST" enctype="multipart/form-data" class="space-y-6"
+            x-data="formConditions({ conditions: {{ Illuminate\Support\Js::from($conditions ?? []) }} })"
+            @input="track($event)" @change="track($event)"
+            @if ($preview) onsubmit="return false;" @endif>
             @csrf
 
             <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
@@ -92,7 +121,12 @@
                                     @foreach (($col['fields'] ?? []) as $fieldKey)
                                         @php $field = $fieldsByKey[$fieldKey] ?? null; @endphp
                                         @if ($field)
-                                            @include('components.form.fields.field', ['field' => $field, 'prefill' => $prefill, 'advisers' => $advisers ?? []])
+                                            {{-- Conditional visibility: hidden wrappers also disable
+                                                 their controls so the values stay out of the POST. --}}
+                                            <div x-show="visible(@js($fieldKey))" x-cloak
+                                                x-effect="toggleDisabled($el, visible(@js($fieldKey)))">
+                                                @include('components.form.fields.field', ['field' => $field, 'prefill' => $prefill, 'advisers' => $advisers ?? []])
+                                            </div>
                                         @endif
                                     @endforeach
                                 </div>
@@ -108,7 +142,7 @@
                         <span class="text-sm text-gray-400">Submission is disabled in preview.</span>
                     @else
                         <button type="reset" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">Clear</button>
-                        <button type="submit" class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">Submit &amp; Generate PDF</button>
+                        <button type="submit" class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">Submit for approval</button>
                     @endif
                 </div>
             </div>

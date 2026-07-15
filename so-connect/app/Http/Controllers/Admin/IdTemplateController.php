@@ -64,9 +64,20 @@ class IdTemplateController extends Controller
             return $template;
         });
 
+        \App\Services\ActionLogger::log(
+            \App\Services\ActionLogger::CATEGORY_ID_TEMPLATE,
+            'created',
+            'Created ID template "'.$template->name.'"',
+            ['id_template_id' => (int) $template->getKey()],
+            $template,
+        );
+
+        // The editor navigates back to the listing next; greet it with the toast.
+        session()->flash('toast', 'Saved!');
+
         return response()->json([
             'message' => 'ID template created.',
-            'redirect' => route('superadmin.id-templates.edit', $template),
+            'redirect' => route('superadmin.id-templates.index'),
         ]);
     }
 
@@ -79,9 +90,20 @@ class IdTemplateController extends Controller
             $this->enforceSingleDefault($idTemplate);
         });
 
+        \App\Services\ActionLogger::log(
+            \App\Services\ActionLogger::CATEGORY_ID_TEMPLATE,
+            'updated',
+            'Updated ID template "'.$idTemplate->name.'"',
+            ['id_template_id' => (int) $idTemplate->getKey()],
+            $idTemplate,
+        );
+
+        // The editor navigates back to the listing next; greet it with the toast.
+        session()->flash('toast', 'Saved!');
+
         return response()->json([
-            'message' => 'ID template saved.',
-            'redirect' => route('superadmin.id-templates.edit', $idTemplate),
+            'message' => 'Saved!',
+            'redirect' => route('superadmin.id-templates.index'),
         ]);
     }
 
@@ -93,6 +115,13 @@ class IdTemplateController extends Controller
         if ($paths) {
             Storage::disk((string) config('documents.disk', 'public'))->delete($paths);
         }
+
+        \App\Services\ActionLogger::log(
+            \App\Services\ActionLogger::CATEGORY_ID_TEMPLATE,
+            'deleted',
+            'Deleted ID template "'.$idTemplate->name.'"',
+            ['id_template_id' => (int) $idTemplate->getKey()],
+        );
 
         return redirect()->route('superadmin.id-templates.index')
             ->with('success', 'ID template deleted.');
@@ -172,6 +201,8 @@ class IdTemplateController extends Controller
                 "$z.*.y2" => ['required', 'integer', "gt:$z.*.y1"],
                 "$z.*.regex" => ['nullable', 'string', 'max:255'],
                 "$z.*.field" => ['required', 'string', 'max:100', 'regex:/^[a-z0-9_]+$/'],
+                "$z.*.color" => ['nullable', 'string', 'regex:/^#[0-9a-f]{6}$/i'],
+                "$z.*.type" => ['nullable', 'string', 'in:text,signature'],
             ];
             $messages += [
                 "$z.*.name.regex" => 'Zone keys may only contain lowercase letters, numbers and underscores.',
@@ -226,6 +257,8 @@ class IdTemplateController extends Controller
                 'y2' => (int) $z['y2'],
                 'regex' => ($z['regex'] ?? '') !== '' ? $z['regex'] : null,
                 'field' => $z['field'],
+                'color' => ($z['color'] ?? '') !== '' ? strtolower($z['color']) : null,
+                'type' => ($z['type'] ?? 'text') === 'signature' ? 'signature' : 'text',
             ], $zones);
         }
 

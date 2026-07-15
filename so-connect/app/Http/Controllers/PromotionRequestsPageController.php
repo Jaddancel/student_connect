@@ -124,7 +124,7 @@ class PromotionRequestsPageController extends Controller
         $rejectedCount = 0;
 
         // Load FormSubmissions linked to approved role-change requests so we can show "Review Draft"
-        $form = Form::query()->where('route_name', 'student-leader-directory')->first();
+        $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::SIGN_UP);
         $submissionMap = [];
         if ($form) {
             $approvedRequestIds = $approvalMap->where('is_rejected', false)->keys()->all();
@@ -335,7 +335,7 @@ class PromotionRequestsPageController extends Controller
 
         $submission->update(['payload' => $mergedPayload]);
 
-        $form = Form::query()->where('route_name', 'student-leader-directory')->first();
+        $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::SIGN_UP);
 
         if (! $form) {
             return redirect()->route('promotion-requests')

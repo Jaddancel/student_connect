@@ -25,6 +25,17 @@ final class SubmissionPresenter
     }
 
     /**
+     * Whether a lone (option-less) checkbox was ticked. Tolerates the historic
+     * shapes ("1"/"on"/"yes"/true) as well as the normalized 1/0.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    public static function isChecked(array $payload, string $key): bool
+    {
+        return self::truthy($payload[$key] ?? null);
+    }
+
+    /**
      * A human-readable scalar rendering of a field's value.
      *
      * @param  array<string,mixed>  $payload

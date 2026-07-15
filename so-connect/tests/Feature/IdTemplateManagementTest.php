@@ -270,3 +270,82 @@ it('returns a note when no active template is configured', function () {
         'photo' => UploadedFile::fake()->image('front.jpg', 1000, 600),
     ])->assertOk()->assertJson(['student_id' => null, 'note' => 'no active template']);
 });
+
+/** The template_id the sidecar was asked to scan against, per the fake. */
+function sentScannerTemplateId(): ?int
+{
+    $sent = null;
+    Http::assertSent(function ($request) use (&$sent) {
+        $part = collect($request->data())->firstWhere('name', 'template');
+        $payload = json_decode((string) ($part['contents'] ?? ''), true);
+        $sent = $payload['template_id'] ?? null;
+
+        return true;
+    });
+
+    return $sent !== null ? (int) $sent : null;
+}
+
+it('scans against the template the wizard chose', function () {
+    Http::fake(['*/scan' => Http::response(['fields' => [], 'raw' => []], 200)]);
+
+    IdTemplate::query()->create(idTemplatePayload(['name' => 'Student ID']));
+    $chosen = IdTemplate::query()->create(idTemplatePayload(['name' => 'Employee ID', 'is_default' => false]));
+
+    $this->post(route('id-scan.scan'), [
+        'photo' => UploadedFile::fake()->image('front.jpg', 1000, 600),
+        'template_id' => $chosen->getKey(),
+    ])->assertOk();
+
+    expect(sentScannerTemplateId())->toBe((int) $chosen->getKey());
+});
+
+it('falls back to the default template for an unknown template_id', function () {
+    Http::fake(['*/scan' => Http::response(['fields' => [], 'raw' => []], 200)]);
+
+    $default = IdTemplate::query()->create(idTemplatePayload(['name' => 'Student ID']));
+
+    $this->post(route('id-scan.scan'), [
+        'photo' => UploadedFile::fake()->image('front.jpg', 1000, 600),
+        'template_id' => 999999,
+    ])->assertOk();
+
+    expect(sentScannerTemplateId())->toBe((int) $default->getKey());
+});
+
+it('refuses to scan against an inactive template', function () {
+    Http::fake(['*/scan' => Http::response(['fields' => [], 'raw' => []], 200)]);
+
+    $default = IdTemplate::query()->create(idTemplatePayload(['name' => 'Student ID']));
+    $inactive = IdTemplate::query()->create(idTemplatePayload([
+        'name' => 'Retired ID', 'is_active' => false, 'is_default' => false,
+    ]));
+
+    $this->post(route('id-scan.scan'), [
+        'photo' => UploadedFile::fake()->image('front.jpg', 1000, 600),
+        'template_id' => $inactive->getKey(),
+    ])->assertOk();
+
+    expect(sentScannerTemplateId())->toBe((int) $default->getKey());
+});
+
+it('lists active templates with signature sides for the wizard chooser', function () {
+    IdTemplate::query()->create(idTemplatePayload(['name' => 'Student ID']));
+    IdTemplate::query()->create(idTemplatePayload([
+        'name' => 'Employee ID',
+        'is_default' => false,
+        'zones' => [[
+            'name' => 'signature', 'label' => 'Signature',
+            'x1' => 100, 'y1' => 400, 'x2' => 500, 'y2' => 500,
+            'regex' => null, 'field' => 'signature', 'type' => 'signature',
+        ]],
+    ]));
+    IdTemplate::query()->create(idTemplatePayload(['name' => 'Retired ID', 'is_active' => false, 'is_default' => false]));
+
+    $choices = IdTemplate::scannerChoices();
+
+    expect(array_column($choices, 'name'))->toBe(['Student ID', 'Employee ID'])
+        ->and($choices[0]['signature_sides'])->toBe(['front' => false, 'back' => false])
+        ->and($choices[1]['signature_sides'])->toBe(['front' => true, 'back' => false])
+        ->and($choices[0])->toHaveKeys(['id', 'name', 'orientation', 'photo', 'signature_sides']);
+});

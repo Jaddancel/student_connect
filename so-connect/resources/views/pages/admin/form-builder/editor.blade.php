@@ -40,7 +40,7 @@
                 @endif
                 <button type="button" @click="save()" :disabled="saving"
                     class="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-60">
-                    <span x-show="!saving">{{ $form ? 'Save form' : 'Save draft' }}</span>
+                    <span x-show="!saving">Save form</span>
                     <span x-show="saving">Saving…</span>
                 </button>
             </div>
@@ -56,9 +56,18 @@
                 <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                     <h3 class="mb-3 text-sm font-semibold text-gray-800 dark:text-white/90">Field palette</h3>
                     <div class="grid grid-cols-2 gap-2">
-                        <template x-for="(meta, type) in catalog" :key="type">
+                        <template x-for="(meta, type) in fieldPalette" :key="type">
                             <button type="button" @click="addField(type)"
                                 class="rounded-lg border border-gray-200 px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:text-gray-300"
+                                x-text="meta.label"></button>
+                        </template>
+                    </div>
+                    {{-- Layout elements: presentation only, no submitted value --}}
+                    <h3 class="mb-2 mt-4 text-sm font-semibold text-gray-800 dark:text-white/90">Layout</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <template x-for="(meta, type) in layoutPalette" :key="type">
+                            <button type="button" @click="addField(type)"
+                                class="rounded-lg border border-dashed border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-500 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:text-gray-400"
                                 x-text="meta.label"></button>
                         </template>
                     </div>
@@ -102,7 +111,10 @@
                                                     :class="selectedKey === key ? 'border-brand-500 ring-1 ring-brand-300' : 'border-gray-200 dark:border-gray-700'">
                                                     <div class="flex items-center justify-between gap-2">
                                                         <div class="min-w-0">
-                                                            <div class="truncate text-sm font-medium text-gray-800 dark:text-white/90" x-text="field(key)?.field_label"></div>
+                                                            <div class="flex items-center gap-1 text-sm font-medium text-gray-800 dark:text-white/90">
+                                                                <span class="truncate" x-text="field(key)?.field_label"></span>
+                                                                <span x-show="field(key)?.is_required" class="text-error-500" title="Required">*</span>
+                                                            </div>
                                                             <div class="text-[10px] uppercase tracking-wide text-gray-400" x-text="field(key)?.field_type"></div>
                                                         </div>
                                                         <div class="flex items-center gap-1">
@@ -135,12 +147,15 @@
                         <div class="space-y-3" x-data="{ get f() { return field(selectedKey); } }">
                             <div>
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Label</label>
-                                <input type="text" x-model="f.field_label" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
+                                <input type="text" x-model="f.field_label" @input="onLabelInput(f)" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
                             </div>
                             <div>
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Field key</label>
-                                <input type="text" x-model="f.field_key" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 font-mono text-xs dark:border-gray-700 dark:text-white/90" disabled />
-                                <p class="mt-1 text-[10px] text-gray-400">Stored in the submission payload.</p>
+                                <p class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-xs text-gray-600 dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-300" x-text="f.field_key"></p>
+                                <p class="mt-1 text-[10px] text-gray-400"
+                                    x-text="f._keyLocked
+                                        ? 'Stored in the submission payload — locked after save.'
+                                        : 'Generated from the label; locks once the form is saved.'"></p>
                             </div>
                             <div x-show="!['heading','static-text'].includes(f.field_type)">
                                 <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
@@ -181,10 +196,70 @@
                                 <div><label class="mb-1 block text-[10px] text-gray-500">Step</label><input type="number" x-model="f.field_options.step" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:text-white/90" /></div>
                             </div>
 
-                            {{-- file accept --}}
+                            {{-- file accept — checkboxes over the hard allowlist --}}
                             <div x-show="isFileLike(f.field_type)">
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Accepted types</label>
-                                <input type="text" x-model="f.field_options.accept" placeholder="jpg,png,pdf" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
+                                <div class="flex flex-wrap gap-x-3 gap-y-1.5">
+                                    <template x-for="ext in acceptChoices(f.field_type)" :key="ext">
+                                        <label class="flex cursor-pointer items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
+                                            <input type="checkbox" :checked="acceptHas(f, ext)" @change="toggleAccept(f, ext)"
+                                                class="h-3.5 w-3.5 rounded border-gray-300 text-brand-500" />
+                                            <span x-text="ext.toUpperCase()"></span>
+                                        </label>
+                                    </template>
+                                </div>
+                                <p class="mt-1 text-[10px] text-gray-400">
+                                    Uploads are limited to JPEG, PNG and HEIC<span x-show="f.field_type === 'file'"> — plus PDF for file fields</span>.
+                                </p>
+                            </div>
+
+                            {{-- conditional visibility --}}
+                            <div>
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Visibility</label>
+                                <select :value="f.field_options.visible_when ? 'conditional' : 'always'"
+                                    @change="setVisibilityMode(f, $event.target.value)"
+                                    class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                    <option value="always">Always shown</option>
+                                    <option value="conditional">Only when a condition holds</option>
+                                </select>
+                                <template x-if="f.field_options.visible_when">
+                                    <div class="mt-2 space-y-2">
+                                        <select x-model="f.field_options.visible_when.field"
+                                            :disabled="conditionSources(f.field_key).length === 0"
+                                            class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                            <option value="" x-text="conditionSources(f.field_key).length === 0 ? '— no other fields in this row —' : '— when this field… —'"></option>
+                                            <template x-for="c in conditionSources(f.field_key)" :key="c.field_key">
+                                                <option :value="c.field_key" x-text="c.field_label"></option>
+                                            </template>
+                                        </select>
+                                        <select x-model="f.field_options.visible_when.op"
+                                            class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                            <option value="equals">equals</option>
+                                            <option value="not_equals">does not equal</option>
+                                            <option value="contains">contains / includes</option>
+                                            <option value="filled">is filled in</option>
+                                            <option value="empty">is empty</option>
+                                        </select>
+                                        <template x-if="needsConditionValue(f)">
+                                            <div>
+                                                <template x-if="conditionController(f) && isOptioned(conditionController(f).field_type)">
+                                                    <select x-model="f.field_options.visible_when.value"
+                                                        class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                                        <option value="">— choose an option —</option>
+                                                        <template x-for="opt in ((conditionController(f).field_options || {}).options || [])" :key="opt.value">
+                                                            <option :value="opt.value" x-text="opt.label"></option>
+                                                        </template>
+                                                    </select>
+                                                </template>
+                                                <template x-if="!conditionController(f) || !isOptioned(conditionController(f).field_type)">
+                                                    <input type="text" x-model="f.field_options.visible_when.value" placeholder="Comparison value"
+                                                        class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <p class="text-[10px] text-gray-400">The field is shown (and required) only while the condition holds; otherwise its value is not submitted.</p>
+                                    </div>
+                                </template>
                             </div>
 
                             {{-- choice options --}}
@@ -239,27 +314,29 @@
                     </div>
 
                     <div>
-                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Show in sidebar for</label>
-                        <div class="flex flex-wrap gap-3 text-xs text-gray-600 dark:text-gray-300">
-                            @foreach (['admin' => 'Admin', 'president' => 'President', 'officer' => 'Officer'] as $val => $label)
-                                <label class="flex items-center gap-1.5">
-                                    <input type="checkbox" value="{{ $val }}" x-model="sidebar_group" class="h-4 w-4 rounded border-gray-300 text-brand-500" />
-                                    {{ $label }}
-                                </label>
+                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">System function</label>
+                        <select x-model="system_function"
+                            class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                            <option value="">— None (regular form page) —</option>
+                            @foreach (\App\Forms\SystemFunction::catalog() as $fnKey => $fnMeta)
+                                <option value="{{ $fnKey }}">{{ $fnMeta['label'] }}</option>
                             @endforeach
-                        </div>
-                    </div>
-
-                    <div class="flex gap-4 text-xs text-gray-600 dark:text-gray-300">
-                        <label class="flex items-center gap-1.5"><input type="checkbox" x-model="is_active" class="h-4 w-4 rounded border-gray-300 text-brand-500" /> Active</label>
-                        <label class="flex items-center gap-1.5"><input type="checkbox" x-model="is_published" class="h-4 w-4 rounded border-gray-300 text-brand-500" /> Published</label>
-                    </div>
-
-                    <template x-if="is_published && !hasTemplate">
-                        <p class="rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600 dark:bg-error-500/10">
-                            A printed PDF template (Step 2) is required before this form can be published.
+                        </select>
+                        <p class="mt-1 text-xs text-gray-400">
+                            Binding makes this page drive that fixed system flow: submissions become requests an
+                            admin approves (accept writes to the system, reject sends the user back to the form).
+                            Each function can be bound to only one form.
                         </p>
-                    </template>
+                    </div>
+
+                    {{-- Forms publish on save — no draft/sidebar-targeting config. --}}
+                    <p class="rounded-lg px-3 py-2 text-xs font-medium"
+                        :class="hasTemplate
+                            ? 'bg-success-50 text-success-600 dark:bg-success-500/10 dark:text-success-500'
+                            : 'bg-warning-50 text-warning-600 dark:bg-warning-500/10 dark:text-orange-400'"
+                        x-text="hasTemplate
+                            ? 'Saving publishes this form to officers immediately.'
+                            : 'This form goes live to officers once it has a printed template (Step 2).'"></p>
                 </div>
             </div>
         </div>

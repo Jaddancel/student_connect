@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Forms\ConditionEvaluator;
 use App\Forms\FieldType;
+use App\Forms\SystemFunction;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Organization;
 use App\Services\DocumentGenerationService;
 use App\Support\OrganizationField;
+use App\Support\SignatureImage;
 use App\Support\UniversalField;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 /**
  * Generic renderer for WYSIWYG builder forms. One controller serves every form
@@ -29,6 +30,9 @@ class FormRenderController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
+        abort_unless(Form::isAccessibleBy($request->user()), 403,
+            'Form pages are available to organization officers only.');
+
         $fields = $form->fields()->get();
         $organization = OrganizationField::resolveOrganization($request->user());
 
@@ -39,7 +43,51 @@ class FormRenderController extends Controller
             'prefill' => $this->profilePrefill($request, $fields, $organization),
             // Option list for any field mapped to the "Advisers" universal field.
             'advisers' => OrganizationField::advisers($organization),
+            // Per-field visibility conditions for the client-side toggling.
+            'conditions' => ConditionEvaluator::clientConditions($fields),
+            'recentSubmissions' => $this->recentSubmissions($request, $form),
         ]);
+    }
+
+    /**
+     * The signed-in user's latest requests for this form, with their decision
+     * state — the pending/approved/rejected(+reason) feedback loop of the
+     * request lifecycle. Rejected → the user simply fills the form again.
+     *
+     * @return array<int,array{requested_at:?string, status:string, reason:string}>
+     */
+    private function recentSubmissions(Request $request, Form $form): array
+    {
+        $user = $request->user();
+        if (! $user) {
+            return [];
+        }
+
+        $requests = \App\Models\Request::query()
+            ->where('form_id', (int) $form->getKey())
+            ->where('requested_by', (int) $user->getKey())
+            ->orderByDesc('requested_at')
+            ->limit(5)
+            ->get();
+
+        if ($requests->isEmpty()) {
+            return [];
+        }
+
+        $approvals = \App\Models\Approval::query()
+            ->whereIn('request', $requests->pluck('request_id'))
+            ->get()
+            ->keyBy('request');
+
+        return $requests->map(function (\App\Models\Request $req) use ($approvals) {
+            $approval = $approvals->get($req->getKey());
+
+            return [
+                'requested_at' => optional($req->requested_at)->format('M j, Y g:i A'),
+                'status' => $approval === null ? 'pending' : ($approval->is_rejected ? 'rejected' : 'approved'),
+                'reason' => (string) ($approval?->rejection_reason ?? ''),
+            ];
+        })->all();
     }
 
     /**
@@ -84,6 +132,9 @@ class FormRenderController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
+        abort_unless(Form::isAccessibleBy($request->user()), 403,
+            'Form pages are available to organization officers only.');
+
         // Defense in depth: an untemplated form must never accept a submission,
         // since it could not produce its printed document.
         $pdfTemplate = (array) ($form->pdf_template ?? []);
@@ -93,10 +144,19 @@ class FormRenderController extends Controller
 
         $fields = $form->fields()->get();
 
+        // Conditional visibility is enforced server-side against the raw
+        // input, regardless of what the client showed: hidden fields skip
+        // validation entirely and their values are dropped from the payload.
+        $visibility = ConditionEvaluator::visibilityMap(
+            $fields,
+            fn (string $key) => $request->input($key),
+        );
+        $isHidden = fn (string $key): bool => ($visibility[$key] ?? true) === false;
+
         // Build validation rules dynamically from the field catalog.
         $rules = [];
         foreach ($fields as $field) {
-            if (FieldType::isPresentational($field->field_type)) {
+            if (FieldType::isPresentational($field->field_type) || $isHidden($field->field_key)) {
                 continue;
             }
             $fieldRules = FieldType::validationRules(
@@ -120,6 +180,11 @@ class FormRenderController extends Controller
                 continue;
             }
 
+            if ($isHidden($key)) {
+                $payload[$key] = null;
+                continue;
+            }
+
             if (FieldType::isFileLike($type)) {
                 if ($request->hasFile($key)) {
                     $payload[$key] = $request->file($key)->store(
@@ -133,7 +198,17 @@ class FormRenderController extends Controller
             }
 
             if ($type === FieldType::SIGNATURE) {
-                $payload[$key] = $this->storeSignature($validated[$key] ?? null, $form->route_name);
+                $payload[$key] = $this->resolveSignature($validated[$key] ?? null, $form->route_name, $request);
+                continue;
+            }
+
+            // A single checkmark (no option list) is a boolean the browser omits
+            // entirely when unticked. Store it as 1 (checked) / 0 (unchecked) so
+            // scoring-rule conditions can reliably test it (`field:key = 1`/`= 0`).
+            // Checkbox groups keep their submitted array of chosen values.
+            if ($type === FieldType::CHECKBOX
+                && FieldType::optionValues((array) ($field->field_options ?? [])) === []) {
+                $payload[$key] = ! empty($validated[$key] ?? null) ? 1 : 0;
                 continue;
             }
 
@@ -150,52 +225,65 @@ class FormRenderController extends Controller
             }
         }
 
+        // A form bound to a system function routes its submission into that
+        // function's request-approval flow instead of generating immediately.
+        $handler = SystemFunction::handlerForForm($form);
+        if ($handler) {
+            $handler->validatePayload($form, $payload, $request);
+        }
+
+        // Bound forms keep the form's own org scoping (previous behavior);
+        // a plain form's submission belongs to the submitter's organization —
+        // the approval-time org check and the scoring joins both key on it.
+        $submissionOrgId = $handler
+            ? $form->organization_id
+            : ($organization?->getKey() ?? $form->organization_id);
+
         $submission = FormSubmission::query()->create([
             'form_id' => (int) $form->getKey(),
-            'organization_id' => $form->organization_id,
+            'organization_id' => $submissionOrgId,
             'submitted_by' => $user ? (int) $user->getKey() : null,
             'payload' => $payload,
             'submitted_at' => now(),
         ]);
 
-        try {
-            $docService->generateFromSubmission(
-                $submission->fresh('form'),
-                null,
-                $user ? (int) $user->getKey() : 0,
-            );
-
-            return redirect()->route('documents.index')
-                ->with('success', $form->name.' submitted and the PDF has been generated.');
-        } catch (\Throwable $e) {
-            return redirect()->route('forms.render', $form->route_name)
-                ->with('success', $form->name.' submitted, but PDF generation failed: '.$e->getMessage());
+        if ($handler) {
+            return $handler->handle($form, $submission, $payload, $request);
         }
+
+        // Plain forms follow the request-approval lifecycle: the submission
+        // waits as a pending request on the form's own admin request page;
+        // the document is generated when an admin approves, and a rejection
+        // sends the submitter back to this form.
+        $docService->createDocumentGenerationRequest(
+            $submissionOrgId ? (int) $submissionOrgId : null,
+            (int) $submission->getKey(),
+            (int) $form->getKey(),
+            $user ? (int) $user->getKey() : 0,
+        );
+
+        return redirect()->route('forms.render', $form->route_name)
+            ->with('success', $form->name.' submitted for approval — the document will be generated once an admin approves it.');
     }
 
     /**
-     * Persist a captured signature (a base64 PNG data-URL) as a file and return
-     * its disk-relative path, or null if nothing was drawn.
+     * Resolve a submitted signature value to a stored path. A freshly-drawn
+     * data-URL is persisted as a new PNG; the submitter's own saved profile
+     * signature (offered as prefill) is kept as its existing path. Anything
+     * else — notably an arbitrary path a client could inject — is dropped.
      */
-    private function storeSignature(?string $dataUrl, string $routeName): ?string
+    private function resolveSignature(?string $value, string $routeName, Request $request): ?string
     {
-        if (! is_string($dataUrl) || ! str_starts_with($dataUrl, 'data:image')) {
+        if (! is_string($value) || $value === '') {
             return null;
         }
 
-        $parts = explode(',', $dataUrl, 2);
-        if (count($parts) !== 2) {
-            return null;
+        if (str_starts_with($value, 'data:image')) {
+            return SignatureImage::storeDataUrl($value, 'form-uploads/'.$routeName.'/signatures');
         }
 
-        $binary = base64_decode($parts[1], true);
-        if ($binary === false) {
-            return null;
-        }
+        $profileSignature = $request->user()?->profile()->first()?->signature_path;
 
-        $path = 'form-uploads/'.$routeName.'/signatures/'.Str::random(20).'.png';
-        Storage::disk((string) config('documents.disk', 'public'))->put($path, $binary);
-
-        return $path;
+        return ($profileSignature !== null && $value === $profileSignature) ? $value : null;
     }
 }

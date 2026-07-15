@@ -73,7 +73,7 @@ class WorkplanController extends Controller
         $requestStatus = null; // null | 'pending' | 'approved' | 'rejected'
         $generatedDocument = null;
 
-        $workplanForm = Form::query()->where('route_name', 'workplan')->first();
+        $workplanForm = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_WORKPLAN);
         if ($workplanForm) {
             $matchedSubmission = FormSubmission::query()
                 ->where('form_id', (int) $workplanForm->getKey())
@@ -202,7 +202,7 @@ class WorkplanController extends Controller
             ];
         })->values()->all();
 
-        $form = Form::query()->where('route_name', 'workplan')->firstOrFail();
+        $form = \App\Forms\SystemFunction::formOrFail(\App\Forms\SystemFunction::NEW_WORKPLAN);
 
         $sigDir = 'form-signatures/'.now()->format('Y/m');
 
@@ -266,7 +266,7 @@ class WorkplanController extends Controller
             }
         }
 
-        $workplanForm = Form::query()->where('route_name', 'workplan')->first();
+        $workplanForm = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_WORKPLAN);
         if (! $workplanForm) {
             abort(404);
         }

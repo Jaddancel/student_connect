@@ -22,9 +22,7 @@ export function formBuilder(config) {
         name: config.data.name || '',
         description_text: config.data.description_text || '',
         route_name: config.data.route_name || '',
-        sidebar_group: config.data.sidebar_group || [],
-        is_active: config.data.is_active ?? true,
-        is_published: config.data.is_published ?? false,
+        system_function: config.data.system_function || '',
         fields: config.data.fields || [],
         rows: config.data.rows || [],
         // The letterhead (header) and footer belong to the printed document, so
@@ -49,6 +47,11 @@ export function formBuilder(config) {
         error: '',
 
         init() {
+            // Keys of already-saved fields are frozen: syncFields() upserts by
+            // (form_id, field_key), so renaming one would prune the row and
+            // orphan its submissions and scoring variables.
+            this.fields.forEach((f) => { f._keyLocked = true; });
+
             // Auto-slug the route name from the title while creating.
             if (!this.isEdit) {
                 this.$watch('name', (v) => {
@@ -89,17 +92,32 @@ export function formBuilder(config) {
             return (this.catalog[type] && this.catalog[type].label) || type;
         },
 
+        // --- palette sections ---
+        get fieldPalette() {
+            return Object.fromEntries(
+                Object.entries(this.catalog).filter(([, meta]) => meta.group !== 'layout'),
+            );
+        },
+
+        get layoutPalette() {
+            return Object.fromEntries(
+                Object.entries(this.catalog).filter(([, meta]) => meta.group === 'layout'),
+            );
+        },
+
         // --- field creation ---
         addField(type) {
-            const key = this.uniqueKey(type);
+            const label = this.labelFor(type);
+            const key = this.keyFromLabel(label);
             const f = {
                 field_key: key,
-                field_label: this.labelFor(type),
+                field_label: label,
                 field_type: type,
                 is_required: false,
                 placeholder_hint: '',
                 field_options: this.defaultOptions(type),
                 universal_key: '',
+                _keyLocked: false, // client-only: key follows the label until saved
             };
             this.fields.push(f);
             // Each new field starts in its own full-width row.
@@ -109,7 +127,8 @@ export function formBuilder(config) {
         },
 
         defaultOptions(type) {
-            if (['select', 'radio', 'checkbox'].includes(type)) {
+            // A checkbox is a single yes/no checkmark — it carries no option list.
+            if (['select', 'radio'].includes(type)) {
                 return { options: [{ value: 'option_1', label: 'Option 1' }] };
             }
             if (type === 'age') return { min: 0, max: 150, step: 1 };
@@ -117,16 +136,47 @@ export function formBuilder(config) {
             return {};
         },
 
-        uniqueKey(type) {
-            const base = type.replace(/[^a-z0-9]+/gi, '_');
-            let i = 1;
-            let key = `${base}_${i}`;
-            const taken = new Set(this.fields.map((f) => f.field_key));
-            while (taken.has(key)) {
-                i += 1;
-                key = `${base}_${i}`;
-            }
-            return key;
+        /**
+         * Auto-generate a field key from its label ("Event Title" →
+         * `event_title`), unique within this form (`_2`, `_3`… on collision).
+         */
+        keyFromLabel(label, excludeKey = null) {
+            const base = (label || '').toString().toLowerCase().trim()
+                .replace(/[^a-z0-9]+/g, '_')
+                .replace(/^_+|_+$/g, '') || 'field';
+            const taken = new Set(
+                this.fields.filter((f) => f.field_key !== excludeKey).map((f) => f.field_key),
+            );
+            if (!taken.has(base)) return base;
+            let i = 2;
+            while (taken.has(`${base}_${i}`)) i += 1;
+            return `${base}_${i}`;
+        },
+
+        /** Live key regeneration while the label of an unsaved field is edited. */
+        onLabelInput(f) {
+            if (f._keyLocked) return;
+            const fresh = this.keyFromLabel(f.field_label, f.field_key);
+            if (fresh !== f.field_key) this.renameFieldKey(f.field_key, fresh);
+        },
+
+        /** Rename a field key everywhere the model references it. */
+        renameFieldKey(oldKey, newKey) {
+            const f = this.field(oldKey);
+            if (!f) return;
+            f.field_key = newKey;
+            this.rows.forEach((row) => {
+                row.columns.forEach((col) => {
+                    col.fields = col.fields.map((k) => (k === oldKey ? newKey : k));
+                });
+            });
+            this.fields.forEach((other) => {
+                if (other.field_options && other.field_options.visible_when
+                    && other.field_options.visible_when.field === oldKey) {
+                    other.field_options.visible_when.field = newKey;
+                }
+            });
+            if (this.selectedKey === oldKey) this.selectedKey = newKey;
         },
 
         removeField(key) {
@@ -137,8 +187,49 @@ export function formBuilder(config) {
                 });
             });
             this.rows = this.rows.filter((row) => row.columns.some((c) => c.fields.length));
+            // Conditions pointing at the removed field would dangle — drop them.
+            this.fields.forEach((f) => {
+                if (f.field_options && f.field_options.visible_when && f.field_options.visible_when.field === key) {
+                    delete f.field_options.visible_when;
+                }
+            });
             if (this.selectedKey === key) this.selectedKey = null;
             this.$nextTick(() => this.wireSortables());
+        },
+
+        // --- conditional visibility ---
+        setVisibilityMode(f, mode) {
+            if (mode === 'conditional') {
+                if (!f.field_options.visible_when) {
+                    f.field_options.visible_when = { field: '', op: 'equals', value: '' };
+                }
+            } else if (f.field_options.visible_when) {
+                delete f.field_options.visible_when;
+            }
+        },
+        /** Keys of the fields sharing a row with the given field (self excluded). */
+        rowSiblingKeys(fieldKey) {
+            const row = this.rows.find((r) => r.columns.some((c) => c.fields.includes(fieldKey)));
+            if (!row) return [];
+            return row.columns.flatMap((c) => c.fields).filter((k) => k !== fieldKey);
+        },
+        /**
+         * Fields that may control a condition: they must sit in the same row as
+         * the dependent field (a field can only react to its row-mates) and
+         * carry a value (layout/upload/signature controls are excluded).
+         */
+        conditionSources(exceptKey) {
+            const siblings = new Set(this.rowSiblingKeys(exceptKey));
+            return this.fields.filter((f) => siblings.has(f.field_key)
+                && !['heading', 'static-text', 'image', 'file', 'signature'].includes(f.field_type));
+        },
+        conditionController(f) {
+            const key = f.field_options.visible_when && f.field_options.visible_when.field;
+            return key ? this.field(key) : null;
+        },
+        needsConditionValue(f) {
+            const op = f.field_options.visible_when && f.field_options.visible_when.op;
+            return !!op && !['filled', 'empty'].includes(op);
         },
 
         // --- row / column controls ---
@@ -177,13 +268,40 @@ export function formBuilder(config) {
             f.field_options.options.splice(i, 1);
         },
         isOptioned(type) {
-            return ['select', 'radio', 'checkbox'].includes(type);
+            // Checkbox intentionally excluded: it is a single checkmark, not a
+            // multi-option group, so the builder offers no option editor for it.
+            return ['select', 'radio'].includes(type);
         },
         isNumeric(type) {
             return ['number', 'age'].includes(type);
         },
         isFileLike(type) {
             return ['image', 'file'].includes(type);
+        },
+
+        // --- upload accept (checkboxes over the server's hard allowlist) ---
+        acceptChoices(type) {
+            return type === 'file' ? ['jpeg', 'png', 'heic', 'pdf'] : ['jpeg', 'png', 'heic'];
+        },
+        acceptList(f) {
+            return String(f.field_options.accept || '')
+                .split(',')
+                .map((e) => e.trim().replace(/^\./, '').toLowerCase())
+                .map((e) => (e === 'jpg' ? 'jpeg' : e))
+                .filter(Boolean);
+        },
+        // An empty accept means "everything the allowlist permits".
+        acceptHas(f, ext) {
+            const list = this.acceptList(f);
+            return !list.length || list.includes(ext);
+        },
+        toggleAccept(f, ext) {
+            const choices = this.acceptChoices(f.field_type);
+            let list = this.acceptList(f);
+            if (!list.length) list = [...choices];
+            list = list.includes(ext) ? list.filter((e) => e !== ext) : [...list, ext];
+            list = choices.filter((e) => list.includes(e));
+            f.field_options.accept = list.length === choices.length ? '' : list.join(',');
         },
 
         // --- drag wiring ---
@@ -222,22 +340,14 @@ export function formBuilder(config) {
             this.message = '';
             this.error = '';
 
-            // Require a printed template before a form may be published.
-            if (this.is_published && !this.hasTemplate) {
-                this.step = 2;
-                this.error = 'Add a printed PDF template (Step 2) before publishing this form.';
-                return;
-            }
-
             this.saving = true;
+            // Saving publishes — active/published/sidebar are server-decided.
             const payload = {
                 name: this.name,
                 description_text: this.description_text,
                 route_name: this.route_name,
-                sidebar_group: this.sidebar_group,
-                is_active: this.is_active,
-                is_published: this.is_published,
-                fields: this.fields,
+                system_function: this.system_function || null,
+                fields: this.fields.map(({ _keyLocked, ...field }) => field),
                 rows: this.rows,
                 pdf_template: this.pdf_template,
             };
@@ -254,6 +364,8 @@ export function formBuilder(config) {
                 const json = await res.json();
                 if (res.ok) {
                     this.message = json.message || 'Saved.';
+                    // Every field is now persisted — its key is frozen for good.
+                    this.fields.forEach((f) => { f._keyLocked = true; });
                     if (!this.isEdit && json.redirect) {
                         window.location = json.redirect;
                     }

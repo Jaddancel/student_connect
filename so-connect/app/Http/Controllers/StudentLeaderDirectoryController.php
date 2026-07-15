@@ -30,6 +30,8 @@ class StudentLeaderDirectoryController extends Controller
             'currentSchoolYear'  => Semester::currentSchoolYear(),
             'currentSemester'    => $currentSemester?->semesterLabel() ?? '',
             'scannerOrientation' => IdTemplate::scannerTemplate()?->orientation ?: 'vertical',
+            // Every active template, for the wizard's chooser (shown when 2+).
+            'scannerTemplates'   => IdTemplate::scannerChoices(),
             // Carried over from the landing page's "Sign up with Google" button
             // (see landingpage.blade.php) as query params after the OAuth popup
             // resolves. Only used to pre-fill Step 2 — the ID scan is still required.
@@ -183,7 +185,7 @@ class StudentLeaderDirectoryController extends Controller
 
         // Create the FormSubmission first so its ID can be stored in the request payload
         $submissionId = null;
-        $form = Form::query()->where('route_name', 'student-leader-directory')->first();
+        $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::SIGN_UP);
 
         if ($form) {
             $submission = FormSubmission::query()->create([
@@ -206,6 +208,7 @@ class StudentLeaderDirectoryController extends Controller
         ActionRequest::query()->create([
             'action'       => "0|{$organizationId}|new_officer",
             'action_type'  => 11,
+            'form_id'      => $form ? (int) $form->getKey() : null,
             'payload'      => array_merge($payload, ['form_submission_id' => $submissionId]),
             'user'         => $userId > 0 ? $userId : null,
             'requested_at' => now(),

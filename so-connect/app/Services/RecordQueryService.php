@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Helpers\OrganizationLogoHelper;
+use App\Models\ActionLog;
 use App\Models\Approval;
 use App\Models\LoginLog;
 use App\Models\Organization;
@@ -87,9 +88,82 @@ class RecordQueryService
             ->all();
     }
 
+    /**
+     * Administrator action logs, filterable by user (name/email), category
+     * and date range — the same shape as loginLogsQuery().
+     *
+     * @param  array{from?: string, to?: string, category?: string, user?: string}  $filters
+     */
+    public function actionLogsQuery(array $filters = []): Builder
+    {
+        $query = ActionLog::with(['user.profile'])->orderByDesc('created_at');
+
+        if (! empty($filters['from'])) {
+            $query->where('created_at', '>=', Carbon::parse($filters['from'])->startOfDay());
+        }
+
+        if (! empty($filters['to'])) {
+            $query->where('created_at', '<=', Carbon::parse($filters['to'])->endOfDay());
+        }
+
+        if (! empty($filters['category'])) {
+            $query->where('category', $filters['category']);
+        }
+
+        if (! empty($filters['user'])) {
+            $user = $filters['user'];
+            $query->whereHas('user', function ($userQuery) use ($user) {
+                $userQuery->where('user_email', 'like', "%{$user}%")
+                    ->orWhereHas('profile', function ($profileQuery) use ($user) {
+                        $profileQuery->where('first_name', 'like', "%{$user}%")
+                            ->orWhere('middle_name', 'like', "%{$user}%")
+                            ->orWhere('last_name', 'like', "%{$user}%");
+                    });
+            });
+        }
+
+        return $query;
+    }
+
+    public function mapActionLog(ActionLog $log): array
+    {
+        $user = $log->user;
+        // `profile` is a FK column on users and shadows the relation (see
+        // mapLoginLog above).
+        $profile = $user?->getRelations()['profile'] ?? null;
+        $nameParts = array_filter([
+            $profile?->first_name,
+            $profile?->middle_name,
+            $profile?->last_name,
+        ], fn ($part) => trim((string) $part) !== '');
+        $name = $nameParts ? trim(implode(' ', $nameParts)) : ($user?->user_email ?? '');
+
+        return [
+            'user_email' => $user?->user_email ?? '-',
+            'name' => $name !== '' ? $name : '-',
+            'category' => $log->category,
+            'category_label' => ActionLogger::categoryLabel($log->category),
+            'action' => $log->action,
+            'description' => $log->description ?? '',
+            'meta' => (array) ($log->meta ?? []),
+            'created_at' => optional($log->created_at)->toDateTimeString(),
+        ];
+    }
+
+    /**
+     * @param  array{from?: string, to?: string, category?: string, user?: string}  $filters
+     */
+    public function getActionLogs(array $filters = []): array
+    {
+        return $this->actionLogsQuery($filters)
+            ->get()
+            ->map(fn (ActionLog $log) => $this->mapActionLog($log))
+            ->all();
+    }
+
     public function getRequestRecords(?string $orgId, bool $excludeAdminUsers = false): array
     {
-        $query = ActionRequest::with(['requestType', 'requester'])->orderByDesc('requested_at');
+        $query = ActionRequest::with(['requestType', 'requester', 'form'])->orderByDesc('requested_at');
 
         if ($orgId) {
             $query->where('organization_id', $orgId);
@@ -113,7 +187,11 @@ class RecordQueryService
                 'user_id' => $req->user !== null ? $req->user : 'Guest',
                 'org_id' => $req->organization_id,
                 'request_time' => optional($req->requested_at)->toDateTimeString(),
-                'request_type' => optional($req->requestType)->name ?? 'Unknown',
+                // The request type is named after the form page the request was
+                // made from; requests with no originating form fall back to
+                // their request-type name.
+                'request_type' => $req->form?->name
+                    ?? (optional($req->requestType)->name ?? 'Unknown'),
             ];
 
             if (isset($rejectedIds[$req->request_id])) {

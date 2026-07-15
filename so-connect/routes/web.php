@@ -317,6 +317,17 @@ Route::middleware('auth')->group(function () {
     Route::get('/forms', [FormDirectoryController::class, 'index'])->name('forms.directory');
     Route::get('/forms/{routeName}', [FormRenderController::class, 'show'])->name('forms.render');
     Route::post('/forms/{routeName}', [FormRenderController::class, 'submit'])->name('forms.render.submit');
+
+    // Stable entry point for a system function's bound form page (sign_up,
+    // new_event, new_workplan, membership_registration — see SystemFunction).
+    Route::get('/functions/{fn}', function (string $fn) {
+        abort_unless(\App\Forms\SystemFunction::has($fn), 404);
+        $form = \App\Forms\SystemFunction::form($fn);
+        abort_if(! $form || ! $form->route_name, 404,
+            'No form is bound to the "'.\App\Forms\SystemFunction::label($fn).'" function yet.');
+
+        return redirect()->route('forms.render', $form->route_name);
+    })->name('functions.show');
 });
 
 Route::middleware(['auth', 'admin'])->group(function () {
@@ -329,6 +340,20 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/semesters', [SemesterController::class, 'store'])->name('admin.semesters.store');
     Route::get('/admin/semesters/{semester}/edit', [SemesterController::class, 'edit'])->name('admin.semesters.edit');
     Route::patch('/admin/semesters/{semester}', [SemesterController::class, 'update'])->name('admin.semesters.update');
+
+    // Generic per-form request pages: every form page has its own queue
+    // (forms bound to sign-up/new-event/new-workplan 404 — dedicated flows).
+    Route::get('/admin/form-requests/{form}', [\App\Http\Controllers\Admin\FormRequestController::class, 'index'])
+        ->whereNumber('form')
+        ->name('admin.form-requests.index');
+    Route::get('/admin/form-requests/{form}/{requestId}', [\App\Http\Controllers\Admin\FormRequestController::class, 'show'])
+        ->whereNumber('form')
+        ->whereNumber('requestId')
+        ->name('admin.form-requests.show');
+    Route::post('/admin/form-requests/{form}/{requestId}/decide', [\App\Http\Controllers\Admin\FormRequestController::class, 'decide'])
+        ->whereNumber('form')
+        ->whereNumber('requestId')
+        ->name('admin.form-requests.decide');
 
     Route::get('/admin/activity-requests', [AdminActivityRequestController::class, 'index'])
         ->name('admin.activity-requests.index');
@@ -413,6 +438,30 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::put('/admin/scoring/{id}', [OrganizationScoringController::class, 'update'])
         ->whereNumber('id')
         ->name('admin.scoring.update');
+
+    // Scratch-like trigger editor for the scoring system's criteria.
+    Route::get('/admin/scoring-rules', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'index'])
+        ->name('admin.scoring.rules.index');
+    Route::post('/admin/scoring-rules/criteria', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'storeCriterion'])
+        ->name('admin.scoring.criteria.store');
+    Route::put('/admin/scoring-rules/criteria/{criterion}', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'updateCriterion'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.criteria.update');
+    Route::delete('/admin/scoring-rules/criteria/{criterion}', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'destroyCriterion'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.criteria.destroy');
+    Route::get('/admin/scoring-rules/{criterion}/edit', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'editRule'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.rules.edit');
+    Route::put('/admin/scoring-rules/{criterion}', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'updateRule'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.rules.update');
+    Route::patch('/admin/scoring-rules/{criterion}/toggle', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'toggleRule'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.rules.toggle');
+    Route::delete('/admin/scoring-rules/{criterion}/rule', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'destroyRule'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.rules.destroy');
 
     Route::get('/admin/audit-logs', [AuditLogController::class, 'index'])
         ->name('admin.audit-logs.index');
@@ -649,6 +698,8 @@ Route::get('/profile', function () {
 
 Route::get('/profile/create', [ProfileController::class, 'profileForm'])->middleware('auth')->name('profile.create');
 Route::post('/profile/create', [ProfileController::class, 'store'])->middleware('auth')->name('profile.store');
+Route::post('/profile/signature', [ProfileController::class, 'updateSignature'])->middleware('auth')->name('profile.signature');
+Route::post('/signature/verify', [\App\Http\Controllers\SignatureVerificationController::class, 'verify'])->middleware('auth')->name('signature.verify');
 
 // form pages
 Route::get('/form-elements', function () {
@@ -977,6 +1028,17 @@ Route::middleware(['auth', 'superadmin'])->group(function () {
         ->name('superadmin.id-templates.update');
     Route::delete('/superadmin/id-templates/{idTemplate}', [IdTemplateController::class, 'destroy'])
         ->name('superadmin.id-templates.destroy');
+
+    // Administrator action log (login/logout, scoring, form + ID-template
+    // editing, scoring-rule changes) — searchable and exportable.
+    Route::get('/superadmin/action-logs', [\App\Http\Controllers\Admin\ActionLogController::class, 'index'])
+        ->name('superadmin.action-logs.index');
+    Route::get('/superadmin/action-logs/export/json', [\App\Http\Controllers\Admin\ActionLogController::class, 'exportJson'])
+        ->name('superadmin.action-logs.export.json');
+    Route::get('/superadmin/action-logs/export/pdf', [\App\Http\Controllers\Admin\ActionLogController::class, 'exportPdf'])
+        ->name('superadmin.action-logs.export.pdf');
+    Route::get('/superadmin/action-logs/export/xlsx', [\App\Http\Controllers\Admin\ActionLogController::class, 'exportXlsx'])
+        ->name('superadmin.action-logs.export.xlsx');
 });
 
 // Auto-scan pre-fill for the (public) student-leader-directory signup form.

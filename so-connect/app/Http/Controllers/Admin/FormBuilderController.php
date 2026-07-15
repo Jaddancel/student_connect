@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Forms\ConditionEvaluator;
 use App\Forms\FieldType;
+use App\Forms\SystemFunction;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
 use App\Models\Form\FormDescription;
@@ -38,7 +40,7 @@ class FormBuilderController extends Controller
             'title' => 'New Form',
             'form' => null,
             'editorData' => $this->blankEditorData(),
-            'fieldCatalog' => FieldType::catalog(),
+            'fieldCatalog' => FieldType::paletteCatalog(),
         ]);
     }
 
@@ -48,7 +50,7 @@ class FormBuilderController extends Controller
             'title' => 'Edit Form',
             'form' => $form,
             'editorData' => $this->editorDataFromForm($form),
-            'fieldCatalog' => FieldType::catalog(),
+            'fieldCatalog' => FieldType::paletteCatalog(),
         ]);
     }
 
@@ -61,7 +63,7 @@ class FormBuilderController extends Controller
                 'name' => $data['name'],
                 'description_text' => $data['description_text'],
                 'route_name' => $data['route_name'],
-                'sidebar_group' => $data['sidebar_group'],
+                'system_function' => $data['system_function'],
                 'is_active' => $data['is_active'],
                 'is_published' => $data['is_published'],
                 'created_by' => $request->user()?->getKey(),
@@ -70,13 +72,25 @@ class FormBuilderController extends Controller
             ]);
 
             $this->syncFields($form, $data['fields']);
+            $this->syncRequestType($form, $request->user()?->getKey());
 
             return $form;
         });
 
+        \App\Services\ActionLogger::log(
+            \App\Services\ActionLogger::CATEGORY_FORM_BUILDER,
+            'created',
+            'Created form "'.$form->name.'"',
+            ['form_id' => (int) $form->getKey(), 'route_name' => $form->route_name, 'system_function' => $form->system_function],
+            $form,
+        );
+
+        // The editor navigates back to the listing next; greet it with the toast.
+        session()->flash('toast', 'Form created.');
+
         return response()->json([
             'message' => 'Form created.',
-            'redirect' => route('admin.form-builder.edit', $form),
+            'redirect' => route('admin.form-builder.index'),
         ]);
     }
 
@@ -84,12 +98,12 @@ class FormBuilderController extends Controller
     {
         $data = $this->validatePayload($request, $form);
 
-        DB::transaction(function () use ($data, $form) {
+        DB::transaction(function () use ($data, $form, $request) {
             $form->update([
                 'name' => $data['name'],
                 'description_text' => $data['description_text'],
                 'route_name' => $data['route_name'],
-                'sidebar_group' => $data['sidebar_group'],
+                'system_function' => $data['system_function'],
                 'is_active' => $data['is_active'],
                 'is_published' => $data['is_published'],
                 'layout' => ['rows' => $data['rows']],
@@ -97,11 +111,23 @@ class FormBuilderController extends Controller
             ]);
 
             $this->syncFields($form, $data['fields']);
+            $this->syncRequestType($form, $request->user()?->getKey());
         });
+
+        \App\Services\ActionLogger::log(
+            \App\Services\ActionLogger::CATEGORY_FORM_BUILDER,
+            'updated',
+            'Updated form "'.$form->name.'"',
+            ['form_id' => (int) $form->getKey(), 'route_name' => $form->route_name, 'system_function' => $form->system_function],
+            $form,
+        );
+
+        // The editor navigates back to the listing next; greet it with the toast.
+        session()->flash('toast', 'Form saved.');
 
         return response()->json([
             'message' => 'Form saved.',
-            'redirect' => route('admin.form-builder.edit', $form),
+            'redirect' => route('admin.form-builder.index'),
         ]);
     }
 
@@ -109,6 +135,13 @@ class FormBuilderController extends Controller
     {
         $form->fields()->delete();
         $form->delete();
+
+        \App\Services\ActionLogger::log(
+            \App\Services\ActionLogger::CATEGORY_FORM_BUILDER,
+            'deleted',
+            'Deleted form "'.$form->name.'"',
+            ['form_id' => (int) $form->getKey(), 'route_name' => $form->route_name],
+        );
 
         return redirect()->route('admin.form-builder.index')
             ->with('success', 'Form deleted.');
@@ -145,10 +178,10 @@ class FormBuilderController extends Controller
                 'required', 'string', 'max:255', 'regex:/^[a-z0-9-]+$/',
                 Rule::unique('forms', 'route_name')->ignore($formId),
             ],
-            'sidebar_group' => ['nullable', 'array'],
-            'sidebar_group.*' => ['string', Rule::in(['officer', 'president', 'superadmin', 'admin'])],
-            'is_active' => ['boolean'],
-            'is_published' => ['boolean'],
+            'system_function' => [
+                'nullable', 'string', Rule::in(SystemFunction::keys()),
+                Rule::unique('forms', 'system_function')->ignore($formId),
+            ],
             'fields' => ['present', 'array'],
             'fields.*.field_key' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9_]+$/'],
             'fields.*.field_label' => ['required', 'string', 'max:255'],
@@ -156,6 +189,23 @@ class FormBuilderController extends Controller
             'fields.*.is_required' => ['boolean'],
             'fields.*.placeholder_hint' => ['nullable', 'string', 'max:255'],
             'fields.*.field_options' => ['nullable', 'array'],
+            // Choice controls (select/radio/checkbox). Each option is a
+            // {value,label} pair; these MUST be whitelisted or validate()
+            // silently drops them and the field renders with no choices.
+            'fields.*.field_options.options' => ['nullable', 'array'],
+            'fields.*.field_options.options.*.value' => ['nullable', 'string', 'max:255'],
+            'fields.*.field_options.options.*.label' => ['nullable', 'string', 'max:255'],
+            // Presentational + numeric + upload option keys the builder emits.
+            'fields.*.field_options.content' => ['nullable', 'string', 'max:5000'],
+            'fields.*.field_options.rows' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'fields.*.field_options.min' => ['nullable', 'numeric'],
+            'fields.*.field_options.max' => ['nullable', 'numeric'],
+            'fields.*.field_options.step' => ['nullable', 'numeric'],
+            'fields.*.field_options.accept' => ['nullable', 'string', 'max:255'],
+            'fields.*.field_options.visible_when' => ['nullable', 'array'],
+            'fields.*.field_options.visible_when.field' => ['nullable', 'string', 'max:255'],
+            'fields.*.field_options.visible_when.op' => ['nullable', 'string', Rule::in(ConditionEvaluator::OPS)],
+            'fields.*.field_options.visible_when.value' => ['nullable', 'string', 'max:255'],
             'fields.*.universal_key' => ['nullable', 'string', Rule::in(UniversalField::keys())],
             'rows' => ['present', 'array'],
             'pdf_template' => ['nullable', 'array'],
@@ -179,28 +229,124 @@ class FormBuilderController extends Controller
             abort(response()->json(['message' => 'Field keys must be unique within a form.'], 422));
         }
 
-        $pdfTemplate = $this->cleanPdfTemplate($validated['pdf_template'] ?? []);
-        $isPublished = (bool) ($validated['is_published'] ?? false);
+        $validated['fields'] = $this->normalizeVisibilityConditions($validated['fields']);
 
-        // A form requires a printed PDF template before it can be published.
-        if ($isPublished && ! $this->templateHasContent($pdfTemplate['html'])) {
-            abort(response()->json([
-                'message' => 'A printed PDF template (Step 2) is required before this form can be published.',
-                'errors' => ['pdf_template' => ['A printed PDF template is required before publishing.']],
-            ], 422));
-        }
+        $pdfTemplate = $this->cleanPdfTemplate($validated['pdf_template'] ?? []);
 
         return [
             'name' => $validated['name'],
             'description_text' => $validated['description_text'] ?? null,
             'route_name' => $validated['route_name'],
-            'sidebar_group' => array_values($validated['sidebar_group'] ?? []),
-            'is_active' => (bool) ($validated['is_active'] ?? true),
-            'is_published' => $isPublished,
+            'system_function' => ($validated['system_function'] ?? '') !== '' ? $validated['system_function'] : null,
+            // Saving publishes: there is no draft state. A form without a
+            // printed template stays unpublished (it can't accept submissions
+            // yet) and goes live automatically once the template is added.
+            'is_active' => true,
+            'is_published' => $this->templateHasContent($pdfTemplate['html']),
             'fields' => $validated['fields'],
             'rows' => $this->cleanRows($validated['rows'] ?? [], $keys),
             'pdf_template' => $pdfTemplate,
         ];
+    }
+
+    /**
+     * Provision/sync the form's own request type (see
+     * RequestTypeService::resolveFormType). Forms bound to sign-up /
+     * new-event / new-workplan are excepted — their handlers own dedicated
+     * request flows — and lose the link if they had one from before binding.
+     */
+    private function syncRequestType(Form $form, ?int $userId): void
+    {
+        $excepted = in_array((string) $form->system_function, [
+            SystemFunction::SIGN_UP,
+            SystemFunction::NEW_EVENT,
+            SystemFunction::NEW_WORKPLAN,
+        ], true);
+
+        if ($excepted) {
+            if ($form->request_type_id !== null) {
+                $form->forceFill(['request_type_id' => null])->save();
+            }
+
+            return;
+        }
+
+        app(\App\Services\RequestTypeService::class)->resolveFormType($form, $userId);
+    }
+
+    /**
+     * Validate + normalise per-field `visible_when` conditions: the
+     * controlling field must exist in this form, differ from the field
+     * itself, carry a value (no layout/upload/signature controllers), the
+     * comparison ops need an expected value, and chains must be acyclic.
+     *
+     * @param  array<int,array<string,mixed>>  $fields
+     * @return array<int,array<string,mixed>>
+     */
+    private function normalizeVisibilityConditions(array $fields): array
+    {
+        $byKey = collect($fields)->keyBy('field_key');
+
+        foreach ($fields as $i => $field) {
+            $condition = (array) (($field['field_options'] ?? [])['visible_when'] ?? []);
+            $controllerKey = trim((string) ($condition['field'] ?? ''));
+
+            if ($controllerKey === '') {
+                unset($fields[$i]['field_options']['visible_when']);
+                continue;
+            }
+
+            $label = (string) ($field['field_label'] ?? $field['field_key']);
+            $op = (string) ($condition['op'] ?? 'equals');
+
+            if ($controllerKey === ($field['field_key'] ?? '')) {
+                abort(response()->json(['message' => "\"{$label}\" cannot depend on itself."], 422));
+            }
+
+            $controller = $byKey->get($controllerKey);
+            if (! $controller) {
+                abort(response()->json(['message' => "\"{$label}\" depends on a field that does not exist on this form."], 422));
+            }
+
+            $controllerType = (string) ($controller['field_type'] ?? FieldType::TEXT);
+            if (FieldType::isPresentational($controllerType) || FieldType::isFileLike($controllerType)
+                || $controllerType === FieldType::SIGNATURE) {
+                abort(response()->json(['message' => "\"{$label}\" cannot depend on a layout, upload or signature field."], 422));
+            }
+
+            if (in_array($op, ConditionEvaluator::VALUE_OPS, true)
+                && trim((string) ($condition['value'] ?? '')) === '') {
+                abort(response()->json(['message' => "The visibility condition on \"{$label}\" needs a comparison value."], 422));
+            }
+
+            $fields[$i]['field_options']['visible_when'] = [
+                'field' => $controllerKey,
+                'op' => $op,
+                'value' => (string) ($condition['value'] ?? ''),
+            ];
+        }
+
+        // Reject circular chains (A shown when B … B shown when A).
+        $edges = [];
+        foreach ($fields as $field) {
+            $condition = ($field['field_options'] ?? [])['visible_when'] ?? null;
+            if (is_array($condition)) {
+                $edges[$field['field_key']] = (string) $condition['field'];
+            }
+        }
+        foreach (array_keys($edges) as $start) {
+            $seen = [];
+            $node = $start;
+            while (isset($edges[$node])) {
+                if (in_array($node, $seen, true)) {
+                    abort(response()->json(['message' => 'Field visibility conditions form a loop — break the circular dependency.'], 422));
+                }
+                $seen[] = $node;
+                $node = $edges[$node];
+            }
+        }
+
+        return array_values($fields);
     }
 
     /**
@@ -383,9 +529,7 @@ class FormBuilderController extends Controller
             'name' => '',
             'description_text' => '',
             'route_name' => '',
-            'sidebar_group' => ['admin'],
-            'is_active' => true,
-            'is_published' => false,
+            'system_function' => '',
             'fields' => [],
             'rows' => [],
             'pdf_template' => [
@@ -425,9 +569,7 @@ class FormBuilderController extends Controller
             'name' => $form->name,
             'description_text' => $form->description_text,
             'route_name' => $form->route_name,
-            'sidebar_group' => (array) ($form->sidebar_group ?? []),
-            'is_active' => (bool) $form->is_active,
-            'is_published' => (bool) $form->is_published,
+            'system_function' => (string) ($form->system_function ?? ''),
             'fields' => $fields,
             'rows' => $layout['rows'] ?? [],
             'pdf_template' => [

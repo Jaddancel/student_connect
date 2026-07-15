@@ -16,35 +16,10 @@
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script> --}}
 
     <!-- Theme Store -->
+    @include('layouts.partials.theme-boot')
+
     <script>
         document.addEventListener('alpine:init', () => {
-            Alpine.store('theme', {
-                init() {
-                    const savedTheme = localStorage.getItem('theme');
-                    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' :
-                        'light';
-                    this.theme = savedTheme || systemTheme;
-                    this.updateTheme();
-                },
-                theme: 'light',
-                toggle() {
-                    this.theme = this.theme === 'light' ? 'dark' : 'light';
-                    localStorage.setItem('theme', this.theme);
-                    this.updateTheme();
-                },
-                updateTheme() {
-                    const html = document.documentElement;
-                    const body = document.body;
-                    if (this.theme === 'dark') {
-                        html.classList.add('dark');
-                        body.classList.add('dark', 'bg-gray-900');
-                    } else {
-                        html.classList.remove('dark');
-                        body.classList.remove('dark', 'bg-gray-900');
-                    }
-                }
-            });
-
             Alpine.store('fileAlert', {
                 show: false,
                 accepted: '',
@@ -92,22 +67,6 @@
         });
     </script>
 
-    <!-- Apply dark mode immediately to prevent flash -->
-    <script>
-        (function () {
-            const savedTheme = localStorage.getItem('theme');
-            const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-            const theme = savedTheme || systemTheme;
-            if (theme === 'dark') {
-                document.documentElement.classList.add('dark');
-                document.body.classList.add('dark', 'bg-gray-900');
-            } else {
-                document.documentElement.classList.remove('dark');
-                document.body.classList.remove('dark', 'bg-gray-900');
-            }
-        })();
-    </script>
-
 </head>
 
 <body x-data="{ 'loaded': true }" x-init="$store.sidebar.isExpanded = window.innerWidth >= 1280;
@@ -146,6 +105,8 @@ window.addEventListener('resize', checkMobile);">
     </div>
 
     @include('layouts.partials.auto-hide-alerts')
+    @include('layouts.partials.toast')
+    @include('layouts.partials.semester-alert')
 
     {{-- File-type warning toast --}}
     <div x-data x-show="$store.fileAlert.show" x-cloak
@@ -155,7 +116,7 @@ window.addEventListener('resize', checkMobile);">
          x-transition:leave="transition ease-in duration-150"
          x-transition:leave-start="opacity-100 translate-y-0"
          x-transition:leave-end="opacity-0 translate-y-2"
-         class="fixed top-6 right-6 z-[9999] w-80 rounded-xl border border-error-200 bg-white shadow-xl dark:border-error-500/30 dark:bg-gray-900"
+         class="fixed top-6 right-6 z-[100000] w-80 rounded-xl border border-error-200 bg-white shadow-xl dark:border-error-500/30 dark:bg-gray-900"
          role="alert">
         <div class="flex items-start gap-3 p-4">
             <span class="mt-0.5 flex-shrink-0 text-error-500">

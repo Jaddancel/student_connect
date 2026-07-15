@@ -6,6 +6,7 @@
         <h3 class="mb-5 text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-7">Profile</h3>
         <x-profile.profile-card />
         <x-profile.personal-info-card />
+        <x-profile.signature-card />
         <x-profile.address-card />
     </div>
 @endsection

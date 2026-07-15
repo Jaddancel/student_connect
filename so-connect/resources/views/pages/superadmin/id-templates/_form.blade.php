@@ -243,7 +243,10 @@
                         :class="selectedIndex === i ? 'border-brand-400 ring-1 ring-brand-400 dark:border-brand-600' : 'border-gray-200 dark:border-gray-700'"
                         @click="selectZone(i)">
                         <div class="mb-2 flex items-center justify-between">
-                            <span class="text-xs font-semibold text-gray-500 dark:text-gray-400" x-text="'Zone ' + (i + 1)"></span>
+                            <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                <span class="inline-block h-2.5 w-2.5 rounded-full" :style="{ backgroundColor: zone.color }"></span>
+                                <span x-text="'Zone ' + (i + 1)"></span>
+                            </span>
                             <button type="button" @click.stop="removeZone(i)"
                                 class="text-gray-400 transition hover:text-error-500">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -259,6 +262,17 @@
                                 <label class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Label</label>
                                 <input type="text" x-model="zone.label" @input="updateZoneLabel(i)" placeholder="Student ID Number"
                                     class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Type</label>
+                                <select x-model="zone.type" @change="setZoneType(zone, $event.target.value)"
+                                    class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                                    <option value="text">Text (OCR)</option>
+                                    <option value="signature">Signature (image capture)</option>
+                                </select>
+                                <p x-show="zone.type === 'signature'" x-cloak class="mt-1 text-[10px] text-gray-400 dark:text-gray-500">
+                                    The zone's crop is saved as the signer's signature image instead of being read as text.
+                                </p>
                             </div>
                             <div>
                                 <div class="mb-1 flex items-center justify-between gap-3">
@@ -297,7 +311,7 @@
 
                                 <p class="mt-1 text-[10px] text-gray-400 dark:text-gray-500">Universal fields pre-fill the signup form; custom keys stay extraction-only.</p>
                             </div>
-                            <div>
+                            <div x-show="zone.type !== 'signature'">
                                 <label class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Regex (optional)</label>
                                 <input type="text" x-model="zone.regex" placeholder="\d{2}-\d{4}-\d{3}"
                                     class="dark:bg-dark-900 h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 font-mono text-xs text-gray-800 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />

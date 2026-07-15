@@ -41,12 +41,23 @@ class DocumentGenerationService
         int $formId,
         int $requesterUserId,
     ): ActionRequest {
-        $requestType = app(\App\Services\RequestTypeService::class)->resolveSystemType(
-            RequestType::SYSTEM_KEY_FORM_GENERATION,
-            'Form Generation Request',
-            RequestType::CATEGORY_ORGANIZATION,
-            $requesterUserId,
-        );
+        // Requests are typed after the originating form when it has its own
+        // request type (every unbound builder form does); the generic
+        // form_generation system type remains the fallback. The action_type
+        // discriminator is unchanged either way, so approval dispatch,
+        // badges and scoring joins are unaffected.
+        $formRequestTypeId = $formId
+            ? Form::query()->whereKey($formId)->value('request_type_id')
+            : null;
+
+        $requestTypeId = $formRequestTypeId
+            ? (int) $formRequestTypeId
+            : (int) app(\App\Services\RequestTypeService::class)->resolveSystemType(
+                RequestType::SYSTEM_KEY_FORM_GENERATION,
+                'Form Generation Request',
+                RequestType::CATEGORY_ORGANIZATION,
+                $requesterUserId,
+            )->getKey();
 
         $actionRequest = ActionRequest::query()->create([
             'action' => FormTemplateHelper::encodeDocumentGenerationAction(
@@ -56,7 +67,8 @@ class DocumentGenerationService
                 $requesterUserId,
             ),
             'action_type' => FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION,
-            'request_type_id' => (int) $requestType->getKey(),
+            'request_type_id' => $requestTypeId,
+            'form_id' => $formId ?: null,
             'organization_id' => $organizationId ?: null,
             'requested_by' => $requesterUserId,
             'payload' => [
@@ -313,7 +325,7 @@ class DocumentGenerationService
             return null;
         }
 
-        $workplanForm = Form::query()->where('route_name', 'workplan')->first();
+        $workplanForm = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_WORKPLAN);
         if (! $workplanForm) {
             Log::warning('DocumentGenerationService: workplan form not configured; skipping PDF merge.');
             return null;

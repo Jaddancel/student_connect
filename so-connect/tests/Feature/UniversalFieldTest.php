@@ -43,10 +43,27 @@ it('leaves an unparseable birthday untouched and null when empty', function () {
 
 it('separates profile-source from org-source keys', function () {
     expect(UniversalField::keysBySource('org'))
-        ->toEqualCanonicalizing(['adviser', 'org_president', 'org_auditor', 'org_secretary'])
+        ->toEqualCanonicalizing(['org_name', 'adviser', 'org_president', 'org_auditor', 'org_secretary'])
         ->and(UniversalField::keysBySource('profile'))->not->toContain('adviser', 'org_president')
         ->and(UniversalField::isOrgField('org_president'))->toBeTrue()
+        ->and(UniversalField::isOrgField('org_name'))->toBeTrue()
         ->and(UniversalField::isOrgField('first_name'))->toBeFalse();
+});
+
+it('resolves the organization name org field', function () {
+    $detailId = \Illuminate\Support\Facades\DB::table('organization_details')->insertGetId([
+        'name' => 'Society of Programmers',
+        'detail_text' => 'A student programming organization.',
+        'initials' => 'SOP',
+    ]);
+    $orgId = \Illuminate\Support\Facades\DB::table('organizations')->insertGetId([
+        'detail' => $detailId,
+        'organization_type' => 1,
+    ]);
+    $organization = \App\Models\Organization::query()->findOrFail($orgId);
+
+    expect(\App\Support\OrganizationField::value($organization, 'org_name'))->toBe('Society of Programmers')
+        ->and(\App\Support\OrganizationField::value(null, 'org_name'))->toBeNull();
 });
 
 it('groups the catalog for palette rendering', function () {

@@ -52,8 +52,12 @@ final class UniversalField
             // `birthday` is stored as a date but presented spelled-out (e.g. "January 5, 2000");
             // `format` is applied in valueFor() so every consumer gets the same rendering.
             'birthday'      => ['label' => 'Birthday',     'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'birthday',     'group' => 'personal', 'format' => 'date:F j, Y'],
+            // The stored value is a disk-relative path to the saved signature PNG;
+            // signature fields render it as an image preview, never as text.
+            'signature'     => ['label' => 'Signature',    'type' => FieldType::SIGNATURE, 'source' => 'profile', 'profile_column' => 'signature_path', 'group' => 'personal'],
 
             // Organization-scoped: resolved from the submitter's org (see OrganizationField).
+            'org_name'      => ['label' => 'Organization Name',      'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'adviser'       => ['label' => 'Adviser',                'type' => FieldType::SELECT, 'source' => 'org', 'group' => 'organization'],
             'org_president'  => ['label' => 'Organization President', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_auditor'    => ['label' => 'Organization Auditor',   'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
