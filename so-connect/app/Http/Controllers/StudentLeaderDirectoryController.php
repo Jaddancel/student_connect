@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Form;
 use App\Models\FormSubmission;
+use App\Models\IdTemplate;
 use App\Models\Request as ActionRequest;
 use App\Models\Semester;
 use Illuminate\Http\Request;
@@ -24,10 +25,22 @@ class StudentLeaderDirectoryController extends Controller
         $currentSemester = Semester::current();
 
         return view('pages.form.student-leader-directory', [
-            'title'             => 'Directory of Student Leader',
-            'organizations'     => $organizations,
-            'currentSchoolYear' => Semester::currentSchoolYear(),
-            'currentSemester'   => $currentSemester?->semesterLabel() ?? '',
+            'title'              => 'Directory of Student Leader',
+            'organizations'      => $organizations,
+            'currentSchoolYear'  => Semester::currentSchoolYear(),
+            'currentSemester'    => $currentSemester?->semesterLabel() ?? '',
+            'scannerOrientation' => IdTemplate::scannerTemplate()?->orientation ?: 'vertical',
+            // Every active template, for the wizard's chooser (shown when 2+).
+            'scannerTemplates'   => IdTemplate::scannerChoices(),
+            // Carried over from the landing page's "Sign up with Google" button
+            // (see landingpage.blade.php) as query params after the OAuth popup
+            // resolves. Only used to pre-fill Step 2 — the ID scan is still required.
+            'googlePrefill'      => [
+                'google_id'  => (string) $request->query('google_id', ''),
+                'first_name' => (string) $request->query('first_name', ''),
+                'last_name'  => (string) $request->query('last_name', ''),
+                'email'      => (string) $request->query('email', ''),
+            ],
         ]);
     }
 
@@ -74,6 +87,9 @@ class StudentLeaderDirectoryController extends Controller
             'student_id'           => ['required', 'digits_between:1,50'],
             'id_photo_front'       => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
             'id_photo_back'        => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            // Optional Google link captured by the landing page's "Sign up with
+            // Google" popup; carried through to the account created on approval.
+            'google_id'            => ['nullable', 'string', 'max:255', 'unique:users,google_id'],
         ]);
 
         $organizationId = (int) $validated['organization_id'];
@@ -164,11 +180,12 @@ class StudentLeaderDirectoryController extends Controller
             'student_id'            => $validated['student_id'] ?? '',
             'id_photo_front'        => $idPhotoFrontPath,
             'id_photo_back'         => $idPhotoBackPath,
+            'google_id'             => $validated['google_id'] ?? null,
         ];
 
         // Create the FormSubmission first so its ID can be stored in the request payload
         $submissionId = null;
-        $form = Form::query()->where('route_name', 'student-leader-directory')->first();
+        $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::SIGN_UP);
 
         if ($form) {
             $submission = FormSubmission::query()->create([
@@ -191,6 +208,7 @@ class StudentLeaderDirectoryController extends Controller
         ActionRequest::query()->create([
             'action'       => "0|{$organizationId}|new_officer",
             'action_type'  => 11,
+            'form_id'      => $form ? (int) $form->getKey() : null,
             'payload'      => array_merge($payload, ['form_submission_id' => $submissionId]),
             'user'         => $userId > 0 ? $userId : null,
             'requested_at' => now(),

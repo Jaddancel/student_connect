@@ -1,7 +1,9 @@
 @extends('layouts.directory-layout')
 
 @section('content')
-    <div class="space-y-6">
+    <div class="space-y-6"
+        x-data="idScanWizard({ scanUrl: '{{ route('id-scan.scan') }}', csrf: '{{ csrf_token() }}', orientation: '{{ $scannerOrientation ?? 'vertical' }}', templates: {{ Illuminate\Support\Js::from($scannerTemplates ?? []) }}, hasErrors: {{ $errors->any() ? 'true' : 'false' }} })"
+        x-init="init()">
 
         {{-- ── FORM HEADER ─────────────────────────────────────────────── --}}
         <div class="rounded-2xl border border-gray-200 bg-palette-lime-pale p-5 shadow-[inset_0_4px_0_var(--color-palette-lime)] dark:border-gray-800 dark:bg-white/[0.03] dark:shadow-[inset_0_4px_0_rgb(165_255_91_/_0.3)] lg:p-6">
@@ -13,6 +15,156 @@
                     Complete all fields accurately. Fields marked <span class="text-error-500">*</span> are required.
                 </p>
             </div>
+
+            {{-- Step indicator --}}
+            <div class="mt-4 flex items-center justify-center gap-3 text-xs font-semibold">
+                <button type="button" @click="backToScan()"
+                    class="flex items-center gap-1.5 rounded-full px-3 py-1 transition"
+                    :class="step === 1 ? 'bg-palette-lime text-gray-900' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'">
+                    <span class="grid h-5 w-5 place-items-center rounded-full border border-current text-[10px]">1</span>
+                    Scan ID
+                </button>
+                <span class="h-px w-8 bg-gray-300 dark:bg-gray-700"></span>
+                <span class="flex items-center gap-1.5 rounded-full px-3 py-1 transition"
+                    :class="step === 2 ? 'bg-palette-lime text-gray-900' : 'text-gray-400'">
+                    <span class="grid h-5 w-5 place-items-center rounded-full border border-current text-[10px]">2</span>
+                    Your details
+                </span>
+            </div>
+        </div>
+
+        {{-- ── STEP 1 · LIVE-CAMERA ID SCANNER (both sides) ────────────── --}}
+        <div x-show="step === 1" x-cloak class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <h3 class="mb-1 text-base font-semibold text-gray-800 dark:text-white/90">Step 1 · Scan both sides of your ID</h3>
+
+            {{-- ID-type chooser — shown while 2+ templates are active and none is picked --}}
+            <div x-show="needsChooser" x-cloak>
+                <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                    More than one kind of ID can be scanned — pick the one that matches yours to start.
+                </p>
+                <div class="mx-auto grid max-w-lg grid-cols-1 gap-3 sm:grid-cols-2">
+                    <template x-for="t in templates" :key="t.id">
+                        <button type="button" @click="chooseTemplate(t.id)"
+                            class="group flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white/60 p-3 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-brand-600 dark:hover:bg-brand-900/10">
+                            <template x-if="t.photo">
+                                <img :src="t.photo" :alt="t.name" class="h-28 w-full rounded-lg bg-gray-100 object-contain dark:bg-gray-900" />
+                            </template>
+                            <template x-if="!t.photo">
+                                <div class="grid h-28 w-full place-items-center rounded-lg bg-gray-100 text-xs text-gray-400 dark:bg-gray-900">No preview</div>
+                            </template>
+                            <span class="text-sm font-medium text-gray-700 group-hover:text-brand-600 dark:text-gray-200 dark:group-hover:text-brand-400" x-text="t.name"></span>
+                        </button>
+                    </template>
+                </div>
+            </div>
+
+            <div x-show="!needsChooser">
+            <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                Fit the <strong x-text="scanSide === 'front' ? 'front of your ID' : 'back of your ID'"></strong>
+                inside the frame and capture — we'll read your details to save you typing. Prefer not to use the camera?
+                Upload a photo instead. <strong>Both the front and back are required.</strong>
+            </p>
+
+            {{-- Chosen ID type + switcher (only meaningful with 2+ templates) --}}
+            <div x-show="templates.length >= 2 && templateId" x-cloak
+                class="mx-auto mb-3 flex max-w-md items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <span>ID type: <strong class="text-gray-700 dark:text-gray-200" x-text="selectedTemplate ? selectedTemplate.name : ''"></strong></span>
+                <span aria-hidden="true">·</span>
+                <button type="button" @click="changeTemplate()" class="font-medium text-brand-500 transition hover:text-brand-600">Change ID type</button>
+            </div>
+
+            {{-- Front / Back selector with captured-state ticks --}}
+            <div class="mx-auto mb-4 flex max-w-md items-center gap-2 rounded-xl border border-gray-200 bg-white/60 p-1.5 dark:border-gray-800 dark:bg-white/[0.02]">
+                <template x-for="side in ['front', 'back']" :key="side">
+                    <button type="button" @click="selectSide(side)"
+                        class="flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition"
+                        :class="scanSide === side ? 'bg-palette-lime text-gray-900' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'">
+                        <span x-text="side === 'front' ? 'Front' : 'Back'"></span>
+                        <svg x-show="previewFor(side)" x-cloak class="h-4 w-4 text-success-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    </button>
+                </template>
+            </div>
+
+            <div class="relative mx-auto aspect-video w-full max-w-md overflow-hidden rounded-xl bg-black">
+                <video x-ref="video" playsinline muted class="h-full w-full object-cover"></video>
+                {{-- ID-1 (ISO 7810) finder overlay; aspect follows the template orientation.
+                     x-ref="finder": capture() crops the frame to exactly this rectangle. --}}
+                <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <div x-ref="finder" class="rounded-xl border-2 border-palette-lime shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"
+                        :style="'aspect-ratio: ' + overlayAspect + '; ' + (orientation === 'vertical' ? 'height: 90%;' : 'width: 82%;')"></div>
+                </div>
+                <template x-if="!cameraOn && !previewFor(scanSide)">
+                    <div class="absolute inset-0 flex items-center justify-center text-xs text-white/60">Camera is off</div>
+                </template>
+            </div>
+            <canvas x-ref="canvas" class="hidden"></canvas>
+
+            <p x-show="cameraError" x-cloak x-text="cameraError" class="mt-2 text-center text-xs text-error-500"></p>
+
+            <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
+                <button type="button" x-show="!cameraOn" @click="startCamera()"
+                    class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">Start camera</button>
+                <button type="button" x-show="cameraOn" @click="capture()" x-cloak
+                    class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">
+                    <span x-text="scanSide === 'front' ? 'Capture front' : 'Capture back'"></span>
+                </button>
+                <button type="button" x-show="cameraOn" @click="stopCamera()" x-cloak
+                    class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Stop</button>
+                <button type="button" @click="document.getElementById(scanSide === 'back' ? 'id_photo_back' : 'id_photo_front').click()"
+                    class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Upload instead</button>
+            </div>
+
+            {{-- Captured/uploaded previews (both sides) + detected fields --}}
+            <template x-if="frontPreview || backPreview">
+                <div class="mt-5 space-y-4 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                    <div class="flex flex-wrap items-start gap-4">
+                        <template x-if="frontPreview">
+                            <figure class="shrink-0">
+                                <img :src="frontPreview" alt="Front of ID" class="h-24 w-40 rounded-lg object-cover" />
+                                <figcaption class="mt-1 text-center text-[11px] text-gray-400">Front</figcaption>
+                            </figure>
+                        </template>
+                        <template x-if="backPreview">
+                            <figure class="shrink-0">
+                                <img :src="backPreview" alt="Back of ID" class="h-24 w-40 rounded-lg object-cover" />
+                                <figcaption class="mt-1 text-center text-[11px] text-gray-400">Back</figcaption>
+                            </figure>
+                        </template>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p x-show="scanNote" x-text="scanNote" class="text-sm font-medium text-brand-600 dark:text-brand-400"></p>
+                        {{-- Signature capture status — scanned, or none was scanned --}}
+                        <template x-if="signatureNote">
+                            <p class="mt-1 text-xs font-medium"
+                                :class="{
+                                    'text-success-600 dark:text-success-500': signatureNote.tone === 'success',
+                                    'text-warning-600 dark:text-orange-400': signatureNote.tone === 'warning',
+                                    'text-gray-400 dark:text-gray-500': signatureNote.tone === 'muted',
+                                }"
+                                x-text="signatureNote.text"></p>
+                        </template>
+                        <template x-if="detectedEntries.length">
+                            <dl class="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+                                <template x-for="d in detectedEntries" :key="d.key">
+                                    <div class="flex justify-between gap-2 text-xs">
+                                        <dt class="text-gray-400" x-text="d.key.replaceAll('_', ' ')"></dt>
+                                        <dd class="truncate font-medium text-gray-700 dark:text-gray-200" x-text="d.value"></dd>
+                                    </div>
+                                </template>
+                            </dl>
+                        </template>
+                    </div>
+                </div>
+            </template>
+
+            <div class="mt-6 flex items-center justify-end gap-3">
+                <span x-show="!canContinue" x-cloak class="text-xs text-gray-400">Capture both sides to continue.</span>
+                <button type="button" @click="continueToForm()" :disabled="!canContinue"
+                    class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
+                    Continue to the form →
+                </button>
+            </div>
+            </div> {{-- /x-show="!needsChooser" --}}
         </div>
 
         @if($errors->any())
@@ -21,7 +173,8 @@
             </div>
         @endif
 
-        <form action="{{ route('student-leader-directory.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+        <form action="{{ route('student-leader-directory.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6"
+            x-show="step === 2" x-cloak>
             @csrf
 
             {{-- ── SECTION 1 · PERIOD & IDENTITY ───────────────────────── --}}
@@ -94,7 +247,7 @@
                             First Name <span class="text-error-500">*</span>
                         </label>
                         <input type="text" id="first_name" name="first_name" placeholder="First name"
-                            value="{{ old('first_name') }}"
+                            value="{{ old('first_name', $googlePrefill['first_name'] ?? '') }}"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('first_name') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         @error('first_name')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
@@ -115,7 +268,7 @@
                             Last Name <span class="text-error-500">*</span>
                         </label>
                         <input type="text" id="last_name" name="last_name" placeholder="Last name"
-                            value="{{ old('last_name') }}"
+                            value="{{ old('last_name', $googlePrefill['last_name'] ?? '') }}"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('last_name') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         @error('last_name')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
@@ -130,11 +283,20 @@
                             Email Address <span class="text-error-500">*</span>
                         </label>
                         <input type="email" id="email" name="email" placeholder="New officer's login email"
-                            value="{{ old('email') }}"
+                            value="{{ old('email', $googlePrefill['email'] ?? '') }}"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('email') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         @error('email')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                         @enderror
+                        <input type="hidden" name="google_id" value="{{ old('google_id', $googlePrefill['google_id'] ?? '') }}" />
+                        @if (old('google_id', $googlePrefill['google_id'] ?? ''))
+                            <p class="mt-2 flex items-center gap-1.5 text-xs font-medium text-success-600 dark:text-success-400">
+                                <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Linked to your Google account.
+                            </p>
+                        @endif
                     </div>
 
                     <div>
@@ -210,17 +372,17 @@
 
                 {{-- ID Photos --}}
                 <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div x-data="{ preview: null }">
+                    <div>
                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Front of ID <span class="text-error-500">*</span>
                             <span class="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">(JPG/PNG)</span>
                         </label>
                         <div class="flex items-start gap-3">
                             <div class="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30">
-                                <template x-if="preview">
-                                    <img :src="preview" class="h-full w-full object-cover" alt="Front of ID preview" />
+                                <template x-if="frontPreview">
+                                    <img :src="frontPreview" class="h-full w-full object-cover" alt="Front of ID preview" />
                                 </template>
-                                <template x-if="!preview">
+                                <template x-if="!frontPreview">
                                     <span class="px-2 text-center text-xs text-gray-400 dark:text-gray-500">No image</span>
                                 </template>
                             </div>
@@ -231,26 +393,28 @@
                                     <span class="text-xs font-medium text-gray-600 dark:text-gray-400">Click to upload</span>
                                     <span class="mt-0.5 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
                                     <input id="id_photo_front" name="id_photo_front" type="file" accept="image/jpeg,image/png" class="hidden"
-                                        @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
+                                        @change="onUpload($event, 'front')" />
                                 </label>
                                 @error('id_photo_front')
                                     <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                                 @enderror
+                                <p x-show="scanNote" x-cloak x-text="scanNote"
+                                    class="mt-1 text-xs text-brand-600 dark:text-brand-400"></p>
                             </div>
                         </div>
                     </div>
 
-                    <div x-data="{ preview: null }">
+                    <div>
                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Back of ID <span class="text-error-500">*</span>
                             <span class="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">(JPG/PNG)</span>
                         </label>
                         <div class="flex items-start gap-3">
                             <div class="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30">
-                                <template x-if="preview">
-                                    <img :src="preview" class="h-full w-full object-cover" alt="Back of ID preview" />
+                                <template x-if="backPreview">
+                                    <img :src="backPreview" class="h-full w-full object-cover" alt="Back of ID preview" />
                                 </template>
-                                <template x-if="!preview">
+                                <template x-if="!backPreview">
                                     <span class="px-2 text-center text-xs text-gray-400 dark:text-gray-500">No image</span>
                                 </template>
                             </div>
@@ -261,7 +425,7 @@
                                     <span class="text-xs font-medium text-gray-600 dark:text-gray-400">Click to upload</span>
                                     <span class="mt-0.5 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
                                     <input id="id_photo_back" name="id_photo_back" type="file" accept="image/jpeg,image/png" class="hidden"
-                                        @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
+                                        @change="onUpload($event, 'back')" />
                                 </label>
                                 @error('id_photo_back')
                                     <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
@@ -552,7 +716,7 @@
                                     <input type="text" name="scholar_provider"
                                         value="{{ old('scholar_provider') }}"
                                         placeholder="Specify scholarship provider"
-                                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                        class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                                 </div>
                             </div>
 
@@ -575,7 +739,7 @@
                                     <input type="text" name="others_specify"
                                         value="{{ old('others_specify') }}"
                                         placeholder="Specify other source"
-                                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                        class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                                 </div>
                             </div>
 
@@ -702,6 +866,7 @@
                                 x-text="preview ? 'Change signature' : 'Click to upload signature'"></span>
                             <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
                             <input id="signature" name="signature" type="file" accept="image/jpeg,image/png"
+                                data-universal-key="signature"
                                 class="hidden"
                                 @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
                         </label>
@@ -731,6 +896,13 @@
 @endsection
 
 @push('scripts')
+<style>
+    /* Subtle highlight on inputs auto-filled from the scanned ID (see id-scan-wizard.js). */
+    .id-autofilled {
+        border-color: var(--color-palette-lime, #a5ff5b) !important;
+        background-color: rgb(165 255 91 / 0.08);
+    }
+</style>
 <script>
 window.directoryPasswordTools = function () {
     return {

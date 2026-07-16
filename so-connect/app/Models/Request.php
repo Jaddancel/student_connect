@@ -24,6 +24,7 @@ class Request extends Model
         'user',
         'action_type',
         'request_type_id',
+        'form_id',
         'organization_id',
         'requested_by',
         'payload',
@@ -53,5 +54,11 @@ class Request extends Model
     public function requestType(): BelongsTo
     {
         return $this->belongsTo(RequestType::class, 'request_type_id', 'request_type_id');
+    }
+
+    /** The form page this request was made from (when form-originated). */
+    public function form(): BelongsTo
+    {
+        return $this->belongsTo(Form::class, 'form_id', 'id');
     }
 }

@@ -3,6 +3,13 @@ import './dashboard';
 import Alpine from 'alpinejs';
 import Collapse from '@alpinejs/collapse';
 import ApexCharts from 'apexcharts';
+import { formBuilder } from './components/form-builder';
+import { pdfTemplateEditor } from './components/pdf-template-editor';
+import { signatureField } from './components/signature-field';
+import { idTemplateEditor } from './components/id-template-editor';
+import { idScanWizard } from './components/id-scan-wizard';
+import { scoringRuleEditor } from './components/scoring-rule-editor';
+import { formConditions } from './components/form-conditions';
 
 // flatpickr
 import flatpickr from 'flatpickr';
@@ -18,6 +25,13 @@ window.flatpickr = flatpickr;
 window.FullCalendar = Calendar;
 
 Alpine.plugin(Collapse);
+Alpine.data('formBuilder', formBuilder);
+Alpine.data('pdfTemplateEditor', pdfTemplateEditor);
+Alpine.data('signatureField', signatureField);
+Alpine.data('idTemplateEditor', idTemplateEditor);
+Alpine.data('idScanWizard', idScanWizard);
+Alpine.data('scoringRuleEditor', scoringRuleEditor);
+Alpine.data('formConditions', formConditions);
 Alpine.start();
 
 // Initialize components on DOM ready

@@ -27,6 +27,8 @@ class Profile extends Model
         'nationality',
         'birthday',
         'course_year',
+        'course',
+        'year_section',
         'occupation',
         'address',
         'position',
@@ -41,6 +43,7 @@ class Profile extends Model
         'student_id',
         'id_photo_front',
         'id_photo_back',
+        'signature_path',
     ];
 
     protected function casts(): array

@@ -86,42 +86,55 @@
                     </div>
 
                     <div class="overflow-x-auto">
-                        <table class="w-full min-w-[560px] text-left text-sm">
+                        <table class="w-full min-w-[640px] text-left text-sm">
                             <thead>
                                 <tr class="border-b border-gray-100 dark:border-gray-800">
                                     <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Organization</th>
-                                    <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Score</th>
+                                    <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Partial Score</th>
+                                    <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Score Status</th>
                                     <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Scored At</th>
-                                    <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Action</th>
+                                    <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Verify Score</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                                 @foreach ($categoryRows as $row)
-                                    @php $score = $row['score']; @endphp
+                                    @php
+                                        $score = $row['score'];
+                                        $verified = $row['verified'];
+                                    @endphp
                                     <tr class="transition hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                                         <td class="px-6 py-4 font-medium text-gray-800 dark:text-white/90">
                                             {{ $row['organization_name'] }}
                                         </td>
                                         <td class="px-6 py-4 text-gray-600 dark:text-gray-400">
-                                            @if ($score)
-                                                {{ number_format((float) $score->total_weighted_score, 0) }}
+                                            <span class="font-semibold text-gray-800 dark:text-white/90">{{ number_format((float) $row['partial_score'], 0) }}</span>
+                                            <span class="text-xs text-gray-400 dark:text-gray-500">/ 550</span>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            @if ($verified)
+                                                <span class="inline-flex items-center gap-1 rounded-full bg-success-50 px-2.5 py-0.5 text-xs font-medium text-success-700 dark:bg-success-500/10 dark:text-success-400">
+                                                    <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                                                    Verified
+                                                </span>
                                             @else
-                                                <span class="text-gray-400">Not scored</span>
+                                                <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700/40 dark:text-gray-400">
+                                                    Pending
+                                                </span>
                                             @endif
                                         </td>
                                         <td class="px-6 py-4 text-gray-500 dark:text-gray-400">
                                             {{ $score?->scored_at?->format('M d, Y') ?? '-' }}
                                         </td>
                                         <td class="px-6 py-4">
-                                            @if ($score)
+                                            @if ($verified)
                                                 <a href="{{ route('admin.scoring.edit', $score->organization_score_id) }}"
                                                     class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
-                                                    Edit Score
+                                                    Review Score
                                                 </a>
                                             @else
                                                 <a href="{{ route('admin.scoring.create', ['organization_id' => $row['organization_id'], 'semester_id' => $selectedSemester->semester_id]) }}"
                                                     class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-600 whitespace-nowrap">
-                                                    Score Organization
+                                                    Verify Score
                                                 </a>
                                             @endif
                                         </td>

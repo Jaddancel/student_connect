@@ -6,6 +6,10 @@ use App\Http\Controllers\Admin\AccomplishmentReportRequestController;
 use App\Http\Controllers\Admin\AdminAccountCreationController;
 use App\Http\Controllers\Admin\AdminOfficerCreationController;
 use App\Http\Controllers\Admin\AdminWorkplanController;
+use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\DatabaseViewController;
+use App\Http\Controllers\Admin\IdTemplateController;
+use App\Http\Controllers\Admin\RequestRecordController;
 use App\Http\Controllers\Admin\ActivityRequestController as AdminActivityRequestController;
 use App\Http\Controllers\Admin\FinancialReportRequestController;
 use App\Http\Controllers\Admin\JointStatementRequestController;
@@ -15,6 +19,7 @@ use App\Http\Controllers\Admin\RecognitionRequestController;
 use App\Http\Controllers\Admin\SemesterController;
 use App\Http\Controllers\Admin\TemplateManagerController;
 use App\Http\Controllers\Admin\WorkplanRequestController;
+use App\Http\Controllers\Auth\GoogleLinkController;
 use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
@@ -26,7 +31,11 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventPlanController;
 use App\Http\Controllers\ExportController;
+use App\Http\Controllers\Admin\FormBuilderController;
 use App\Http\Controllers\FinancialReportController;
+use App\Http\Controllers\FormDirectoryController;
+use App\Http\Controllers\FormRenderController;
+use App\Http\Controllers\IdScanController;
 use App\Http\Controllers\JointStatementController;
 use App\Http\Controllers\LandingPage;
 use App\Http\Controllers\MembershipRegistrationController;
@@ -299,6 +308,28 @@ Route::get('/forms/joint-statement', [JointStatementController::class, 'index'])
 Route::post('/forms/joint-statement', [JointStatementController::class, 'store'])
     ->middleware(['auth', 'role.officer'])->name('joint-statement.store');
 
+// Generic WYSIWYG-builder form renderer. Registered AFTER the literal /forms/*
+// routes above so bespoke forms keep their dedicated pages; this catches any
+// remaining single-segment form route_name created through the builder.
+Route::middleware('auth')->group(function () {
+    // Dedicated Forms directory (name + purpose search). Registered before the
+    // `/forms/{routeName}` renderer so the literal `/forms` index wins.
+    Route::get('/forms', [FormDirectoryController::class, 'index'])->name('forms.directory');
+    Route::get('/forms/{routeName}', [FormRenderController::class, 'show'])->name('forms.render');
+    Route::post('/forms/{routeName}', [FormRenderController::class, 'submit'])->name('forms.render.submit');
+
+    // Stable entry point for a system function's bound form page (sign_up,
+    // new_event, new_workplan, membership_registration — see SystemFunction).
+    Route::get('/functions/{fn}', function (string $fn) {
+        abort_unless(\App\Forms\SystemFunction::has($fn), 404);
+        $form = \App\Forms\SystemFunction::form($fn);
+        abort_if(! $form || ! $form->route_name, 404,
+            'No form is bound to the "'.\App\Forms\SystemFunction::label($fn).'" function yet.');
+
+        return redirect()->route('forms.render', $form->route_name);
+    })->name('functions.show');
+});
+
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/posts', [PostController::class, 'index'])->name('posts.index');
     Route::post('/posts', [PostController::class, 'store'])->name('posts.store');
@@ -309,6 +340,20 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/semesters', [SemesterController::class, 'store'])->name('admin.semesters.store');
     Route::get('/admin/semesters/{semester}/edit', [SemesterController::class, 'edit'])->name('admin.semesters.edit');
     Route::patch('/admin/semesters/{semester}', [SemesterController::class, 'update'])->name('admin.semesters.update');
+
+    // Generic per-form request pages: every form page has its own queue
+    // (forms bound to sign-up/new-event/new-workplan 404 — dedicated flows).
+    Route::get('/admin/form-requests/{form}', [\App\Http\Controllers\Admin\FormRequestController::class, 'index'])
+        ->whereNumber('form')
+        ->name('admin.form-requests.index');
+    Route::get('/admin/form-requests/{form}/{requestId}', [\App\Http\Controllers\Admin\FormRequestController::class, 'show'])
+        ->whereNumber('form')
+        ->whereNumber('requestId')
+        ->name('admin.form-requests.show');
+    Route::post('/admin/form-requests/{form}/{requestId}/decide', [\App\Http\Controllers\Admin\FormRequestController::class, 'decide'])
+        ->whereNumber('form')
+        ->whereNumber('requestId')
+        ->name('admin.form-requests.decide');
 
     Route::get('/admin/activity-requests', [AdminActivityRequestController::class, 'index'])
         ->name('admin.activity-requests.index');
@@ -394,20 +439,64 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->whereNumber('id')
         ->name('admin.scoring.update');
 
-    Route::get('/admin/export', [ExportController::class, 'adminIndex'])
-        ->name('admin.export');
-    Route::get('/admin/export/org-data/json', [ExportController::class, 'adminExportOrgDataJson'])
-        ->name('admin.export.org-data.json');
-    Route::get('/admin/export/org-data/print', [ExportController::class, 'adminExportOrgDataPrint'])
-        ->name('admin.export.org-data.print');
-    Route::get('/admin/export/request-records/json', [ExportController::class, 'adminExportRequestRecordsJson'])
-        ->name('admin.export.request-records.json');
-    Route::get('/admin/export/request-records/print', [ExportController::class, 'adminExportRequestRecordsPrint'])
-        ->name('admin.export.request-records.print');
-    Route::get('/admin/export/org-data/xlsx', [ExportController::class, 'adminExportOrgDataXlsx'])
-        ->name('admin.export.org-data.xlsx');
-    Route::get('/admin/export/request-records/xlsx', [ExportController::class, 'adminExportRequestRecordsXlsx'])
-        ->name('admin.export.request-records.xlsx');
+    // Scratch-like trigger editor for the scoring system's criteria.
+    Route::get('/admin/scoring-rules', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'index'])
+        ->name('admin.scoring.rules.index');
+    Route::post('/admin/scoring-rules/criteria', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'storeCriterion'])
+        ->name('admin.scoring.criteria.store');
+    Route::put('/admin/scoring-rules/criteria/{criterion}', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'updateCriterion'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.criteria.update');
+    Route::delete('/admin/scoring-rules/criteria/{criterion}', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'destroyCriterion'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.criteria.destroy');
+    Route::get('/admin/scoring-rules/{criterion}/edit', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'editRule'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.rules.edit');
+    Route::put('/admin/scoring-rules/{criterion}', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'updateRule'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.rules.update');
+    Route::patch('/admin/scoring-rules/{criterion}/toggle', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'toggleRule'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.rules.toggle');
+    Route::delete('/admin/scoring-rules/{criterion}/rule', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'destroyRule'])
+        ->whereNumber('criterion')
+        ->name('admin.scoring.rules.destroy');
+
+    Route::get('/admin/audit-logs', [AuditLogController::class, 'index'])
+        ->name('admin.audit-logs.index');
+    Route::get('/admin/audit-logs/export/json', [AuditLogController::class, 'exportJson'])
+        ->name('admin.audit-logs.export.json');
+    Route::get('/admin/audit-logs/export/print', [AuditLogController::class, 'exportPrint'])
+        ->name('admin.audit-logs.export.print');
+    Route::get('/admin/audit-logs/export/xlsx', [AuditLogController::class, 'exportXlsx'])
+        ->name('admin.audit-logs.export.xlsx');
+
+    Route::get('/admin/request-records', [RequestRecordController::class, 'index'])
+        ->name('admin.request-records.index');
+    Route::get('/admin/request-records/export/json', [RequestRecordController::class, 'exportJson'])
+        ->name('admin.request-records.export.json');
+    Route::get('/admin/request-records/export/print', [RequestRecordController::class, 'exportPrint'])
+        ->name('admin.request-records.export.print');
+    Route::get('/admin/request-records/export/xlsx', [RequestRecordController::class, 'exportXlsx'])
+        ->name('admin.request-records.export.xlsx');
+
+    Route::get('/admin/database-view', [DatabaseViewController::class, 'index'])
+        ->name('admin.database-view.index');
+    Route::get('/admin/database-view/officers', [DatabaseViewController::class, 'officers'])
+        ->name('admin.database-view.officers');
+    Route::get('/admin/database-view/orgs/export/json', [DatabaseViewController::class, 'exportOrgsJson'])
+        ->name('admin.database-view.orgs.export.json');
+    Route::get('/admin/database-view/orgs/export/print', [DatabaseViewController::class, 'exportOrgsPrint'])
+        ->name('admin.database-view.orgs.export.print');
+    Route::get('/admin/database-view/orgs/export/xlsx', [DatabaseViewController::class, 'exportOrgsXlsx'])
+        ->name('admin.database-view.orgs.export.xlsx');
+    Route::get('/admin/database-view/officers/export/json', [DatabaseViewController::class, 'exportOfficersJson'])
+        ->name('admin.database-view.officers.export.json');
+    Route::get('/admin/database-view/officers/export/print', [DatabaseViewController::class, 'exportOfficersPrint'])
+        ->name('admin.database-view.officers.export.print');
+    Route::get('/admin/database-view/officers/export/xlsx', [DatabaseViewController::class, 'exportOfficersXlsx'])
+        ->name('admin.database-view.officers.export.xlsx');
 
     Route::get('/admin/officers/create', [AdminOfficerCreationController::class, 'create'])
         ->name('admin.officers.create');
@@ -420,6 +509,29 @@ Route::get('/documents', [DocumentController::class, 'index'])
     ->name('documents.index');
 
 Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
+    // WYSIWYG form builder (replacement for the DOCX Template Manager).
+    Route::get('/admin/form-builder', [FormBuilderController::class, 'index'])
+        ->name('admin.form-builder.index');
+    Route::get('/admin/form-builder/create', [FormBuilderController::class, 'create'])
+        ->name('admin.form-builder.create');
+    Route::post('/admin/form-builder', [FormBuilderController::class, 'store'])
+        ->name('admin.form-builder.store');
+    Route::post('/admin/form-builder/upload-asset', [FormBuilderController::class, 'uploadAsset'])
+        ->name('admin.form-builder.upload-asset');
+    // Printed-PDF template DOCX interchange (operates on in-wizard state).
+    Route::post('/admin/form-builder/template/export-docx', [FormBuilderController::class, 'exportDocx'])
+        ->name('admin.form-builder.template.export-docx');
+    Route::post('/admin/form-builder/template/import-docx', [FormBuilderController::class, 'importDocx'])
+        ->name('admin.form-builder.template.import-docx');
+    Route::get('/admin/form-builder/{form}/preview', [FormBuilderController::class, 'preview'])
+        ->name('admin.form-builder.preview');
+    Route::get('/admin/form-builder/{form}/edit', [FormBuilderController::class, 'edit'])
+        ->name('admin.form-builder.edit');
+    Route::put('/admin/form-builder/{form}', [FormBuilderController::class, 'update'])
+        ->name('admin.form-builder.update');
+    Route::delete('/admin/form-builder/{form}', [FormBuilderController::class, 'destroy'])
+        ->name('admin.form-builder.destroy');
+
     Route::get('/admin/templates', [TemplateManagerController::class, 'index'])
         ->name('admin.templates.index');
     Route::get('/admin/templates/{form}/upload', [TemplateManagerController::class, 'showUpload'])
@@ -539,6 +651,17 @@ Route::post('/superadmin/accounts/create', [AdminAccountCreationController::clas
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.accounts.store');
 
+// Google "Sign in" popup for pre-filling admin (SuperAdmin) and officer (Admin)
+// creation forms, AND the public landing-page "Sign up with Google" button.
+// Shared by all three; stateless and reads the applicant's Google profile
+// only — never logs anyone in — so it's intentionally public (no auth/guest
+// middleware): the admin forms use it while signed in, the landing page uses
+// it signed out. Path matches GOOGLE_REDIRECT_URI in .env.
+Route::get('/admin/accounts/google/redirect', [GoogleLinkController::class, 'redirect'])
+    ->name('admin.accounts.google.redirect');
+Route::get('/admin/accounts/google/callback', [GoogleLinkController::class, 'callback'])
+    ->name('admin.accounts.google.callback');
+
 Route::get('/superadmin/scoring/audit', [OrganizationScoringController::class, 'audit'])
     ->middleware(['auth', 'superadmin'])
     ->name('admin.scoring.audit');
@@ -575,6 +698,8 @@ Route::get('/profile', function () {
 
 Route::get('/profile/create', [ProfileController::class, 'profileForm'])->middleware('auth')->name('profile.create');
 Route::post('/profile/create', [ProfileController::class, 'store'])->middleware('auth')->name('profile.store');
+Route::post('/profile/signature', [ProfileController::class, 'updateSignature'])->middleware('auth')->name('profile.signature');
+Route::post('/signature/verify', [\App\Http\Controllers\SignatureVerificationController::class, 'verify'])->middleware('auth')->name('signature.verify');
 
 // form pages
 Route::get('/form-elements', function () {
@@ -886,3 +1011,37 @@ Route::get('/api/superadmin/data/export', [SuperAdminController::class, 'apiExpo
 
 Route::post('/api/superadmin/data/import', [SuperAdminController::class, 'apiImport'])
     ->withoutMiddleware([VerifyCsrfToken::class]);
+
+// ── SuperAdmin ID-recognition template editor ───────────────────────────────
+Route::middleware(['auth', 'superadmin'])->group(function () {
+    Route::get('/superadmin/id-templates', [IdTemplateController::class, 'index'])
+        ->name('superadmin.id-templates.index');
+    Route::get('/superadmin/id-templates/create', [IdTemplateController::class, 'create'])
+        ->name('superadmin.id-templates.create');
+    Route::post('/superadmin/id-templates', [IdTemplateController::class, 'store'])
+        ->name('superadmin.id-templates.store');
+    Route::post('/superadmin/id-templates/upload-image', [IdTemplateController::class, 'uploadImage'])
+        ->name('superadmin.id-templates.upload-image');
+    Route::get('/superadmin/id-templates/{idTemplate}/edit', [IdTemplateController::class, 'edit'])
+        ->name('superadmin.id-templates.edit');
+    Route::put('/superadmin/id-templates/{idTemplate}', [IdTemplateController::class, 'update'])
+        ->name('superadmin.id-templates.update');
+    Route::delete('/superadmin/id-templates/{idTemplate}', [IdTemplateController::class, 'destroy'])
+        ->name('superadmin.id-templates.destroy');
+
+    // Administrator action log (login/logout, scoring, form + ID-template
+    // editing, scoring-rule changes) — searchable and exportable.
+    Route::get('/superadmin/action-logs', [\App\Http\Controllers\Admin\ActionLogController::class, 'index'])
+        ->name('superadmin.action-logs.index');
+    Route::get('/superadmin/action-logs/export/json', [\App\Http\Controllers\Admin\ActionLogController::class, 'exportJson'])
+        ->name('superadmin.action-logs.export.json');
+    Route::get('/superadmin/action-logs/export/pdf', [\App\Http\Controllers\Admin\ActionLogController::class, 'exportPdf'])
+        ->name('superadmin.action-logs.export.pdf');
+    Route::get('/superadmin/action-logs/export/xlsx', [\App\Http\Controllers\Admin\ActionLogController::class, 'exportXlsx'])
+        ->name('superadmin.action-logs.export.xlsx');
+});
+
+// Auto-scan pre-fill for the (public) student-leader-directory signup form.
+// Intentionally NOT behind `auth` — that form is filled by users without an
+// account yet. Fails soft when no active template / sidecar is available.
+Route::post('/id-scan', [IdScanController::class, 'scan'])->name('id-scan.scan');

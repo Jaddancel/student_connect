@@ -25,6 +25,7 @@ class FormDescription extends Model
         'field_order',
         'placeholder_hint',
         'field_options',
+        'universal_key',
     ];
 
     protected function casts(): array

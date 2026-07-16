@@ -224,7 +224,12 @@ class FinancialReportController extends Controller
             }
         }
 
-        $form = Form::query()->where('route_name', 'financial-report')->firstOrFail();
+        $form = Form::query()->where('route_name', 'financial-report')->first();
+        if (! $form) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'form' => 'The document form backing this page no longer exists — ask an admin to recreate it in the Form Builder.',
+            ]);
+        }
 
         $submission = FormSubmission::query()->create([
             'form_id'         => (int) $form->getKey(),

@@ -28,7 +28,7 @@ class ActivityRequestController extends Controller
 
     public function index()
     {
-        $form = Form::query()->where('route_name', self::FORM_ROUTE)->first();
+        $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_EVENT);
 
         if (! $form) {
             return view('pages.admin.activity-requests.index', [
@@ -178,7 +178,7 @@ class ActivityRequestController extends Controller
 
         $actionRequest = ActionRequest::query()->findOrFail($requestId);
 
-        $form = Form::query()->where('route_name', self::FORM_ROUTE)->first();
+        $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_EVENT);
         if (! $form) {
             return back()->withErrors(['form' => 'Activity request form is not configured.']);
         }

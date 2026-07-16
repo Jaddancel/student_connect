@@ -262,6 +262,27 @@
 
                 <div class="border-t border-gray-100 dark:border-gray-800"></div>
 
+                {{-- ── Section 5: Signature (optional) ── --}}
+                <div class="p-5 lg:p-6">
+                    <p class="mb-4 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                        Signature <span class="normal-case tracking-normal">(optional)</span>
+                    </p>
+                    <div x-data="signatureField()" class="space-y-2">
+                        <canvas x-ref="canvas" width="500" height="160"
+                            class="w-full rounded-lg border border-gray-300 bg-white touch-none dark:border-gray-700"></canvas>
+                        <input type="hidden" name="signature" x-ref="input" />
+                        <button type="button" @click="clear()"
+                            class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
+                            Clear signature
+                        </button>
+                        <p class="text-xs text-gray-400 dark:text-gray-500">
+                            Saved to your profile once approved; it pre-fills signature fields on forms.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="border-t border-gray-100 dark:border-gray-800"></div>
+
                 {{-- ── Submit ── --}}
                 <div class="p-5 lg:p-6">
                     <button

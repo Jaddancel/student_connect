@@ -44,6 +44,8 @@ class AdminAccountCreationController extends Controller
             'faculty_advisers'      => ['nullable', 'array'],
             'faculty_advisers.*'    => ['nullable', 'string', 'max:255'],
             'photo'                 => ['nullable', 'file', 'mimes:jpeg,png', 'max:2048'],
+            // Optional Google link captured by the "Sign in with Google" popup.
+            'google_id'             => ['nullable', 'string', 'max:255', 'unique:users,google_id'],
         ]);
 
         $photoPath = null;
@@ -76,6 +78,8 @@ class AdminAccountCreationController extends Controller
                 'birthday'       => $validated['birthday'] ?? null,
                 'birthplace'     => $validated['birthplace'] ?? '',
                 'course_year'    => trim(($validated['course'] ?? '').' '.($validated['year_level'] ?? '')),
+                'course'         => $validated['course'] ?? '',
+                'year_section'   => $validated['year_level'] ?? '',
                 'occupation'     => 'Administrator',
                 'address'        => (int) $addr->profile_address_id,
                 'photo'          => $photoPath ?? '',
@@ -83,6 +87,9 @@ class AdminAccountCreationController extends Controller
 
             User::create([
                 'user_email'            => $validated['email'],
+                'google_id'             => $validated['google_id'] ?? null,
+                // A Google-linked email is already verified by Google.
+                'email_verified_at'     => ! empty($validated['google_id']) ? now() : null,
                 'user_password'         => Hash::make('tAU100!!'),
                 'user_type'             => 2,
                 'profile'               => (int) $profile->profile_id,

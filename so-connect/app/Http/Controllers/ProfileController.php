@@ -6,7 +6,9 @@ use App\Helpers\ProfileMatchHelper;
 use App\Models\Approval;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
+use App\Support\SignatureImage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
 {
@@ -28,6 +30,7 @@ class ProfileController extends Controller
             'nationality' => ['nullable', 'string', 'max:255'],
             'birthday' => ['nullable', 'date', 'before:today'],
             'course_year' => ['nullable', 'string', 'max:255'],
+            'signature' => ['nullable', 'string'],
         ]);
 
         $user = $request->user();
@@ -87,6 +90,10 @@ class ProfileController extends Controller
                 'nationality' => $validated['nationality'] ?? null,
                 'birthday' => $validated['birthday'] ?? null,
                 'course_year' => $validated['course_year'] ?? null,
+                'signature_path' => SignatureImage::storeDataUrl(
+                    $validated['signature'] ?? null,
+                    'signatures/profiles',
+                ),
                 'suggested_profile_id' => (int) ($closestProfile?->getKey() ?? 0),
             ],
             'user' => (int) $user->getKey(),
@@ -98,5 +105,43 @@ class ProfileController extends Controller
         ]);
 
         return redirect()->route('dashboard')->with('status', 'Profile request submitted. Waiting for superadmin approval.');
+    }
+
+    /**
+     * Save the signed-in user's signature from the profile page: either a
+     * drawn data-URL (`signature`) or an uploaded PNG/JPG (`signature_file`).
+     */
+    public function updateSignature(Request $request)
+    {
+        $validated = $request->validate([
+            'signature' => ['nullable', 'string'],
+            'signature_file' => ['nullable', 'file', 'mimes:jpeg,png', 'max:2048'],
+        ]);
+
+        $profile = $request->user()?->profile()->first();
+        if (! $profile) {
+            return redirect()->route('profile.create')
+                ->with('status', 'Create your profile before adding a signature.');
+        }
+
+        $path = null;
+        if ($request->hasFile('signature_file') && $request->file('signature_file')->isValid()) {
+            $path = $request->file('signature_file')->store('signatures/profiles', SignatureImage::disk());
+        } else {
+            $path = SignatureImage::storeDataUrl($validated['signature'] ?? null, 'signatures/profiles');
+        }
+
+        if ($path === null) {
+            return redirect()->route('profile')
+                ->with('toast_error', 'Draw or upload a signature first.');
+        }
+
+        $old = $profile->signature_path;
+        $profile->update(['signature_path' => $path]);
+        if ($old && $old !== $path) {
+            Storage::disk(SignatureImage::disk())->delete($old);
+        }
+
+        return redirect()->route('profile')->with('toast', 'Saved!');
     }
 }

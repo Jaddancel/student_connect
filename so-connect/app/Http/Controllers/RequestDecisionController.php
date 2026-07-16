@@ -15,7 +15,6 @@ use App\Models\Profile;
 use App\Models\Profile\profileAddress;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
-use App\Models\Template;
 use App\Models\User;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
@@ -34,6 +33,7 @@ class RequestDecisionController extends Controller
     {
         $validated = $request->validate([
             'decision' => ['required', 'string', Rule::in(['approve', 'reject'])],
+            'rejection_reason' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $actionRequest = ActionRequest::query()->with('requestType')->findOrFail($requestId);
@@ -93,6 +93,9 @@ class RequestDecisionController extends Controller
                 'admin' => (int) $user->getKey(),
                 'approved_at' => now(),
                 'is_rejected' => $validated['decision'] === 'reject',
+                'rejection_reason' => $validated['decision'] === 'reject'
+                    ? (($validated['rejection_reason'] ?? '') !== '' ? $validated['rejection_reason'] : null)
+                    : null,
             ]
         );
 
@@ -234,14 +237,18 @@ class RequestDecisionController extends Controller
                     'student_id'              => (string) ($payload['student_id'] ?? ''),
                     'id_photo_front'          => (string) ($payload['id_photo_front'] ?? ''),
                     'id_photo_back'           => (string) ($payload['id_photo_back'] ?? ''),
+                    'signature_path'          => (string) ($payload['signature'] ?? ''),
                 ]);
 
                 $newUser = User::create([
-                    'user_email'      => (string) ($payload['email'] ?? ''),
-                    'user_password'   => (string) ($payload['password'] ?? Hash::make(Str::random(16))),
-                    'user_type'       => 3,
-                    'profile'         => (int) $profile->profile_id,
-                    'profile_pending' => false,
+                    'user_email'        => (string) ($payload['email'] ?? ''),
+                    'google_id'         => $payload['google_id'] ?? null,
+                    // A Google-linked email is already verified by Google.
+                    'email_verified_at' => ! empty($payload['google_id']) ? now() : null,
+                    'user_password'     => (string) ($payload['password'] ?? Hash::make(Str::random(16))),
+                    'user_type'         => 3,
+                    'profile'           => (int) $profile->profile_id,
+                    'profile_pending'   => false,
                 ]);
 
                 $orgId = (int) ($payload['organization_id'] ?? 0);
@@ -292,27 +299,15 @@ class RequestDecisionController extends Controller
                 $submission = FormSubmission::query()->find($formSubmissionId);
                 if ($submission) {
                     $submission->update(['submitted_by' => $newUserId]);
-                    $dirForm = Form::query()->where('route_name', 'student-leader-directory')->first();
-                    $dirTemplate = $dirForm
-                        ? Template::query()
-                            ->where('form_id', $dirForm->id)
-                            ->where('is_active', true)
-                            ->orderByDesc('version')
-                            ->with(['mappings.field'])
-                            ->first()
-                        : null;
-                    if ($dirTemplate) {
-                        try {
-                            $generatedDoc = $documentGenerationService->generateFromSubmission(
-                                $submission->fresh(['form']),
-                                $dirTemplate,
-                                (int) $actionRequest->getKey(),
-                                (int) $user->getKey(),
-                            );
-                            $generatedDoc->update(['approval_id' => (int) $approval->approval_id]);
-                        } catch (\Throwable) {
-                            // Document generation failure does not roll back the approval
-                        }
+                    try {
+                        $generatedDoc = $documentGenerationService->generateFromSubmission(
+                            $submission->fresh(['form']),
+                            (int) $actionRequest->getKey(),
+                            (int) $user->getKey(),
+                        );
+                        $generatedDoc->update(['approval_id' => (int) $approval->approval_id]);
+                    } catch (\Throwable) {
+                        // Document generation failure does not roll back the approval
                     }
                 }
             }
@@ -713,7 +708,7 @@ class RequestDecisionController extends Controller
         int $promotionRequestId,
         int $approverUserId,
     ): void {
-        $form = Form::query()->where('route_name', 'student-leader-directory')->first();
+        $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::SIGN_UP);
 
         if (! $form) {
             return;

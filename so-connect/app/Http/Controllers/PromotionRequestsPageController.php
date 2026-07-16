@@ -7,7 +7,6 @@ use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Request as ActionRequest;
 use App\Models\Semester;
-use App\Models\Template;
 use App\Models\User;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
@@ -125,7 +124,7 @@ class PromotionRequestsPageController extends Controller
         $rejectedCount = 0;
 
         // Load FormSubmissions linked to approved role-change requests so we can show "Review Draft"
-        $form = Form::query()->where('route_name', 'student-leader-directory')->first();
+        $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::SIGN_UP);
         $submissionMap = [];
         if ($form) {
             $approvedRequestIds = $approvalMap->where('is_rejected', false)->keys()->all();
@@ -336,29 +335,16 @@ class PromotionRequestsPageController extends Controller
 
         $submission->update(['payload' => $mergedPayload]);
 
-        $form = Form::query()->where('route_name', 'student-leader-directory')->first();
+        $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::SIGN_UP);
 
         if (! $form) {
             return redirect()->route('promotion-requests')
                 ->with('status', 'Details saved. No Student Leader Directory form found — document not generated.');
         }
 
-        $template = Template::query()
-            ->where('form_id', $form->id)
-            ->where('is_active', true)
-            ->orderByDesc('version')
-            ->with(['mappings.field'])
-            ->first();
-
-        if (! $template) {
-            return redirect()->route('promotion-requests')
-                ->with('status', 'Details saved. No active template is bound to the form yet — document not generated.');
-        }
-
         try {
             $documentGenerationService->generateFromSubmission(
                 $submission->fresh(['form']),
-                $template,
                 null,
                 $userId,
             );
