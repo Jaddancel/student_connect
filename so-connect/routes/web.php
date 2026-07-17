@@ -498,6 +498,14 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/database-view/officers/export/xlsx', [DatabaseViewController::class, 'exportOfficersXlsx'])
         ->name('admin.database-view.officers.export.xlsx');
 
+    // PDF reports — registered organizations and officers per organization.
+    Route::get('/admin/reports', [\App\Http\Controllers\Admin\OrganizationReportController::class, 'index'])
+        ->name('admin.reports.index');
+    Route::get('/admin/reports/organizations', [\App\Http\Controllers\Admin\OrganizationReportController::class, 'organizations'])
+        ->name('admin.reports.organizations');
+    Route::get('/admin/reports/officers', [\App\Http\Controllers\Admin\OrganizationReportController::class, 'officers'])
+        ->name('admin.reports.officers');
+
     Route::get('/admin/officers/create', [AdminOfficerCreationController::class, 'create'])
         ->name('admin.officers.create');
     Route::post('/admin/officers/create', [AdminOfficerCreationController::class, 'store'])
