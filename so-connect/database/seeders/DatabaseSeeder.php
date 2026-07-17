@@ -23,5 +23,6 @@ class DatabaseSeeder extends Seeder
         $this->call(EventPlanSeeder::class);
         $this->call(SemesterSeeder::class);
         $this->call(ScoringConfigSeeder::class);
+        $this->call(FormPagesSeeder::class);
     }
 }

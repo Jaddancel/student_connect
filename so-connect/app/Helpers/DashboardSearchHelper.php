@@ -39,7 +39,7 @@ class DashboardSearchHelper
                 ->where('is_published', true)
                 ->where('is_active', true)
                 ->orderBy('name')
-                ->get(['name', 'route_name', 'description_text', 'sidebar_group']);
+                ->get(['id', 'name', 'route_name', 'description_text', 'sidebar_group']);
 
             foreach ($publishedForms as $form) {
                 if (! $isAdmin) {
@@ -49,9 +49,15 @@ class DashboardSearchHelper
                     }
                 }
 
+                // The live /forms/{route} page is officer-only (guests aside), so
+                // admins open the builder's Preview instead of hitting a 403.
+                $path = $isAdmin
+                    ? route('admin.form-builder.preview', $form, false)
+                    : '/forms/' . $form->route_name;
+
                 $items[] = [
                     'name' => $form->name,
-                    'path' => '/forms/' . $form->route_name,
+                    'path' => $path,
                     'icon' => 'forms',
                     'category' => 'Forms',
                     // Index by name AND purpose so search matches either.

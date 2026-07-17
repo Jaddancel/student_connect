@@ -95,7 +95,7 @@ export function formBuilder(config) {
         // --- palette sections ---
         get fieldPalette() {
             return Object.fromEntries(
-                Object.entries(this.catalog).filter(([, meta]) => meta.group !== 'layout'),
+                Object.entries(this.catalog).filter(([, meta]) => meta.group !== 'layout' && meta.group !== 'special'),
             );
         },
 
@@ -103,6 +103,16 @@ export function formBuilder(config) {
             return Object.fromEntries(
                 Object.entries(this.catalog).filter(([, meta]) => meta.group === 'layout'),
             );
+        },
+
+        get specialPalette() {
+            return Object.fromEntries(
+                Object.entries(this.catalog).filter(([, meta]) => meta.group === 'special'),
+            );
+        },
+
+        get hasSpecialPalette() {
+            return Object.keys(this.specialPalette).length > 0;
         },
 
         // --- field creation ---
@@ -133,6 +143,15 @@ export function formBuilder(config) {
             }
             if (type === 'age') return { min: 0, max: 150, step: 1 };
             if (type === 'static-text') return { content: 'Static text…' };
+            if (type === 'password') return { min: 8 };
+            if (type === 'multi-image') return { max_files: 5 };
+            if (type === 'computed') return { formula: 'sum', args: [] };
+            if (type === 'table-input') {
+                return {
+                    columns: [{ key: 'column_1', label: 'Column 1', type: 'text', required: false }],
+                    row_total: { key: '', label: 'Total', multiply: [] },
+                };
+            }
             return {};
         },
 
@@ -272,6 +291,57 @@ export function formBuilder(config) {
             // multi-option group, so the builder offers no option editor for it.
             return ['select', 'radio'].includes(type);
         },
+        supportsAutofillNow(type) {
+            return ['date', 'time', 'datetime'].includes(type);
+        },
+
+        // --- table-input column editing ---
+        slugColumn(label) {
+            return (label || '').toString().toLowerCase().trim()
+                .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'column';
+        },
+        addColumn(key) {
+            const f = this.field(key);
+            if (!f.field_options.columns) f.field_options.columns = [];
+            const n = f.field_options.columns.length + 1;
+            f.field_options.columns.push({ key: `column_${n}`, label: `Column ${n}`, type: 'text', required: false });
+        },
+        removeColumn(key, i) {
+            const f = this.field(key);
+            f.field_options.columns.splice(i, 1);
+        },
+        onColumnLabel(col) {
+            col.key = this.slugColumn(col.label);
+        },
+
+        // --- computed args ---
+        addArg(key) {
+            const f = this.field(key);
+            if (!f.field_options.args) f.field_options.args = [];
+            f.field_options.args.push('');
+        },
+        removeArg(key, i) {
+            const f = this.field(key);
+            f.field_options.args.splice(i, 1);
+        },
+        // Sibling fields a computed field can reference (numbers + table columns).
+        numericSiblings(exceptKey) {
+            const out = [];
+            this.fields.forEach((f) => {
+                if (f.field_key === exceptKey) return;
+                if (['number', 'age', 'computed'].includes(f.field_type)) {
+                    out.push({ value: f.field_key, label: f.field_label });
+                }
+                if (f.field_type === 'table-input') {
+                    const rt = (f.field_options || {}).row_total || {};
+                    if (rt.key) out.push({ value: `${f.field_key}.${rt.key}`, label: `${f.field_label} → ${rt.label || rt.key}` });
+                    ((f.field_options || {}).columns || []).forEach((c) => {
+                        if (c.type === 'number') out.push({ value: `${f.field_key}.${c.key}`, label: `${f.field_label} → ${c.label}` });
+                    });
+                }
+            });
+            return out;
+        },
         isNumeric(type) {
             return ['number', 'age'].includes(type);
         },
@@ -315,6 +385,28 @@ export function formBuilder(config) {
                     onEnd: (evt) => this.onDrop(evt),
                 });
             });
+
+            // Rows themselves are re-orderable via their own drag handle.
+            const rowsList = this.$root.querySelector('[data-rows-list]');
+            if (rowsList) {
+                if (rowsList._sortable) rowsList._sortable.destroy();
+                rowsList._sortable = Sortable.create(rowsList, {
+                    animation: 150,
+                    handle: '[data-row-drag]',
+                    draggable: '[data-row-item]',
+                    onEnd: (evt) => this.onRowDrop(evt),
+                });
+            }
+        },
+
+        onRowDrop(evt) {
+            const { oldIndex, newIndex } = evt;
+            if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
+            const [moved] = this.rows.splice(oldIndex, 1);
+            if (moved === undefined) return;
+            this.rows.splice(newIndex, 0, moved);
+            // Re-render from the reordered model, then re-wire.
+            this.$nextTick(() => this.wireSortables());
         },
 
         onDrop(evt) {
@@ -366,7 +458,9 @@ export function formBuilder(config) {
                     this.message = json.message || 'Saved.';
                     // Every field is now persisted — its key is frozen for good.
                     this.fields.forEach((f) => { f._keyLocked = true; });
-                    if (!this.isEdit && json.redirect) {
+                    // On both create and edit, return to the Forms list where the
+                    // flashed "saved" toast is shown.
+                    if (json.redirect) {
                         window.location = json.redirect;
                     }
                 } else {

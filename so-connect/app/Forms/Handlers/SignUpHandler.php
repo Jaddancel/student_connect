@@ -46,11 +46,14 @@ class SignUpHandler implements SystemFunctionHandler
             'form_submission_id' => (int) $submission->getKey(),
         ]);
 
-        // A plain-text password field would otherwise land in the payload as
-        // typed; the approval flow expects it pre-hashed (or absent — then a
-        // random password + activation email is used).
-        if (! empty($requestPayload['password'])) {
-            $requestPayload['password'] = Hash::make((string) $requestPayload['password']);
+        // The Password field type stores its value pre-hashed in the payload
+        // (see FormRenderController::submit), which is exactly what the
+        // approval flow expects — so it is passed through untouched. A form
+        // that maps a plain text field to `password` instead is hashed here as
+        // a safety net (bcrypt hashes are left as-is).
+        $password = (string) ($this->payloadValue($form, $payload, 'password') ?? '');
+        if ($password !== '' && ! str_starts_with($password, '$2')) {
+            $requestPayload['password'] = Hash::make($password);
         }
 
         ActionRequest::query()->create([

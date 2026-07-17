@@ -16,7 +16,18 @@ final class TemplateHtmlSanitizer
     private const ALLOWED_TAGS = [
         'h1', 'h2', 'h3', 'p', 'br', 'strong', 'b', 'em', 'i', 'u',
         'ul', 'ol', 'li', 'span', 'div',
+        'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'colgroup', 'col',
     ];
+
+    /** Inline style properties kept on any element (alignment + font + tables). */
+    private const ALLOWED_STYLE_PROPS = [
+        'text-align', 'font-size', 'font-family', 'width', 'height',
+        'border', 'border-width', 'border-style', 'border-color', 'border-collapse',
+        'padding', 'background-color', 'vertical-align',
+    ];
+
+    /** Tags on which colspan/rowspan (integer) attributes are preserved. */
+    private const SPAN_TAGS = ['td', 'th'];
 
     /** Tags dropped entirely, contents and all (e.g. leaked <style>/<script>). */
     private const DROP_TAGS = [
@@ -111,6 +122,19 @@ final class TemplateHtmlSanitizer
             if ($lower === 'contenteditable' && $tag === 'span') {
                 continue;
             }
+            // Repeating-row token markers + table cell binding.
+            if ($lower === 'data-field-rows' && in_array($tag, ['tbody', 'thead', 'table'], true)) {
+                continue;
+            }
+            if ($lower === 'data-col' && in_array($tag, self::SPAN_TAGS, true)) {
+                continue;
+            }
+            // Table cell spans (positive integers only).
+            if (($lower === 'colspan' || $lower === 'rowspan')
+                && in_array($tag, self::SPAN_TAGS, true)
+                && preg_match('/^[1-9][0-9]?$/', (string) $el->getAttribute($name))) {
+                continue;
+            }
             if ($lower === 'class' && $tag === 'span') {
                 $classes = preg_split('/\s+/', (string) $el->getAttribute('class')) ?: [];
                 $keep = array_values(array_intersect($classes, ['field-token', 'field-token--unmapped']));
@@ -142,7 +166,6 @@ final class TemplateHtmlSanitizer
      */
     private static function sanitizeStyle(string $style): ?string
     {
-        $allowed = ['text-align', 'font-size', 'font-family'];
         $out = [];
 
         foreach (explode(';', $style) as $declaration) {
@@ -153,13 +176,14 @@ final class TemplateHtmlSanitizer
             $prop = strtolower(trim($prop));
             $value = trim($value);
 
-            if (! in_array($prop, $allowed, true) || $value === '') {
+            if (! in_array($prop, self::ALLOWED_STYLE_PROPS, true) || $value === '') {
                 continue;
             }
             if (preg_match('/url\(|expression|javascript:/i', $value)) {
                 continue;
             }
-            $value = (string) preg_replace('/[^a-zA-Z0-9 ,.\'"%\-]/', '', $value);
+            // Allow #hex colours and rgb() for background/border colours.
+            $value = (string) preg_replace('/[^a-zA-Z0-9 ,.\'"%#()\-]/', '', $value);
             if ($value === '') {
                 continue;
             }

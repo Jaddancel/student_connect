@@ -84,6 +84,9 @@
                                             <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $criterion->rule->enabled ? 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400' : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400' }}">
                                                 {{ $criterion->rule->enabled ? 'Trigger active' : 'Trigger disabled' }}
                                             </span>
+                                            <p class="mx-auto mt-1 max-w-xs text-left text-[11px] leading-snug text-gray-400 dark:text-gray-500">
+                                                {{ \App\Services\Scoring\TriggerSummary::text($criterion->rule->trigger) }}
+                                            </p>
                                         @else
                                             <span class="text-xs text-gray-400 dark:text-gray-500">No trigger — scores 0</span>
                                         @endif

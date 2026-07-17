@@ -14,6 +14,7 @@ use Illuminate\Auth\Events\Logout;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -34,6 +35,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Serve every URL (assets, redirects, cookies) over HTTPS in production,
+        // or wherever FORCE_HTTPS is enabled, so the site is not HTTP-only.
+        if ($this->app->environment('production') || filter_var(env('FORCE_HTTPS'), FILTER_VALIDATE_BOOLEAN)) {
+            URL::forceScheme('https');
+        }
+
         Event::listen([Login::class, Logout::class], LogAuthActivity::class);
 
         Gate::policy(Officer::class, RolePolicy::class);

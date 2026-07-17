@@ -30,23 +30,79 @@ class FormRenderController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
-        abort_unless(Form::isAccessibleBy($request->user()), 403,
-            'Form pages are available to organization officers only.');
+        // The Sign Up form is a public page (like the old signup wizard);
+        // every other form is gated to organization officers.
+        abort_unless(
+            $form->system_function === SystemFunction::SIGN_UP || Form::isAccessibleBy($request->user()),
+            403,
+            'Form pages are available to organization officers only.',
+        );
 
         $fields = $form->fields()->get();
         $organization = OrganizationField::resolveOrganization($request->user());
+
+        $prefill = $this->profilePrefill($request, $fields, $organization);
+        $hidden = [];
+
+        // The public sign-up form pre-fills from the landing-page Google popup's
+        // query params (google_id/first_name/last_name/email); google_id rides
+        // along as a hidden input the SignUp approval reads.
+        if ($form->system_function === SystemFunction::SIGN_UP) {
+            [$prefill, $hidden] = $this->signupQueryPrefill($request, $fields, $prefill);
+        }
 
         return view('pages.form.render', [
             'title' => $form->name,
             'form' => $form,
             'fields' => $fields,
-            'prefill' => $this->profilePrefill($request, $fields, $organization),
+            'prefill' => $prefill,
+            'hidden' => $hidden,
             // Option list for any field mapped to the "Advisers" universal field.
             'advisers' => OrganizationField::advisers($organization),
+            // Option data for the special kit-scoped field types.
+            'special' => \App\Forms\SpecialFieldData::resolve($request->user(), $fields, $form),
             // Per-field visibility conditions for the client-side toggling.
             'conditions' => ConditionEvaluator::clientConditions($fields),
             'recentSubmissions' => $this->recentSubmissions($request, $form),
         ]);
+    }
+
+    /**
+     * Merge the landing-page Google popup's query params into the sign-up
+     * form's prefill, mapping email/first_name/last_name onto whichever field
+     * carries the matching universal key (or that literal field_key), and
+     * returning google_id as a hidden input.
+     *
+     * @param  \Illuminate\Support\Collection<int,\App\Models\Form\FormDescription>  $fields
+     * @param  array<string,mixed>  $prefill
+     * @return array{0:array<string,mixed>,1:array<string,string>}
+     */
+    private function signupQueryPrefill(Request $request, $fields, array $prefill): array
+    {
+        $map = [
+            'email' => (string) $request->query('email', ''),
+            'first_name' => (string) $request->query('first_name', ''),
+            'last_name' => (string) $request->query('last_name', ''),
+        ];
+
+        foreach ($fields as $field) {
+            foreach ($map as $wellKnown => $value) {
+                if ($value === '') {
+                    continue;
+                }
+                if ($field->universal_key === $wellKnown || $field->field_key === $wellKnown) {
+                    $prefill[$field->field_key] = $value;
+                }
+            }
+        }
+
+        $hidden = [];
+        $googleId = (string) $request->query('google_id', '');
+        if ($googleId !== '') {
+            $hidden['google_id'] = $googleId;
+        }
+
+        return [$prefill, $hidden];
     }
 
     /**
@@ -132,8 +188,13 @@ class FormRenderController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
-        abort_unless(Form::isAccessibleBy($request->user()), 403,
-            'Form pages are available to organization officers only.');
+        // The Sign Up form is a public page (like the old signup wizard);
+        // every other form is gated to organization officers.
+        abort_unless(
+            $form->system_function === SystemFunction::SIGN_UP || Form::isAccessibleBy($request->user()),
+            403,
+            'Form pages are available to organization officers only.',
+        );
 
         // Defense in depth: an untemplated form must never accept a submission,
         // since it could not produce its printed document.
@@ -159,13 +220,23 @@ class FormRenderController extends Controller
             if (FieldType::isPresentational($field->field_type) || $isHidden($field->field_key)) {
                 continue;
             }
+            $options = (array) ($field->field_options ?? []);
             $fieldRules = FieldType::validationRules(
                 $field->field_type,
                 (bool) $field->is_required,
-                (array) ($field->field_options ?? []),
+                $options,
             );
             if (! empty($fieldRules)) {
                 $rules[$field->field_key] = $fieldRules;
+            }
+            // Element rules for array-valued types (lists, tables, photo sets).
+            foreach (FieldType::nestedValidationRules($field->field_type, $options) as $suffix => $nested) {
+                $rules[$field->field_key.'.'.$suffix] = $nested;
+            }
+            // The ID-scan wizard's photo captures ride along as fixed inputs.
+            if ($field->field_type === FieldType::ID_SCAN) {
+                $rules['id_photo_front'] = ['nullable', 'file', 'mimes:jpeg,jpg,png,heic,heif', 'max:5120'];
+                $rules['id_photo_back'] = ['nullable', 'file', 'mimes:jpeg,jpg,png,heic,heif', 'max:5120'];
             }
         }
 
@@ -202,6 +273,68 @@ class FormRenderController extends Controller
                 continue;
             }
 
+            if ($type === FieldType::MULTI_IMAGE) {
+                $paths = [];
+                foreach ((array) $request->file($key, []) as $file) {
+                    if ($file !== null) {
+                        $paths[] = $file->store(
+                            'form-uploads/'.$form->route_name,
+                            (string) config('documents.disk', 'public'),
+                        );
+                    }
+                }
+                $payload[$key] = $paths;
+                continue;
+            }
+
+            if ($type === FieldType::PASSWORD) {
+                // Stored pre-hashed: neither the submission payload nor the
+                // approval request ever carries the plaintext.
+                $raw = (string) ($validated[$key] ?? '');
+                $payload[$key] = $raw !== '' ? \Illuminate\Support\Facades\Hash::make($raw) : null;
+                continue;
+            }
+
+            if ($type === FieldType::ID_SCAN) {
+                $payload[$key] = $validated[$key] ?? null;
+                foreach (['id_photo_front', 'id_photo_back'] as $photoKey) {
+                    $payload[$photoKey] = $request->hasFile($photoKey)
+                        ? $request->file($photoKey)->store(
+                            'form-uploads/'.$form->route_name,
+                            (string) config('documents.disk', 'public'),
+                        )
+                        : null;
+                }
+                continue;
+            }
+
+            if ($type === FieldType::COMPUTED) {
+                // Recomputed below from the assembled payload.
+                $payload[$key] = null;
+                continue;
+            }
+
+            if ($type === FieldType::TEXT_LIST) {
+                $payload[$key] = array_values(array_filter(
+                    array_map(fn ($v) => trim((string) $v), (array) ($validated[$key] ?? [])),
+                    fn ($v) => $v !== '',
+                ));
+                continue;
+            }
+
+            if ($type === FieldType::TABLE_INPUT) {
+                $payload[$key] = $this->normalizeTableRows(
+                    (array) ($validated[$key] ?? []),
+                    (array) ($field->field_options ?? []),
+                );
+                continue;
+            }
+
+            if ($type === FieldType::WORKPLAN_EVENTS) {
+                $payload[$key] = array_values(array_unique(array_map('intval', (array) ($validated[$key] ?? []))));
+                continue;
+            }
+
             // A single checkmark (no option list) is a boolean the browser omits
             // entirely when unticked. Store it as 1 (checked) / 0 (unchecked) so
             // scoring-rule conditions can reliably test it (`field:key = 1`/`= 0`).
@@ -214,6 +347,19 @@ class FormRenderController extends Controller
 
             $payload[$key] = $validated[$key] ?? null;
         }
+
+        // The public sign-up form carries a hidden google_id from the OAuth
+        // popup; the SignUp approval reads it off the request payload.
+        if ($form->system_function === SystemFunction::SIGN_UP) {
+            $googleId = trim((string) $request->input('google_id', ''));
+            if ($googleId !== '') {
+                $payload['google_id'] = $googleId;
+            }
+        }
+
+        // Derived values (table row totals, computed fields) are recomputed
+        // server-side — whatever the client posted for them is overwritten.
+        $payload = \App\Forms\FieldCompute::apply($fields, $payload);
 
         $user = $request->user();
 
@@ -247,6 +393,9 @@ class FormRenderController extends Controller
             'submitted_at' => now(),
         ]);
 
+        // Kit side effects (event linking, posts-wall media mirroring).
+        \App\Forms\FieldKit::afterSubmit($form, $submission, $payload);
+
         if ($handler) {
             return $handler->handle($form, $submission, $payload, $request);
         }
@@ -264,6 +413,43 @@ class FormRenderController extends Controller
 
         return redirect()->route('forms.render', $form->route_name)
             ->with('success', $form->name.' submitted for approval — the document will be generated once an admin approves it.');
+    }
+
+    /**
+     * Keep only the declared columns of each submitted table row, dropping
+     * rows with no values at all. Row totals are recomputed later by
+     * {@see \App\Forms\FieldCompute}.
+     *
+     * @param  array<int,mixed>  $rows
+     * @param  array<string,mixed>  $options
+     * @return array<int,array<string,mixed>>
+     */
+    private function normalizeTableRows(array $rows, array $options): array
+    {
+        $columns = FieldType::tableColumns($options);
+        if ($columns === []) {
+            return [];
+        }
+
+        $clean = [];
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $cleanRow = [];
+            $hasValue = false;
+            foreach ($columns as $column) {
+                $value = $row[$column['key']] ?? null;
+                $value = is_scalar($value) ? trim((string) $value) : null;
+                $cleanRow[$column['key']] = ($value === '' ? null : $value);
+                $hasValue = $hasValue || ($cleanRow[$column['key']] !== null);
+            }
+            if ($hasValue) {
+                $clean[] = $cleanRow;
+            }
+        }
+
+        return $clean;
     }
 
     /**

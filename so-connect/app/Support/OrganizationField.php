@@ -51,6 +51,14 @@ final class OrganizationField
             return trim((string) $name) !== '' ? $name : null;
         }
 
+        if ($key === 'org_category') {
+            $type = $organization->organization_type;
+
+            return $type !== null && $type !== ''
+                ? \App\Enums\OrganizationType::label((int) $type)
+                : null;
+        }
+
         $officer = match ($key) {
             'org_president' => self::officerByRole($organization, 'president'),
             'org_auditor' => self::officerByPosition($organization, 'auditor'),

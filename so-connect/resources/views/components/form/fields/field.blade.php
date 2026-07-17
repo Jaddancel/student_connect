@@ -95,20 +95,23 @@
                 @break
 
             @case(FieldType::DATE)
+                @php $nowDefault = (empty($old) && ! empty($opts['autofill_now'])) ? ", defaultDate: 'today'" : ''; @endphp
                 <input type="text" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder ?: 'Select a date' }}"
-                    x-data x-init="window.flatpickr && window.flatpickr($el, { dateFormat: 'Y-m-d' })"
+                    x-data x-init="window.flatpickr && window.flatpickr($el, { dateFormat: 'Y-m-d'{!! $nowDefault !!} })"
                     class="{{ $inputClass }}" autocomplete="off" />
                 @break
 
             @case(FieldType::TIME)
+                @php $nowDefault = (empty($old) && ! empty($opts['autofill_now'])) ? ", defaultDate: new Date()" : ''; @endphp
                 <input type="text" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder ?: 'Select a time' }}"
-                    x-data x-init="window.flatpickr && window.flatpickr($el, { enableTime: true, noCalendar: true, dateFormat: 'H:i', time_24hr: true })"
+                    x-data x-init="window.flatpickr && window.flatpickr($el, { enableTime: true, noCalendar: true, dateFormat: 'H:i', time_24hr: true{!! $nowDefault !!} })"
                     class="{{ $inputClass }}" autocomplete="off" />
                 @break
 
             @case(FieldType::DATETIME)
+                @php $nowDefault = (empty($old) && ! empty($opts['autofill_now'])) ? ", defaultDate: new Date()" : ''; @endphp
                 <input type="text" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder ?: 'Select a date and time' }}"
-                    x-data x-init="window.flatpickr && window.flatpickr($el, { enableTime: true, dateFormat: 'Y-m-d H:i', time_24hr: true })"
+                    x-data x-init="window.flatpickr && window.flatpickr($el, { enableTime: true, dateFormat: 'Y-m-d H:i', time_24hr: true{!! $nowDefault !!} })"
                     class="{{ $inputClass }}" autocomplete="off" />
                 @break
 
@@ -139,31 +142,45 @@
             @case(FieldType::SIGNATURE)
                 @php
                     // A saved profile signature arrives as a stored path via prefill;
-                    // a re-submitted draw arrives as a data-URL via old().
-                    $savedSignatureUrl = (is_string($old) && $old !== '' && ! str_starts_with($old, 'data:'))
-                        ? \Illuminate\Support\Facades\Storage::disk(\App\Support\SignatureImage::disk())->url($old)
+                    // an uploaded/scanned signature arrives as a data-URL via old().
+                    $savedSignaturePath = (is_string($old) && $old !== '' && ! str_starts_with($old, 'data:')) ? $old : null;
+                    $savedSignatureUrl = $savedSignaturePath
+                        ? \Illuminate\Support\Facades\Storage::disk(\App\Support\SignatureImage::disk())->url($savedSignaturePath)
                         : null;
                 @endphp
-                <div x-data="signatureField({ verifyUrl: @js(auth()->check() ? route('signature.verify') : null) })" class="space-y-2"
+                <div x-data="signatureImageField({
+                        verifyUrl: @js(auth()->check() ? route('signature.verify') : null),
+                        savedUrl: @js($savedSignatureUrl),
+                        savedPath: @js($savedSignaturePath),
+                    })" class="space-y-2"
                     @if ($field->universal_key) data-universal-key="{{ $field->universal_key }}" @endif
                     @signature-set="fromDataUrl($event.detail.dataUrl)"
                     @signature-clear="clearFromScan()">
-                    @if ($savedSignatureUrl)
-                        <div class="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-white/[0.03]">
-                            <img src="{{ $savedSignatureUrl }}" alt="Saved signature"
-                                 class="h-12 w-auto rounded bg-white object-contain p-1" />
-                            <p class="text-xs text-gray-500 dark:text-gray-400">
-                                Using your saved signature — draw below to replace it for this submission.
-                            </p>
-                        </div>
-                    @endif
-                    <canvas x-ref="canvas" width="500" height="160"
-                        class="w-full rounded-lg border border-gray-300 bg-white touch-none dark:border-gray-700"></canvas>
+
                     <input type="hidden" name="{{ $key }}" x-ref="input" value="{{ $old }}" />
+
+                    {{-- Preview of the current signature (saved, uploaded or scanned) --}}
+                    <template x-if="preview">
+                        <div class="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-white/[0.03]">
+                            <img :src="preview" alt="Signature" class="h-14 w-auto rounded bg-white object-contain p-1" />
+                            <p class="text-xs text-gray-500 dark:text-gray-400" x-text="usingSaved ? 'Using your saved signature.' : 'Signature ready.'"></p>
+                        </div>
+                    </template>
+
+                    {{-- Upload a signature image (extracted client-side) --}}
+                    <label class="block cursor-pointer rounded-lg border-2 border-dashed border-gray-300 px-4 py-3 text-center text-xs font-medium text-gray-500 transition hover:border-brand-400 hover:text-brand-600 dark:border-gray-700">
+                        <span x-text="preview ? 'Replace with another image' : 'Upload a photo of your signature (JPEG/PNG)'"></span>
+                        <input type="file" accept="image/jpeg,image/png,image/heic" class="hidden" @change="onUpload($event)" />
+                    </label>
+
                     <div class="flex flex-wrap items-center gap-2">
-                        <button type="button" @click="clear()"
+                        <button type="button" x-show="preview" @click="clear()"
                             class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
-                            Clear signature
+                            Clear
+                        </button>
+                        <button type="button" x-show="savedPath && !usingSaved" x-cloak @click="useSaved()"
+                            class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
+                            Use saved signature
                         </button>
                         {{-- Advisory recognition badge; never blocks submission. --}}
                         <span x-cloak x-show="verifyState === 'checking'" class="inline-flex items-center gap-1.5 text-xs text-gray-400">
@@ -188,6 +205,150 @@
                         </span>
                     </div>
                 </div>
+                @break
+
+            @case(FieldType::ORG_SELECT)
+                @php $orgs = $special['organizations'] ?? []; @endphp
+                @if (count($orgs) === 1)
+                    <input type="hidden" name="{{ $key }}" value="{{ $orgs[0]['id'] }}" />
+                    <input type="text" value="{{ $orgs[0]['name'] }}" readonly
+                        class="{{ $inputClass }} bg-gray-50 dark:bg-white/[0.02]" />
+                @else
+                    <select id="{{ $key }}" name="{{ $key }}" class="{{ $inputClass }}">
+                        <option value="">{{ $placeholder ?: 'Select your organization' }}</option>
+                        @foreach ($orgs as $org)
+                            <option value="{{ $org['id'] }}" @selected((string) $old === (string) $org['id'])>{{ $org['name'] }}</option>
+                        @endforeach
+                    </select>
+                @endif
+                @break
+
+            @case(FieldType::POSITION_SELECT)
+                @php $positions = FieldType::optionValues($opts) ?: FieldType::POSITION_OPTIONS; @endphp
+                <select id="{{ $key }}" name="{{ $key }}" class="{{ $inputClass }}">
+                    <option value="">{{ $placeholder ?: 'Select a position' }}</option>
+                    @foreach ($positions as $position)
+                        <option value="{{ $position }}" @selected($old === $position)>{{ $position }}</option>
+                    @endforeach
+                </select>
+                @break
+
+            @case(FieldType::PASSWORD)
+                <input type="password" id="{{ $key }}" name="{{ $key }}"
+                    placeholder="{{ $placeholder ?: 'Choose a password' }}" autocomplete="new-password"
+                    class="{{ $inputClass }}" />
+                <input type="password" id="{{ $key }}_confirmation" name="{{ $key }}_confirmation"
+                    placeholder="Confirm password" autocomplete="new-password"
+                    class="{{ $inputClass }} mt-2" />
+                @break
+
+            @case(FieldType::ID_SCAN)
+                @include('components.form.fields.id-scan', ['field' => $field, 'key' => $key, 'old' => $old, 'placeholder' => $placeholder, 'inputClass' => $inputClass, 'special' => $special ?? []])
+                @break
+
+            @case(FieldType::EVENT_SELECT)
+                @php $events = $special['events'] ?? []; $autofillMap = (array) ($opts['autofill_map'] ?? []); @endphp
+                <select id="{{ $key }}" name="{{ $key }}" class="{{ $inputClass }}"
+                    x-data
+                    @change="
+                        const opt = $el.selectedOptions[0];
+                        if (!opt) return;
+                        const map = {{ Illuminate\Support\Js::from($autofillMap) }};
+                        for (const [attr, target] of Object.entries(map)) {
+                            const val = opt.dataset[attr];
+                            if (val === undefined) continue;
+                            const el = document.querySelector('[name=&quot;' + target + '&quot;]');
+                            if (el && !el.value) { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); }
+                        }
+                    ">
+                    <option value="">{{ $placeholder ?: 'Select an approved event' }}</option>
+                    @foreach ($events as $event)
+                        <option value="{{ $event['id'] }}" @selected((string) $old === (string) $event['id'])
+                            data-title="{{ $event['title'] }}" data-date="{{ $event['date'] }}" data-people="{{ $event['people'] }}"
+                            data-activity_type="{{ ($event['activity_types'][0] ?? '') }}">{{ $event['title'] }}</option>
+                    @endforeach
+                </select>
+                @if (! count($events))
+                    <p class="mt-1 text-xs text-warning-600 dark:text-orange-400">No approved events are available yet.</p>
+                @endif
+                @break
+
+            @case(FieldType::WORKPLAN_SELECT)
+                @php $workplans = $special['workplans'] ?? []; @endphp
+                <select id="{{ $key }}" name="{{ $key }}" class="{{ $inputClass }}"
+                    x-data="{ picked: @js((string) $old) }" x-model="picked">
+                    <option value="">{{ $placeholder ?: 'Select a workplan' }}</option>
+                    @foreach ($workplans as $wp)
+                        <option value="{{ $wp['id'] }}">{{ $wp['label'] }}</option>
+                    @endforeach
+                </select>
+                @foreach ($workplans as $wp)
+                    <div x-show="picked === '{{ $wp['id'] }}'" x-cloak class="mt-2 rounded-lg border border-gray-200 p-3 text-xs dark:border-gray-700">
+                        <p class="mb-1 font-medium text-gray-600 dark:text-gray-300">Approved activities:</p>
+                        <ul class="list-disc space-y-0.5 pl-4 text-gray-500 dark:text-gray-400">
+                            @foreach ($wp['activities'] as $activity)
+                                <li>{{ $activity['title'] }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endforeach
+                @break
+
+            @case(FieldType::WORKPLAN_EVENTS)
+                @php
+                    $plans = $special['approved_plans'] ?? [];
+                    $oldSelected = old($key, array_column($plans, 'id'));
+                @endphp
+                @if (count($plans))
+                    <div class="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                        <p class="text-xs text-gray-400">All approved events are included by default — untick any to leave out.</p>
+                        @foreach ($plans as $plan)
+                            <label class="flex cursor-pointer items-start gap-2.5">
+                                <input type="checkbox" name="{{ $key }}[]" value="{{ $plan['id'] }}"
+                                    @checked(in_array($plan['id'], (array) $oldSelected))
+                                    class="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                                <span class="text-sm text-gray-700 dark:text-gray-300">
+                                    {{ $plan['title'] }}
+                                    <span class="text-xs text-gray-400">— {{ $plan['date'] }}</span>
+                                </span>
+                            </label>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-xs text-warning-600 dark:text-orange-400">No approved events found for your organization's current workplan.</p>
+                @endif
+                @break
+
+            @case(FieldType::TEXT_LIST)
+                @php $oldRows = array_values(array_filter((array) old($key, $prefill[$key] ?? []), fn ($v) => $v !== null)); if (! count($oldRows)) { $oldRows = ['']; } @endphp
+                <div x-data="{ rows: {{ Illuminate\Support\Js::from($oldRows) }} }" class="space-y-2">
+                    <template x-for="(row, i) in rows" :key="i">
+                        <div class="flex items-center gap-2">
+                            <input type="text" :name="'{{ $key }}[]'" x-model="rows[i]" placeholder="{{ $placeholder }}"
+                                class="{{ $inputClass }}" />
+                            <button type="button" @click="rows.splice(i, 1); if (!rows.length) rows.push('')"
+                                class="shrink-0 rounded-lg border border-gray-300 px-2.5 py-2 text-xs text-error-500 dark:border-gray-700">✕</button>
+                        </div>
+                    </template>
+                    <button type="button" @click="rows.push('')" class="text-xs font-medium text-brand-500 hover:text-brand-600">+ Add another</button>
+                </div>
+                @break
+
+            @case(FieldType::TABLE_INPUT)
+                @include('components.form.fields.table-input', ['field' => $field, 'key' => $key, 'opts' => $opts, 'special' => $special ?? []])
+                @break
+
+            @case(FieldType::MULTI_IMAGE)
+                @php $maxFiles = (int) ($opts['max_files'] ?? 5); @endphp
+                <input type="file" id="{{ $key }}" name="{{ $key }}[]" accept="image/jpeg,image/png,image/heic" multiple
+                    class="dark:bg-dark-900 shadow-theme-xs w-full rounded-lg border bg-transparent text-sm text-gray-500 file:mr-4 file:border-0 file:bg-brand-50 file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-brand-600 dark:border-gray-700 {{ $errors->has($key) ? 'border-error-500' : 'border-gray-300' }}" />
+                <p class="mt-1 text-xs text-gray-400">Up to {{ $maxFiles }} photos (JPEG, PNG or HEIC).</p>
+                @break
+
+            @case(FieldType::COMPUTED)
+                {{-- Derived server-side; shown read-only, recomputed live from siblings for feedback. --}}
+                <input type="text" readonly value="{{ $old }}" placeholder="Calculated automatically"
+                    class="{{ $inputClass }} bg-gray-50 dark:bg-white/[0.02]" />
                 @break
 
             @default

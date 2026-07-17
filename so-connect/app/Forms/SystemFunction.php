@@ -35,7 +35,7 @@ final class SystemFunction
     public const MEMBERSHIP_REGISTRATION = 'membership_registration';
 
     /**
-     * @return array<string, array{label:string, description:string, legacy_route:?string, handler:class-string<SystemFunctionHandler>}>
+     * @return array<string, array{label:string, description:string, handler:class-string<SystemFunctionHandler>}>
      */
     public static function catalog(): array
     {
@@ -43,25 +43,21 @@ final class SystemFunction
             self::SIGN_UP => [
                 'label' => 'Sign Up (new officer account)',
                 'description' => 'Submissions request a new user account (user type 3); an admin approval creates the account.',
-                'legacy_route' => 'student-leader-directory',
                 'handler' => SignUpHandler::class,
             ],
             self::NEW_EVENT => [
                 'label' => 'New Event',
                 'description' => 'Submissions request a new event; an admin approval schedules it.',
-                'legacy_route' => 'activity-request',
                 'handler' => NewEventHandler::class,
             ],
             self::NEW_WORKPLAN => [
                 'label' => 'New Workplan',
                 'description' => 'Submissions request a workplan document; an admin approval generates it.',
-                'legacy_route' => 'workplan',
                 'handler' => NewWorkplanHandler::class,
             ],
             self::MEMBERSHIP_REGISTRATION => [
                 'label' => 'Org Membership Registration',
                 'description' => 'Submissions request membership in an organization; an admin (or the org president) approves it.',
-                'legacy_route' => null,
                 'handler' => MembershipRegistrationHandler::class,
             ],
         ];
@@ -86,25 +82,27 @@ final class SystemFunction
     }
 
     /**
-     * The form serving a system function: the explicitly bound form, or the
-     * seeded legacy form while one still exists. Null when neither does — the
-     * caller decides how the flow degrades.
+     * The form bound to a system function, or null when none is bound. A
+     * function with no bound form is DISABLED — its entry points degrade to a
+     * friendly message until an admin creates a form in the Form Builder.
      */
     public static function form(string $key): ?Form
     {
-        $meta = self::catalog()[$key] ?? null;
-        if ($meta === null) {
+        if (! self::has($key)) {
             return null;
         }
 
-        $bound = Form::query()->where('system_function', $key)->first();
-        if ($bound) {
-            return $bound;
-        }
+        return Form::query()->where('system_function', $key)->first();
+    }
 
-        return $meta['legacy_route']
-            ? Form::query()->where('route_name', $meta['legacy_route'])->first()
-            : null;
+    /**
+     * A function is enabled once a published form is bound to it.
+     */
+    public static function enabled(string $key): bool
+    {
+        $form = self::form($key);
+
+        return $form !== null && (bool) $form->is_published;
     }
 
     /**

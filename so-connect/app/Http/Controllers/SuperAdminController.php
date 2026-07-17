@@ -380,13 +380,15 @@ public function searchProfiles(Request $request): JsonResponse
             'q' => ['nullable', 'string', 'max:255'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
             'exclude_associated' => ['nullable', 'boolean'],
+            'admins' => ['nullable', 'boolean'],
         ]);
 
         $query = (string) ($validated['q'] ?? '');
         $limit = (int) ($validated['limit'] ?? 20);
         $excludeAssociated = (bool) ($validated['exclude_associated'] ?? false);
+        $adminsOnly = (bool) ($validated['admins'] ?? false);
 
-        $profileResults = ProfileMatchHelper::search($query, $limit);
+        $profileResults = ProfileMatchHelper::search($query, $limit, $adminsOnly);
         $associatedProfileIds = $this->associatedProfileIdLookup($profileResults);
 
         if ($excludeAssociated) {

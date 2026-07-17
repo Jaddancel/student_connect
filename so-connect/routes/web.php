@@ -1,7 +1,5 @@
 <?php
 
-use App\Http\Controllers\AccomplishmentReportController;
-use App\Http\Controllers\ActivityRequestController;
 use App\Http\Controllers\Admin\AccomplishmentReportRequestController;
 use App\Http\Controllers\Admin\AdminAccountCreationController;
 use App\Http\Controllers\Admin\AdminOfficerCreationController;
@@ -32,23 +30,17 @@ use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventPlanController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\Admin\FormBuilderController;
-use App\Http\Controllers\FinancialReportController;
 use App\Http\Controllers\FormDirectoryController;
 use App\Http\Controllers\FormRenderController;
 use App\Http\Controllers\IdScanController;
-use App\Http\Controllers\JointStatementController;
 use App\Http\Controllers\LandingPage;
-use App\Http\Controllers\MembershipRegistrationController;
 use App\Http\Controllers\OrganizationController;
-use App\Http\Controllers\OrganizationRecognitionController;
 use App\Http\Controllers\PolicySecurityRequestController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\ProjectRequestController as UserProjectRequestController;
 use App\Http\Controllers\PromotionRequestsPageController;
 use App\Http\Controllers\RequestDecisionController;
 use App\Http\Controllers\SidebarMenuController;
-use App\Http\Controllers\StudentLeaderDirectoryController;
 use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkplanController;
@@ -202,13 +194,12 @@ Route::get('/upcoming-events', [SidebarMenuController::class, 'upcomingEvents'])
     ->middleware('auth')
     ->name('upcoming-events');
 
-Route::get('/register', [MembershipRegistrationController::class, 'create'])
+// Membership registration is now the "Org Membership Registration"
+// system-function form; /register redirects to whatever form is bound (or a
+// friendly "disabled" message when none is).
+Route::get('/register', fn () => redirect()->route('functions.show', 'membership_registration'))
     ->middleware('auth')
     ->name('register');
-
-Route::post('/register', [MembershipRegistrationController::class, 'store'])
-    ->middleware('auth')
-    ->name('register.store');
 
 Route::get('/download-files', [SidebarMenuController::class, 'downloadFiles'])
     ->middleware('auth')
@@ -258,32 +249,16 @@ Route::middleware(['auth', 'officer.or.admin'])->group(function () {
         ->whereNumber('id')
         ->name('event-plans.revise');
 
-    Route::get('/forms/organization-recognition', [OrganizationRecognitionController::class, 'index'])
-        ->name('organization-recognition');
-    Route::post('/forms/organization-recognition', [OrganizationRecognitionController::class, 'store'])
-        ->name('organization-recognition.store');
-
-    Route::get('/forms/accomplishment-report', [AccomplishmentReportController::class, 'index'])
-        ->name('accomplishment-report');
-    Route::post('/forms/accomplishment-report', [AccomplishmentReportController::class, 'store'])
-        ->name('accomplishment-report.store');
-
-    Route::get('/forms/activity-request', [ActivityRequestController::class, 'index'])
-        ->name('activity-request');
-    Route::post('/forms/activity-request', [ActivityRequestController::class, 'store'])
-        ->name('activity-request.store');
-
-    Route::get('/forms/project-request', [UserProjectRequestController::class, 'index'])
-        ->name('project-request');
-    Route::post('/forms/project-request', [UserProjectRequestController::class, 'store'])
-        ->name('project-request.store');
+    // The organization-recognition, accomplishment-report, activity-request,
+    // project-request, financial-report and joint-statement forms are now
+    // data-driven Form Builder pages (seeded with their historical route_name),
+    // so their URLs fall through to the generic /forms/{routeName} renderer
+    // below. The workplan review/download pages remain; workplan SUBMISSION is
+    // the "New Workplan" system-function form.
 
     Route::get('/forms/workplan/{workplan_id}', [WorkplanController::class, 'review'])
         ->whereNumber('workplan_id')
         ->name('workplan.review');
-    Route::post('/forms/workplan/{workplan_id}/generate', [WorkplanController::class, 'generatePdf'])
-        ->whereNumber('workplan_id')
-        ->name('workplan.generate');
     Route::get('/forms/workplan/{workplan_id}/download', [WorkplanController::class, 'downloadPdf'])
         ->whereNumber('workplan_id')
         ->name('workplan.download');
@@ -291,22 +266,7 @@ Route::middleware(['auth', 'officer.or.admin'])->group(function () {
     Route::patch('/workplans/{workplan_id}/finalize', [EventPlanController::class, 'finalize'])
         ->whereNumber('workplan_id')
         ->name('workplans.finalize');
-
-    Route::get('/forms/financial-report', [FinancialReportController::class, 'index'])
-        ->name('financial-report');
-    Route::post('/forms/financial-report', [FinancialReportController::class, 'store'])
-        ->name('financial-report.store');
 });
-
-Route::get('/forms/student-leader-directory', [StudentLeaderDirectoryController::class, 'index'])
-    ->name('student-leader-directory');
-Route::post('/forms/student-leader-directory', [StudentLeaderDirectoryController::class, 'store'])
-    ->name('student-leader-directory.store');
-
-Route::get('/forms/joint-statement', [JointStatementController::class, 'index'])
-    ->middleware(['auth', 'role.officer'])->name('joint-statement');
-Route::post('/forms/joint-statement', [JointStatementController::class, 'store'])
-    ->middleware(['auth', 'role.officer'])->name('joint-statement.store');
 
 // Generic WYSIWYG-builder form renderer. Registered AFTER the literal /forms/*
 // routes above so bespoke forms keep their dedicated pages; this catches any
@@ -315,8 +275,6 @@ Route::middleware('auth')->group(function () {
     // Dedicated Forms directory (name + purpose search). Registered before the
     // `/forms/{routeName}` renderer so the literal `/forms` index wins.
     Route::get('/forms', [FormDirectoryController::class, 'index'])->name('forms.directory');
-    Route::get('/forms/{routeName}', [FormRenderController::class, 'show'])->name('forms.render');
-    Route::post('/forms/{routeName}', [FormRenderController::class, 'submit'])->name('forms.render.submit');
 
     // Stable entry point for a system function's bound form page (sign_up,
     // new_event, new_workplan, membership_registration — see SystemFunction).
@@ -329,6 +287,14 @@ Route::middleware('auth')->group(function () {
         return redirect()->route('forms.render', $form->route_name);
     })->name('functions.show');
 });
+
+// The renderer itself is PUBLIC: FormRenderController authorizes per form — the
+// Sign Up form is open to guests (public account request), every other form is
+// gated to organization officers (403 otherwise). Registered after the /forms
+// directory + literal /forms/* routes so those win.
+Route::get('/forms/{routeName}', [FormRenderController::class, 'show'])->name('forms.render');
+Route::post('/forms/{routeName}', [FormRenderController::class, 'submit'])
+    ->middleware('throttle:20,1')->name('forms.render.submit');
 
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/posts', [PostController::class, 'index'])->name('posts.index');
@@ -742,8 +708,19 @@ Route::get('/bar-chart', function () {
 // authentication pages
 Route::get('/signin', fn () => redirect()->route('home'))->name('signin');
 
-Route::get('/signup', [StudentLeaderDirectoryController::class, 'index'])
-    ->middleware('guest')->name('signup');
+// Public sign-up: redirects to the "Sign Up" system-function form (the seeded
+// Directory of Student Officers), forwarding the landing-page Google popup's
+// prefill query params. Falls back to a friendly message when no form is bound.
+Route::get('/signup', function (\Illuminate\Http\Request $request) {
+    $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::SIGN_UP);
+    abort_if($form === null || ! $form->route_name, 404,
+        'Sign-up is not available right now — no form is bound to the Sign Up function.');
+
+    return redirect()->route('forms.render', array_merge(
+        ['routeName' => $form->route_name],
+        $request->only(['google_id', 'first_name', 'last_name', 'email']),
+    ));
+})->middleware('guest')->name('signup');
 
 // ui elements pages
 Route::get('/alerts', function () {
