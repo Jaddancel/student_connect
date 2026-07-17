@@ -45,20 +45,52 @@
                 <div class="grid grid-cols-1 gap-x-6 gap-y-4 px-6 py-5 text-sm sm:grid-cols-2">
                     @foreach ($fields as $field)
                         @continue(FieldType::isPresentational($field->field_type))
+                        {{-- Passwords are stored hashed and never shown. --}}
+                        @continue($field->field_type === FieldType::PASSWORD)
                         @php
+                            $type = $field->field_type;
                             $value = $submissionPayload[$field->field_key] ?? null;
                             $isImagePath = is_string($value) && $value !== ''
-                                && (FieldType::isFileLike($field->field_type) || $field->field_type === FieldType::SIGNATURE)
+                                && (FieldType::isFileLike($type) || $type === FieldType::SIGNATURE)
                                 && preg_match('/\.(jpe?g|png|gif|webp|heic|heif)$/i', $value);
-                            $isFilePath = is_string($value) && $value !== '' && FieldType::isFileLike($field->field_type) && ! $isImagePath;
+                            $isFilePath = is_string($value) && $value !== '' && FieldType::isFileLike($type) && ! $isImagePath;
+                            $isDataUri = is_string($value) && str_starts_with($value, 'data:image');
+                            $tableCols = $type === FieldType::TABLE_INPUT ? FieldType::tableColumns((array) ($field->field_options ?? [])) : [];
                         @endphp
-                        <div @class(['sm:col-span-2' => $field->field_type === FieldType::TEXTAREA])>
+                        <div @class(['sm:col-span-2' => in_array($type, [FieldType::TEXTAREA, FieldType::TABLE_INPUT, FieldType::MULTI_IMAGE], true)])>
                             <p class="text-xs font-medium text-gray-400">{{ $field->field_label }}</p>
-                            @if ($isImagePath)
-                                <img src="{{ asset('storage/'.$value) }}" alt="{{ $field->field_label }}"
+                            @if ($isImagePath || $isDataUri)
+                                <img src="{{ $isDataUri ? $value : asset('storage/'.$value) }}" alt="{{ $field->field_label }}"
                                      class="mt-2 max-h-40 rounded-lg border border-gray-200 object-contain dark:border-gray-700" />
                             @elseif ($isFilePath)
                                 <a href="{{ asset('storage/'.$value) }}" target="_blank" class="mt-1 inline-block text-brand-500 hover:underline">Open file</a>
+                            @elseif ($type === FieldType::MULTI_IMAGE && is_array($value))
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    @forelse ($value as $photo)
+                                        <img src="{{ asset('storage/'.$photo) }}" alt="Photo" class="h-24 w-24 rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
+                                    @empty
+                                        <span class="text-gray-800 dark:text-white/90">—</span>
+                                    @endforelse
+                                </div>
+                            @elseif ($type === FieldType::TABLE_INPUT && count($tableCols))
+                                <div class="mt-1 overflow-x-auto">
+                                    <table class="w-full border-collapse text-xs">
+                                        <thead><tr class="border-b border-gray-200 dark:border-gray-700">
+                                            @foreach ($tableCols as $col)<th class="px-2 py-1 text-left text-gray-500">{{ $col['label'] }}</th>@endforeach
+                                        </tr></thead>
+                                        <tbody>
+                                            @forelse ((array) $value as $row)
+                                                <tr class="border-b border-gray-100 dark:border-gray-800">
+                                                    @foreach ($tableCols as $col)<td class="px-2 py-1 text-gray-800 dark:text-white/90">{{ $row[$col['key']] ?? '' }}</td>@endforeach
+                                                </tr>
+                                            @empty
+                                                <tr><td colspan="{{ count($tableCols) }}" class="px-2 py-1 text-gray-400">—</td></tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @elseif (in_array($type, [FieldType::ORG_SELECT, FieldType::EVENT_SELECT, FieldType::WORKPLAN_EVENTS], true))
+                                <p class="mt-1 text-gray-800 dark:text-white/90">{{ \App\Forms\SpecialFieldLabel::forField($type, $value) ?: '—' }}</p>
                             @elseif (is_array($value))
                                 <p class="mt-1 whitespace-pre-wrap text-gray-800 dark:text-white/90">{{ implode(', ', array_map('strval', $value)) ?: '—' }}</p>
                             @else

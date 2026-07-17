@@ -64,12 +64,19 @@
         [style*="text-align: center"] { text-align: center; }
         [style*="text-align: right"] { text-align: right; }
 
+        /* Tables authored in the editor (borders come from inline styles; these
+           are sensible defaults so an unstyled table still reads as a grid). */
+        table { border-collapse: collapse; width: 100%; margin: 0 0 8px; }
+        td, th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
+        th { font-weight: bold; background-color: #f2f2f2; }
+        tr { page-break-inside: avoid; }
+
         /* Running header/footer repeated on every page. */
         .doc-header { position: fixed; top: -{{ $marginTop - 20 }}px; left: 0; right: 0; text-align: {{ $headerAlign }}; }
         .doc-header img.banner { width: 100%; max-height: {{ $marginTop - 30 }}px; object-fit: contain; }
         .doc-header img.logo { max-height: 70px; margin-bottom: 4px; }
-        .doc-header .title { font-size: 16px; font-weight: bold; text-transform: uppercase; }
-        .doc-header .subtitle { font-size: 12px; color: #444; margin-top: 2px; }
+        .doc-header .title { font-size: 16px; font-weight: bold; text-transform: uppercase; white-space: pre-line; }
+        .doc-header .subtitle { font-size: 12px; color: #444; margin-top: 2px; white-space: pre-line; }
         .doc-footer { position: fixed; bottom: -{{ $marginBottom - 20 }}px; left: 0; right: 0; text-align: center; }
         .doc-footer img { width: 100%; max-height: {{ $marginBottom - 30 }}px; object-fit: contain; }
     </style>

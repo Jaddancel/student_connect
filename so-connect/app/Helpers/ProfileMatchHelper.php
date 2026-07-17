@@ -70,14 +70,28 @@ class ProfileMatchHelper
     /**
      * @return Collection<int, Profile>
      */
-    public static function search(string $query, int $limit = 20): Collection
+    public static function search(string $query, int $limit = 20, bool $adminsOnly = false): Collection
     {
         $query = trim($query);
 
         $columns = ['profile_id', 'first_name', 'middle_name', 'last_name', 'occupation', 'course_year', 'sex'];
 
+        // Restrict to profiles linked to an administrator account (user_type 1/2)
+        // — used by the Action Logs filter, whose entries are all admin actions.
+        $adminScope = function ($builder) use ($adminsOnly) {
+            if ($adminsOnly) {
+                $builder->whereExists(function ($sub) {
+                    $sub->selectRaw('1')
+                        ->from('users')
+                        ->whereColumn('users.profile', 'profiles.profile_id')
+                        ->whereIn('users.user_type', [1, 2]);
+                });
+            }
+        };
+
         if ($query === '') {
             return Profile::query()
+                ->where($adminScope)
                 ->orderByDesc('profile_id')
                 ->limit($limit)
                 ->get($columns);
@@ -90,6 +104,7 @@ class ProfileMatchHelper
                     ->orWhere('last_name', 'like', '%'.$query.'%')
                     ->orWhere('occupation', 'like', '%'.$query.'%');
             })
+            ->where($adminScope)
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->limit($limit)

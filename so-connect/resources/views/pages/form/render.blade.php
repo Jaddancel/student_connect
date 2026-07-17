@@ -110,6 +110,9 @@
             @input="track($event)" @change="track($event)"
             @if ($preview) onsubmit="return false;" @endif>
             @csrf
+            @foreach (($hidden ?? []) as $hiddenName => $hiddenValue)
+                <input type="hidden" name="{{ $hiddenName }}" value="{{ $hiddenValue }}" />
+            @endforeach
 
             <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
                 <div class="space-y-5">
@@ -125,7 +128,7 @@
                                                  their controls so the values stay out of the POST. --}}
                                             <div x-show="visible(@js($fieldKey))" x-cloak
                                                 x-effect="toggleDisabled($el, visible(@js($fieldKey)))">
-                                                @include('components.form.fields.field', ['field' => $field, 'prefill' => $prefill, 'advisers' => $advisers ?? []])
+                                                @include('components.form.fields.field', ['field' => $field, 'prefill' => $prefill, 'advisers' => $advisers ?? [], 'special' => $special ?? []])
                                             </div>
                                         @endif
                                     @endforeach

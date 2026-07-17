@@ -50,7 +50,7 @@
         <x-common.wizard-steps :steps="['Online form', 'Printed template', 'Details']" />
 
         {{-- ========================= STEP 1: ONLINE FORM ========================= --}}
-        <div x-show="step === 1" class="grid grid-cols-12 gap-5">
+        <div x-show="step === 1" class="grid grid-cols-12 gap-5 lg:items-start">
             {{-- LEFT: palette + header designer --}}
             <div class="col-span-12 space-y-5 lg:col-span-3">
                 <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -71,6 +71,23 @@
                                 x-text="meta.label"></button>
                         </template>
                     </div>
+
+                    {{-- Special fields: only shown for forms whose kit unlocks them --}}
+                    <template x-if="hasSpecialPalette">
+                        <div>
+                            <h3 class="mb-2 mt-4 text-sm font-semibold text-brand-600 dark:text-brand-400">
+                                {{ $kit ? \App\Forms\FieldKit::label($kit) : 'Special fields' }}
+                            </h3>
+                            <div class="grid grid-cols-2 gap-2">
+                                <template x-for="(meta, type) in specialPalette" :key="type">
+                                    <button type="button" @click="addField(type)"
+                                        class="rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-2 text-left text-xs font-medium text-brand-700 transition hover:border-brand-400 hover:bg-brand-50 dark:border-brand-500/30 dark:bg-brand-500/5 dark:text-brand-300"
+                                        x-text="meta.label"></button>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
                     <button type="button" @click="addRow()"
                         class="mt-3 w-full rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs font-medium text-gray-500 transition hover:border-brand-400 hover:text-brand-600 dark:border-gray-700">
                         + Empty row
@@ -85,11 +102,12 @@
                         <div class="py-16 text-center text-sm text-gray-400">Add fields from the palette to start building.</div>
                     </template>
 
-                    <div class="space-y-4">
+                    <div class="space-y-4" data-rows-list>
                         <template x-for="(row, rowIndex) in rows" :key="rowIndex">
-                            <div class="rounded-xl border border-dashed border-gray-300 p-3 dark:border-gray-700">
+                            <div class="rounded-xl border border-dashed border-gray-300 p-3 dark:border-gray-700" data-row-item :data-row-index="rowIndex">
                                 <div class="mb-2 flex items-center justify-between">
-                                    <div class="flex items-center gap-1 text-xs text-gray-400">
+                                    <div class="flex items-center gap-2 text-xs text-gray-400">
+                                        <span data-row-drag class="cursor-grab select-none px-1 text-gray-300" title="Drag to reorder row">⠿</span>
                                         <span>Columns:</span>
                                         <template x-for="n in 3" :key="n">
                                             <button type="button" @click="setColumnCount(rowIndex, n)"
@@ -136,9 +154,9 @@
                 </div>
             </div>
 
-            {{-- RIGHT: field config panel --}}
+            {{-- RIGHT: field config panel (floats as the canvas scrolls) --}}
             <div class="col-span-12 lg:col-span-3">
-                <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
                     <h3 class="mb-3 text-sm font-semibold text-gray-800 dark:text-white/90">Field settings</h3>
                     <template x-if="!selectedKey">
                         <p class="text-xs text-gray-400">Select a field on the canvas to configure it.</p>
@@ -211,6 +229,93 @@
                                 <p class="mt-1 text-[10px] text-gray-400">
                                     Uploads are limited to JPEG, PNG and HEIC<span x-show="f.field_type === 'file'"> — plus PDF for file fields</span>.
                                 </p>
+                            </div>
+
+                            {{-- autofill with current date/time (date/time/datetime) --}}
+                            <div x-show="supportsAutofillNow(f.field_type)">
+                                <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                                    <input type="checkbox" x-model="f.field_options.autofill_now" class="h-4 w-4 rounded border-gray-300 text-brand-500" />
+                                    Autofill with the current date/time
+                                </label>
+                            </div>
+
+                            {{-- password minimum length --}}
+                            <div x-show="f.field_type === 'password'">
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Minimum length</label>
+                                <input type="number" min="4" x-model.number="f.field_options.min" class="h-9 w-24 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:text-white/90" />
+                            </div>
+
+                            {{-- photo set limit --}}
+                            <div x-show="f.field_type === 'multi-image'">
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Max photos</label>
+                                <input type="number" min="1" max="10" x-model.number="f.field_options.max_files" class="h-9 w-24 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:text-white/90" />
+                                <label class="mt-2 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                                    <input type="checkbox" :checked="f.field_options.media_copy === 'accomplishment'"
+                                        @change="f.field_options.media_copy = $event.target.checked ? 'accomplishment' : ''"
+                                        class="h-4 w-4 rounded border-gray-300 text-brand-500" />
+                                    Also post to the organization wall
+                                </label>
+                            </div>
+
+                            {{-- table-input columns --}}
+                            <div x-show="f.field_type === 'table-input'" class="space-y-2">
+                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400">Columns</label>
+                                <template x-for="(col, ci) in (f.field_options.columns || [])" :key="ci">
+                                    <div class="rounded-lg border border-gray-200 p-2 dark:border-gray-700">
+                                        <div class="flex items-center gap-1">
+                                            <input type="text" x-model="col.label" @input="onColumnLabel(col)" placeholder="Label"
+                                                class="h-8 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700 dark:text-white/90" />
+                                            <button type="button" @click="removeColumn(selectedKey, ci)" class="px-1 text-error-400">✕</button>
+                                        </div>
+                                        <div class="mt-1 flex items-center gap-2">
+                                            <select x-model="col.type" class="h-8 flex-1 rounded border border-gray-300 bg-transparent px-1 text-xs dark:border-gray-700 dark:text-white/90">
+                                                <option value="text">Text</option>
+                                                <option value="number">Number</option>
+                                                <option value="date">Date</option>
+                                                <option value="event-select">Event</option>
+                                            </select>
+                                            <label class="flex items-center gap-1 text-[10px] text-gray-500">
+                                                <input type="checkbox" x-model="col.required" class="h-3.5 w-3.5 rounded border-gray-300 text-brand-500" /> req
+                                            </label>
+                                        </div>
+                                    </div>
+                                </template>
+                                <button type="button" @click="addColumn(selectedKey)" class="text-xs text-brand-500">+ Add column</button>
+
+                                <label class="mt-2 block text-xs font-medium text-gray-600 dark:text-gray-400">Row total (optional)</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="text" x-model="f.field_options.row_total.label" placeholder="Total label"
+                                        class="h-8 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700 dark:text-white/90" />
+                                    <input type="text" x-model="f.field_options.row_total.key" placeholder="key"
+                                        class="h-8 w-24 rounded border border-gray-300 bg-transparent px-2 font-mono text-[10px] dark:border-gray-700 dark:text-white/90" />
+                                </div>
+                                <p class="text-[10px] text-gray-400">Multiply these number columns per row (keys, comma-separated):</p>
+                                <input type="text" :value="(f.field_options.row_total.multiply || []).join(', ')"
+                                    @input="f.field_options.row_total.multiply = $event.target.value.split(',').map(s => s.trim()).filter(Boolean)"
+                                    placeholder="e.g. price_per_unit, quantity"
+                                    class="h-8 w-full rounded border border-gray-300 bg-transparent px-2 font-mono text-[10px] dark:border-gray-700 dark:text-white/90" />
+                            </div>
+
+                            {{-- computed formula --}}
+                            <div x-show="f.field_type === 'computed'" class="space-y-2">
+                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400">Formula</label>
+                                <select x-model="f.field_options.formula" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
+                                    <option value="sum">Sum of fields</option>
+                                    <option value="difference">First minus the rest</option>
+                                </select>
+                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400">Fields</label>
+                                <template x-for="(arg, ai) in (f.field_options.args || [])" :key="ai">
+                                    <div class="flex items-center gap-1">
+                                        <select x-model="f.field_options.args[ai]" class="h-8 w-full rounded border border-gray-300 bg-transparent px-1 text-xs dark:border-gray-700 dark:text-white/90">
+                                            <option value="">— choose —</option>
+                                            <template x-for="s in numericSiblings(f.field_key)" :key="s.value">
+                                                <option :value="s.value" x-text="s.label"></option>
+                                            </template>
+                                        </select>
+                                        <button type="button" @click="removeArg(selectedKey, ai)" class="px-1 text-error-400">✕</button>
+                                    </div>
+                                </template>
+                                <button type="button" @click="addArg(selectedKey)" class="text-xs text-brand-500">+ Add field</button>
                             </div>
 
                             {{-- conditional visibility --}}
@@ -313,21 +418,21 @@
                         <p class="mt-1 text-xs text-gray-400">/forms/<span x-text="route_name || '…'"></span></p>
                     </div>
 
-                    <div>
-                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">System function</label>
-                        <select x-model="system_function"
-                            class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                            <option value="">— None (regular form page) —</option>
-                            @foreach (\App\Forms\SystemFunction::catalog() as $fnKey => $fnMeta)
-                                <option value="{{ $fnKey }}">{{ $fnMeta['label'] }}</option>
-                            @endforeach
-                        </select>
-                        <p class="mt-1 text-xs text-gray-400">
-                            Binding makes this page drive that fixed system flow: submissions become requests an
-                            admin approves (accept writes to the system, reject sends the user back to the form).
-                            Each function can be bound to only one form.
-                        </p>
-                    </div>
+                    {{-- System function is bound from the "System Functions" slot
+                         on the Forms list; it is fixed here (read-only chip). --}}
+                    @if ($lockedFunction ?? null)
+                        <div>
+                            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">System function</label>
+                            <div class="flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50/50 px-3 py-2.5 text-sm font-medium text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/5 dark:text-brand-300">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                                {{ \App\Forms\SystemFunction::label($lockedFunction) }}
+                            </div>
+                            <p class="mt-1 text-xs text-gray-400">
+                                This form drives the fixed <strong>{{ \App\Forms\SystemFunction::label($lockedFunction) }}</strong> flow.
+                                Submissions become requests an admin approves. The binding cannot be changed here.
+                            </p>
+                        </div>
+                    @endif
 
                     {{-- Forms publish on save — no draft/sidebar-targeting config. --}}
                     <p class="rounded-lg px-3 py-2 text-xs font-medium"

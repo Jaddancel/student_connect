@@ -26,10 +26,10 @@
         exportUrl: '{{ $exportUrl }}',
         importUrl: '{{ $importUrl }}',
     })"
-    class="grid grid-cols-12 gap-5">
+    class="grid grid-cols-12 gap-5 lg:items-start">
 
-    {{-- LEFT: field palette + page setup + DOCX --}}
-    <div class="col-span-12 space-y-5 lg:col-span-3">
+    {{-- LEFT: field palette + page setup + DOCX (floats as the page scrolls) --}}
+    <div class="col-span-12 space-y-5 lg:col-span-3 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
         <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03]">
             <h3 class="mb-1 text-sm font-semibold text-gray-800 dark:text-white/90">Field tokens</h3>
             <p class="mb-3 text-xs text-gray-400">Click or drag a field to drop it into the document.</p>
@@ -93,7 +93,7 @@
         <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03] space-y-3">
             <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Header / letterhead</h3>
             <div>
-                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Banner image</label>
+                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Header image</label>
                 <input type="file" accept="image/*" @change="uploadImage($event, 'header', 'image')" class="w-full text-xs text-gray-500" />
                 <template x-if="model.header && model.header.image">
                     <div class="mt-1 flex items-center gap-2">
@@ -101,17 +101,12 @@
                         <button type="button" @click="removeImage('header', 'image')" class="text-xs text-error-500">remove</button>
                     </div>
                 </template>
+                <p class="mt-1 text-[10px] text-gray-400">Prints at the full page width (aspect ratio kept).</p>
             </div>
-            <div class="text-center text-xs text-gray-400">— or design one —</div>
-            <div>
-                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Logo</label>
-                <input type="file" accept="image/*" @change="uploadImage($event, 'header', 'logo')" class="w-full text-xs text-gray-500" />
-                <template x-if="model.header && model.header.logo">
-                    <button type="button" @click="removeImage('header', 'logo')" class="mt-1 text-xs text-error-500">remove logo</button>
-                </template>
-            </div>
-            <input type="text" x-model="model.header.title" placeholder="Title" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
-            <input type="text" x-model="model.header.subtitle" placeholder="Subtitle" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
+            <textarea x-model="model.header.title" rows="2" placeholder="Title"
+                class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:text-white/90"></textarea>
+            <textarea x-model="model.header.subtitle" rows="2" placeholder="Subtitle"
+                class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:text-white/90"></textarea>
             <select x-model="model.header.align" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
                 <option value="left">Align left</option>
                 <option value="center">Align center</option>
@@ -152,8 +147,8 @@
     {{-- CENTER: toolbar + editable document --}}
     <div class="col-span-12 lg:col-span-9">
         <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            {{-- toolbar --}}
-            <div class="mb-3 flex flex-wrap items-center gap-1 border-b border-gray-200 pb-3 dark:border-gray-800">
+            {{-- toolbar (floats under the top bar as the page scrolls) --}}
+            <div class="mb-3 flex flex-wrap items-center gap-1 border-b border-gray-200 pb-3 dark:border-gray-800 lg:sticky lg:top-20 lg:z-30 lg:bg-palette-surface lg:pt-1 dark:lg:bg-[#171f2f]">
                 @php
                     $btn = 'rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300';
                 @endphp
@@ -189,6 +184,51 @@
                 <span class="mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700"></span>
                 <button type="button" class="{{ $btn }}" @click="exec('insertUnorderedList')">• List</button>
                 <button type="button" class="{{ $btn }}" @click="exec('insertOrderedList')">1. List</button>
+                <span class="mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700"></span>
+                {{-- Table insert (grid picker) --}}
+                <div class="relative" x-data="{ open: false, r: 0, c: 0 }" @click.outside="open = false">
+                    <button type="button" class="{{ $btn }}" @click="open = !open">▦ Table</button>
+                    <div x-show="open" x-cloak class="absolute left-0 top-8 z-40 rounded-lg border border-gray-200 bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                        <p class="mb-1 text-center text-[10px] text-gray-500" x-text="(r||1) + ' × ' + (c||1)"></p>
+                        <div class="grid grid-cols-8 gap-0.5">
+                            <template x-for="i in 64" :key="i">
+                                @php /* i: 1..64 → row = ceil(i/8), col = ((i-1)%8)+1 */ @endphp
+                                <div class="h-4 w-4 cursor-pointer rounded-sm border"
+                                    :class="(Math.ceil(i/8) <= r && ((i-1)%8)+1 <= c) ? 'border-brand-400 bg-brand-200' : 'border-gray-200 dark:border-gray-700'"
+                                    @mouseenter="r = Math.ceil(i/8); c = ((i-1)%8)+1"
+                                    @click="insertTable(Math.ceil(i/8), ((i-1)%8)+1); open = false"></div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Contextual table toolbar (appears when the caret is inside a table) --}}
+            <div x-show="tableActive" x-cloak class="mb-3 flex flex-wrap items-center gap-1 rounded-lg border border-brand-200 bg-brand-50/40 p-2 dark:border-brand-500/30 dark:bg-brand-500/5">
+                <span class="mr-1 text-[10px] font-semibold uppercase text-brand-600 dark:text-brand-400">Table</span>
+                <button type="button" class="{{ $btn }}" @click="tableAction('rowAbove')">+Row ↑</button>
+                <button type="button" class="{{ $btn }}" @click="tableAction('rowBelow')">+Row ↓</button>
+                <button type="button" class="{{ $btn }}" @click="tableAction('colLeft')">+Col ←</button>
+                <button type="button" class="{{ $btn }}" @click="tableAction('colRight')">+Col →</button>
+                <span class="mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700"></span>
+                <button type="button" class="{{ $btn }}" @click="tableAction('delRow')">−Row</button>
+                <button type="button" class="{{ $btn }}" @click="tableAction('delCol')">−Col</button>
+                <button type="button" class="{{ $btn }}" @click="tableAction('delTable')">Delete table</button>
+                <span class="mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700"></span>
+                <button type="button" class="{{ $btn }}" @click="tableAction('merge')" title="Merge selected cells">Merge</button>
+                <button type="button" class="{{ $btn }}" @click="tableAction('split')" title="Split cell">Split</button>
+                <span class="mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700"></span>
+                <label class="flex items-center gap-1 text-[10px] text-gray-500">Border
+                    <input type="number" min="0" max="6" value="1" class="h-6 w-12 rounded border border-gray-300 bg-transparent px-1 text-xs dark:border-gray-700"
+                        @change="tableAction('border', $event.target.value)" />px</label>
+                <label class="flex items-center gap-1 text-[10px] text-gray-500">Cell bg
+                    <input type="color" class="h-6 w-8 rounded border border-gray-300" @change="tableAction('bg', $event.target.value)" /></label>
+                <label class="flex items-center gap-1 text-[10px] text-gray-500">Col width
+                    <input type="number" min="5" max="100" class="h-6 w-14 rounded border border-gray-300 bg-transparent px-1 text-xs dark:border-gray-700"
+                        @change="tableAction('colWidth', $event.target.value)" />%</label>
+                <label class="flex items-center gap-1 text-[10px] text-gray-500">Row ht
+                    <input type="number" min="10" max="400" class="h-6 w-14 rounded border border-gray-300 bg-transparent px-1 text-xs dark:border-gray-700"
+                        @change="tableAction('rowHeight', $event.target.value)" />px</label>
             </div>
 
             {{-- the document surface (looks like a page): letterhead, body, footer --}}
@@ -196,27 +236,21 @@
                 <div class="w-full max-w-[794px] rounded-sm bg-white shadow"
                     :style="{ fontFamily: model.font.family, fontSize: model.font.size }">
 
-                    {{-- live letterhead preview --}}
+                    {{-- live letterhead preview. The separator is a BROKEN line in
+                         the editor only — it never prints in the exported PDF. --}}
                     <template x-if="model.header && (model.header.image || model.header.logo || model.header.title || model.header.subtitle)">
-                        <div class="border-b border-gray-200 px-12 pt-10 pb-4"
+                        <div class="border-b border-dashed border-gray-300 px-12 pt-10 pb-4"
                             :class="{
                                 'text-left': model.header.align === 'left',
                                 'text-center': (model.header.align || 'center') === 'center',
                                 'text-right': model.header.align === 'right',
                             }">
-                            <template x-if="model.header.image">
-                                <img :src="imageUrl(model.header.image)" alt="header" class="mx-auto max-h-32 w-full object-contain" />
+                            {{-- Header image prints at full page width, aspect kept. --}}
+                            <template x-if="model.header.image || model.header.logo">
+                                <img :src="imageUrl(model.header.image || model.header.logo)" alt="header" class="mb-2 w-full object-contain" />
                             </template>
-                            <template x-if="!model.header.image">
-                                <div>
-                                    <template x-if="model.header.logo">
-                                        <img :src="imageUrl(model.header.logo)" alt="logo" class="mx-auto mb-2 max-h-20 object-contain"
-                                            :class="{ 'ml-0': model.header.align === 'left', 'mr-0 ml-auto': model.header.align === 'right' }" />
-                                    </template>
-                                    <div class="text-base font-bold uppercase text-gray-900" x-text="model.header.title"></div>
-                                    <div class="text-sm text-gray-700" x-text="model.header.subtitle"></div>
-                                </div>
-                            </template>
+                            <div class="whitespace-pre-line text-base font-bold uppercase text-gray-900" x-text="model.header.title"></div>
+                            <div class="whitespace-pre-line text-sm text-gray-700" x-text="model.header.subtitle"></div>
                         </div>
                     </template>
 
@@ -227,6 +261,9 @@
                         @blur="sync()"
                         @drop="onDrop($event)"
                         @dragover.prevent
+                        @keydown.tab.prevent="onTab($event)"
+                        @mouseup="refreshTableState()"
+                        @keyup="refreshTableState()"
                         class="pdf-template-surface min-h-[500px] px-12 py-10 leading-relaxed focus:outline-none"></div>
 
                     {{-- live footer preview --}}

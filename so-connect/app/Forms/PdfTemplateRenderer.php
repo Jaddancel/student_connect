@@ -52,6 +52,11 @@ final class PdfTemplateRenderer
         libxml_clear_errors();
 
         $xpath = new \DOMXPath($dom);
+
+        // Repeating table rows: a template row inside <... data-field-rows="key">
+        // is cloned per submitted row, its data-col cells filled from the row.
+        $this->expandRowTokens($dom, $xpath, $fieldsByKey, $payload);
+
         $tokens = $xpath->query('//span[@data-field]');
 
         if ($tokens !== false) {
@@ -120,6 +125,67 @@ final class PdfTemplateRenderer
     }
 
     /**
+     * Expand repeating-row tokens: for each element carrying
+     * `data-field-rows="{tableKey}"`, take its single template row (last element
+     * child) and clone it once per submitted row, binding each descendant cell
+     * marked `data-col="{columnKey}"` to that row's value.
+     *
+     * @param  array<string,FormDescription>  $fieldsByKey
+     * @param  array<string,mixed>  $payload
+     */
+    private function expandRowTokens(\DOMDocument $dom, \DOMXPath $xpath, array $fieldsByKey, array $payload): void
+    {
+        $containers = $xpath->query('//*[@data-field-rows]');
+        if ($containers === false) {
+            return;
+        }
+
+        $containerNodes = [];
+        foreach ($containers as $node) {
+            $containerNodes[] = $node;
+        }
+
+        foreach ($containerNodes as $container) {
+            /** @var \DOMElement $container */
+            $key = (string) $container->getAttribute('data-field-rows');
+
+            // The template row = the last element child (any earlier element
+            // children, e.g. a header row, are kept as-is).
+            $templateRow = null;
+            foreach ($container->childNodes as $child) {
+                if ($child instanceof \DOMElement) {
+                    $templateRow = $child;
+                }
+            }
+            if ($templateRow === null) {
+                continue;
+            }
+
+            $rows = $payload[$key] ?? [];
+            $rows = is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
+
+            foreach ($rows as $row) {
+                $clone = $templateRow->cloneNode(true);
+                $cells = $xpath->query('.//*[@data-col]', $clone);
+                if ($cells !== false) {
+                    foreach ($cells as $cell) {
+                        /** @var \DOMElement $cell */
+                        $col = (string) $cell->getAttribute('data-col');
+                        while ($cell->firstChild) {
+                            $cell->removeChild($cell->firstChild);
+                        }
+                        $cell->appendChild($dom->createTextNode((string) ($row[$col] ?? '')));
+                    }
+                }
+                $container->insertBefore($clone, $templateRow);
+            }
+
+            // Drop the (unfilled) template row.
+            $container->removeChild($templateRow);
+        }
+    }
+
+    /**
      * Build the DOM node(s) that replace a single field token.
      *
      * @param  array<string,mixed>  $payload
@@ -130,6 +196,34 @@ final class PdfTemplateRenderer
         $key = (string) $field->field_key;
         $type = (string) $field->field_type;
         $options = (array) ($field->field_options ?? []);
+
+        if (in_array($type, [FieldType::MULTI_IMAGE], true)) {
+            $uris = SubmissionPresenter::imageDataUris($payload, $key, $disk);
+            $nodes = [];
+            foreach ($uris as $uri) {
+                $img = $dom->createElement('img');
+                $img->setAttribute('src', $uri);
+                $img->setAttribute('class', 'token-image');
+                $nodes[] = $img;
+            }
+
+            return $nodes ?: [$dom->createTextNode('')];
+        }
+
+        if (in_array($type, [FieldType::ORG_SELECT, FieldType::EVENT_SELECT, FieldType::WORKPLAN_EVENTS], true)) {
+            return [$dom->createTextNode(SpecialFieldLabel::forField($type, $payload[$key] ?? null))];
+        }
+
+        if ($type === FieldType::PASSWORD) {
+            // Never print a password (stored hashed anyway).
+            return [$dom->createTextNode('')];
+        }
+
+        if ($type === FieldType::TEXT_LIST) {
+            $items = array_filter(array_map('strval', (array) ($payload[$key] ?? [])), fn ($v) => $v !== '');
+
+            return [$dom->createTextNode(implode(', ', $items))];
+        }
 
         if (in_array($type, [FieldType::IMAGE, FieldType::SIGNATURE], true)) {
             $uris = SubmissionPresenter::imageDataUris($payload, $key, $disk);

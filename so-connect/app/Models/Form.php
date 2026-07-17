@@ -38,6 +38,7 @@ class Form extends Model
         'is_published',
         'route_name',
         'system_function',
+        'field_kit',
         'layout',
         'pdf_template',
     ];

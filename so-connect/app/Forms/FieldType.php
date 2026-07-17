@@ -32,6 +32,25 @@ final class FieldType
     public const HEADING = 'heading';
     public const STATIC_TEXT = 'static-text';
 
+    // ---- Special kit-scoped types (see App\Forms\FieldKit) ----
+    public const ORG_SELECT = 'org-select';
+    public const POSITION_SELECT = 'position-select';
+    public const PASSWORD = 'password';
+    public const ID_SCAN = 'id-scan';
+    public const WORKPLAN_EVENTS = 'workplan-events';
+    public const TEXT_LIST = 'text-list';
+    public const TABLE_INPUT = 'table-input';
+    public const COMPUTED = 'computed';
+    public const MULTI_IMAGE = 'multi-image';
+    public const EVENT_SELECT = 'event-select';
+    public const WORKPLAN_SELECT = 'workplan-select';
+
+    /**
+     * The officer positions the sign-up position picker offers by default
+     * (a field's own `options` config overrides them).
+     */
+    public const POSITION_OPTIONS = ['President', 'Treasurer', 'Auditor', 'Secretary', 'Others'];
+
     /**
      * Hard upload allowlists — uploads are limited to JPEG/PNG/HEIC (+ PDF for
      * generic files) no matter what a field's `accept` config says.
@@ -93,7 +112,51 @@ final class FieldType
             self::FILE        => ['label' => 'File',        'icon' => 'file',      'group' => 'media'],
             self::HEADING     => ['label' => 'Section',     'icon' => 'heading',   'group' => 'layout'],
             self::STATIC_TEXT => ['label' => 'Static text', 'icon' => 'static',    'group' => 'layout'],
+
+            // Special types: only offered on forms whose kit unlocks them
+            // (paletteCatalog), but always valid for rendering/validation so
+            // existing forms keep working if a kit definition changes.
+            self::ORG_SELECT      => ['label' => 'Organization picker', 'icon' => 'select',    'group' => 'special'],
+            self::POSITION_SELECT => ['label' => 'Position picker',     'icon' => 'select',    'group' => 'special'],
+            self::PASSWORD        => ['label' => 'Password',            'icon' => 'text',      'group' => 'special'],
+            self::ID_SCAN         => ['label' => 'ID scan',             'icon' => 'image',     'group' => 'special'],
+            self::WORKPLAN_EVENTS => ['label' => 'Approved events',     'icon' => 'checkbox',  'group' => 'special'],
+            self::TEXT_LIST       => ['label' => 'Text list',           'icon' => 'paragraph', 'group' => 'special'],
+            self::TABLE_INPUT     => ['label' => 'Table',               'icon' => 'select',    'group' => 'special'],
+            self::COMPUTED        => ['label' => 'Computed value',      'icon' => 'number',    'group' => 'special'],
+            self::MULTI_IMAGE     => ['label' => 'Photo set',           'icon' => 'image',     'group' => 'special'],
+            self::EVENT_SELECT    => ['label' => 'Event picker',        'icon' => 'select',    'group' => 'special'],
+            self::WORKPLAN_SELECT => ['label' => 'Workplan picker',     'icon' => 'select',    'group' => 'special'],
         ];
+    }
+
+    /**
+     * All special (kit-scoped) types.
+     *
+     * @return string[]
+     */
+    public static function specialTypes(): array
+    {
+        return array_keys(array_filter(self::catalog(), fn ($meta) => $meta['group'] === 'special'));
+    }
+
+    public static function isSpecial(string $type): bool
+    {
+        return (self::catalog()[$type]['group'] ?? '') === 'special';
+    }
+
+    /**
+     * Whether a field of this type may control another field's visibility
+     * condition (it must carry a single comparable value).
+     */
+    public static function canControlVisibility(string $type): bool
+    {
+        return ! self::isPresentational($type)
+            && ! self::isFileLike($type)
+            && ! in_array($type, [
+                self::SIGNATURE, self::PASSWORD, self::ID_SCAN, self::COMPUTED,
+                self::TEXT_LIST, self::TABLE_INPUT, self::MULTI_IMAGE, self::WORKPLAN_EVENTS,
+            ], true);
     }
 
     /**
@@ -107,13 +170,21 @@ final class FieldType
     /**
      * The catalog the builder palette offers for NEW fields. `age` is retired
      * from the palette (Number/Date cover it) but stays in catalog()/all() so
-     * existing forms keep validating and rendering.
+     * existing forms keep validating and rendering. Special types are only
+     * included when the form's kit unlocks them (see {@see FieldKit}).
      *
      * @return array<string, array{label:string, icon:string, group:string}>
      */
-    public static function paletteCatalog(): array
+    public static function paletteCatalog(?string $kit = null): array
     {
-        return array_diff_key(self::catalog(), [self::AGE => true]);
+        $catalog = array_diff_key(self::catalog(), [self::AGE => true]);
+        $kitTypes = array_flip(FieldKit::types($kit));
+
+        return array_filter(
+            $catalog,
+            fn ($meta, $type) => $meta['group'] !== 'special' || isset($kitTypes[$type]),
+            ARRAY_FILTER_USE_BOTH,
+        );
     }
 
     public static function isValid(string $type): bool
@@ -149,8 +220,9 @@ final class FieldType
      */
     public static function validationRules(string $type, bool $required, array $options = []): array
     {
-        // Presentational fields never validate (they hold no value).
-        if (self::isPresentational($type)) {
+        // Presentational fields never validate (they hold no value), and
+        // computed fields are derived server-side — client input is ignored.
+        if (self::isPresentational($type) || $type === self::COMPUTED) {
             return [];
         }
 
@@ -233,9 +305,132 @@ final class FieldType
                 $maxKb = (int) ($options['max_kb'] ?? 5120);
                 $rules[] = 'max:'.$maxKb;
                 break;
+
+            // ---- Special kit-scoped types ----
+            case self::ORG_SELECT:
+                $rules[] = 'integer';
+                $rules[] = 'exists:organizations,organization_id';
+                break;
+
+            case self::POSITION_SELECT:
+                $choices = self::optionValues($options) ?: self::POSITION_OPTIONS;
+                $rules[] = 'in:'.implode(',', $choices);
+                break;
+
+            case self::PASSWORD:
+                $rules[] = 'string';
+                $rules[] = 'min:'.(int) ($options['min'] ?? 8);
+                $rules[] = 'max:255';
+                $rules[] = 'confirmed';
+                break;
+
+            case self::ID_SCAN:
+                // The field's own value is the scanned/typed student number;
+                // the front/back photos ride along as fixed-name uploads.
+                $rules[] = 'string';
+                $rules[] = 'regex:/^[0-9]+$/';
+                $rules[] = 'max:50';
+                break;
+
+            case self::EVENT_SELECT:
+                // "Events" here are the org's approved event plans (the same
+                // source the legacy accomplishment report used).
+                $rules[] = 'integer';
+                $rules[] = 'exists:event_plans,event_plan_id';
+                break;
+
+            case self::WORKPLAN_SELECT:
+                $rules[] = 'integer';
+                $rules[] = 'exists:workplans,workplan_id';
+                break;
+
+            case self::WORKPLAN_EVENTS:
+            case self::TEXT_LIST:
+            case self::TABLE_INPUT:
+            case self::MULTI_IMAGE:
+                $rules[] = 'array';
+                if ($required) {
+                    $rules[] = 'min:1';
+                }
+                if ($type === self::MULTI_IMAGE) {
+                    $rules[] = 'max:'.(int) ($options['max_files'] ?? 5);
+                }
+                break;
         }
 
         return $rules;
+    }
+
+    /**
+     * Extra validation rules for the ELEMENTS of array-valued field types,
+     * keyed by rule suffix relative to the field key (e.g. `'*' => [...]`,
+     * `'*.amount' => [...]`). Merge as `"$fieldKey.$suffix" => $rules`.
+     *
+     * @param  array<string,mixed>  $options
+     * @return array<string,array<int,string>>
+     */
+    public static function nestedValidationRules(string $type, array $options = []): array
+    {
+        switch ($type) {
+            case self::TEXT_LIST:
+                return ['*' => ['nullable', 'string', 'max:500']];
+
+            case self::WORKPLAN_EVENTS:
+                return ['*' => ['integer', 'exists:event_plans,event_plan_id']];
+
+            case self::MULTI_IMAGE:
+                return ['*' => [
+                    'file',
+                    'mimes:'.implode(',', self::allowedUploadExtensions(self::IMAGE)),
+                    'max:'.(int) ($options['max_kb'] ?? 5120),
+                ]];
+
+            case self::TABLE_INPUT:
+                $rules = ['*' => ['array']];
+                foreach (self::tableColumns($options) as $column) {
+                    $columnRules = [($column['required'] ?? false) ? 'required' : 'nullable'];
+                    $columnRules = array_merge($columnRules, match ($column['type']) {
+                        'number' => ['numeric'],
+                        'date' => ['date'],
+                        'event-select' => ['integer', 'exists:event_plans,event_plan_id'],
+                        default => ['string', 'max:500'],
+                    });
+                    $rules['*.'.$column['key']] = $columnRules;
+                }
+
+                return $rules;
+        }
+
+        return [];
+    }
+
+    /**
+     * Normalised column definitions for a table-input field.
+     *
+     * @param  array<string,mixed>  $options
+     * @return array<int,array{key:string,label:string,type:string,required:bool}>
+     */
+    public static function tableColumns(array $options): array
+    {
+        $columns = [];
+        foreach ((array) ($options['columns'] ?? []) as $column) {
+            if (! is_array($column)) {
+                continue;
+            }
+            $key = trim((string) ($column['key'] ?? ''));
+            if ($key === '' || ! preg_match('/^[A-Za-z0-9_]+$/', $key)) {
+                continue;
+            }
+            $type = (string) ($column['type'] ?? 'text');
+            $columns[] = [
+                'key' => $key,
+                'label' => (string) ($column['label'] ?? $key),
+                'type' => in_array($type, ['text', 'number', 'date', 'event-select'], true) ? $type : 'text',
+                'required' => (bool) ($column['required'] ?? false),
+            ];
+        }
+
+        return $columns;
     }
 
     /**

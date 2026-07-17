@@ -1,17 +1,14 @@
 import SignaturePad from 'signature_pad';
 
 /**
- * Alpine component for a signature-capture field. Draws on a canvas and writes
- * the resulting PNG data-URL into a hidden input named after the field key so it
- * posts with the form (the renderer turns it into a stored PNG file).
+ * Alpine component for a signature-capture PAD (used by the profile Signature
+ * card). Draws on a canvas and writes the resulting PNG data-URL into a hidden
+ * input named after the field key so it posts with the form.
  *
- * When a `verifyUrl` is configured, every finished stroke is (debounced)
- * POSTed there to ask whether the drawn signature is recognized among the
- * signatures stored in the system. The result is advisory only — it renders a
- * badge and never blocks submission.
+ * When a `verifyUrl` is configured, every finished stroke is (debounced) POSTed
+ * there to ask whether the drawn signature is recognized; advisory only.
  */
 export function signatureField(config = {}) {
-    // Pages historically passed the field key as a bare string; tolerate it.
     const options = typeof config === 'object' && config !== null ? config : {};
 
     return {
@@ -20,11 +17,10 @@ export function signatureField(config = {}) {
         verifyState: 'idle', // idle|checking|recognized|not_recognized|no_signatures|unavailable
         matchedName: '',
         _debounce: null,
-        _fromScan: false, // current pad content came from an ID scan, not the user
+        _fromScan: false,
 
         init() {
             const canvas = this.$refs.canvas;
-            // Match the backing store to the displayed size for crisp lines.
             const ratio = Math.max(window.devicePixelRatio || 1, 1);
             const rect = canvas.getBoundingClientRect();
             canvas.width = (rect.width || canvas.width) * ratio;
@@ -35,7 +31,7 @@ export function signatureField(config = {}) {
             this.pad.addEventListener('endStroke', () => {
                 const value = this.pad.isEmpty() ? '' : this.pad.toDataURL('image/png');
                 this.$refs.input.value = value;
-                this._fromScan = false; // the user drew — this is theirs now
+                this._fromScan = false;
                 this.scheduleVerify(value);
             });
         },
@@ -49,11 +45,6 @@ export function signatureField(config = {}) {
             clearTimeout(this._debounce);
         },
 
-        /**
-         * Accept an externally-captured signature (the ID-scan wizard's crop,
-         * delivered via a `signature-set` event). Never replaces anything the
-         * user drew or a value already pending in the input.
-         */
         fromDataUrl(dataUrl) {
             if (!dataUrl || !this.pad) return;
             if (!this.pad.isEmpty() || this.$refs.input.value) return;
@@ -69,11 +60,6 @@ export function signatureField(config = {}) {
             this.scheduleVerify(dataUrl);
         },
 
-        /**
-         * `signature-clear` handler: a rescan is taking back its earlier crop.
-         * Only clears when the pad still shows the scanned signature — a
-         * user-drawn one stays.
-         */
         clearFromScan() {
             if (this._fromScan) this.clear();
         },

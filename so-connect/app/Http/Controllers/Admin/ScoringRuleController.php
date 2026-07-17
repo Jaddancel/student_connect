@@ -141,6 +141,7 @@ class ScoringRuleController extends Controller
             'title' => 'Trigger — '.$criterion->label,
             'criterion' => $criterion,
             'rule' => $criterion->rule,
+            'trigger' => $criterion->rule?->trigger,
             'categories' => ScoringCatalog::categories(),
             'variables' => $this->variablesPayload(),
         ]);
@@ -238,6 +239,10 @@ class ScoringRuleController extends Controller
                         'key' => $f->field_key,
                         'label' => $f->field_label,
                         'type' => $f->field_type,
+                        // Selectable states for option fields → value picker.
+                        'options' => \App\Forms\FieldType::isOptioned($f->field_type)
+                            ? \App\Forms\FieldType::optionPairs((array) ($f->field_options ?? []))
+                            : [],
                     ])->values()->all(),
             ])->values()->all();
 

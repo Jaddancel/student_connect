@@ -62,6 +62,7 @@ final class UniversalField
             'org_president'  => ['label' => 'Organization President', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_auditor'    => ['label' => 'Organization Auditor',   'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_secretary'  => ['label' => 'Organization Secretary', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
+            'org_category'   => ['label' => 'Organization Category',  'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
         ];
     }
 

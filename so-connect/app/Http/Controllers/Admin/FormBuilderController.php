@@ -28,29 +28,69 @@ class FormBuilderController extends Controller
             ->orderBy('name')
             ->get();
 
+        // System-function slots: one row per function, showing the bound form
+        // (or an empty slot the admin can fill).
+        $boundByFunction = $forms->whereNotNull('system_function')->keyBy('system_function');
+        $slots = collect(SystemFunction::catalog())->map(function ($meta, $key) use ($boundByFunction) {
+            $form = $boundByFunction->get($key);
+
+            return [
+                'key' => $key,
+                'label' => $meta['label'],
+                'form' => $form,
+            ];
+        })->values();
+
         return view('pages.admin.form-builder.index', [
             'title' => 'Form Builder',
-            'forms' => $forms,
+            // Regular forms table excludes function-bound forms (they live in
+            // the System Functions section).
+            'forms' => $forms->whereNull('system_function')->values(),
+            'slots' => $slots,
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
+        $editorData = $this->blankEditorData();
+        $kit = null;
+
+        // Creating a form for a system-function slot: pre-bind + lock the
+        // function, and unlock its special-field palette. Rejected if the slot
+        // is already filled.
+        $function = (string) $request->query('function', '');
+        if ($function !== '') {
+            abort_unless(SystemFunction::has($function), 404);
+            if (SystemFunction::form($function) !== null) {
+                return redirect()->route('admin.form-builder.index')
+                    ->with('toast_error', 'The "'.SystemFunction::label($function).'" function already has a form.');
+            }
+            $editorData['system_function'] = $function;
+            $kit = $function;
+        }
+
         return view('pages.admin.form-builder.editor', [
             'title' => 'New Form',
             'form' => null,
-            'editorData' => $this->blankEditorData(),
-            'fieldCatalog' => FieldType::paletteCatalog(),
+            'editorData' => $editorData,
+            'fieldCatalog' => FieldType::paletteCatalog($kit),
+            'kit' => $kit,
+            'lockedFunction' => $function !== '' ? $function : null,
         ]);
     }
 
     public function edit(Form $form)
     {
+        $kit = \App\Forms\FieldKit::forForm($form);
+
         return view('pages.admin.form-builder.editor', [
             'title' => 'Edit Form',
             'form' => $form,
             'editorData' => $this->editorDataFromForm($form),
-            'fieldCatalog' => FieldType::paletteCatalog(),
+            'fieldCatalog' => FieldType::paletteCatalog($kit),
+            'kit' => $kit,
+            // A form's system-function binding is immutable after creation.
+            'lockedFunction' => $form->system_function ?: null,
         ]);
     }
 
@@ -103,7 +143,8 @@ class FormBuilderController extends Controller
                 'name' => $data['name'],
                 'description_text' => $data['description_text'],
                 'route_name' => $data['route_name'],
-                'system_function' => $data['system_function'],
+                // The system-function binding is immutable once created.
+                'system_function' => $form->system_function,
                 'is_active' => $data['is_active'],
                 'is_published' => $data['is_published'],
                 'layout' => ['rows' => $data['rows']],
@@ -202,6 +243,30 @@ class FormBuilderController extends Controller
             'fields.*.field_options.max' => ['nullable', 'numeric'],
             'fields.*.field_options.step' => ['nullable', 'numeric'],
             'fields.*.field_options.accept' => ['nullable', 'string', 'max:255'],
+            // Date/time autofill-with-now toggle.
+            'fields.*.field_options.autofill_now' => ['nullable', 'boolean'],
+            // Special kit-scoped option keys: table columns + totals, computed
+            // formulas, photo-set limits and media mirroring, event autofill.
+            'fields.*.field_options.columns' => ['nullable', 'array'],
+            'fields.*.field_options.columns.*.key' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_]*$/'],
+            'fields.*.field_options.columns.*.label' => ['nullable', 'string', 'max:255'],
+            'fields.*.field_options.columns.*.type' => ['nullable', 'string', Rule::in(['text', 'number', 'date', 'event-select'])],
+            'fields.*.field_options.columns.*.required' => ['nullable', 'boolean'],
+            'fields.*.field_options.row_total' => ['nullable', 'array'],
+            'fields.*.field_options.row_total.key' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_]*$/'],
+            'fields.*.field_options.row_total.label' => ['nullable', 'string', 'max:255'],
+            'fields.*.field_options.row_total.multiply' => ['nullable', 'array'],
+            'fields.*.field_options.row_total.multiply.*' => ['nullable', 'string', 'max:64'],
+            'fields.*.field_options.formula' => ['nullable', 'string', Rule::in(['sum', 'difference', 'table_sum'])],
+            'fields.*.field_options.args' => ['nullable', 'array'],
+            'fields.*.field_options.args.*' => ['nullable', 'string', 'max:128'],
+            'fields.*.field_options.table' => ['nullable', 'string', 'max:64'],
+            'fields.*.field_options.column' => ['nullable', 'string', 'max:64'],
+            'fields.*.field_options.max_files' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'fields.*.field_options.max_kb' => ['nullable', 'integer', 'min:1', 'max:10240'],
+            'fields.*.field_options.media_copy' => ['nullable', 'string', Rule::in(['accomplishment'])],
+            'fields.*.field_options.autofill_map' => ['nullable', 'array'],
+            'fields.*.field_options.autofill_map.*' => ['nullable', 'string', 'max:64'],
             'fields.*.field_options.visible_when' => ['nullable', 'array'],
             'fields.*.field_options.visible_when.field' => ['nullable', 'string', 'max:255'],
             'fields.*.field_options.visible_when.op' => ['nullable', 'string', Rule::in(ConditionEvaluator::OPS)],
@@ -229,6 +294,8 @@ class FormBuilderController extends Controller
             abort(response()->json(['message' => 'Field keys must be unique within a form.'], 422));
         }
 
+        $this->enforceFieldKit($validated, $form);
+
         $validated['fields'] = $this->normalizeVisibilityConditions($validated['fields']);
 
         $pdfTemplate = $this->cleanPdfTemplate($validated['pdf_template'] ?? []);
@@ -247,6 +314,50 @@ class FormBuilderController extends Controller
             'rows' => $this->cleanRows($validated['rows'] ?? [], $keys),
             'pdf_template' => $pdfTemplate,
         ];
+    }
+
+    /**
+     * Enforce the form's field kit: special field types are only allowed when
+     * the kit unlocks them, and every kit-required field key must be present
+     * with the right type. 422s name the offending/missing keys so the admin
+     * can fix the form in place.
+     *
+     * @param  array<string,mixed>  $validated
+     */
+    private function enforceFieldKit(array $validated, ?Form $form): void
+    {
+        $kit = $form
+            ? \App\Forms\FieldKit::forForm($form)
+            : ((($validated['system_function'] ?? '') !== '' && \App\Forms\FieldKit::has((string) $validated['system_function']))
+                ? (string) $validated['system_function']
+                : null);
+
+        $allowedSpecial = array_flip(\App\Forms\FieldKit::types($kit));
+        $byKey = collect($validated['fields'])->keyBy('field_key');
+
+        foreach ($validated['fields'] as $field) {
+            $type = (string) $field['field_type'];
+            if (FieldType::isSpecial($type) && ! isset($allowedSpecial[$type])) {
+                abort(response()->json([
+                    'message' => '"'.FieldType::label($type).'" fields are only available on the form they belong to'
+                        .($kit ? ' — this form\'s "'.\App\Forms\FieldKit::label($kit).'" category does not include them.' : '.'),
+                ], 422));
+            }
+        }
+
+        $missing = [];
+        foreach (\App\Forms\FieldKit::required($kit) as $requiredKey => $requiredType) {
+            $field = $byKey->get($requiredKey);
+            if (! $field || (string) $field['field_type'] !== $requiredType) {
+                $missing[] = $requiredKey.' ('.FieldType::label($requiredType).')';
+            }
+        }
+
+        if ($missing !== []) {
+            abort(response()->json([
+                'message' => 'This form must include the following required field(s): '.implode(', ', $missing).'.',
+            ], 422));
+        }
     }
 
     /**
@@ -309,9 +420,8 @@ class FormBuilderController extends Controller
             }
 
             $controllerType = (string) ($controller['field_type'] ?? FieldType::TEXT);
-            if (FieldType::isPresentational($controllerType) || FieldType::isFileLike($controllerType)
-                || $controllerType === FieldType::SIGNATURE) {
-                abort(response()->json(['message' => "\"{$label}\" cannot depend on a layout, upload or signature field."], 422));
+            if (! FieldType::canControlVisibility($controllerType)) {
+                abort(response()->json(['message' => "\"{$label}\" cannot depend on a layout, upload, signature or list-valued field."], 422));
             }
 
             if (in_array($op, ConditionEvaluator::VALUE_OPS, true)
@@ -633,10 +743,13 @@ class FormBuilderController extends Controller
                 ->stream('preview-'.($form->route_name ?: $form->getKey()).'.pdf');
         }
 
+        $fields = $form->fields()->get();
+
         return view('pages.form.render', [
             'title' => $form->name.' (Preview)',
             'form' => $form,
-            'fields' => $form->fields()->get(),
+            'fields' => $fields,
+            'special' => \App\Forms\SpecialFieldData::resolve($request->user(), $fields, $form),
             'preview' => true,
         ]);
     }
@@ -651,9 +764,13 @@ class FormBuilderController extends Controller
     private function sampleValues($fields): array
     {
         $values = [];
+        $skip = [
+            FieldType::SIGNATURE, FieldType::PASSWORD, FieldType::ID_SCAN,
+            FieldType::MULTI_IMAGE, FieldType::TABLE_INPUT,
+        ];
         foreach ($fields as $field) {
             if (FieldType::isPresentational($field->field_type) || FieldType::isFileLike($field->field_type)
-                || $field->field_type === FieldType::SIGNATURE) {
+                || in_array($field->field_type, $skip, true)) {
                 continue;
             }
             $values[$field->field_key] = '['.$field->field_label.']';
