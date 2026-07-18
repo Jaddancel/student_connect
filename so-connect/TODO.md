@@ -45,12 +45,18 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] WP4.6 Tests: extend `FormBuilderTest` (icon persisted/validated; layout shape); fixed a pre-existing MySQL-JSON key-order brittleness (`toBe`→`toEqual`)
 
 ## Phase 5 — Organization Accreditation (rename, system function, conditions, lifecycle)
+> Pass 1 (done): schema (WP5.6) + AccreditationService compliance/date maths (WP5.4), 6 tests green.
+> Compliance model = "approved required-form request on/before deadline" (product decision #9),
+> and it reads the EXISTING recognition-request data — so it works today without WP5.1.
+> Deferred to a reviewed pass: WP5.1/5.2 (converting the live recognition flow to a system
+> function + renaming, needs a data migration and must not break RecognitionRequestController),
+> WP5.3 conditions editor UI, WP5.9 danger card, and all destructive lifecycle (WP5.7/5.8/5.10).
 - [ ] WP5.1 `SystemFunction::ORG_ACCREDITATION` + `OrgAccreditationHandler` (server re-check)
 - [ ] WP5.2 Seeder rename → "Organization Accreditation"; data migration for live installs
 - [ ] WP5.3 Conditions AST @ `AppSetting['accreditation.conditions']` + editor component
-- [ ] WP5.4 `AccreditationService` (conditions/deadline/window/evaluate/isCompliant)
+- [x] WP5.4 `AccreditationService` — deadline/window/grace + conditions/requiredFormIds/isCompliant/missingFormIds/evaluate (6 tests green). Compliance = approved required-form request on/before deadline (decision #9)
 - [ ] WP5.5 Form-page conditions panel + gating (client + handler authoritative)
-- [ ] WP5.6 Migration `add_accreditation_status_to_organizations_table`
+- [x] WP5.6 Migration `add_accreditation_status_to_organizations_table` (accreditation_status + accreditation_disabled_at)
 - [ ] WP5.7 `accreditation:enforce` command (warn/disable/purge) + daily schedule
 - [ ] WP5.8 `AccreditationService::purge()` (child-first) + guarded artisan + UI action
 - [ ] WP5.9 Login block for disabled orgs; danger card; landing-page exclusion
