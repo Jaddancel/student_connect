@@ -68,6 +68,6 @@ it('builds report rows with organization type labels and officer counts', functi
 
     expect((int) $rows[$orgA]['officer_count'])->toBe(2)
         ->and((int) $rows[$orgB]['officer_count'])->toBe(1)
-        ->and($rows[$orgA]['type'])->toBe('University Sanctioned Organization')
-        ->and($rows[$orgB]['type'])->toBe('College-Based Organization');
+        ->and($rows[$orgA]['type'])->toBe('Socio-Civic')
+        ->and($rows[$orgB]['type'])->toBe('Religious');
 });
