@@ -37,6 +37,7 @@ class Form extends Model
         'is_active',
         'is_published',
         'route_name',
+        'icon',
         'system_function',
         'field_kit',
         'layout',

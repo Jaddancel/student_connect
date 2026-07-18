@@ -12,6 +12,9 @@ export function calendarInit() {
     }
 
     const canRequestEvent = calendarWrapper.dataset.canRequestEvent === "1";
+    // The drawer now embeds the new_event builder form, which submits itself to
+    // the generic form renderer. These legacy endpoints are gone from the DOM;
+    // the empty fallbacks keep the dormant drawer helpers reference-safe.
     const eventRequestEndpoint =
         calendarWrapper.dataset.eventRequestEndpoint || "";
     const directRequestEndpoint =
@@ -451,6 +454,21 @@ export function calendarInit() {
 
         if (planTargetDateEl && prefillDate) {
             planTargetDateEl.value = prefillDate;
+        }
+
+        // The drawer now embeds the new_event builder form; prefill its
+        // target_date field (a flatpickr text input) with the clicked day.
+        if (prefillDate) {
+            const dateInput = eventPlanDrawer.querySelector(
+                'input[name="target_date"]',
+            );
+            if (dateInput) {
+                if (dateInput._flatpickr) {
+                    dateInput._flatpickr.setDate(prefillDate, true);
+                } else {
+                    dateInput.value = prefillDate;
+                }
+            }
         }
 
         const startTimeEl = document.getElementById("event-start-time");

@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Faker\FilipinoPersonProvider;
 use App\Listeners\LogAuthActivity;
+use App\Listeners\SendLoginNotification;
 use App\Models\Officer;
 use App\Models\User;
 use App\Policies\RolePolicy;
@@ -42,6 +43,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Event::listen([Login::class, Logout::class], LogAuthActivity::class);
+        Event::listen(Login::class, SendLoginNotification::class);
 
         Gate::policy(Officer::class, RolePolicy::class);
 

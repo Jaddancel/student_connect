@@ -424,8 +424,10 @@ it('rejects self-referencing, circular and dangling visibility conditions', func
     ]))->assertOk();
 
     $form = Form::where('route_name', 'cond-rules')->firstOrFail();
+    // toEqual (not toBe): MySQL normalises JSON object key order (by key length),
+    // so the stored order is op/field/value — the content is what matters here.
     expect($form->fields()->where('field_key', 'b')->first()->field_options['visible_when'])
-        ->toBe(['field' => 'a', 'op' => 'filled', 'value' => '']);
+        ->toEqual(['field' => 'a', 'op' => 'filled', 'value' => '']);
 });
 
 it('prefills mapped fields from the signed-in user profile', function () {
@@ -484,4 +486,66 @@ it('does not prefill when the user has no profile', function () {
         ->assertOk()->getContent();
 
     expect($html)->toContain('name="fn"')->not->toContain('value="Form"');
+});
+
+it('persists a chosen sidebar icon', function () {
+    $admin = makeUser(2);
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
+        'name' => 'Iconed Form', 'route_name' => 'iconed-form',
+        'icon' => 'task',
+        'fields' => [
+            ['field_key' => 'a', 'field_label' => 'A', 'field_type' => 'text', 'is_required' => false],
+        ],
+        'rows' => [['columns' => [['span' => 12, 'fields' => ['a']]]]],
+        'pdf_template' => ['html' => '', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ])->assertOk();
+
+    expect(Form::where('route_name', 'iconed-form')->value('icon'))->toBe('task');
+});
+
+it('rejects an icon outside the allow-list', function () {
+    $admin = makeUser(2);
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
+        'name' => 'Bad Icon', 'route_name' => 'bad-icon',
+        'icon' => 'skull-and-crossbones',
+        'fields' => [
+            ['field_key' => 'a', 'field_label' => 'A', 'field_type' => 'text', 'is_required' => false],
+        ],
+        'rows' => [['columns' => [['span' => 12, 'fields' => ['a']]]]],
+        'pdf_template' => ['html' => '', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ])->assertStatus(422)->assertJsonValidationErrors('icon');
+
+    expect(Form::where('route_name', 'bad-icon')->exists())->toBeFalse();
+});
+
+it('round-trips the multi-column layout shape', function () {
+    $admin = makeUser(2);
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
+        'name' => 'Shape Form', 'route_name' => 'shape-form',
+        'fields' => [
+            ['field_key' => 'first', 'field_label' => 'First', 'field_type' => 'text', 'is_required' => false],
+            ['field_key' => 'second', 'field_label' => 'Second', 'field_type' => 'text', 'is_required' => false],
+            ['field_key' => 'third', 'field_label' => 'Third', 'field_type' => 'text', 'is_required' => false],
+        ],
+        'rows' => [
+            ['columns' => [
+                ['span' => 6, 'fields' => ['first']],
+                ['span' => 6, 'fields' => ['second']],
+            ]],
+            ['columns' => [['span' => 12, 'fields' => ['third']]]],
+        ],
+        'pdf_template' => ['html' => '', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ])->assertOk();
+
+    $rows = Form::where('route_name', 'shape-form')->first()->layout['rows'];
+
+    expect($rows)->toHaveCount(2);
+    expect($rows[0]['columns'])->toHaveCount(2);
+    expect($rows[0]['columns'][0])->toBe(['span' => 6, 'fields' => ['first']]);
+    expect($rows[0]['columns'][1])->toBe(['span' => 6, 'fields' => ['second']]);
+    expect($rows[1]['columns'])->toHaveCount(1);
+    expect($rows[1]['columns'][0])->toBe(['span' => 12, 'fields' => ['third']]);
 });

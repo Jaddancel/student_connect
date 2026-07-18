@@ -23,6 +23,9 @@ class User extends Authenticatable
     protected $attributes = [
         'user_type' => 3,
         'profile_pending' => false,
+        // Mirrors the notify_on_login column default so freshly created User
+        // instances report the opt-in state without a DB reload.
+        'notify_on_login' => true,
     ];
 
     protected $fillable = [
@@ -33,6 +36,7 @@ class User extends Authenticatable
         'profile',
         'profile_pending',
         'force_password_change',
+        'notify_on_login',
         'email_verified_at',
         'user_created_at',
         'documents_last_seen_at',
@@ -62,6 +66,7 @@ class User extends Authenticatable
             'user_password'        => 'hashed',
             'profile_pending'      => 'boolean',
             'force_password_change'=> 'boolean',
+            'notify_on_login'      => 'boolean',
         ];
     }
 

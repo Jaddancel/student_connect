@@ -24,6 +24,8 @@ class ActionLogger
 
     public const CATEGORY_ID_TEMPLATE = 'id_template';
 
+    public const CATEGORY_SETTINGS = 'settings';
+
     /**
      * Human labels for the category filter dropdown/exports.
      *
@@ -37,6 +39,7 @@ class ActionLogger
             self::CATEGORY_SCORING_CONFIG => 'Scoring Rules & Criteria',
             self::CATEGORY_FORM_BUILDER => 'Form Editing / Creation',
             self::CATEGORY_ID_TEMPLATE => 'ID Template Editing / Creation',
+            self::CATEGORY_SETTINGS => 'Settings',
         ];
     }
 

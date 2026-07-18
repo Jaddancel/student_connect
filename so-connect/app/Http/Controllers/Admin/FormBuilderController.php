@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Forms\ConditionEvaluator;
 use App\Forms\FieldType;
 use App\Forms\SystemFunction;
+use App\Helpers\MenuHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
 use App\Models\Form\FormDescription;
@@ -76,6 +77,7 @@ class FormBuilderController extends Controller
             'fieldCatalog' => FieldType::paletteCatalog($kit),
             'kit' => $kit,
             'lockedFunction' => $function !== '' ? $function : null,
+            'iconChoices' => $this->iconChoices(),
         ]);
     }
 
@@ -91,7 +93,20 @@ class FormBuilderController extends Controller
             'kit' => $kit,
             // A form's system-function binding is immutable after creation.
             'lockedFunction' => $form->system_function ?: null,
+            'iconChoices' => $this->iconChoices(),
         ]);
+    }
+
+    /**
+     * Icon key => rendered SVG map for the builder's icon picker.
+     *
+     * @return array<string,string>
+     */
+    private function iconChoices(): array
+    {
+        return collect(MenuHelper::iconNames())
+            ->mapWithKeys(fn (string $name) => [$name => MenuHelper::getIconSvg($name)])
+            ->all();
     }
 
     public function store(Request $request)
@@ -103,6 +118,7 @@ class FormBuilderController extends Controller
                 'name' => $data['name'],
                 'description_text' => $data['description_text'],
                 'route_name' => $data['route_name'],
+                'icon' => $data['icon'],
                 'system_function' => $data['system_function'],
                 'is_active' => $data['is_active'],
                 'is_published' => $data['is_published'],
@@ -143,6 +159,7 @@ class FormBuilderController extends Controller
                 'name' => $data['name'],
                 'description_text' => $data['description_text'],
                 'route_name' => $data['route_name'],
+                'icon' => $data['icon'],
                 // The system-function binding is immutable once created.
                 'system_function' => $form->system_function,
                 'is_active' => $data['is_active'],
@@ -223,6 +240,7 @@ class FormBuilderController extends Controller
                 'nullable', 'string', Rule::in(SystemFunction::keys()),
                 Rule::unique('forms', 'system_function')->ignore($formId),
             ],
+            'icon' => ['nullable', 'string', Rule::in(MenuHelper::iconNames())],
             'fields' => ['present', 'array'],
             'fields.*.field_key' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9_]+$/'],
             'fields.*.field_label' => ['required', 'string', 'max:255'],
@@ -304,6 +322,7 @@ class FormBuilderController extends Controller
             'name' => $validated['name'],
             'description_text' => $validated['description_text'] ?? null,
             'route_name' => $validated['route_name'],
+            'icon' => ($validated['icon'] ?? '') !== '' ? $validated['icon'] : null,
             'system_function' => ($validated['system_function'] ?? '') !== '' ? $validated['system_function'] : null,
             // Saving publishes: there is no draft state. A form without a
             // printed template stays unpublished (it can't accept submissions
@@ -639,6 +658,7 @@ class FormBuilderController extends Controller
             'name' => '',
             'description_text' => '',
             'route_name' => '',
+            'icon' => '',
             'system_function' => '',
             'fields' => [],
             'rows' => [],
@@ -679,6 +699,7 @@ class FormBuilderController extends Controller
             'name' => $form->name,
             'description_text' => $form->description_text,
             'route_name' => $form->route_name,
+            'icon' => (string) ($form->icon ?? ''),
             'system_function' => (string) ($form->system_function ?? ''),
             'fields' => $fields,
             'rows' => $layout['rows'] ?? [],

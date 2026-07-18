@@ -27,6 +27,7 @@ class FormPagesSeeder extends Seeder
     public function run(): void
     {
         $this->seedDirectory();
+        $this->seedNewEvent();
         $this->seedJointStatement();
         $this->seedProjectRequest();
         $this->seedOrganizationRecognition();
@@ -171,6 +172,59 @@ class FormPagesSeeder extends Seeder
             'pdf' => [
                 'title' => 'Directory of Student Officers',
                 'subtitle' => 'Student Organization Registration',
+                'html' => $html,
+            ],
+        ]);
+    }
+
+    // ---------------------------------------------------------------- New Event
+
+    /**
+     * The New Event builder form (bound to the new_event system function) that
+     * replaced the calendar's hardcoded "Event Plan" drawer and the standalone
+     * /events create page. Its submissions run through {@see NewEventHandler}:
+     * an approved parent plan + a pending child plan tied to a document request
+     * the admin decides in the Activity Requests queue.
+     *
+     * The field keys mirror NewEventHandler::REQUIRED_KEYS plus the two
+     * optional keys it reads (purpose_of_activity, resources_needed). While no
+     * form is bound to new_event, the calendar's "Create Event" action is
+     * disabled (see calendar-area.blade.php / SystemFunction::form()).
+     */
+    private function seedNewEvent(): void
+    {
+        $fields = [
+            $this->heading('Event Details'),
+            $this->f('organization_id', 'Organization', FieldType::ORG_SELECT, ['required' => true]),
+            $this->f('title', 'Activity / Title', FieldType::TEXT, ['required' => true]),
+            $this->f('target_date', 'Target Date', FieldType::DATE, ['required' => true]),
+            $this->f('event_location', 'Event Location', FieldType::TEXT, ['required' => true]),
+            $this->f('event_start_time', 'Start', FieldType::DATETIME, ['required' => true]),
+            $this->f('event_end_time', 'End', FieldType::DATETIME, ['required' => true]),
+            $this->heading('Activity Details'),
+            $this->f('purpose_of_activity', 'Purpose of Activity', FieldType::TEXTAREA, ['options' => ['rows' => 4]]),
+            $this->f('resources_needed', 'Resources Needed', FieldType::TEXTAREA, ['options' => ['rows' => 3]]),
+        ];
+
+        $html = '<h2>Event Request</h2>'
+            .$this->line('Organization', 'organization_id')
+            .$this->line('Activity / Title', 'title')
+            .$this->line('Target Date', 'target_date')
+            .$this->line('Location', 'event_location')
+            .$this->line('Start', 'event_start_time')
+            .$this->line('End', 'event_end_time')
+            .'<p><strong>Purpose of Activity:</strong></p><p><span data-field="purpose_of_activity"></span></p>'
+            .'<p><strong>Resources Needed:</strong></p><p><span data-field="resources_needed"></span></p>';
+
+        $this->buildForm([
+            'route_name' => 'new-event',
+            'name' => 'New Event',
+            'description' => 'Request a new event or activity. An admin approval schedules it on the calendar.',
+            'system_function' => SystemFunction::NEW_EVENT,
+            'fields' => $fields,
+            'pdf' => [
+                'title' => 'Event Request',
+                'subtitle' => 'Student Organization Activity',
                 'html' => $html,
             ],
         ]);

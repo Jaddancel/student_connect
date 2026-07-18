@@ -4,14 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Forms\ConditionEvaluator;
 use App\Forms\FieldType;
+use App\Forms\FormRenderContext;
 use App\Forms\SystemFunction;
 use App\Models\Form;
 use App\Models\FormSubmission;
-use App\Models\Organization;
 use App\Services\DocumentGenerationService;
 use App\Support\OrganizationField;
 use App\Support\SignatureImage;
-use App\Support\UniversalField;
 use Illuminate\Http\Request;
 
 /**
@@ -38,11 +37,10 @@ class FormRenderController extends Controller
             'Form pages are available to organization officers only.',
         );
 
-        $fields = $form->fields()->get();
-        $organization = OrganizationField::resolveOrganization($request->user());
-
-        $prefill = $this->profilePrefill($request, $fields, $organization);
-        $hidden = [];
+        $context = FormRenderContext::build($form, $request);
+        $fields = $context['fields'];
+        $prefill = $context['prefill'];
+        $hidden = $context['hidden'];
 
         // The public sign-up form pre-fills from the landing-page Google popup's
         // query params (google_id/first_name/last_name/email); google_id rides
@@ -51,20 +49,18 @@ class FormRenderController extends Controller
             [$prefill, $hidden] = $this->signupQueryPrefill($request, $fields, $prefill);
         }
 
-        return view('pages.form.render', [
+        // The calendar's "Create Event" action links here with the clicked day
+        // as ?target_date=Y-m-d; prefill it when the form exposes that field.
+        if ($form->system_function === SystemFunction::NEW_EVENT) {
+            $prefill = self::applyTargetDatePrefill($request, $fields, $prefill);
+        }
+
+        return view('pages.form.render', array_merge($context, [
             'title' => $form->name,
-            'form' => $form,
-            'fields' => $fields,
             'prefill' => $prefill,
             'hidden' => $hidden,
-            // Option list for any field mapped to the "Advisers" universal field.
-            'advisers' => OrganizationField::advisers($organization),
-            // Option data for the special kit-scoped field types.
-            'special' => \App\Forms\SpecialFieldData::resolve($request->user(), $fields, $form),
-            // Per-field visibility conditions for the client-side toggling.
-            'conditions' => ConditionEvaluator::clientConditions($fields),
             'recentSubmissions' => $this->recentSubmissions($request, $form),
-        ]);
+        ]));
     }
 
     /**
@@ -103,6 +99,29 @@ class FormRenderController extends Controller
         }
 
         return [$prefill, $hidden];
+    }
+
+    /**
+     * Prefill the new_event form's target_date field from the ?target_date query
+     * param (the calendar passes the clicked day). Shared with the calendar
+     * drawer, which embeds this form inline.
+     *
+     * @param  \Illuminate\Support\Collection<int,\App\Models\Form\FormDescription>  $fields
+     * @param  array<string,mixed>  $prefill
+     * @return array<string,mixed>
+     */
+    public static function applyTargetDatePrefill(Request $request, $fields, array $prefill): array
+    {
+        $targetDate = (string) $request->query('target_date', '');
+        if ($targetDate !== '' && $fields->firstWhere('field_key', 'target_date')) {
+            try {
+                $prefill['target_date'] = \Illuminate\Support\Carbon::parse($targetDate)->toDateString();
+            } catch (\Carbon\Exceptions\InvalidFormatException) {
+                // Ignore an unparseable query value; the user picks a date.
+            }
+        }
+
+        return $prefill;
     }
 
     /**
@@ -156,31 +175,6 @@ class FormRenderController extends Controller
      * @param  \Illuminate\Support\Collection<int,\App\Models\Form\FormDescription>  $fields
      * @return array<string,mixed>
      */
-    private function profilePrefill(Request $request, $fields, ?Organization $organization): array
-    {
-        // `profile` is a FK column on users and shadows the relation, so
-        // `$user->profile` returns the id — load the related model explicitly.
-        $profile = $request->user()?->profile()->first();
-
-        $prefill = [];
-        foreach ($fields as $field) {
-            $key = $field->universal_key;
-            if (! $key || FieldType::isFileLike($field->field_type)) {
-                continue;
-            }
-
-            $value = UniversalField::isOrgField($key)
-                ? OrganizationField::value($organization, $key)
-                : ($profile ? UniversalField::valueFor($profile, $key) : null);
-
-            if ($value !== null && $value !== '') {
-                $prefill[$field->field_key] = $value;
-            }
-        }
-
-        return $prefill;
-    }
-
     public function submit(Request $request, string $routeName, DocumentGenerationService $docService)
     {
         $form = Form::query()

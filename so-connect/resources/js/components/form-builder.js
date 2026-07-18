@@ -1,12 +1,10 @@
-import Sortable from 'sortablejs';
-
 /**
  * Alpine component backing the WYSIWYG form-builder editor.
  *
- * The `rows`/`fields` model is the single source of truth; SortableJS
- * provides drag-to-reorder UX and writes back into the model on drop. Explicit
- * buttons (add/remove/move/columns) cover everything drag does, so the builder
- * stays usable regardless.
+ * The `rows`/`fields` model is the single source of truth. Reordering is driven
+ * entirely by explicit buttons — ▲▼ move a row or a field within its column,
+ * ◀▶ move a field between the columns of its row — so the canvas needs no drag
+ * library and behaves predictably on touch devices.
  */
 export function formBuilder(config) {
     return {
@@ -23,6 +21,9 @@ export function formBuilder(config) {
         description_text: config.data.description_text || '',
         route_name: config.data.route_name || '',
         system_function: config.data.system_function || '',
+        // Sidebar icon key (see MenuHelper::iconNames); '' falls back to the
+        // default forms glyph.
+        icon: config.data.icon || '',
         fields: config.data.fields || [],
         rows: config.data.rows || [],
         // The letterhead (header) and footer belong to the printed document, so
@@ -58,7 +59,6 @@ export function formBuilder(config) {
                     if (!this.routeTouched) this.route_name = this.slug(v);
                 });
             }
-            this.$nextTick(() => this.wireSortables());
         },
 
         slug(v) {
@@ -133,7 +133,6 @@ export function formBuilder(config) {
             // Each new field starts in its own full-width row.
             this.rows.push({ columns: [{ span: 12, fields: [key] }] });
             this.selectedKey = key;
-            this.$nextTick(() => this.wireSortables());
         },
 
         defaultOptions(type) {
@@ -213,7 +212,6 @@ export function formBuilder(config) {
                 }
             });
             if (this.selectedKey === key) this.selectedKey = null;
-            this.$nextTick(() => this.wireSortables());
         },
 
         // --- conditional visibility ---
@@ -259,12 +257,10 @@ export function formBuilder(config) {
             const cols = Array.from({ length: count }, () => ({ span, fields: [] }));
             allKeys.forEach((k, i) => cols[i % count].fields.push(k));
             row.columns = cols;
-            this.$nextTick(() => this.wireSortables());
         },
 
         addRow() {
             this.rows.push({ columns: [{ span: 12, fields: [] }] });
-            this.$nextTick(() => this.wireSortables());
         },
 
         removeRow(rowIndex) {
@@ -272,7 +268,36 @@ export function formBuilder(config) {
             const keys = row.columns.flatMap((c) => c.fields);
             this.fields = this.fields.filter((f) => !keys.includes(f.field_key));
             this.rows.splice(rowIndex, 1);
-            this.$nextTick(() => this.wireSortables());
+        },
+
+        // --- explicit reordering (replaces drag) ---
+        /** Move a whole row up (dir=-1) or down (dir=+1), clamped to bounds. */
+        moveRow(rowIndex, dir) {
+            const target = rowIndex + dir;
+            if (target < 0 || target >= this.rows.length) return;
+            const [moved] = this.rows.splice(rowIndex, 1);
+            this.rows.splice(target, 0, moved);
+        },
+
+        /** Reorder a field within its column (dir=-1 up, +1 down). */
+        moveField(rowIndex, colIndex, fieldIndex, dir) {
+            const fields = this.rows[rowIndex]?.columns[colIndex]?.fields;
+            if (!fields) return;
+            const target = fieldIndex + dir;
+            if (target < 0 || target >= fields.length) return;
+            const [moved] = fields.splice(fieldIndex, 1);
+            fields.splice(target, 0, moved);
+        },
+
+        /** Move a field to the previous (dir=-1) or next (dir=+1) column of its row. */
+        moveFieldAcross(rowIndex, colIndex, fieldIndex, dir) {
+            const row = this.rows[rowIndex];
+            if (!row) return;
+            const target = colIndex + dir;
+            if (target < 0 || target >= row.columns.length) return;
+            const [moved] = row.columns[colIndex].fields.splice(fieldIndex, 1);
+            if (moved === undefined) return;
+            row.columns[target].fields.push(moved);
         },
 
         // --- option editing (choice fields) ---
@@ -374,59 +399,6 @@ export function formBuilder(config) {
             f.field_options.accept = list.length === choices.length ? '' : list.join(',');
         },
 
-        // --- drag wiring ---
-        wireSortables() {
-            this.$root.querySelectorAll('[data-col-list]').forEach((el) => {
-                if (el._sortable) el._sortable.destroy();
-                el._sortable = Sortable.create(el, {
-                    group: 'builder-fields',
-                    animation: 150,
-                    handle: '[data-drag]',
-                    onEnd: (evt) => this.onDrop(evt),
-                });
-            });
-
-            // Rows themselves are re-orderable via their own drag handle.
-            const rowsList = this.$root.querySelector('[data-rows-list]');
-            if (rowsList) {
-                if (rowsList._sortable) rowsList._sortable.destroy();
-                rowsList._sortable = Sortable.create(rowsList, {
-                    animation: 150,
-                    handle: '[data-row-drag]',
-                    draggable: '[data-row-item]',
-                    onEnd: (evt) => this.onRowDrop(evt),
-                });
-            }
-        },
-
-        onRowDrop(evt) {
-            const { oldIndex, newIndex } = evt;
-            if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
-            const [moved] = this.rows.splice(oldIndex, 1);
-            if (moved === undefined) return;
-            this.rows.splice(newIndex, 0, moved);
-            // Re-render from the reordered model, then re-wire.
-            this.$nextTick(() => this.wireSortables());
-        },
-
-        onDrop(evt) {
-            const fromRow = parseInt(evt.from.dataset.row, 10);
-            const fromCol = parseInt(evt.from.dataset.col, 10);
-            const toRow = parseInt(evt.to.dataset.row, 10);
-            const toCol = parseInt(evt.to.dataset.col, 10);
-            if ([fromRow, fromCol, toRow, toCol].some(Number.isNaN)) return;
-
-            const source = this.rows[fromRow].columns[fromCol].fields;
-            const target = this.rows[toRow].columns[toCol].fields;
-            const [moved] = source.splice(evt.oldIndex, 1);
-            if (moved === undefined) return;
-            target.splice(evt.newIndex, 0, moved);
-
-            // Drop empty rows, then re-render and re-wire from the model.
-            this.rows = this.rows.filter((row) => row.columns.some((c) => c.fields.length));
-            this.$nextTick(() => this.wireSortables());
-        },
-
         // --- persistence ---
         async save() {
             this.message = '';
@@ -439,6 +411,7 @@ export function formBuilder(config) {
                 description_text: this.description_text,
                 route_name: this.route_name,
                 system_function: this.system_function || null,
+                icon: this.icon || null,
                 fields: this.fields.map(({ _keyLocked, ...field }) => field),
                 rows: this.rows,
                 pdf_template: this.pdf_template,

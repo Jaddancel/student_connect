@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Event;
-use App\Models\Event\EventDetail;
 use App\Models\EventPlan;
 use App\Models\Semester;
 use App\Models\Workplan;
@@ -174,35 +172,6 @@ class EventController extends Controller
             'message' => 'Event plan submitted successfully.',
             'event_plan_id' => (int) $plan->getKey(),
         ], 201);
-    }
-
-    public function store(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'organization_id' => ['required', 'integer', Rule::exists('organizations', 'organization_id')],
-            'event_name' => ['required', 'string', 'max:255'],
-            'event_start_time' => ['required', 'date'],
-            'event_end_time' => ['required', 'date', 'after_or_equal:event_start_time'],
-            'event_desc_text' => ['nullable', 'string', 'max:5000'],
-        ]);
-
-        $user = $request->user();
-
-        $eventDetail = EventDetail::create([
-            'name' => $validated['event_name'],
-            'desc_text' => $validated['event_desc_text'] ?? null,
-            'start_time' => $validated['event_start_time'],
-            'end_time' => $validated['event_end_time'],
-            'location' => null,
-        ]);
-
-        Event::create([
-            'creator' => (int) $user->getKey(),
-            'event_detail' => (int) $eventDetail->getKey(),
-            'organization' => (int) $validated['organization_id'],
-        ]);
-
-        return back()->with('success', 'Event created successfully.');
     }
 
     public function organizationOfficers(int $organizationId): JsonResponse

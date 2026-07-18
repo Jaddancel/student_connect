@@ -105,9 +105,18 @@ Route::post('/change-password', [PasswordChangeController::class, 'update'])
     ->middleware('auth')
     ->name('password.change.update');
 
-Route::post('/events', [EventController::class, 'store'])
-    ->middleware('auth')
-    ->name('events.create');
+// Settings page (role-gated sections rendered inside the view).
+Route::middleware('auth')->group(function () {
+    Route::get('/settings', [\App\Http\Controllers\SettingsController::class, 'show'])->name('settings');
+    Route::post('/settings/notifications', [\App\Http\Controllers\SettingsController::class, 'updateNotifications'])
+        ->name('settings.notifications');
+    Route::post('/settings/password', [\App\Http\Controllers\SettingsController::class, 'updatePassword'])
+        ->name('settings.password');
+    Route::post('/settings/notify-days', [\App\Http\Controllers\SettingsController::class, 'updateNotifyDays'])
+        ->name('settings.notify-days');
+    Route::post('/settings/backup-interval', [\App\Http\Controllers\SettingsController::class, 'updateBackupInterval'])
+        ->name('settings.backup-interval');
+});
 
 // Auth pages.
 

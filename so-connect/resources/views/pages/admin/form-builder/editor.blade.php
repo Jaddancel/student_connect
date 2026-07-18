@@ -51,9 +51,9 @@
 
         {{-- ========================= STEP 1: ONLINE FORM ========================= --}}
         <div x-show="step === 1" class="grid grid-cols-12 gap-5 lg:items-start">
-            {{-- LEFT: palette + header designer --}}
+            {{-- LEFT: palette + header designer (floats as the canvas scrolls) --}}
             <div class="col-span-12 space-y-5 lg:col-span-3">
-                <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
                     <h3 class="mb-3 text-sm font-semibold text-gray-800 dark:text-white/90">Field palette</h3>
                     <div class="grid grid-cols-2 gap-2">
                         <template x-for="(meta, type) in fieldPalette" :key="type">
@@ -102,12 +102,20 @@
                         <div class="py-16 text-center text-sm text-gray-400">Add fields from the palette to start building.</div>
                     </template>
 
-                    <div class="space-y-4" data-rows-list>
+                    <div class="space-y-4">
                         <template x-for="(row, rowIndex) in rows" :key="rowIndex">
-                            <div class="rounded-xl border border-dashed border-gray-300 p-3 dark:border-gray-700" data-row-item :data-row-index="rowIndex">
+                            <div class="rounded-xl border border-dashed border-gray-300 p-3 dark:border-gray-700">
                                 <div class="mb-2 flex items-center justify-between">
                                     <div class="flex items-center gap-2 text-xs text-gray-400">
-                                        <span data-row-drag class="cursor-grab select-none px-1 text-gray-300" title="Drag to reorder row">⠿</span>
+                                        {{-- ▲▼ reorder this row --}}
+                                        <span class="flex items-center">
+                                            <button type="button" @click="moveRow(rowIndex, -1)" :disabled="rowIndex === 0"
+                                                class="px-1 leading-none text-gray-400 hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30"
+                                                title="Move row up">▲</button>
+                                            <button type="button" @click="moveRow(rowIndex, 1)" :disabled="rowIndex === rows.length - 1"
+                                                class="px-1 leading-none text-gray-400 hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30"
+                                                title="Move row down">▼</button>
+                                        </span>
                                         <span>Columns:</span>
                                         <template x-for="n in 3" :key="n">
                                             <button type="button" @click="setColumnCount(rowIndex, n)"
@@ -121,9 +129,8 @@
                                 <div class="grid grid-cols-1 gap-3"
                                     :class="{'sm:grid-cols-2': row.columns.length===2,'sm:grid-cols-3': row.columns.length===3}">
                                     <template x-for="(col, colIndex) in row.columns" :key="colIndex">
-                                        <div class="min-h-[48px] rounded-lg bg-gray-50 p-2 dark:bg-white/[0.02]"
-                                            data-col-list :data-row="rowIndex" :data-col="colIndex">
-                                            <template x-for="key in col.fields" :key="key">
+                                        <div class="min-h-[48px] rounded-lg bg-gray-50 p-2 dark:bg-white/[0.02]">
+                                            <template x-for="(key, fi) in col.fields" :key="key">
                                                 <div @click="selectedKey = key"
                                                     class="mb-2 cursor-pointer rounded-lg border bg-white px-3 py-2 dark:bg-gray-900"
                                                     :class="selectedKey === key ? 'border-brand-500 ring-1 ring-brand-300' : 'border-gray-200 dark:border-gray-700'">
@@ -135,15 +142,23 @@
                                                             </div>
                                                             <div class="text-[10px] uppercase tracking-wide text-gray-400" x-text="field(key)?.field_type"></div>
                                                         </div>
-                                                        <div class="flex items-center gap-1">
-                                                            <span data-drag class="cursor-grab px-1 text-gray-300">⠿</span>
-                                                            <button type="button" @click.stop="removeField(key)" class="px-1 text-error-400">✕</button>
+                                                        {{-- ▲▼ reorder within column · ◀▶ move across columns --}}
+                                                        <div class="flex shrink-0 items-center text-gray-400">
+                                                            <button type="button" @click.stop="moveField(rowIndex, colIndex, fi, -1)" :disabled="fi === 0"
+                                                                class="px-0.5 leading-none hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30" title="Move up">▲</button>
+                                                            <button type="button" @click.stop="moveField(rowIndex, colIndex, fi, 1)" :disabled="fi === col.fields.length - 1"
+                                                                class="px-0.5 leading-none hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30" title="Move down">▼</button>
+                                                            <button type="button" @click.stop="moveFieldAcross(rowIndex, colIndex, fi, -1)" :disabled="colIndex === 0"
+                                                                class="px-0.5 leading-none hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30" title="Move to previous column">◀</button>
+                                                            <button type="button" @click.stop="moveFieldAcross(rowIndex, colIndex, fi, 1)" :disabled="colIndex === row.columns.length - 1"
+                                                                class="px-0.5 leading-none hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30" title="Move to next column">▶</button>
+                                                            <button type="button" @click.stop="removeField(key)" class="px-1 leading-none text-error-400 hover:text-error-500" title="Remove field">✕</button>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </template>
                                             <template x-if="col.fields.length === 0">
-                                                <div class="py-3 text-center text-[11px] text-gray-300">drop field here</div>
+                                                <div class="py-3 text-center text-[11px] text-gray-300">empty column — use ◀ ▶ to move a field here</div>
                                             </template>
                                         </div>
                                     </template>
@@ -409,6 +424,26 @@
                         <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Purpose</label>
                         <textarea x-model="description_text" rows="3" placeholder="What is this form for? (used by search)"
                             class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:text-white/90"></textarea>
+                    </div>
+
+                    {{-- Sidebar icon picker: the glyph shown beside this form in the nav. --}}
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Sidebar icon</label>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" @click="icon = ''" title="Default"
+                                class="flex h-10 w-10 items-center justify-center rounded-lg border transition hover:border-brand-400 [&_svg]:h-5 [&_svg]:w-5"
+                                :class="icon === '' ? 'border-brand-500 text-brand-600 ring-1 ring-brand-300' : 'border-gray-200 text-gray-500 dark:border-gray-700'">
+                                {!! \App\Helpers\MenuHelper::getIconSvg('forms') !!}
+                            </button>
+                            @foreach ($iconChoices as $name => $svg)
+                                <button type="button" @click="icon = @js($name)" title="{{ ucfirst(str_replace('-', ' ', $name)) }}"
+                                    class="flex h-10 w-10 items-center justify-center rounded-lg border transition hover:border-brand-400 [&_svg]:h-5 [&_svg]:w-5"
+                                    :class="icon === @js($name) ? 'border-brand-500 text-brand-600 ring-1 ring-brand-300' : 'border-gray-200 text-gray-500 dark:border-gray-700'">
+                                    {!! $svg !!}
+                                </button>
+                            @endforeach
+                        </div>
+                        <p class="mt-1 text-xs text-gray-400">Shown next to this form in the sidebar.</p>
                     </div>
 
                     <div>

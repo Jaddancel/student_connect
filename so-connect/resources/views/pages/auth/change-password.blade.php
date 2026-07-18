@@ -50,8 +50,9 @@
 
                 {{-- Form --}}
                 <form action="{{ route('password.change.update') }}" method="POST"
-                    x-data="passwordChangeTools()" class="space-y-5">
+                    x-data="passwordPolicyTools()" class="space-y-5">
                     @csrf
+                    @include('partials.password-policy-script')
 
                     {{-- New Password --}}
                     <div>
@@ -79,56 +80,8 @@
                         </div>
                     </div>
 
-                    {{-- Requirements Checklist --}}
-                    <div x-show="password.length > 0"
-                        x-transition:enter="transition ease-out duration-200"
-                        x-transition:enter-start="opacity-0 -translate-y-1"
-                        x-transition:enter-end="opacity-100 translate-y-0"
-                        class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50">
-                        <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Requirements</p>
-                        <ul class="space-y-1.5">
-                            <li class="flex items-center gap-2 text-sm transition-colors duration-150"
-                                :class="minLength ? 'text-success-600 dark:text-success-400' : 'text-gray-400 dark:text-gray-500'">
-                                <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                    <path x-show="minLength" stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    <path x-show="!minLength" stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                                At least 8 characters
-                            </li>
-                            <li class="flex items-center gap-2 text-sm transition-colors duration-150"
-                                :class="hasUpper ? 'text-success-600 dark:text-success-400' : 'text-gray-400 dark:text-gray-500'">
-                                <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                    <path x-show="hasUpper" stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    <path x-show="!hasUpper" stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                                One uppercase letter (A–Z)
-                            </li>
-                            <li class="flex items-center gap-2 text-sm transition-colors duration-150"
-                                :class="hasLower ? 'text-success-600 dark:text-success-400' : 'text-gray-400 dark:text-gray-500'">
-                                <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                    <path x-show="hasLower" stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    <path x-show="!hasLower" stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                                One lowercase letter (a–z)
-                            </li>
-                            <li class="flex items-center gap-2 text-sm transition-colors duration-150"
-                                :class="hasNumber ? 'text-success-600 dark:text-success-400' : 'text-gray-400 dark:text-gray-500'">
-                                <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                    <path x-show="hasNumber" stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    <path x-show="!hasNumber" stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                                One number (0–9)
-                            </li>
-                            <li class="flex items-center gap-2 text-sm transition-colors duration-150"
-                                :class="hasSpecial ? 'text-success-600 dark:text-success-400' : 'text-gray-400 dark:text-gray-500'">
-                                <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                    <path x-show="hasSpecial" stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    <path x-show="!hasSpecial" stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                                One special character (!@#$…)
-                            </li>
-                        </ul>
-                    </div>
+                    {{-- Requirements Checklist (shared) --}}
+                    <x-password-requirements />
 
                     {{-- Confirm Password --}}
                     <div>
@@ -240,23 +193,4 @@
     </div>
 </div>
 
-@push('scripts')
-<script>
-window.passwordChangeTools = function () {
-    return {
-        password: '',
-        confirmPassword: '',
-        showPassword: false,
-        showConfirm: false,
-        get minLength()      { return this.password.length >= 8; },
-        get hasUpper()       { return /[A-Z]/.test(this.password); },
-        get hasLower()       { return /[a-z]/.test(this.password); },
-        get hasNumber()      { return /[0-9]/.test(this.password); },
-        get hasSpecial()     { return /[^A-Za-z0-9]/.test(this.password); },
-        get allMet()         { return this.minLength && this.hasUpper && this.hasLower && this.hasNumber && this.hasSpecial; },
-        get passwordsMatch() { return this.confirmPassword !== '' && this.password === this.confirmPassword; },
-    };
-};
-</script>
-@endpush
 @endsection
