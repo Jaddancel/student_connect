@@ -98,6 +98,7 @@ window.addEventListener('resize', checkMobile);">
             @include('layouts.app-header')
             <!-- app header end -->
             <div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+                <x-accreditation-warning />
                 @yield('content')
             </div>
         </div>

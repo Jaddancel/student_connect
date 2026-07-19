@@ -155,6 +155,8 @@ class LandingPage extends Controller
 
         $rows = DB::table('organizations as o')
             ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            // Accreditation-disabled orgs are hidden from the public directory.
+            ->where(fn ($q) => $q->where('o.accreditation_status', '!=', 'disabled')->orWhereNull('o.accreditation_status'))
             ->select('o.organization_id', 'o.organization_type', 'od.name')
             ->orderBy('o.organization_id')
             ->get();

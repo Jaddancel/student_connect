@@ -109,7 +109,10 @@ class MenuHelper
                 ->where('is_active', true)
                 ->where(function ($query) {
                     $query->whereNull('system_function')
-                        ->orWhere('system_function', \App\Forms\SystemFunction::MEMBERSHIP_REGISTRATION);
+                        ->orWhereIn('system_function', [
+                            \App\Forms\SystemFunction::MEMBERSHIP_REGISTRATION,
+                            \App\Forms\SystemFunction::ORG_ACCREDITATION,
+                        ]);
                 })
                 ->orderBy('name')
                 ->get(['id', 'name', 'icon']);
@@ -159,7 +162,10 @@ class MenuHelper
                 ->where('is_active', true)
                 ->where(function ($query) {
                     $query->whereNull('system_function')
-                        ->orWhere('system_function', \App\Forms\SystemFunction::MEMBERSHIP_REGISTRATION);
+                        ->orWhereIn('system_function', [
+                            \App\Forms\SystemFunction::MEMBERSHIP_REGISTRATION,
+                            \App\Forms\SystemFunction::ORG_ACCREDITATION,
+                        ]);
                 })
                 ->orderBy('name')
                 ->get(['id', 'name', 'route_name', 'icon']);

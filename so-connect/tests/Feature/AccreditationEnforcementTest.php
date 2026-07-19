@@ -1,8 +1,13 @@
 <?php
 
+use App\Forms\Handlers\OrgAccreditationHandler;
+use App\Models\AppSetting;
 use App\Models\Form;
+use App\Models\FormSubmission;
+use App\Models\Semester;
 use App\Services\AccreditationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -79,4 +84,62 @@ it('forbids non-admins from saving accreditation conditions', function () {
     $this->actingAs(recordsUser(3))
         ->post(route('settings.accreditation-conditions'), ['required_forms' => []])
         ->assertForbidden();
+});
+
+it('shows the danger card only for a non-compliant member inside the window', function () {
+    Semester::create(['name' => 'Next', 'semester_number' => 1, 'starts_at' => Carbon::today()->addDays(3), 'vacation_days' => 0]);
+    $form = Form::create(['name' => 'Accreditation', 'route_name' => 'accred-form', 'is_active' => true]);
+    AppSetting::put('accreditation.conditions', ['required_forms' => [$form->id]]);
+
+    $service = app(AccreditationService::class);
+
+    $member = recordsUser(3);
+    $org = recordsOrganization('Mine', 'MN');
+    makeOfficerOf((int) $member->getKey(), (int) $org->getKey());
+
+    // Non-compliant + inside the 3-day window ⇒ warns.
+    expect($service->warningDaysLeftForUser((int) $member->getKey()))->toBe(3);
+
+    // A user with no org membership never sees the card.
+    expect($service->warningDaysLeftForUser((int) recordsUser(3)->getKey()))->toBeNull();
+});
+
+it('routes an accreditation submission into a reviewable doc-gen request', function () {
+    $user = recordsUser(3);
+    $org = recordsOrganization('Acc Org', 'AO');
+    $form = Form::create([
+        'name' => 'Organization Accreditation', 'route_name' => 'organization-recognition',
+        'system_function' => 'org_accreditation', 'is_active' => true, 'is_published' => true,
+    ]);
+    $submission = FormSubmission::create([
+        'form_id' => $form->id, 'organization_id' => null, 'submitted_by' => $user->getKey(),
+        'payload' => ['organization_id' => $org->getKey()], 'submitted_at' => now(),
+    ]);
+
+    $request = Illuminate\Http\Request::create('/forms/organization-recognition', 'POST');
+    $request->setUserResolver(fn () => $user);
+
+    $handler = app(OrgAccreditationHandler::class);
+    $payload = ['organization_id' => (int) $org->getKey()];
+    $handler->validatePayload($form, $payload, $request);
+    $handler->handle($form, $submission, $payload, $request);
+
+    // The generic doc-generation request (action_type 3) the review page reads.
+    expect(DB::table('requests')
+        ->where('form_id', $form->id)
+        ->where('organization_id', $org->getKey())
+        ->where('action_type', 3)
+        ->exists())->toBeTrue();
+});
+
+it('rejects an accreditation submission for a nonexistent org', function () {
+    $form = Form::create([
+        'name' => 'Organization Accreditation', 'route_name' => 'organization-recognition',
+        'system_function' => 'org_accreditation', 'is_active' => true, 'is_published' => true,
+    ]);
+    $request = Illuminate\Http\Request::create('/', 'POST');
+
+    expect(fn () => app(OrgAccreditationHandler::class)
+        ->validatePayload($form, ['organization_id' => 999999], $request))
+        ->toThrow(Illuminate\Validation\ValidationException::class);
 });

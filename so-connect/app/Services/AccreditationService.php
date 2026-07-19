@@ -166,10 +166,11 @@ class AccreditationService
      */
     public function defaultAccreditationForm(): ?Form
     {
-        return Form::query()
-            ->whereIn('route_name', ['organization-accreditation', 'organization-recognition'])
-            ->orderByRaw("route_name = 'organization-accreditation' desc")
-            ->first();
+        return \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::ORG_ACCREDITATION)
+            ?? Form::query()
+                ->whereIn('route_name', ['organization-accreditation', 'organization-recognition'])
+                ->orderByRaw("route_name = 'organization-accreditation' desc")
+                ->first();
     }
 
     /**
@@ -242,6 +243,31 @@ class AccreditationService
             ->when($deadline, fn ($q) => $q->where('requested_at', '<=', $deadline))
             ->whereIn('request_id', $approvedRequestIds)
             ->exists();
+    }
+
+    /**
+     * Days left until the deadline for a member who should see the pre-deadline
+     * danger card — i.e. we are inside the warning window and at least one of
+     * their (still-active) orgs is not yet compliant. Null means "no warning".
+     */
+    public function warningDaysLeftForUser(int $userId, ?Carbon $now = null): ?int
+    {
+        if (! $this->isWithinWarningWindow($now)) {
+            return null;
+        }
+
+        $orgIds = \App\Services\OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
+        if ($orgIds === []) {
+            return null;
+        }
+
+        $hasNonCompliant = Organization::query()
+            ->whereIn('organization_id', $orgIds)
+            ->accreditationActive()
+            ->get()
+            ->contains(fn (Organization $org) => ! $this->isCompliant($org));
+
+        return $hasNonCompliant ? $this->daysUntilDeadline($now) : null;
     }
 
     // ------------------------------------------------------------------ lifecycle

@@ -312,9 +312,9 @@ class FormPagesSeeder extends Seeder
     private function seedOrganizationRecognition(): void
     {
         $fields = [
-            $this->heading('Organization Recognition'),
-            $this->f('recognition_type', 'Recognition / Renewal', FieldType::RADIO, ['options' => ['options' => [
-                ['value' => 'recognition', 'label' => 'Recognition'], ['value' => 'renewal', 'label' => 'Renewal'],
+            $this->heading('Organization Accreditation'),
+            $this->f('recognition_type', 'Accreditation / Renewal', FieldType::RADIO, ['options' => ['options' => [
+                ['value' => 'recognition', 'label' => 'Accreditation'], ['value' => 'renewal', 'label' => 'Renewal'],
             ]]]),
             $this->f('organization_id', 'Organization', FieldType::ORG_SELECT, ['required' => true]),
             $this->f('name_of_president', 'President', FieldType::TEXT, ['required' => true, 'universal_key' => 'org_president']),
@@ -331,7 +331,7 @@ class FormPagesSeeder extends Seeder
             $this->f('president_signature', 'President Signature', FieldType::SIGNATURE, ['required' => true]),
         ];
 
-        $html = '<h2>Application for Recognition</h2>'
+        $html = '<h2>Application for Accreditation</h2>'
             .$this->line('Organization', 'organization_id')
             .$this->line('President', 'name_of_president')
             .'<p><strong>Faculty Adviser/s:</strong> <span data-field="adviser_names"></span></p>'
@@ -344,12 +344,15 @@ class FormPagesSeeder extends Seeder
             .'<p><strong>Signature:</strong></p><p><span data-field="president_signature"></span></p>';
 
         $this->buildForm([
+            // Route kept as organization-recognition for URL/back-compat; the
+            // page is now bound to the Organization Accreditation system function.
             'route_name' => 'organization-recognition',
-            'name' => 'Organization Recognition',
-            'description' => 'Apply for organization recognition or renewal.',
+            'name' => 'Organization Accreditation',
+            'description' => 'Apply for organization accreditation or renewal.',
             'field_kit' => 'organization_recognition',
+            'system_function' => SystemFunction::ORG_ACCREDITATION,
             'fields' => $fields,
-            'pdf' => ['title' => 'Application for Recognition', 'html' => $html],
+            'pdf' => ['title' => 'Application for Accreditation', 'html' => $html],
         ]);
     }
 
