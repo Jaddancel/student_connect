@@ -76,7 +76,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] WP7.6 Sidecar `POST /waiver-scan` (text OCR / signature crop / stamp CLAHE→gradient→Hough) — Python syntax-verified, not run here
 - [x] WP7.7 Tests `WaiverValidationTest` + `WaiverScanTest` (zone validation, fuzzy match, scan preflight via Http::fake) — 9 green
 - [x] WP7.2 `Admin/WaiverTemplateController` CRUD + Konva authoring canvas (`waiver-template-editor.js`, editor page) + menu; 4 tests; builds green
-- [ ] WP7.5 Server re-validation at submit + store under `waivers/Y/m/` + type-2 review UI — service ready, submit/review wiring TODO
+- [x] WP7.5 `WaiverSubmissionService` server re-validation at submit (guarded) + store under `waivers/Y/m/` + type-2 review UI (`WaiverReviewController` + menu); 3 tests
 
 ---
 

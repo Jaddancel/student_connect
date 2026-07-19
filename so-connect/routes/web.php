@@ -730,6 +730,11 @@ Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
         ->name('admin.waiver-templates.destroy');
 });
 
+// Type-2 review of scanned-waiver submissions.
+Route::get('/admin/waiver-review', [\App\Http\Controllers\Admin\WaiverReviewController::class, 'index'])
+    ->middleware(['auth', 'admin'])
+    ->name('admin.waiver-review.index');
+
 // Signature reference registry maintenance (super admin).
 Route::middleware(['auth', 'superadmin'])->group(function () {
     Route::get('/superadmin/signature-references', [\App\Http\Controllers\Admin\SignatureReferenceController::class, 'index'])

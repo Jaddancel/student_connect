@@ -237,6 +237,7 @@ class FormRenderController extends Controller
         $validated = $request->validate($rules);
 
         $payload = [];
+        $waiverValidations = [];
         foreach ($fields as $field) {
             $key = $field->field_key;
             $type = $field->field_type;
@@ -302,6 +303,17 @@ class FormRenderController extends Controller
                 continue;
             }
 
+            if ($type === FieldType::WAIVER_SCAN) {
+                // Store the scanned waiver + authoritatively re-validate it
+                // server-side (best-effort; never blocks the submission).
+                $result = app(\App\Services\WaiverSubmissionService::class)->process($validated[$key] ?? null, $field);
+                $payload[$key] = $result['path'];
+                if ($result['validation'] !== null) {
+                    $waiverValidations[$key] = $result['validation'];
+                }
+                continue;
+            }
+
             if ($type === FieldType::COMPUTED) {
                 // Recomputed below from the assembled payload.
                 $payload[$key] = null;
@@ -340,6 +352,11 @@ class FormRenderController extends Controller
             }
 
             $payload[$key] = $validated[$key] ?? null;
+        }
+
+        // Stash the authoritative waiver re-validation results for the review UI.
+        if ($waiverValidations !== []) {
+            $payload['_waiver_validation'] = $waiverValidations;
         }
 
         // The public sign-up form carries a hidden google_id from the OAuth

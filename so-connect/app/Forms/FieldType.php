@@ -335,6 +335,12 @@ final class FieldType
                 $rules[] = 'max:50';
                 break;
 
+            case self::WAIVER_SCAN:
+                // The captured waiver image as a base64 data-URL string
+                // (stored + server re-validated at submit).
+                $rules[] = 'string';
+                break;
+
             case self::EVENT_SELECT:
                 // "Events" here are the org's approved event plans (the same
                 // source the legacy accomplishment report used).
