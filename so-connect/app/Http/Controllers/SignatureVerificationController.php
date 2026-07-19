@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Profile;
 use App\Services\OcrClient;
+use App\Services\SignatureReferenceService;
 use App\Support\SignatureImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Live "is this signature recognized?" endpoint behind the signature-field
@@ -18,13 +17,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class SignatureVerificationController extends Controller
 {
-    /**
-     * Upper bound on how many stored signatures ride along per check; keeps
-     * the sidecar request bounded on installations with many profiles.
-     */
-    private const MAX_CANDIDATES = 300;
-
-    public function verify(Request $request, OcrClient $ocr): JsonResponse
+    public function verify(Request $request, OcrClient $ocr, SignatureReferenceService $references): JsonResponse
     {
         $validated = $request->validate([
             'signature' => ['required', 'string', 'starts_with:data:image'],
@@ -35,7 +28,9 @@ class SignatureVerificationController extends Controller
             return response()->json(['status' => 'unavailable']);
         }
 
-        [$candidates, $names] = $this->candidates();
+        // Candidates come from the reference registry (backfilled profiles +
+        // auto-enrolled owners), so non-user signatures are recognized too.
+        [$candidates, $names] = $references->candidates();
         if ($candidates === []) {
             return response()->json(['status' => 'no_signatures']);
         }
@@ -55,40 +50,27 @@ class SignatureVerificationController extends Controller
     }
 
     /**
-     * All stored profile signatures as sidecar candidates, plus an id → owner
-     * name map for the response.
-     *
-     * @return array{0: array<int,array{id:int, image:string}>, 1: array<int,string>}
+     * Auto-enroll an unrecognized signature under a typed owner name (owners may
+     * be non-users). Server-authoritative: the server stores the image and
+     * creates the reference — the client only supplies the drawing + name.
      */
-    private function candidates(): array
+    public function enroll(Request $request, SignatureReferenceService $references): JsonResponse
     {
-        $disk = Storage::disk(SignatureImage::disk());
+        $validated = $request->validate([
+            'signature' => ['required', 'string', 'starts_with:data:image'],
+            'name' => ['required', 'string', 'max:255'],
+        ]);
 
-        $candidates = [];
-        $names = [];
-
-        $profiles = Profile::query()
-            ->whereNotNull('signature_path')
-            ->where('signature_path', '!=', '')
-            ->orderByDesc('profile_id')
-            ->limit(self::MAX_CANDIDATES)
-            ->get(['profile_id', 'first_name', 'last_name', 'signature_path']);
-
-        foreach ($profiles as $profile) {
-            $path = (string) $profile->signature_path;
-            if (! $disk->exists($path)) {
-                continue;
-            }
-
-            $candidates[] = [
-                'id' => (int) $profile->profile_id,
-                'image' => base64_encode((string) $disk->get($path)),
-            ];
-            $names[(int) $profile->profile_id] = trim(
-                $profile->first_name.' '.$profile->last_name,
-            );
+        $path = SignatureImage::storeDataUrl($validated['signature'], 'signatures/enrolled');
+        if ($path === null) {
+            return response()->json(['status' => 'error'], 422);
         }
 
-        return [$candidates, $names];
+        $reference = $references->enroll($validated['name'], $path);
+
+        return response()->json([
+            'status' => 'enrolled',
+            'reference_id' => (int) $reference->reference_id,
+        ]);
     }
 }

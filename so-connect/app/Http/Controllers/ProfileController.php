@@ -138,6 +138,9 @@ class ProfileController extends Controller
 
         $old = $profile->signature_path;
         $profile->update(['signature_path' => $path]);
+        // Mirror the new signature into the reference registry so the verifier
+        // recognizes it (see SignatureReferenceService).
+        app(\App\Services\SignatureReferenceService::class)->syncFromProfile($profile->fresh());
         if ($old && $old !== $path) {
             Storage::disk(SignatureImage::disk())->delete($old);
         }

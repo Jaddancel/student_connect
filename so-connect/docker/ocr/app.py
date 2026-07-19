@@ -210,6 +210,75 @@ def _signature_score(probe, candidate) -> float:
     return max(0.0, min(1.0, 0.5 * ncc + 0.5 * orb_ratio))
 
 
+# --- SigNet (deep) scoring, optional -----------------------------------------
+#
+# SIGNATURE_ENGINE=signet switches scoring to a SigNet CNN embedding (cosine
+# similarity) via the `sigver` package + a CPU torch build. It is fully
+# additive: if torch / the weights are unavailable, or the engine is left at
+# "classical", the NCC+ORB scorer above is used instead. When embeddings are
+# produced they are also returned so callers can cache them.
+
+SIGNATURE_ENGINE = os.environ.get("SIGNATURE_ENGINE", "classical").lower()
+SIGNET_WEIGHTS = os.environ.get("SIGNET_WEIGHTS", "/models/signet.pth")
+_signet_state = {"tried": False, "model": None}
+
+
+def _load_signet():
+    """Lazily load the SigNet model once; return it or None if unavailable."""
+    if _signet_state["tried"]:
+        return _signet_state["model"]
+    _signet_state["tried"] = True
+    try:
+        import torch
+        from sigver.featurelearning.models import SigNet
+
+        model = SigNet()
+        state = torch.load(SIGNET_WEIGHTS, map_location="cpu")
+        model.load_state_dict(state.get("model") if isinstance(state, dict) and "model" in state else state)
+        model.eval()
+        _signet_state["model"] = model
+    except Exception:
+        _signet_state["model"] = None
+    return _signet_state["model"]
+
+
+def _signet_embedding(img: Image.Image):
+    """Return an L2-normalized SigNet embedding (list of floats) or None."""
+    model = _load_signet()
+    if model is None:
+        return None
+    try:
+        import numpy as np
+        import torch
+
+        norm = _normalize_signature(img)
+        if norm is None:
+            return None
+        # SigNet expects a 150x220 single-channel input; reuse the ink map.
+        import cv2
+        resized = cv2.resize((norm * 255).astype("uint8"), (220, 150))
+        tensor = torch.from_numpy(resized).float().div(255.0).unsqueeze(0).unsqueeze(0)
+        with torch.no_grad():
+            feats = model(tensor).squeeze(0).numpy()
+        n = float(np.linalg.norm(feats))
+        if n < 1e-8:
+            return None
+        return (feats / n).astype("float32").tolist()
+    except Exception:
+        return None
+
+
+def _cosine(a, b) -> float:
+    import numpy as np
+
+    va, vb = np.asarray(a, dtype="float32"), np.asarray(b, dtype="float32")
+    denom = float(np.linalg.norm(va) * np.linalg.norm(vb))
+    if denom < 1e-8:
+        return 0.0
+    # Map cosine [-1,1] → [0,1] to match the classical score range.
+    return max(0.0, min(1.0, (float(va.dot(vb) / denom) + 1.0) / 2.0))
+
+
 @app.post("/signature-identify")
 async def signature_identify(probe: UploadFile, candidates: str = Form(...)):
     try:
@@ -230,9 +299,31 @@ async def signature_identify(probe: UploadFile, candidates: str = Form(...)):
         return {"ok": True, "match": False, "best": None,
                 "threshold": SIGNATURE_MATCH_THRESHOLD, "note": "empty probe"}
 
+    # Deep path when SIGNATURE_ENGINE=signet and torch/weights are present;
+    # otherwise probe_emb stays None and every candidate uses the classical scorer.
+    probe_emb = _signet_embedding(probe_img) if SIGNATURE_ENGINE == "signet" else None
+
     best_id = None
     best_score = 0.0
     for entry in entries:
+        # SigNet: cosine of embeddings, reusing a candidate's cached embedding
+        # when the caller supplied one.
+        if probe_emb is not None:
+            cand_emb = entry.get("embedding")
+            if not cand_emb:
+                try:
+                    image_bytes = base64.b64decode(str(entry.get("image") or ""), validate=False)
+                    cand_emb = _signet_embedding(Image.open(io.BytesIO(image_bytes)))
+                except Exception:
+                    cand_emb = None
+            if cand_emb:
+                score = _cosine(probe_emb, cand_emb)
+                if score > best_score:
+                    best_score = score
+                    best_id = entry.get("id")
+                continue
+
+        # Classical NCC+ORB fallback.
         try:
             image_bytes = base64.b64decode(str(entry.get("image") or ""), validate=False)
             candidate_img = Image.open(io.BytesIO(image_bytes))
@@ -251,4 +342,7 @@ async def signature_identify(probe: UploadFile, candidates: str = Form(...)):
         "match": best_id is not None and best_score >= SIGNATURE_MATCH_THRESHOLD,
         "best": None if best_id is None else {"id": best_id, "score": round(best_score, 4)},
         "threshold": SIGNATURE_MATCH_THRESHOLD,
+        # Additive fields (existing callers ignore them).
+        "engine": "signet" if probe_emb is not None else "classical",
+        "embedding": probe_emb,
     }

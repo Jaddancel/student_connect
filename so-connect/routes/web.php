@@ -715,6 +715,15 @@ Route::get('/profile/create', [ProfileController::class, 'profileForm'])->middle
 Route::post('/profile/create', [ProfileController::class, 'store'])->middleware('auth')->name('profile.store');
 Route::post('/profile/signature', [ProfileController::class, 'updateSignature'])->middleware('auth')->name('profile.signature');
 Route::post('/signature/verify', [\App\Http\Controllers\SignatureVerificationController::class, 'verify'])->middleware('auth')->name('signature.verify');
+Route::post('/signature/enroll', [\App\Http\Controllers\SignatureVerificationController::class, 'enroll'])->middleware('auth')->name('signature.enroll');
+
+// Signature reference registry maintenance (super admin).
+Route::middleware(['auth', 'superadmin'])->group(function () {
+    Route::get('/superadmin/signature-references', [\App\Http\Controllers\Admin\SignatureReferenceController::class, 'index'])
+        ->name('superadmin.signature-references.index');
+    Route::delete('/superadmin/signature-references/{reference}', [\App\Http\Controllers\Admin\SignatureReferenceController::class, 'destroy'])
+        ->name('superadmin.signature-references.destroy');
+});
 
 // form pages
 Route::get('/form-elements', function () {

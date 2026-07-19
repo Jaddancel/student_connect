@@ -61,13 +61,13 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] WP5.11 Tests: AccreditationServiceTest + AccreditationEnforcementTest (compliance/lifecycle/enforcement/middleware/conditions/danger-card/handler) — 20 green
 
 ## Phase 6 — Signature recognition (registry + SigNet + auto-enroll)
-- [ ] WP6.1 Migration `create_signature_references_table` + `SignatureReferenceService`
-- [ ] WP6.2 Wire writers through service; `SignatureVerificationController` reads registry; backfill
-- [ ] WP6.3 Super-admin `/superadmin/signature-references` maintenance page
-- [ ] WP6.4 SigNet in sidecar (torch cpu + sigver) w/ classical fallback env-switch
-- [ ] WP6.5 `/signature-identify` additive embedding fields; contract docs updated
-- [ ] WP6.6 Unrecognized ⇒ name field ⇒ auto-enroll (all signature fields, server authoritative)
-- [ ] WP6.7 Tests: service precedence, controller Http::fake, backfill
+- [x] WP6.1 Migration `create_signature_references_table` + `SignatureReference` model + `SignatureReferenceService`
+- [x] WP6.2 Profile writer syncs registry; `SignatureVerificationController` reads registry; `signatures:backfill-references`
+- [x] WP6.3 Super-admin `/superadmin/signature-references` maintenance page (list/delete) + sidebar entry
+- [x] WP6.4 SigNet in sidecar (SIGNATURE_ENGINE=signet, torch+sigver) w/ classical fallback — Python syntax-verified, not run here
+- [x] WP6.5 `/signature-identify` additive `engine`+`embedding` fields (cached candidate embeddings reused)
+- [x] WP6.6 Auto-enroll endpoint POST /signature/enroll (server stores image + creates reference under typed name)
+- [x] WP6.7 Tests `SignatureReferenceTest` (candidates/sync/backfill/verify Http::fake/enroll/maintenance) — 9 green
 
 ## Phase 7 — Waiver form recognition (template, scanner modal, stamp detection)
 - [ ] WP7.1 `add_kind_to_id_templates_table`; `ZonePayloadValidator`; stamp zone type
