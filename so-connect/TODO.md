@@ -70,13 +70,13 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] WP6.7 Tests `SignatureReferenceTest` (candidates/sync/backfill/verify Http::fake/enroll/maintenance) — 9 green
 
 ## Phase 7 — Waiver form recognition (template, scanner modal, stamp detection)
-- [ ] WP7.1 `add_kind_to_id_templates_table`; `ZonePayloadValidator`; stamp zone type
-- [ ] WP7.2 Waiver builder stage (new_event forms) w/ Konva editor; `Admin/WaiverTemplateController`
-- [ ] WP7.3 `FieldType::WAIVER_SCAN` + scanner modal + shared `camera-capture.js`
-- [ ] WP7.4 `POST /waiver-scan` preflight + `WaiverValidationService` + `config/waiver.php`
-- [ ] WP7.5 Server re-validation at submit; store under `waivers/Y/m/`; type-2 review UI
-- [ ] WP7.6 Sidecar `POST /waiver-scan` (text/signature/stamp); contract docs
-- [ ] WP7.7 Tests: PHP validation/CRUD; optional python stamp pytest
+- [x] WP7.1 `add_kind_to_id_templates_table` + `ZonePayloadValidator` (stamp zone type, config-driven)
+- [~] WP7.3 `FieldType::WAIVER_SCAN` added; scanner modal + shared `camera-capture.js` (frontend) TODO
+- [x] WP7.4 `POST /waiver-scan` preflight (`WaiverScanController`) + `WaiverValidationService` (fuzzy, decision #7) + `config/waiver.php`
+- [x] WP7.6 Sidecar `POST /waiver-scan` (text OCR / signature crop / stamp CLAHE→gradient→Hough) — Python syntax-verified, not run here
+- [x] WP7.7 Tests `WaiverValidationTest` + `WaiverScanTest` (zone validation, fuzzy match, scan preflight via Http::fake) — 9 green
+- [ ] WP7.2 Waiver builder stage (Konva editor) + `Admin/WaiverTemplateController` CRUD — data layer ready (id_templates.kind='waiver'), UI TODO
+- [ ] WP7.5 Server re-validation at submit + store under `waivers/Y/m/` + type-2 review UI — service ready, submit/review wiring TODO
 
 ---
 

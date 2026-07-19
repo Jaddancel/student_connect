@@ -37,6 +37,8 @@ final class FieldType
     public const POSITION_SELECT = 'position-select';
     public const PASSWORD = 'password';
     public const ID_SCAN = 'id-scan';
+
+    public const WAIVER_SCAN = 'waiver-scan';
     public const WORKPLAN_EVENTS = 'workplan-events';
     public const TEXT_LIST = 'text-list';
     public const TABLE_INPUT = 'table-input';

@@ -113,6 +113,37 @@ class OcrClient
     }
 
     /**
+     * Scan a waiver photo against a waiver template's zones. Returns the
+     * sidecar's extracted text fields, signature crops, and stamp detection.
+     *
+     * @param  array<string,mixed>  $template  {reference:{width,height}, zones:[...]}
+     * @return array<string,mixed>  ['ok'=>bool, 'fields'=>..., 'signature'=>bool, 'stamp'=>bool, ...]
+     */
+    public function scanWaiver(string $imagePng, array $template): array
+    {
+        $url = rtrim((string) config('services.ocr.url'), '/').'/waiver-scan';
+        $timeout = (int) config('services.ocr.timeout', 60);
+
+        try {
+            $response = Http::timeout($timeout)
+                ->attach('image', $imagePng, 'waiver.png')
+                ->post($url, ['template' => json_encode($template)]);
+
+            if (! $response->successful()) {
+                Log::warning('Waiver scan returned non-200', ['status' => $response->status()]);
+
+                return ['ok' => false];
+            }
+
+            return ['ok' => true] + (array) $response->json();
+        } catch (\Throwable $e) {
+            Log::warning('Waiver scan unreachable: '.$e->getMessage());
+
+            return ['ok' => false];
+        }
+    }
+
+    /**
      * Map the sidecar's zone-name → image-crop results (signature zones) onto
      * each zone's destination `field`, mirroring mapFields().
      *

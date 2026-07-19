@@ -716,6 +716,7 @@ Route::post('/profile/create', [ProfileController::class, 'store'])->middleware(
 Route::post('/profile/signature', [ProfileController::class, 'updateSignature'])->middleware('auth')->name('profile.signature');
 Route::post('/signature/verify', [\App\Http\Controllers\SignatureVerificationController::class, 'verify'])->middleware('auth')->name('signature.verify');
 Route::post('/signature/enroll', [\App\Http\Controllers\SignatureVerificationController::class, 'enroll'])->middleware('auth')->name('signature.enroll');
+Route::post('/waiver-scan', [\App\Http\Controllers\WaiverScanController::class, 'scan'])->middleware('auth')->name('waiver.scan');
 
 // Signature reference registry maintenance (super admin).
 Route::middleware(['auth', 'superadmin'])->group(function () {

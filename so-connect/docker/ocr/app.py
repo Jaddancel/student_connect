@@ -346,3 +346,108 @@ async def signature_identify(probe: UploadFile, candidates: str = Form(...)):
         "engine": "signet" if probe_emb is not None else "classical",
         "embedding": probe_emb,
     }
+
+
+# --- waiver scanning ---------------------------------------------------------
+#
+# Waiver templates declare text / signature / stamp zones (x,y,w,h in the
+# reference frame). Text zones are OCR'd, signature zones returned as crops (and
+# flagged present), stamp zones checked for an embossed dry seal.
+
+
+def _detect_stamp(crop: "Image.Image"):
+    """Detect an embossed dry seal in a crop: CLAHE contrast → gradient
+    magnitude → Hough circle. Returns (present: bool, confidence: float)."""
+    import cv2
+    import numpy as np
+
+    gray = np.array(crop.convert("L"))
+    if gray.size == 0 or min(gray.shape) < 16:
+        return False, 0.0
+
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    eq = clahe.apply(gray)
+    gx = cv2.Sobel(eq, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(eq, cv2.CV_32F, 0, 1, ksize=3)
+    mag = cv2.magnitude(gx, gy)
+    mag = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX).astype("uint8")
+    blurred = cv2.GaussianBlur(mag, (5, 5), 0)
+
+    h, w = blurred.shape
+    min_r = max(8, int(min(h, w) * 0.15))
+    max_r = max(min_r + 1, int(min(h, w) * 0.6))
+    circles = cv2.HoughCircles(
+        blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=max(h, w),
+        param1=120, param2=30, minRadius=min_r, maxRadius=max_r,
+    )
+    if circles is not None and len(circles[0]) > 0:
+        confidence = min(1.0, float(mag.mean()) / 128.0)
+        return True, round(confidence, 4)
+    return False, 0.0
+
+
+@app.post("/waiver-scan")
+async def waiver_scan(image: UploadFile, template: str = Form(...)):
+    try:
+        spec = json.loads(template)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=422, detail="template is not valid JSON")
+
+    reference = spec.get("reference") or {}
+    ref_w = int(reference.get("width") or 0)
+    ref_h = int(reference.get("height") or 0)
+    zones = spec.get("zones") or []
+    if ref_w <= 0 or ref_h <= 0:
+        raise HTTPException(status_code=422, detail="template.reference dimensions required")
+
+    raw = await image.read()
+    try:
+        photo = Image.open(io.BytesIO(raw))
+    except Exception:
+        raise HTTPException(status_code=422, detail="image could not be decoded")
+    photo = photo.resize((ref_w, ref_h))
+
+    fields: dict[str, str] = {}
+    images: dict[str, str] = {}
+    signature = False
+    stamp = False
+    stamp_confidence = 0.0
+
+    for zone in zones:
+        name = zone.get("name")
+        if not name:
+            continue
+        x = max(0, int(zone.get("x", 0)))
+        y = max(0, int(zone.get("y", 0)))
+        x2 = min(ref_w, x + int(zone.get("w", 0)))
+        y2 = min(ref_h, y + int(zone.get("h", 0)))
+        if x2 <= x or y2 <= y:
+            continue
+
+        crop = photo.crop((x, y, x2, y2))
+        ztype = zone.get("type") or "text"
+
+        if ztype == "signature":
+            buf = io.BytesIO()
+            crop.convert("RGB").save(buf, format="PNG")
+            images[name] = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+            if _normalize_signature(crop) is not None:
+                signature = True
+            continue
+
+        if ztype == "stamp":
+            present, conf = _detect_stamp(crop)
+            stamp = stamp or present
+            stamp_confidence = max(stamp_confidence, conf)
+            continue
+
+        fields[name] = _ocr_text(crop)
+
+    return {
+        "ok": True,
+        "fields": fields,
+        "images": images,
+        "signature": signature,
+        "stamp": stamp,
+        "stamp_confidence": stamp_confidence,
+    }

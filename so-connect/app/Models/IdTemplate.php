@@ -24,6 +24,7 @@ class IdTemplate extends Model
 
     protected $fillable = [
         'name',
+        'kind',
         'image_path',
         'image_width',
         'image_height',
