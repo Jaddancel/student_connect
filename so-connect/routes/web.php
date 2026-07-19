@@ -718,6 +718,16 @@ Route::post('/signature/verify', [\App\Http\Controllers\SignatureVerificationCon
 Route::post('/signature/enroll', [\App\Http\Controllers\SignatureVerificationController::class, 'enroll'])->middleware('auth')->name('signature.enroll');
 Route::post('/waiver-scan', [\App\Http\Controllers\WaiverScanController::class, 'scan'])->middleware('auth')->name('waiver.scan');
 
+// Waiver template authoring (admin / super admin).
+Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
+    Route::get('/admin/waiver-templates', [\App\Http\Controllers\Admin\WaiverTemplateController::class, 'index'])
+        ->name('admin.waiver-templates.index');
+    Route::post('/admin/waiver-templates', [\App\Http\Controllers\Admin\WaiverTemplateController::class, 'store'])
+        ->name('admin.waiver-templates.store');
+    Route::delete('/admin/waiver-templates/{waiverTemplate}', [\App\Http\Controllers\Admin\WaiverTemplateController::class, 'destroy'])
+        ->name('admin.waiver-templates.destroy');
+});
+
 // Signature reference registry maintenance (super admin).
 Route::middleware(['auth', 'superadmin'])->group(function () {
     Route::get('/superadmin/signature-references', [\App\Http\Controllers\Admin\SignatureReferenceController::class, 'index'])

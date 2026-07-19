@@ -82,6 +82,7 @@ class MenuHelper
                     ['icon' => 'pages',    'name' => 'Posts',              'path' => '/posts'],
                     ['icon' => 'forms',    'name' => 'Form Builder',       'path' => '/admin/form-builder'],
                     ['icon' => 'calendar', 'name' => 'Semester Management','path' => '/admin/semesters'],
+                    ['icon' => 'pages',    'name' => 'Waiver Templates',   'path' => '/admin/waiver-templates'],
                 ],
             ];
 
