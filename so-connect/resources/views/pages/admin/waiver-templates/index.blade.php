@@ -16,10 +16,16 @@
         @endif
 
         <section class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Waiver templates</h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Reference waiver forms with text / signature / stamp zones the event scanner reads.
-            </p>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Waiver templates</h2>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Reference waiver forms with text / signature / stamp zones the event scanner reads.
+                    </p>
+                </div>
+                <a href="{{ route('admin.waiver-templates.create') }}"
+                    class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600">New template</a>
+            </div>
 
             @if ($templates->isEmpty())
                 <p class="mt-6 rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">

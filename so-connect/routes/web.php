@@ -722,6 +722,8 @@ Route::post('/waiver-scan', [\App\Http\Controllers\WaiverScanController::class, 
 Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
     Route::get('/admin/waiver-templates', [\App\Http\Controllers\Admin\WaiverTemplateController::class, 'index'])
         ->name('admin.waiver-templates.index');
+    Route::get('/admin/waiver-templates/create', [\App\Http\Controllers\Admin\WaiverTemplateController::class, 'create'])
+        ->name('admin.waiver-templates.create');
     Route::post('/admin/waiver-templates', [\App\Http\Controllers\Admin\WaiverTemplateController::class, 'store'])
         ->name('admin.waiver-templates.store');
     Route::delete('/admin/waiver-templates/{waiverTemplate}', [\App\Http\Controllers\Admin\WaiverTemplateController::class, 'destroy'])

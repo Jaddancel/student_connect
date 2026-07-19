@@ -27,7 +27,14 @@ class WaiverTemplateController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function create(): View
+    {
+        return view('pages.admin.waiver-templates.editor', [
+            'title' => 'New Waiver Template',
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -58,6 +65,10 @@ class WaiverTemplateController extends Controller
             'waiver_template_created',
             'Created waiver template "'.$validated['name'].'"',
         );
+
+        if ($request->wantsJson()) {
+            return response()->json(['redirect' => route('admin.waiver-templates.index')]);
+        }
 
         return back()->with('success', 'Waiver template saved.');
     }
