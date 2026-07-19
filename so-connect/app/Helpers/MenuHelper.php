@@ -65,6 +65,7 @@ class MenuHelper
                     ['icon' => 'user-profile', 'name' => 'Profile Manager', 'path' => '/superadmin/profiles'],
                     ['icon' => 'user-profile', 'name' => 'Create Admin', 'path' => '/superadmin/accounts/create'],
                     ['icon' => 'forms', 'name' => 'Form Builder', 'path' => '/admin/form-builder'],
+                    ['icon' => 'user-profile', 'name' => 'Organizations', 'path' => '/superadmin/organizations'],
                     ['icon' => 'pages', 'name' => 'ID Templates', 'path' => '/superadmin/id-templates'],
                     ['icon' => 'tables', 'name' => 'Export Data', 'path' => '/superadmin/export'],
                     ['icon' => 'charts', 'name' => 'Score Audit', 'path' => '/superadmin/scoring/audit'],

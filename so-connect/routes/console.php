@@ -9,12 +9,17 @@ use App\Services\DocumentGenerationService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+// Daily accreditation enforcement: disable non-compliant orgs once the deadline
+// has passed. Purging stays manual (accreditation:enforce --purge / restore UI).
+Schedule::command('accreditation:enforce --disable')->daily();
 
 Artisan::command('forms:bootstrap-template
     {name : Display name of the form}

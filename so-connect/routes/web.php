@@ -89,7 +89,7 @@ Route::get('/dashboard', [Dashboard::class, 'viewDashboard'])->middleware('auth'
 
 Route::post('/login', Login::class)->middleware('guest');
 Route::post('/signup', Register::class)->middleware('guest');
-Route::post('/logout', Logout::class)->middleware('auth');
+Route::post('/logout', Logout::class)->middleware('auth')->name('logout');
 
 // Invitation activation (Flows 1, 2, 3)
 Route::get('/invitation/verify', [InvitationController::class, 'verify'])
@@ -114,9 +114,17 @@ Route::middleware('auth')->group(function () {
         ->name('settings.password');
     Route::post('/settings/notify-days', [\App\Http\Controllers\SettingsController::class, 'updateNotifyDays'])
         ->name('settings.notify-days');
+    Route::post('/settings/accreditation-conditions', [\App\Http\Controllers\SettingsController::class, 'updateAccreditationConditions'])
+        ->name('settings.accreditation-conditions');
     Route::post('/settings/backup-interval', [\App\Http\Controllers\SettingsController::class, 'updateBackupInterval'])
         ->name('settings.backup-interval');
 });
+
+// Notice shown to members whose organization's accreditation has lapsed
+// (EnsureOrganizationAccredited redirects them here).
+Route::get('/org-suspended', function () {
+    return view('pages.org-suspended', ['title' => 'Organization Suspended']);
+})->middleware('auth')->name('org-suspended');
 
 // Auth pages.
 
@@ -542,6 +550,16 @@ Route::get('/superadmin/profile-requests', [SuperAdminController::class, 'profil
 Route::get('/superadmin/profiles/search', [SuperAdminController::class, 'searchProfiles'])
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.profiles.search');
+
+// Accreditation-disabled organizations: restore or hard-purge (super admin).
+Route::middleware(['auth', 'superadmin'])->group(function () {
+    Route::get('/superadmin/organizations', [\App\Http\Controllers\Admin\OrganizationAccreditationController::class, 'index'])
+        ->name('superadmin.organizations.index');
+    Route::post('/superadmin/organizations/{organization}/restore', [\App\Http\Controllers\Admin\OrganizationAccreditationController::class, 'restore'])
+        ->name('superadmin.organizations.restore');
+    Route::delete('/superadmin/organizations/{organization}/purge', [\App\Http\Controllers\Admin\OrganizationAccreditationController::class, 'purge'])
+        ->name('superadmin.organizations.purge');
+});
 
 Route::post('/superadmin/profile-requests/auto-accept-suggested', [SuperAdminController::class, 'autoAcceptSuggestedRequests'])
     ->middleware(['auth', 'superadmin'])

@@ -9,6 +9,8 @@ use App\Models\Organization;
 use App\Models\Request as ActionRequest;
 use App\Models\Semester;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Central authority for the organization-accreditation cycle.
@@ -88,13 +90,26 @@ class AccreditationService
     }
 
     /**
-     * True once the deadline has passed (enforcement — disable — may run).
+     * The deadline being ENFORCED right now: the start of the current
+     * (already-started) semester. Compliance for disabling is measured against
+     * this date, whereas {@see deadline()} (the next upcoming start) drives the
+     * pre-deadline warnings. Null until a semester has started.
+     */
+    public function enforcementDeadline(): ?Carbon
+    {
+        return Semester::current()?->starts_at?->copy()->startOfDay();
+    }
+
+    /**
+     * True once an enforcement deadline exists and has arrived — i.e. a semester
+     * has started, so non-compliant orgs may be disabled.
      */
     public function deadlineHasPassed(?Carbon $now = null): bool
     {
-        $days = $this->daysUntilDeadline($now);
+        $enforcementDeadline = $this->enforcementDeadline();
 
-        return $days !== null && $days < 0;
+        return $enforcementDeadline !== null
+            && ($now ?? Carbon::today())->startOfDay()->greaterThanOrEqualTo($enforcementDeadline);
     }
 
     /**
@@ -227,5 +242,138 @@ class AccreditationService
             ->when($deadline, fn ($q) => $q->where('requested_at', '<=', $deadline))
             ->whereIn('request_id', $approvedRequestIds)
             ->exists();
+    }
+
+    // ------------------------------------------------------------------ lifecycle
+
+    /**
+     * Disable an org for missing accreditation (idempotent). Stamps the time so
+     * the purge grace period can be measured from it.
+     */
+    public function disable(Organization $org): void
+    {
+        if ($org->isAccreditationDisabled()) {
+            return;
+        }
+
+        $org->forceFill([
+            'accreditation_status' => self::STATUS_DISABLED,
+            'accreditation_disabled_at' => now(),
+        ])->save();
+    }
+
+    /**
+     * Restore a disabled org (super-admin action before the purge deadline).
+     */
+    public function restore(Organization $org): void
+    {
+        $org->forceFill([
+            'accreditation_status' => self::STATUS_ACTIVE,
+            'accreditation_disabled_at' => null,
+        ])->save();
+    }
+
+    /**
+     * Active orgs that should be disabled now: the deadline has passed and they
+     * are not compliant. Empty until a deadline exists and has passed.
+     *
+     * @return Collection<int,Organization>
+     */
+    public function orgsToDisable(?Carbon $now = null): Collection
+    {
+        $enforcementDeadline = $this->enforcementDeadline();
+        if ($enforcementDeadline === null || ! $this->deadlineHasPassed($now)) {
+            return collect();
+        }
+
+        return Organization::query()
+            ->accreditationActive()
+            ->get()
+            ->filter(fn (Organization $org) => ! $this->isCompliant($org, $enforcementDeadline))
+            ->values();
+    }
+
+    /**
+     * Disabled orgs whose grace period has elapsed (eligible for hard purge).
+     *
+     * @return Collection<int,Organization>
+     */
+    public function orgsToPurge(?Carbon $now = null): Collection
+    {
+        $now = ($now ?? Carbon::today())->startOfDay();
+
+        return Organization::query()
+            ->where('accreditation_status', self::STATUS_DISABLED)
+            ->whereNotNull('accreditation_disabled_at')
+            ->get()
+            ->filter(function (Organization $org) use ($now) {
+                $eligibleAt = $this->purgeEligibleAt($org->accreditation_disabled_at);
+
+                return $eligibleAt !== null && $now->greaterThanOrEqualTo($eligibleAt);
+            })
+            ->values();
+    }
+
+    /**
+     * Hard-delete an organization and its entire subtree, child-first.
+     *
+     * FK checks are toggled off inside the transaction so the (self-referential)
+     * event_plans tree and the full grandchild graph — approvals,
+     * generated_documents, template_descriptions, evaluations, presidents — can
+     * be removed without hand-ordering three levels of dependents. Everything is
+     * scoped to this org's ids, so nothing outside its subtree is touched.
+     */
+    public function purge(Organization $org): void
+    {
+        $orgId = (int) $org->getKey();
+        $detailId = $org->detail;
+
+        DB::transaction(function () use ($orgId, $detailId) {
+            $requestIds = ActionRequest::query()->where('organization_id', $orgId)->pluck('request_id')->all();
+            $submissionIds = DB::table('form_submissions')->where('organization_id', $orgId)->pluck('form_submission_id')->all();
+            $templateIds = DB::table('templates')->where('organization_id', $orgId)->pluck('id')->all();
+            $officerIds = DB::table('organization_officers')->where('organization', $orgId)->pluck('org_officer_id')->all();
+
+            DB::statement('SET FOREIGN_KEY_CHECKS=0');
+            try {
+                // Grandchildren
+                if ($requestIds !== []) {
+                    DB::table('approvals')->whereIn('request', $requestIds)->delete();
+                    DB::table('generated_documents')->whereIn('request_id', $requestIds)->delete();
+                }
+                if ($submissionIds !== []) {
+                    DB::table('generated_documents')->whereIn('form_submission_id', $submissionIds)->delete();
+                }
+                if ($templateIds !== []) {
+                    DB::table('generated_documents')->whereIn('template_id', $templateIds)->delete();
+                    DB::table('template_descriptions')->whereIn('template_id', $templateIds)->delete();
+                }
+                if ($officerIds !== []) {
+                    DB::table('evaluations')->whereIn('author', $officerIds)->delete();
+                    DB::table('presidents')->whereIn('officer', $officerIds)->delete();
+                }
+
+                // Direct children
+                DB::table('event_plans')->where('organization_id', $orgId)->orWhere('related_to_organization', $orgId)->delete();
+                DB::table('events')->where('organization', $orgId)->delete();
+                DB::table('workplans')->where('organization_id', $orgId)->delete();
+                DB::table('form_submissions')->where('organization_id', $orgId)->delete();
+                DB::table('requests')->where('organization_id', $orgId)->delete();
+                DB::table('templates')->where('organization_id', $orgId)->delete();
+                DB::table('organization_scores')->where('organization_id', $orgId)->delete();
+                DB::table('organization_officers')->where('organization', $orgId)->delete();
+                DB::table('posts')->where('organization', $orgId)->delete();
+                // Org-specific forms only (global forms have a null organization_id).
+                DB::table('forms')->where('organization_id', $orgId)->delete();
+
+                // The org and its detail row.
+                DB::table('organizations')->where('organization_id', $orgId)->delete();
+                if ($detailId) {
+                    DB::table('organization_details')->where('organization_detail_id', $detailId)->delete();
+                }
+            } finally {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            }
+        });
     }
 }

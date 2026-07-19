@@ -53,15 +53,15 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 > WP5.3 conditions editor UI, WP5.9 danger card, and all destructive lifecycle (WP5.7/5.8/5.10).
 - [ ] WP5.1 `SystemFunction::ORG_ACCREDITATION` + `OrgAccreditationHandler` (server re-check)
 - [ ] WP5.2 Seeder rename → "Organization Accreditation"; data migration for live installs
-- [ ] WP5.3 Conditions AST @ `AppSetting['accreditation.conditions']` + editor component
+- [x] WP5.3 Conditions AST @ `AppSetting['accreditation.conditions']` + editor (Settings admin card: pick required forms)
 - [x] WP5.4 `AccreditationService` — deadline/window/grace + conditions/requiredFormIds/isCompliant/missingFormIds/evaluate (6 tests green). Compliance = approved required-form request on/before deadline (decision #9)
 - [ ] WP5.5 Form-page conditions panel + gating (client + handler authoritative)
 - [x] WP5.6 Migration `add_accreditation_status_to_organizations_table` (accreditation_status + accreditation_disabled_at)
-- [ ] WP5.7 `accreditation:enforce` command (warn/disable/purge) + daily schedule
-- [ ] WP5.8 `AccreditationService::purge()` (child-first) + guarded artisan + UI action
-- [ ] WP5.9 Login block for disabled orgs; danger card; landing-page exclusion
-- [ ] WP5.10 Restore UI `/superadmin/organizations`
-- [ ] WP5.11 Tests: conditions/lifecycle/handler
+- [x] WP5.7 `accreditation:enforce` command (report/disable/purge; --disable scheduled daily; purge opt-in)
+- [x] WP5.8 `AccreditationService::purge()` (child-first, FK-safe) + guarded artisan + super-admin UI action
+- [~] WP5.9 Login block (EnsureOrganizationAccredited + /org-suspended) DONE; danger card + landing-page exclusion TODO
+- [x] WP5.10 Restore UI `/superadmin/organizations` (list/restore/purge)
+- [~] WP5.11 Tests: lifecycle + enforcement + conditions (17 green); handler test pending WP5.1
 
 ## Phase 6 — Signature recognition (registry + SigNet + auto-enroll)
 - [ ] WP6.1 Migration `create_signature_references_table` + `SignatureReferenceService`

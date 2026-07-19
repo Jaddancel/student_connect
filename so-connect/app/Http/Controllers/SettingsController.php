@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\AppSetting;
+use App\Models\Form;
 use App\Rules\StrongPassword;
+use App\Services\AccreditationService;
 use App\Services\ActionLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,12 +28,28 @@ class SettingsController extends Controller
         $user = auth()->user();
         $type = (int) $user->user_type;
 
+        // Accreditation conditions editor (type 2): the set of forms whose
+        // approved submission makes an org accredited.
+        $accreditationForms = [];
+        $accreditationRequiredForms = [];
+        if ($type === 2) {
+            $accreditationForms = Form::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn (Form $f) => ['id' => (int) $f->id, 'name' => $f->name])
+                ->all();
+            $accreditationRequiredForms = app(AccreditationService::class)->requiredFormIds();
+        }
+
         return view('pages.settings', [
             'title' => 'Settings',
             'userType' => $type,
             'notifyOnLogin' => (bool) $user->notify_on_login,
             'accreditationNotifyDays' => (int) AppSetting::get('accreditation.notify_days', 7),
             'accreditationPurgeGraceDays' => (int) AppSetting::get('accreditation.purge_grace_days', 30),
+            'accreditationForms' => $accreditationForms,
+            'accreditationRequiredForms' => $accreditationRequiredForms,
             'backupIntervalHours' => (int) AppSetting::get('backup.interval_hours', 24),
         ]);
     }
@@ -126,6 +144,33 @@ class SettingsController extends Controller
         );
 
         return back()->with('status', 'Notification window saved.');
+    }
+
+    /**
+     * Administrator section (type 2): the forms whose approved submission counts
+     * toward accreditation. Stored as the accreditation.conditions AST.
+     */
+    public function updateAccreditationConditions(Request $request): RedirectResponse
+    {
+        $this->authorizeAdmin($request);
+
+        $validated = $request->validate([
+            'required_forms' => ['nullable', 'array'],
+            'required_forms.*' => ['integer', 'exists:forms,id'],
+        ]);
+
+        $formIds = array_values(array_unique(array_map('intval', $validated['required_forms'] ?? [])));
+
+        AppSetting::put('accreditation.conditions', ['required_forms' => $formIds]);
+
+        ActionLogger::log(
+            ActionLogger::CATEGORY_SETTINGS,
+            'accreditation_conditions_updated',
+            'Accreditation now requires '.count($formIds).' form(s)',
+            ['required_forms' => $formIds],
+        );
+
+        return back()->with('status', 'Accreditation conditions saved.');
     }
 
     /**

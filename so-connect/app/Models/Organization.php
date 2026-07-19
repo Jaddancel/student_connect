@@ -17,9 +17,33 @@ class Organization extends Model
     protected $fillable = [
         'detail',
         'organization_type',
+        'accreditation_status',
+        'accreditation_disabled_at',
     ];
 
     protected $primaryKey = 'organization_id';
+
+    protected function casts(): array
+    {
+        return [
+            'accreditation_disabled_at' => 'datetime',
+        ];
+    }
+
+    /**
+     * True when the org has been disabled for missing its accreditation
+     * (posts hidden, members blocked, org hidden until restored or purged).
+     */
+    public function isAccreditationDisabled(): bool
+    {
+        return $this->accreditation_status === \App\Services\AccreditationService::STATUS_DISABLED;
+    }
+
+    /** Scope to orgs that are NOT accreditation-disabled. */
+    public function scopeAccreditationActive($query)
+    {
+        return $query->where('accreditation_status', '!=', \App\Services\AccreditationService::STATUS_DISABLED);
+    }
 
     public function officersOfThisOrganization()
     {

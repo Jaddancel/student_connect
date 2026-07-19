@@ -108,3 +108,74 @@ it('falls back to the seeded accreditation form when no conditions are configure
 
     expect(app(AccreditationService::class)->requiredFormIds())->toBe([(int) $form->getKey()]);
 });
+
+it('disables and restores an org', function () {
+    $org = recordsOrganization('Toggle Org', 'TO');
+    $service = app(AccreditationService::class);
+
+    $service->disable($org);
+    $fresh = $org->fresh();
+    expect($fresh->isAccreditationDisabled())->toBeTrue();
+    expect($fresh->accreditation_disabled_at)->not->toBeNull();
+
+    $service->restore($org->fresh());
+    $restored = $org->fresh();
+    expect($restored->isAccreditationDisabled())->toBeFalse();
+    expect($restored->accreditation_disabled_at)->toBeNull();
+});
+
+it('selects non-compliant active orgs for disabling once a semester has started', function () {
+    // A semester that has already started ⇒ enforcement deadline is yesterday.
+    Semester::create(['name' => 'Started', 'semester_number' => 1, 'starts_at' => Carbon::today()->subDay(), 'vacation_days' => 0]);
+    $form = accreditationForm();
+    AppSetting::put('accreditation.conditions', ['required_forms' => [$form->getKey()]]);
+
+    $compliant = recordsOrganization('Compliant', 'C1');
+    orgRequest((int) $compliant->getKey(), (int) $form->getKey(), Carbon::today()->subDays(3), rejected: false);
+
+    $nonCompliant = recordsOrganization('Non Compliant', 'N1');
+
+    $alreadyDisabled = recordsOrganization('Disabled', 'D1');
+    app(AccreditationService::class)->disable($alreadyDisabled);
+
+    $ids = app(AccreditationService::class)->orgsToDisable()->pluck('organization_id')->all();
+
+    expect($ids)->toContain((int) $nonCompliant->getKey());
+    expect($ids)->not->toContain((int) $compliant->getKey());
+    expect($ids)->not->toContain((int) $alreadyDisabled->getKey());
+});
+
+it('selects only past-grace disabled orgs for purge', function () {
+    AppSetting::put('accreditation.purge_grace_days', 30);
+    $service = app(AccreditationService::class);
+
+    $expired = recordsOrganization('Expired', 'EX');
+    $expired->forceFill(['accreditation_status' => 'disabled', 'accreditation_disabled_at' => Carbon::today()->subDays(31)])->save();
+
+    $recent = recordsOrganization('Recent', 'RE');
+    $recent->forceFill(['accreditation_status' => 'disabled', 'accreditation_disabled_at' => Carbon::today()->subDays(5)])->save();
+
+    $ids = $service->orgsToPurge()->pluck('organization_id')->all();
+
+    expect($ids)->toContain((int) $expired->getKey());
+    expect($ids)->not->toContain((int) $recent->getKey());
+});
+
+it('hard-purges an org and its subtree without touching other orgs', function () {
+    $org = recordsOrganization('Purge Me', 'PM');
+    $detailId = $org->detail;
+    orgRequest((int) $org->getKey(), 999, Carbon::today(), rejected: false);
+
+    $survivor = recordsOrganization('Survivor', 'SV');
+    orgRequest((int) $survivor->getKey(), 999, Carbon::today(), rejected: false);
+
+    app(AccreditationService::class)->purge($org);
+
+    expect(DB::table('organizations')->where('organization_id', $org->getKey())->exists())->toBeFalse();
+    expect(DB::table('organization_details')->where('organization_detail_id', $detailId)->exists())->toBeFalse();
+    expect(DB::table('requests')->where('organization_id', $org->getKey())->exists())->toBeFalse();
+
+    // The other org and its data are untouched.
+    expect(DB::table('organizations')->where('organization_id', $survivor->getKey())->exists())->toBeTrue();
+    expect(DB::table('requests')->where('organization_id', $survivor->getKey())->exists())->toBeTrue();
+});
