@@ -71,7 +71,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## Phase 7 — Waiver form recognition (template, scanner modal, stamp detection)
 - [x] WP7.1 `add_kind_to_id_templates_table` + `ZonePayloadValidator` (stamp zone type, config-driven)
-- [~] WP7.3 `FieldType::WAIVER_SCAN` added; scanner modal + shared `camera-capture.js` (frontend) TODO
+- [x] WP7.3 `FieldType::WAIVER_SCAN` (in catalog) + scanner field (`waiver-scan-field.js`, `waiver-scan.blade.php`) + shared `camera-capture.js`; builds green
 - [x] WP7.4 `POST /waiver-scan` preflight (`WaiverScanController`) + `WaiverValidationService` (fuzzy, decision #7) + `config/waiver.php`
 - [x] WP7.6 Sidecar `POST /waiver-scan` (text OCR / signature crop / stamp CLAHE→gradient→Hough) — Python syntax-verified, not run here
 - [x] WP7.7 Tests `WaiverValidationTest` + `WaiverScanTest` (zone validation, fuzzy match, scan preflight via Http::fake) — 9 green

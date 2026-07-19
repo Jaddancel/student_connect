@@ -246,6 +246,10 @@
                 @include('components.form.fields.id-scan', ['field' => $field, 'key' => $key, 'old' => $old, 'placeholder' => $placeholder, 'inputClass' => $inputClass, 'special' => $special ?? []])
                 @break
 
+            @case(FieldType::WAIVER_SCAN)
+                @include('components.form.fields.waiver-scan', ['field' => $field, 'key' => $key, 'old' => $old, 'inputClass' => $inputClass, 'special' => $special ?? []])
+                @break
+
             @case(FieldType::EVENT_SELECT)
                 @php $events = $special['events'] ?? []; $autofillMap = (array) ($opts['autofill_map'] ?? []); @endphp
                 <select id="{{ $key }}" name="{{ $key }}" class="{{ $inputClass }}"

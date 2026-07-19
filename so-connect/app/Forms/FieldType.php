@@ -122,6 +122,7 @@ final class FieldType
             self::POSITION_SELECT => ['label' => 'Position picker',     'icon' => 'select',    'group' => 'special'],
             self::PASSWORD        => ['label' => 'Password',            'icon' => 'text',      'group' => 'special'],
             self::ID_SCAN         => ['label' => 'ID scan',             'icon' => 'image',     'group' => 'special'],
+            self::WAIVER_SCAN     => ['label' => 'Waiver scan',         'icon' => 'image',     'group' => 'special'],
             self::WORKPLAN_EVENTS => ['label' => 'Approved events',     'icon' => 'checkbox',  'group' => 'special'],
             self::TEXT_LIST       => ['label' => 'Text list',           'icon' => 'paragraph', 'group' => 'special'],
             self::TABLE_INPUT     => ['label' => 'Table',               'icon' => 'select',    'group' => 'special'],
