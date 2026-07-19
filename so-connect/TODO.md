@@ -29,12 +29,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] WP2.5 Tests: `PasswordChangeSettingsTest` (4), `LoginNotificationTest` (2) — green
 
 ## Phase 3 — DB backup & restore (super user)
-- [ ] WP3.1 `composer require spatie/laravel-backup`; `config/backup.php` DB-only; `backups` disk
-- [ ] WP3.2 `Admin/BackupController` + `/superadmin/backups` routes + view (list/backup/download/delete)
-- [ ] WP3.3 Restore flow (safety backup, extract, pipe to mysql, audit)
-- [ ] WP3.4 `AutoBackup` command (`backup:auto`) + schedule (hourly) + daily `backup:clean`
-- [ ] WP3.5 Verify mysql-client in Dockerfile
-- [ ] WP3.6 Test `BackupManagementTest`
+- [x] WP3.1 `spatie/laravel-backup ^9.3`; `config/backup.php` DB-only; `backups` disk
+- [x] WP3.2 `Admin/BackupController` + `/superadmin/backups` routes + view (list/backup/download/delete)
+- [x] WP3.3 Restore flow (`BackupService::restore`: safety backup, extract SQL, pipe to mysql, audit)
+- [x] WP3.4 `AutoBackup` (`backup:auto`, interval-aware) + hourly schedule + daily `backup:clean`
+- [x] WP3.5 mysql-client verified in docker/8.5/Dockerfile ($MYSQL_CLIENT)
+- [x] WP3.6 Test `BackupManagementTest` (6 green)
 
 ## Phase 4 — Builder up/down buttons, sticky panels, per-form icons
 - [x] WP4.1 Remove SortableJS (dep + lockfile); add `moveRow` / `moveField` / `moveFieldAcross`

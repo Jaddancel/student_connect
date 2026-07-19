@@ -21,6 +21,11 @@ Artisan::command('inspire', function () {
 // has passed. Purging stays manual (accreditation:enforce --purge / restore UI).
 Schedule::command('accreditation:enforce --disable')->daily();
 
+// Automatic DB backups: hourly check that runs a backup when the configured
+// interval has elapsed; daily cleanup of old backups (spatie).
+Schedule::command('backup:auto')->hourly();
+Schedule::command('backup:clean')->daily();
+
 Artisan::command('forms:bootstrap-template
     {name : Display name of the form}
     {docx_path : Path to source DOCX template}

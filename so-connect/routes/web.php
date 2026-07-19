@@ -561,6 +561,20 @@ Route::middleware(['auth', 'superadmin'])->group(function () {
         ->name('superadmin.organizations.purge');
 });
 
+// Database backups & restore (super admin).
+Route::middleware(['auth', 'superadmin'])->group(function () {
+    Route::get('/superadmin/backups', [\App\Http\Controllers\Admin\BackupController::class, 'index'])
+        ->name('superadmin.backups.index');
+    Route::post('/superadmin/backups', [\App\Http\Controllers\Admin\BackupController::class, 'store'])
+        ->name('superadmin.backups.store');
+    Route::get('/superadmin/backups/{filename}/download', [\App\Http\Controllers\Admin\BackupController::class, 'download'])
+        ->name('superadmin.backups.download');
+    Route::post('/superadmin/backups/{filename}/restore', [\App\Http\Controllers\Admin\BackupController::class, 'restore'])
+        ->name('superadmin.backups.restore');
+    Route::delete('/superadmin/backups/{filename}', [\App\Http\Controllers\Admin\BackupController::class, 'destroy'])
+        ->name('superadmin.backups.destroy');
+});
+
 Route::post('/superadmin/profile-requests/auto-accept-suggested', [SuperAdminController::class, 'autoAcceptSuggestedRequests'])
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.profile-requests.auto-accept-suggested');
