@@ -69,20 +69,6 @@ Route::get('/sample_dashboard', function () {
     return view('pages.dashboard.ecommerce', ['title' => 'E-commerce Dashboard']);
 })->name('sample-dashboard');
 
-Route::get('/dashboard/president', function () {
-    return view('pages.dashboard.administrator', ['title' => 'President Dashboard']);
-})->middleware(['auth', 'dashboard.access:president'])->name('president-dashboard');
-
-Route::get('/dashboard/admin', function () {
-    return view('pages.dashboard.administrator', [
-        'title' => 'Admin Dashboard',
-        'canDecide' => false,
-    ]);
-})->middleware(['auth', 'admin'])->name('admin-dashboard');
-
-Route::get('/dashboard/officer', [Dashboard::class, 'officerDashboard'])
-    ->middleware(['auth', 'dashboard.access:officer'])->name('officer-dashboard');
-
 Route::get('/dashboard', [Dashboard::class, 'viewDashboard'])->middleware('auth')->name('dashboard');
 
 // Auth routes.
@@ -538,10 +524,6 @@ Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
     Route::get('/admin/templates/field-reference', [TemplateManagerController::class, 'fieldReference'])
         ->name('admin.templates.field-reference');
 });
-
-Route::get('/superadmin/dashboard', [SuperAdminController::class, 'monitoringDashboard'])
-    ->middleware(['auth', 'superadmin'])
-    ->name('superadmin.dashboard');
 
 Route::get('/superadmin/profile-requests', [SuperAdminController::class, 'profileRequests'])
     ->middleware(['auth', 'superadmin'])

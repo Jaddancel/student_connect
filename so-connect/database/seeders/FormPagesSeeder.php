@@ -199,11 +199,15 @@ class FormPagesSeeder extends Seeder
             $this->f('title', 'Activity / Title', FieldType::TEXT, ['required' => true]),
             $this->f('target_date', 'Target Date', FieldType::DATE, ['required' => true]),
             $this->f('event_location', 'Event Location', FieldType::TEXT, ['required' => true]),
-            $this->f('event_start_time', 'Start', FieldType::DATETIME, ['required' => true]),
-            $this->f('event_end_time', 'End', FieldType::DATETIME, ['required' => true]),
+            $this->f('event_start_time', 'Start', FieldType::TIME, ['required' => true]),
+            $this->f('event_end_time', 'End', FieldType::TIME, ['required' => true]),
             $this->heading('Activity Details'),
             $this->f('purpose_of_activity', 'Purpose of Activity', FieldType::TEXTAREA, ['options' => ['rows' => 4]]),
             $this->f('resources_needed', 'Resources Needed', FieldType::TEXTAREA, ['options' => ['rows' => 3]]),
+            $this->heading('Waiver'),
+            $this->f('waiver', 'Signed Waiver', FieldType::WAIVER_SCAN, [
+                'placeholder' => 'Scan or upload the signed activity waiver.',
+            ]),
         ];
 
         $html = '<h2>Event Request</h2>'

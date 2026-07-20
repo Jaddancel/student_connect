@@ -12,19 +12,25 @@ class Dashboard extends Controller
 
         $userType = (int) $user->user_type;
 
+        // Super admin: reuse the existing monitoring-dashboard data builder.
         if ($userType === 1) {
-            return redirect()->route('superadmin.dashboard');
+            return app(SuperAdminController::class)->monitoringDashboard();
         }
 
+        // Admin.
         if ($userType === 2) {
-            return redirect()->route('admin-dashboard');
+            return view('pages.dashboard.administrator', [
+                'title' => 'Admin Dashboard',
+                'canDecide' => false,
+            ]);
         }
 
+        // Officer (user_type 3), incl. presidents (a role, not a user_type).
         if ($userType >= 3 && ! $user->profile && ! $user->profile_pending) {
             return redirect()->route('profile.create');
         }
 
-        return redirect()->route('officer-dashboard');
+        return $this->officerDashboard();
     }
 
     public function officerDashboard()

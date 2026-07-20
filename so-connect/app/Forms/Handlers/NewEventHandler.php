@@ -60,12 +60,13 @@ class NewEventHandler implements SystemFunctionHandler
     {
         $userId = (int) $request->user()->getKey();
         $organizationId = (int) $this->payloadValue($form, $payload, 'organization_id');
+        $targetDate = (string) $this->payloadValue($form, $payload, 'target_date');
 
         $sharedPlanFields = [
             'organization_id' => $organizationId,
             'created_by' => $userId,
             'title' => (string) $this->payloadValue($form, $payload, 'title'),
-            'target_date' => (string) $this->payloadValue($form, $payload, 'target_date'),
+            'target_date' => $targetDate,
             'purpose_of_activity' => $this->payloadValue($form, $payload, 'purpose_of_activity'),
             'resources_needed' => $this->payloadValue($form, $payload, 'resources_needed'),
         ];
@@ -82,10 +83,12 @@ class NewEventHandler implements SystemFunctionHandler
             $userId,
         );
 
+        // event_start_time/event_end_time are Time-only fields (H:i); combine
+        // them with the target date so the stored value is a real datetime.
         $childPlan = EventPlan::query()->create(array_merge($sharedPlanFields, [
             'event_location' => (string) $this->payloadValue($form, $payload, 'event_location'),
-            'event_start_time' => (string) $this->payloadValue($form, $payload, 'event_start_time'),
-            'event_end_time' => (string) $this->payloadValue($form, $payload, 'event_end_time'),
+            'event_start_time' => $targetDate.' '.(string) $this->payloadValue($form, $payload, 'event_start_time'),
+            'event_end_time' => $targetDate.' '.(string) $this->payloadValue($form, $payload, 'event_end_time'),
             'status' => 'pending',
             'parent_plan_id' => (int) $parentPlan->getKey(),
             'request_id' => (int) $actionRequest->getKey(),

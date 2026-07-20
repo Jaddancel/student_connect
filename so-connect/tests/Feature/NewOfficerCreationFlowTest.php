@@ -297,15 +297,15 @@ it('edit profile link is absent from navbar for user_type 2 and 3 but present fo
 
     // Each user type lands on a different actual page; test that page's rendered dropdown
     $this->actingAs($superadmin)->get(route('superadmin.profile-requests'))->assertSee('Edit profile');
-    $this->actingAs($adminUser)->get(route('admin-dashboard'))->assertDontSee('Edit profile');
-    $this->actingAs($officer)->get(route('officer-dashboard'))->assertDontSee('Edit profile');
+    $this->actingAs($adminUser)->get(route('dashboard'))->assertDontSee('Edit profile');
+    $this->actingAs($officer)->get(route('dashboard'))->assertDontSee('Edit profile');
 });
 
 it('officer dashboard includes a quick link to the student leader directory form', function () {
     [$officer, ] = makeOfficerWithOrg('officer-dashboard-link@example.test');
 
     $this->actingAs($officer)
-        ->get(route('officer-dashboard'))
+        ->get(route('dashboard'))
         ->assertOk()
         ->assertSee('Directory of Student Leader')
         ->assertSee(route('student-leader-directory'), false);

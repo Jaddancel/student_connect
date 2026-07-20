@@ -38,6 +38,9 @@ class MenuHelper
             ];
         }
 
+        // Profile and Settings are intentionally omitted here — they are reached
+        // from the navbar profile dropdown (see components/header/user-dropdown),
+        // so a duplicate sidebar "Account" group would be redundant.
         $menuGroups = [
             [
                 'title' => 'General',
@@ -48,20 +51,12 @@ class MenuHelper
                     ['icon' => 'pages', 'name' => 'Documents', 'path' => '/documents'],
                 ],
             ],
-            [
-                'title' => 'Account',
-                'items' => [
-                    ['icon' => 'user-profile', 'name' => 'Profile', 'path' => '/profile'],
-                    ['icon' => 'settings', 'name' => 'Settings', 'path' => '/settings'],
-                ],
-            ],
         ];
 
         if ((int) $user->user_type === 1) {
             $menuGroups[] = [
                 'title' => 'Admin',
                 'items' => [
-                    ['icon' => 'dashboard', 'name' => 'System Dashboard', 'path' => '/superadmin/dashboard'],
                     ['icon' => 'user-profile', 'name' => 'Profile Manager', 'path' => '/superadmin/profiles'],
                     ['icon' => 'user-profile', 'name' => 'Create Admin', 'path' => '/superadmin/accounts/create'],
                     ['icon' => 'forms', 'name' => 'Form Builder', 'path' => '/admin/form-builder'],

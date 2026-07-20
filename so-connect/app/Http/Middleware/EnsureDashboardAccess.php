@@ -18,7 +18,7 @@ class EnsureDashboardAccess
                 return redirect()->route('profile');
             }
 
-            return redirect()->route('officer-dashboard');
+            return redirect()->route('dashboard');
         }
 
         return $next($request);

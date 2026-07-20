@@ -1,11 +1,9 @@
 @php
     use Illuminate\Support\HtmlString;
 
-    $isPresident = auth()->user()?->officers()->where('role', 'president')->exists() ?? false;
-
     $isAdmin = (int) (auth()->user()?->user_type ?? 0) === 2;
 
-    $showAllTabs = $isPresident || $isAdmin;
+    $showAllTabs = $isAdmin;
 
     $KeyIcon = new HtmlString('
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5">

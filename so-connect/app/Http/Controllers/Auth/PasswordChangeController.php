@@ -30,7 +30,7 @@ class PasswordChangeController extends Controller
             'force_password_change' => false,
         ])->save();
 
-        return redirect()->route('admin-dashboard')
+        return redirect()->route('dashboard')
             ->with('status', 'Password set successfully. Welcome to StudentConnect!');
     }
 }

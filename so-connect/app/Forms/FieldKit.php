@@ -42,7 +42,7 @@ final class FieldKit
             ],
             SystemFunction::NEW_EVENT => [
                 'label' => 'New Event fields',
-                'types' => [FieldType::ORG_SELECT],
+                'types' => [FieldType::ORG_SELECT, FieldType::WAIVER_SCAN],
                 'required' => [
                     'organization_id' => FieldType::ORG_SELECT,
                     'title' => FieldType::TEXT,
