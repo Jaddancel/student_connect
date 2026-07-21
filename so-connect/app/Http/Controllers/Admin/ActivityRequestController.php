@@ -129,6 +129,13 @@ class ActivityRequestController extends Controller
         $submissionId  = (int) ($payload['submission_id'] ?? 0);
         $submission    = $submissionId ? FormSubmission::query()->find($submissionId) : null;
 
+        // Render answers from the submitted form's own fields so the details
+        // show regardless of the builder form's field keys (the new_event form
+        // is admin-authored, not the old hardcoded activity-request schema).
+        $form   = $submission?->form
+            ?: \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_EVENT);
+        $fields = $form ? $form->fields()->get() : collect();
+
         $approval = Approval::query()->where('request', $requestId)->first();
 
         $orgId   = (int) ($actionRequest->organization_id ?? ($payload['organization_id'] ?? 0));
@@ -157,6 +164,7 @@ class ActivityRequestController extends Controller
             'actionRequest'   => $actionRequest,
             'submission'      => $submission,
             'submissionPayload' => $submission ? (array) ($submission->payload ?? []) : [],
+            'fields'          => $fields,
             'approval'        => $approval,
             'orgName'         => $orgName,
             'requesterName'   => $requesterName,

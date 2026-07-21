@@ -1,5 +1,9 @@
 @extends('layouts.app')
 
+@php
+    use App\Forms\FieldType;
+@endphp
+
 @section('content')
     <x-common.page-breadcrumb pageTitle="Review Activity Request" />
 
@@ -28,156 +32,68 @@
             </div>
         </div>
 
+        {{-- Submitted answers, labelled by the form's own fields --}}
         @if ($submission)
-            @php $p = $submissionPayload; @endphp
-
-            {{-- Section I: Activity Details --}}
             <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                 <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
-                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">I. Activity Details</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Activity Details</h3>
                 </div>
                 <div class="grid grid-cols-1 gap-x-6 gap-y-4 px-6 py-5 text-sm sm:grid-cols-2">
-                    <div class="sm:col-span-2">
-                        <p class="text-xs font-medium text-gray-400">Project / Activity</p>
-                        <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['projectActivity'] ?? '—' }}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-medium text-gray-400">Date</p>
-                        <p class="mt-1 text-gray-800 dark:text-white/90">
-                            {{ isset($p['date']) ? \Illuminate\Support\Carbon::parse($p['date'])->format('F d, Y') : '—' }}
-                            @if (!empty($p['dayOfTheWeek']))
-                                <span class="text-gray-500">({{ $p['dayOfTheWeek'] }})</span>
-                            @endif
-                        </p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-medium text-gray-400">Time</p>
-                        <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['time'] ?? '—' }}</p>
-                    </div>
-                    <div class="sm:col-span-2">
-                        <p class="text-xs font-medium text-gray-400">Place / Venue</p>
-                        <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['placeAndVenue'] ?? '—' }}</p>
-                    </div>
-                    <div class="sm:col-span-2">
-                        <p class="text-xs font-medium text-gray-400">Purpose / Objective</p>
-                        <p class="mt-1 whitespace-pre-wrap text-gray-800 dark:text-white/90">{{ $p['purposed'] ?? '—' }}</p>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Section II: Activity Type & Scope --}}
-            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
-                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">II. Activity Type & Scope</h3>
-                </div>
-                <div class="grid grid-cols-1 gap-x-6 gap-y-4 px-6 py-5 text-sm sm:grid-cols-2">
-                    <div>
-                        <p class="text-xs font-medium text-gray-400">Activity Type(s)</p>
+                    @foreach ($fields as $field)
+                        @continue(FieldType::isPresentational($field->field_type))
+                        {{-- Passwords are stored hashed and never shown. --}}
+                        @continue($field->field_type === FieldType::PASSWORD)
                         @php
-                            $types = (array) ($p['activityTypes'] ?? []);
-                            $typeOther = $p['activityTypeOther'] ?? '';
+                            $type = $field->field_type;
+                            $value = $submissionPayload[$field->field_key] ?? null;
+                            $isImagePath = is_string($value) && $value !== ''
+                                && (FieldType::isFileLike($type) || in_array($type, [FieldType::SIGNATURE, FieldType::WAIVER_SCAN], true))
+                                && preg_match('/\.(jpe?g|png|gif|webp|heic|heif)$/i', $value);
+                            $isFilePath = is_string($value) && $value !== '' && FieldType::isFileLike($type) && ! $isImagePath;
+                            $isDataUri = is_string($value) && str_starts_with($value, 'data:image');
+                            $tableCols = $type === FieldType::TABLE_INPUT ? FieldType::tableColumns((array) ($field->field_options ?? [])) : [];
                         @endphp
-                        @if (!empty($types))
-                            <ul class="mt-1 space-y-0.5">
-                                @foreach ($types as $t)
-                                    <li class="text-gray-800 dark:text-white/90">
-                                        {{ $t === 'others' ? 'Others' . ($typeOther ? ': ' . $typeOther : '') : $t }}
-                                    </li>
-                                @endforeach
-                            </ul>
-                        @else
-                            <p class="mt-1 text-gray-800 dark:text-white/90">—</p>
-                        @endif
-                    </div>
-                    <div>
-                        <p class="text-xs font-medium text-gray-400">Area / Scope</p>
-                        <p class="mt-1 text-gray-800 dark:text-white/90">
-                            {{ $p['areaScope'] ?? '—' }}
-                            @if (!empty($p['areaScopeOther']))
-                                <span class="text-gray-500">({{ $p['areaScopeOther'] }})</span>
+                        <div @class(['sm:col-span-2' => in_array($type, [FieldType::TEXTAREA, FieldType::TABLE_INPUT, FieldType::MULTI_IMAGE, FieldType::WAIVER_SCAN], true)])>
+                            <p class="text-xs font-medium text-gray-400">{{ $field->field_label }}</p>
+                            @if ($isImagePath || $isDataUri)
+                                <img src="{{ $isDataUri ? $value : asset('storage/'.$value) }}" alt="{{ $field->field_label }}"
+                                     class="mt-2 max-h-40 rounded-lg border border-gray-200 object-contain dark:border-gray-700" />
+                            @elseif ($isFilePath)
+                                <a href="{{ asset('storage/'.$value) }}" target="_blank" class="mt-1 inline-block text-brand-500 hover:underline">Open file</a>
+                            @elseif ($type === FieldType::MULTI_IMAGE && is_array($value))
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    @forelse ($value as $photo)
+                                        <img src="{{ asset('storage/'.$photo) }}" alt="Photo" class="h-24 w-24 rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
+                                    @empty
+                                        <span class="text-gray-800 dark:text-white/90">—</span>
+                                    @endforelse
+                                </div>
+                            @elseif ($type === FieldType::TABLE_INPUT && count($tableCols))
+                                <div class="mt-1 overflow-x-auto">
+                                    <table class="w-full border-collapse text-xs">
+                                        <thead><tr class="border-b border-gray-200 dark:border-gray-700">
+                                            @foreach ($tableCols as $col)<th class="px-2 py-1 text-left text-gray-500">{{ $col['label'] }}</th>@endforeach
+                                        </tr></thead>
+                                        <tbody>
+                                            @forelse ((array) $value as $row)
+                                                <tr class="border-b border-gray-100 dark:border-gray-800">
+                                                    @foreach ($tableCols as $col)<td class="px-2 py-1 text-gray-800 dark:text-white/90">{{ $row[$col['key']] ?? '' }}</td>@endforeach
+                                                </tr>
+                                            @empty
+                                                <tr><td colspan="{{ count($tableCols) }}" class="px-2 py-1 text-gray-400">—</td></tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @elseif (in_array($type, [FieldType::ORG_SELECT, FieldType::EVENT_SELECT, FieldType::WORKPLAN_EVENTS], true))
+                                <p class="mt-1 text-gray-800 dark:text-white/90">{{ \App\Forms\SpecialFieldLabel::forField($type, $value) ?: '—' }}</p>
+                            @elseif (is_array($value))
+                                <p class="mt-1 whitespace-pre-wrap text-gray-800 dark:text-white/90">{{ implode(', ', array_map('strval', $value)) ?: '—' }}</p>
+                            @else
+                                <p class="mt-1 whitespace-pre-wrap text-gray-800 dark:text-white/90">{{ ($value === null || $value === '') ? '—' : $value }}</p>
                             @endif
-                        </p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-medium text-gray-400">Sponsor</p>
-                        <p class="mt-1 text-gray-800 dark:text-white/90">
-                            {{ $p['sponsor'] ?? '—' }}
-                            @if (!empty($p['sponsorOther']))
-                                <span class="text-gray-500">({{ $p['sponsorOther'] }})</span>
-                            @endif
-                        </p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-medium text-gray-400">Extension Services</p>
-                        <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['extensionServices'] ?? '—' }}</p>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Section III: Facilities --}}
-            @php
-                $facilities = (array) ($p['facilitiesOrEquipmentToBeUsedRow'] ?? []);
-            @endphp
-            @if (!empty($facilities))
-                <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-                    <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
-                        <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">III. Facilities / Equipment</h3>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-sm">
-                            <thead>
-                                <tr class="border-b border-gray-100 dark:border-gray-800">
-                                    <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">#</th>
-                                    <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Facility / Equipment</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                                @foreach ($facilities as $i => $facility)
-                                    @if (!empty($facility))
-                                        <tr>
-                                            <td class="px-6 py-3 text-gray-500 dark:text-gray-400">{{ $i + 1 }}</td>
-                                            <td class="px-6 py-3 text-gray-800 dark:text-white/90">{{ $facility }}</td>
-                                        </tr>
-                                    @endif
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            @endif
-
-            {{-- Section IV: Signatories --}}
-            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
-                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">IV. Signatories</h3>
-                </div>
-                <div class="grid grid-cols-1 gap-x-6 gap-y-4 px-6 py-5 text-sm sm:grid-cols-2">
-                    <div>
-                        <p class="text-xs font-medium text-gray-400">Organization President</p>
-                        <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['presidentName'] ?? '—' }}</p>
-                        @if (!empty($p['presidentContactNo']))
-                            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $p['presidentContactNo'] }}</p>
-                        @endif
-                    </div>
-                    <div>
-                        <p class="text-xs font-medium text-gray-400">College Dean</p>
-                        <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['collegeDean'] ?? '—' }}</p>
-                    </div>
-                    @php
-                        $advisers = (array) ($p['adviserRow'] ?? []);
-                    @endphp
-                    @if (!empty($advisers))
-                        <div class="sm:col-span-2">
-                            <p class="text-xs font-medium text-gray-400">Faculty Adviser(s)</p>
-                            <ul class="mt-1 space-y-0.5">
-                                @foreach ($advisers as $adviser)
-                                    @if (!empty($adviser))
-                                        <li class="text-gray-800 dark:text-white/90">{{ $adviser }}</li>
-                                    @endif
-                                @endforeach
-                            </ul>
                         </div>
-                    @endif
+                    @endforeach
                 </div>
             </div>
         @else
