@@ -65,6 +65,7 @@ final class SubmissionPresenter
                 return self::truthy($value) ? 'Yes' : 'No';
 
             case FieldType::SELECT:
+            case FieldType::SEARCH:
             case FieldType::RADIO:
                 return self::optionLabel((string) $value, $options);
 
@@ -83,7 +84,16 @@ final class SubmissionPresenter
      */
     public static function optionLabel(string $value, array $options): string
     {
-        foreach (FieldType::optionPairs($options) as $pair) {
+        $pairs = FieldType::optionPairs($options);
+
+        // A sourced select/search stores an id: resolve the source (unscoped —
+        // this is admin-facing display) so the printed/on-screen value shows the
+        // entry's label rather than the raw id.
+        if ($pairs === [] && ($source = OptionSource::forField($options)) !== null) {
+            $pairs = OptionSource::options($source, null, scoped: false);
+        }
+
+        foreach ($pairs as $pair) {
             if ($pair['value'] === $value) {
                 return $pair['label'];
             }

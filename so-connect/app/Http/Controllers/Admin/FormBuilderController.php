@@ -254,6 +254,10 @@ class FormBuilderController extends Controller
             'fields.*.field_options.options' => ['nullable', 'array'],
             'fields.*.field_options.options.*.value' => ['nullable', 'string', 'max:255'],
             'fields.*.field_options.options.*.label' => ['nullable', 'string', 'max:255'],
+            // Dynamic option source: a select/search field drawing its choices
+            // from a registered OptionSource instead of hand-typed options.
+            // (Unlisted keys are silently dropped on save — keep this whitelisted.)
+            'fields.*.field_options.source' => ['nullable', 'string', Rule::in(\App\Forms\OptionSource::keys())],
             // Presentational + numeric + upload option keys the builder emits.
             'fields.*.field_options.content' => ['nullable', 'string', 'max:5000'],
             'fields.*.field_options.rows' => ['nullable', 'integer', 'min:1', 'max:50'],

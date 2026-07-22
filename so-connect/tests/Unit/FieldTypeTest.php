@@ -45,3 +45,29 @@ it('renders an accept attribute mirroring the effective extensions', function ()
         ->and(FieldType::uploadAcceptAttribute(FieldType::FILE, ['accept' => 'pdf']))
         ->toBe('application/pdf');
 });
+
+it('offers the search field in the palette', function () {
+    expect(FieldType::paletteCatalog())->toHaveKey(FieldType::SEARCH)
+        ->and(FieldType::isValid(FieldType::SEARCH))->toBeTrue()
+        ->and(FieldType::catalog()[FieldType::SEARCH]['group'])->toBe('choice');
+});
+
+it('validates a sourced select/search against the scoped source values', function () {
+    $opts = ['source' => 'organizations', 'source_values' => ['1', '2', '3']];
+
+    // Both the sourced dropdown and the search field restrict to the resolved set.
+    expect(FieldType::validationRules(FieldType::SELECT, true, $opts))->toBe(['required', 'in:1,2,3'])
+        ->and(FieldType::validationRules(FieldType::SEARCH, false, $opts))->toBe(['nullable', 'in:1,2,3']);
+});
+
+it('rejects everything when a sourced field resolves to an empty scoped set', function () {
+    // No authorized entries → in: with no values, which no non-empty value can satisfy.
+    expect(FieldType::validationRules(FieldType::SEARCH, true, ['source' => 'organizations']))
+        ->toBe(['required', 'in:']);
+});
+
+it('falls back to static options for a select with no source', function () {
+    $opts = ['options' => [['value' => 'a', 'label' => 'A'], ['value' => 'b', 'label' => 'B']]];
+
+    expect(FieldType::validationRules(FieldType::SELECT, true, $opts))->toBe(['required', 'in:a,b']);
+});

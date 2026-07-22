@@ -10,6 +10,8 @@ export function formBuilder(config) {
     return {
         // --- config from server ---
         catalog: config.catalog || {},
+        // Registered dynamic option sources: [{ key, label, searchable }].
+        optionSources: config.optionSources || [],
         storeUrl: config.storeUrl,
         updateUrl: config.updateUrl,
         uploadUrl: config.uploadUrl,
@@ -139,6 +141,11 @@ export function formBuilder(config) {
             // A checkbox is a single yes/no checkmark — it carries no option list.
             if (['select', 'radio'].includes(type)) {
                 return { options: [{ value: 'option_1', label: 'Option 1' }] };
+            }
+            // The search field is always sourced — default it to the first
+            // registered source so it renders something out of the box.
+            if (type === 'search') {
+                return { source: (this.optionSources[0] || {}).key || '' };
             }
             if (type === 'age') return { min: 0, max: 150, step: 1 };
             if (type === 'static-text') return { content: 'Static text…' };
@@ -315,6 +322,25 @@ export function formBuilder(config) {
             // Checkbox intentionally excluded: it is a single checkmark, not a
             // multi-option group, so the builder offers no option editor for it.
             return ['select', 'radio'].includes(type);
+        },
+
+        // --- dynamic option sources (registered DB-backed entries) ---
+        /** Field types that can draw their choices from an OptionSource. */
+        supportsSource(type) {
+            return ['select', 'search'].includes(type);
+        },
+        /**
+         * Switch a select between hand-typed options and a registered source.
+         * The search field is always sourced, so it never calls this.
+         */
+        setOptionMode(f, mode) {
+            if (mode === 'source') {
+                if (!f.field_options.source) {
+                    f.field_options.source = (this.optionSources[0] || {}).key || '';
+                }
+            } else {
+                delete f.field_options.source;
+            }
         },
         supportsAutofillNow(type) {
             return ['date', 'time', 'datetime'].includes(type);

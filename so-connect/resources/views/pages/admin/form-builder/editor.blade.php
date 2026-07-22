@@ -8,6 +8,12 @@
         'name' => 'Name', 'contact' => 'Contact', 'personal' => 'Personal',
         'academic' => 'Academic', 'id' => 'Identity', 'organization' => 'Organization',
     ];
+    // Registered dynamic option sources for the select/search "From registered
+    // entries" picker, as a flat list Alpine's x-for can iterate.
+    $optionSources = collect(\App\Forms\OptionSource::catalog())
+        ->map(fn ($meta, $key) => ['key' => $key, 'label' => $meta['label'], 'searchable' => (bool) $meta['searchable']])
+        ->values()
+        ->all();
 @endphp
 
 @section('content')
@@ -16,6 +22,7 @@
     <div
         x-data="formBuilder({
             catalog: {{ Js::from($fieldCatalog) }},
+            optionSources: {{ Js::from($optionSources) }},
             data: {{ Js::from($editorData) }},
             isEdit: {{ $form ? 'true' : 'false' }},
             storeUrl: '{{ route('admin.form-builder.store') }}',
@@ -382,8 +389,38 @@
                                 </template>
                             </div>
 
-                            {{-- choice options --}}
-                            <div x-show="isOptioned(f.field_type)">
+                            {{-- option source toggle (select) / picker (search) --}}
+                            <div x-show="supportsSource(f.field_type)">
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Options</label>
+                                {{-- A dropdown can be pre-defined or drawn from registered entries;
+                                     the search field is always drawn from registered entries. --}}
+                                <template x-if="f.field_type === 'select'">
+                                    <div class="mb-2 flex flex-wrap gap-3 text-xs text-gray-600 dark:text-gray-300">
+                                        <label class="flex items-center gap-1.5">
+                                            <input type="radio" :checked="!f.field_options.source" @change="setOptionMode(f, 'static')"
+                                                class="h-3.5 w-3.5 border-gray-300 text-brand-500" /> Pre-defined
+                                        </label>
+                                        <label class="flex items-center gap-1.5">
+                                            <input type="radio" :checked="!!f.field_options.source" @change="setOptionMode(f, 'source')"
+                                                class="h-3.5 w-3.5 border-gray-300 text-brand-500" /> From registered entries
+                                        </label>
+                                    </div>
+                                </template>
+                                <template x-if="f.field_type === 'search' || f.field_options.source">
+                                    <div>
+                                        <select x-model="f.field_options.source"
+                                            class="h-8 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                            <template x-for="src in optionSources" :key="src.key">
+                                                <option :value="src.key" x-text="src.label"></option>
+                                            </template>
+                                        </select>
+                                        <p class="mt-1 text-[10px] text-gray-400">Submitters pick from this registered list, scoped to the entries they may access.</p>
+                                    </div>
+                                </template>
+                            </div>
+
+                            {{-- choice options (hand-typed; hidden when a source is chosen) --}}
+                            <div x-show="isOptioned(f.field_type) && !f.field_options.source">
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Options</label>
                                 <div class="space-y-2">
                                     <template x-for="(opt, i) in (f.field_options.options || [])" :key="i">
