@@ -5,11 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Helpers\FormTemplateHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Approval;
-use App\Models\EventPlan;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Request as ActionRequest;
-use App\Models\Semester;
 use App\Models\Workplan;
 use App\Services\DocumentGenerationService;
 use App\Services\WorkplanService;
@@ -227,29 +225,11 @@ class WorkplanRequestController extends Controller
                 ->update(['approval_id' => (int) $approval->approval_id]);
         }
 
-        // When workplan is approved, bulk-approve all initial plans in that workplan
-        if ($validated['decision'] === 'approve') {
-            $submissionId = (int) ($payload['submission_id'] ?? 0);
-            $submission = $submissionId ? FormSubmission::query()->find($submissionId) : null;
-            if ($submission) {
-                $submissionPayload = (array) ($submission->payload ?? []);
-                $orgId = (int) ($submission->organization_id ?? ($submissionPayload['organization_id'] ?? 0));
-                $semesterId = (int) ($submissionPayload['semester_id'] ?? 0);
-                if ($orgId > 0 && $semesterId > 0) {
-                    $semester = Semester::find($semesterId);
-                    if ($semester) {
-                        $endsAt = $semester->endsAt();
-                        EventPlan::query()
-                            ->where('organization_id', $orgId)
-                            ->where('status', 'pending')
-                            ->whereNull('parent_plan_id')
-                            ->where('target_date', '>=', $semester->starts_at)
-                            ->when($endsAt, fn ($q) => $q->where('target_date', '<=', $endsAt))
-                            ->update(['status' => 'approved']);
-                    }
-                }
-            }
-        }
+        // The workplan decision deliberately does not touch event-plan
+        // statuses. An activity is admitted to the workplan by the approval of
+        // its own event request (see Admin\ActivityRequestController::decide),
+        // so bulk-approving the pending plans in range here would wave through
+        // activities whose request is still undecided or was rejected.
 
         $message = $validated['decision'] === 'approve'
             ? 'Workplan approved and document generated.'

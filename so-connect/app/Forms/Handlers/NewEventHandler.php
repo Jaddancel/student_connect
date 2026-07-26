@@ -71,10 +71,12 @@ class NewEventHandler implements SystemFunctionHandler
             'resources_needed' => $this->payloadValue($form, $payload, 'resources_needed'),
         ];
 
-        // Same shape the direct activity request creates: an approved parent
+        // Same shape the direct activity request creates: a pending parent
         // plan (the tally/scoring anchor) plus a pending child carrying the
         // schedule, tied to the document-generation request the admin decides.
-        $parentPlan = EventPlan::query()->create(array_merge($sharedPlanFields, ['status' => 'approved']));
+        // The parent stays pending until that decision — approval is what
+        // admits the activity to the org's workplan, rejection kills it.
+        $parentPlan = EventPlan::query()->create(array_merge($sharedPlanFields, ['status' => 'pending']));
 
         $actionRequest = app(DocumentGenerationService::class)->createDocumentGenerationRequest(
             $organizationId,

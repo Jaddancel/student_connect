@@ -25,17 +25,17 @@
             :personNames="$personNames ?? []"
         />
 
-        {{-- Plans In Workplan (awaiting workplan approval) --}}
+        {{-- Activities awaiting the decision that admits them to the workplan --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
             <div class="mb-4 flex items-center justify-between">
-                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">In Workplan</h3>
+                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Awaiting Workplan Approval</h3>
                 <span class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-400">
                     {{ $grouped['in_workplan']->count() }}
                 </span>
             </div>
 
             @if ($grouped['in_workplan']->isEmpty())
-                <p class="text-sm text-gray-500 dark:text-gray-400">No plans pending workplan approval.</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">No activities are awaiting approval into the workplan.</p>
             @else
                 <div class="space-y-1">
                     @foreach ($grouped['in_workplan'] as $plan)

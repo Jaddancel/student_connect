@@ -334,7 +334,9 @@ class EventController extends Controller
             'extension_services'    => $validated['extension_services'] === 'yes',
         ];
 
-        $parentPlan = EventPlan::query()->create(array_merge($sharedPlanFields, ['status' => 'approved']));
+        // The parent activity stays pending until the admin decides this
+        // request; approval admits it to the workplan, rejection kills it.
+        $parentPlan = EventPlan::query()->create(array_merge($sharedPlanFields, ['status' => 'pending']));
 
         $actionRequest = app(\App\Services\DocumentGenerationService::class)->createDocumentGenerationRequest(
             $organizationId,

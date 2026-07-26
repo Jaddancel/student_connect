@@ -245,6 +245,16 @@ class ActivityRequestController extends Controller
             $eventPlan->update(['status' => 'approved', 'event_id' => $eventId]);
 
             if ($eventPlan->parent_plan_id) {
+                // A parent still pending was filed by this same request (the
+                // New Event flow creates activity + schedule together), so
+                // approving here is what admits it to the workplan. A parent
+                // already approved was admitted by an earlier decision and
+                // only needs the event link.
+                EventPlan::query()
+                    ->where('event_plan_id', $eventPlan->parent_plan_id)
+                    ->where('status', 'pending')
+                    ->update(['status' => 'approved']);
+
                 EventPlan::query()
                     ->where('event_plan_id', $eventPlan->parent_plan_id)
                     ->update(['event_id' => $eventId]);
@@ -259,6 +269,10 @@ class ActivityRequestController extends Controller
                 }
             }
         } elseif ($eventPlan) {
+            // Only the request's own plan is rejected. The parent activity is
+            // left pending: it was never admitted to the workplan, so nothing
+            // has to be undone, and revising this plan re-files the request
+            // that can still admit it.
             $eventPlan->update(['status' => 'rejected']);
         }
 

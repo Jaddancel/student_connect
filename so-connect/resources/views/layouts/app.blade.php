@@ -107,7 +107,7 @@ window.addEventListener('resize', checkMobile);">
 
     @include('layouts.partials.auto-hide-alerts')
     @include('layouts.partials.toast')
-    @include('layouts.partials.semester-alert')
+    @include('layouts.partials.admin-alerts')
 
     {{-- File-type warning toast --}}
     <div x-data x-show="$store.fileAlert.show" x-cloak
