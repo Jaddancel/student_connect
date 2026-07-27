@@ -213,7 +213,9 @@ export function formBuilder(config) {
                     col.fields = col.fields.filter((k) => k !== key);
                 });
             });
-            this.rows = this.rows.filter((row) => row.columns.some((c) => c.fields.length));
+            // A row left empty is KEPT: empty rows/columns are layout the admin
+            // created ("+ Empty row", the column buttons) and drag targets they
+            // still need. "remove row" is how a row goes away.
             // Conditions pointing at the removed field would dangle — drop them.
             this.fields.forEach((f) => {
                 if (f.field_options && f.field_options.visible_when && f.field_options.visible_when.field === key) {
@@ -259,13 +261,26 @@ export function formBuilder(config) {
         },
 
         // --- row / column controls ---
+        /**
+         * Change how many columns a row has WITHOUT moving the fields already
+         * in it — the buttons arrange columns, dragging arranges fields.
+         * Growing adds empty columns to drag into; shrinking folds the dropped
+         * columns' fields into the last surviving one so nothing is lost.
+         */
         setColumnCount(rowIndex, count) {
             const row = this.rows[rowIndex];
-            const allKeys = row.columns.flatMap((c) => c.fields);
+            if (!row || count === row.columns.length) return;
             const span = Math.floor(12 / count);
-            const cols = Array.from({ length: count }, () => ({ span, fields: [] }));
-            allKeys.forEach((k, i) => cols[i % count].fields.push(k));
-            row.columns = cols;
+
+            if (count > row.columns.length) {
+                while (row.columns.length < count) row.columns.push({ span, fields: [] });
+            } else {
+                const dropped = row.columns.slice(count).flatMap((c) => c.fields);
+                row.columns = row.columns.slice(0, count);
+                row.columns[count - 1].fields.push(...dropped);
+            }
+
+            row.columns.forEach((c) => { c.span = span; });
         },
 
         addRow() {
@@ -321,9 +336,12 @@ export function formBuilder(config) {
         onFieldDrop(evt) {
             const { item, from, to, oldIndex, newIndex } = evt;
 
-            // Revert Sortable's DOM mutation (see above).
+            // Revert Sortable's DOM mutation (see above). Index against the
+            // field cards only — a column's element children also include
+            // Alpine's <template> anchors, so raw `children` would misplace it.
             to.removeChild(item);
-            from.insertBefore(item, from.children[oldIndex] || null);
+            const cards = from.querySelectorAll(':scope > [data-field-card]');
+            from.insertBefore(item, cards[oldIndex] || null);
 
             const fromRow = parseInt(from.dataset.row, 10);
             const fromCol = parseInt(from.dataset.col, 10);
@@ -339,9 +357,7 @@ export function formBuilder(config) {
             const [moved] = source.splice(oldIndex, 1);
             if (moved === undefined) return;
             target.splice(newIndex, 0, moved);
-
-            // A row left with no fields in any column is dropped, same as removeField().
-            this.rows = this.rows.filter((row) => row.columns.some((c) => c.fields.length));
+            // A row emptied by the drag is KEPT — see removeField().
         },
 
         // --- option editing (choice fields) ---
