@@ -140,18 +140,16 @@
                                 <div class="grid grid-cols-1 gap-3"
                                     :class="{'sm:grid-cols-2': row.columns.length===2,'sm:grid-cols-3': row.columns.length===3}">
                                     <template x-for="(col, colIndex) in row.columns" :key="colIndex">
+                                        {{-- SortableJS list: wireColumn() attaches on render; data-row/data-col
+                                             stay Alpine-bound so onFieldDrop reads current indices. --}}
                                         <div class="min-h-[48px] rounded-lg bg-gray-50 p-2 dark:bg-white/[0.02]"
-                                            @dragover.prevent
-                                            @drop.prevent="dropFieldAt(rowIndex, colIndex, col.fields.length)">
+                                            x-init="wireColumn($el)"
+                                            :data-row="rowIndex" :data-col="colIndex">
                                             <template x-for="(key, fi) in col.fields" :key="key">
                                                 <div @click="selectedKey = key"
-                                                    draggable="true"
-                                                    @dragstart="onFieldDragStart($event, rowIndex, colIndex, fi)"
-                                                    @dragend="dragging = null"
-                                                    @dragover.prevent
-                                                    @drop.stop.prevent="dropFieldAt(rowIndex, colIndex, fi)"
-                                                    class="mb-2 cursor-move rounded-lg border bg-white px-3 py-2 dark:bg-gray-900"
-                                                    :class="[selectedKey === key ? 'border-brand-500 ring-1 ring-brand-300' : 'border-gray-200 dark:border-gray-700', dragging && dragging.key === key ? 'opacity-40' : '']">
+                                                    data-field-card
+                                                    class="mb-2 cursor-grab rounded-lg border bg-white px-3 py-2 active:cursor-grabbing dark:bg-gray-900"
+                                                    :class="selectedKey === key ? 'border-brand-500 ring-1 ring-brand-300' : 'border-gray-200 dark:border-gray-700'">
                                                     <div class="flex items-center justify-between gap-2">
                                                         <div class="min-w-0">
                                                             <div class="flex items-center gap-1 text-sm font-medium text-gray-800 dark:text-white/90">
@@ -161,12 +159,12 @@
                                                             </div>
                                                             <div class="text-[10px] uppercase tracking-wide text-gray-400" x-text="field(key)?.field_type"></div>
                                                         </div>
-                                                        <button type="button" @click.stop="removeField(key)" class="shrink-0 px-1 leading-none text-error-400 hover:text-error-500" title="Remove field">✕</button>
+                                                        <button type="button" data-no-drag @click.stop="removeField(key)" class="shrink-0 px-1 leading-none text-error-400 hover:text-error-500" title="Remove field">✕</button>
                                                     </div>
                                                 </div>
                                             </template>
                                             <template x-if="col.fields.length === 0">
-                                                <div class="py-3 text-center text-[11px] text-gray-300">empty column — drag a field here</div>
+                                                <div class="pointer-events-none py-3 text-center text-[11px] text-gray-300">empty column — drag a field here</div>
                                             </template>
                                         </div>
                                     </template>

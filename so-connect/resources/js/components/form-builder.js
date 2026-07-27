@@ -1,10 +1,12 @@
+import Sortable from 'sortablejs';
+
 /**
  * Alpine component backing the WYSIWYG form-builder editor.
  *
  * The `rows`/`fields` model is the single source of truth. Rows are reordered
- * by explicit ▲▼ buttons only. Fields are reordered by dragging the field card
- * — within its column, across columns, or into a different row entirely — via
- * native HTML5 drag-and-drop (no external drag library).
+ * by explicit ▲▼ buttons only — rows are never draggable. Fields are reordered
+ * by dragging the field card (within its column, across columns, or into a
+ * different row), driven by SortableJS over each column's field list.
  */
 export function formBuilder(config) {
     return {
@@ -48,8 +50,6 @@ export function formBuilder(config) {
         saving: false,
         message: '',
         error: '',
-        // The field currently mid-drag: { fromRow, fromCol, fromIndex, key }.
-        dragging: null,
 
         init() {
             // Keys of already-saved fields are frozen: syncFields() upserts by
@@ -288,40 +288,57 @@ export function formBuilder(config) {
             this.rows.splice(target, 0, moved);
         },
 
-        // --- field reordering (drag only — see the field card's draggable attr) ---
-        /** Start dragging the field at (rowIndex, colIndex, fieldIndex). */
-        onFieldDragStart(event, rowIndex, colIndex, fieldIndex) {
-            const key = this.rows[rowIndex]?.columns[colIndex]?.fields[fieldIndex];
-            if (key === undefined) return;
-            this.dragging = { fromRow: rowIndex, fromCol: colIndex, fromIndex: fieldIndex, key };
-            if (event.dataTransfer) {
-                event.dataTransfer.effectAllowed = 'move';
-                // Firefox won't start a drag without data registered here.
-                event.dataTransfer.setData('text/plain', key);
-            }
+        // --- field reordering (SortableJS drag) ---
+        /**
+         * Attach SortableJS to one column's field list. Called from the
+         * column's x-init, so every column Alpine renders — including ones
+         * added later — wires itself exactly once.
+         *
+         * The column's own `data-row`/`data-col` are Alpine-bound, so they stay
+         * correct as rows are reordered or removed; onEnd reads them fresh
+         * rather than closing over the indices at wire time.
+         */
+        wireColumn(el) {
+            if (el._sortable) return;
+            el._sortable = Sortable.create(el, {
+                group: 'builder-fields',
+                animation: 150,
+                draggable: '[data-field-card]',
+                // The ✕ button must stay clickable, not start a drag.
+                filter: '[data-no-drag]',
+                preventOnFilter: false,
+                ghostClass: 'opacity-40',
+                onEnd: (evt) => this.onFieldDrop(evt),
+            });
         },
 
         /**
-         * Drop the field currently being dragged at `toIndex` within
-         * (toRow, toCol) — either another field card ("insert before it") or
-         * a column's empty space ("append to the end").
+         * Apply a completed drag to the model. SortableJS has already moved the
+         * DOM node, but Alpine's x-for owns that DOM — so undo the physical
+         * move first and let Alpine re-render from the mutated model, keeping
+         * the model the single source of truth.
          */
-        dropFieldAt(toRow, toCol, toIndex) {
-            const d = this.dragging;
-            this.dragging = null;
-            if (!d) return;
+        onFieldDrop(evt) {
+            const { item, from, to, oldIndex, newIndex } = evt;
 
-            const fromFields = this.rows[d.fromRow]?.columns[d.fromCol]?.fields;
-            const toFields = this.rows[toRow]?.columns[toCol]?.fields;
-            if (!fromFields || !toFields) return;
+            // Revert Sortable's DOM mutation (see above).
+            to.removeChild(item);
+            from.insertBefore(item, from.children[oldIndex] || null);
 
-            const sameList = fromFields === toFields;
-            if (sameList && d.fromIndex === toIndex) return;
+            const fromRow = parseInt(from.dataset.row, 10);
+            const fromCol = parseInt(from.dataset.col, 10);
+            const toRow = parseInt(to.dataset.row, 10);
+            const toCol = parseInt(to.dataset.col, 10);
+            if ([fromRow, fromCol, toRow, toCol, oldIndex, newIndex].some(Number.isNaN)) return;
 
-            fromFields.splice(d.fromIndex, 1);
-            // Removing an earlier item from the SAME list shifts later indices down.
-            const insertAt = sameList && d.fromIndex < toIndex ? toIndex - 1 : toIndex;
-            toFields.splice(insertAt, 0, d.key);
+            const source = this.rows[fromRow]?.columns[fromCol]?.fields;
+            const target = this.rows[toRow]?.columns[toCol]?.fields;
+            if (!source || !target) return;
+            if (source === target && oldIndex === newIndex) return;
+
+            const [moved] = source.splice(oldIndex, 1);
+            if (moved === undefined) return;
+            target.splice(newIndex, 0, moved);
 
             // A row left with no fields in any column is dropped, same as removeField().
             this.rows = this.rows.filter((row) => row.columns.some((c) => c.fields.length));
