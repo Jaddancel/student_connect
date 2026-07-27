@@ -215,6 +215,13 @@ class FormRenderController extends Controller
                 continue;
             }
             $options = (array) ($field->field_options ?? []);
+            // A sourced select/search validates against its scoped source set:
+            // resolve the submitter's authorized values and hand them to the
+            // rule builder so a spoofed id outside that set is rejected.
+            $source = \App\Forms\OptionSource::forField($options);
+            if ($source !== null) {
+                $options['source_values'] = \App\Forms\OptionSource::values($source, $request->user(), scoped: true);
+            }
             $fieldRules = FieldType::validationRules(
                 $field->field_type,
                 (bool) $field->is_required,

@@ -239,10 +239,11 @@ class ScoringRuleController extends Controller
                         'key' => $f->field_key,
                         'label' => $f->field_label,
                         'type' => $f->field_type,
-                        // Selectable states for option fields → value picker.
-                        'options' => \App\Forms\FieldType::isOptioned($f->field_type)
-                            ? \App\Forms\FieldType::optionPairs((array) ($f->field_options ?? []))
-                            : [],
+                        // Selectable states for the value picker: a dynamic
+                        // source resolves its entries (admin/unscoped — scoring
+                        // spans every organization); a static field uses its
+                        // hand-typed options.
+                        'options' => self::fieldOptions($f),
                     ])->values()->all(),
             ])->values()->all();
 
@@ -256,5 +257,31 @@ class ScoringRuleController extends Controller
             'universal' => $universal,
             'plan' => self::PLAN_VARIABLES,
         ];
+    }
+
+    /**
+     * The value-picker options for a form field in the tally editor. A field
+     * drawing from a dynamic OptionSource resolves its entries unscoped (scoring
+     * runs across every organization); a static optioned field uses its own
+     * options. Sourced lists are capped so a large source can't bloat the page.
+     *
+     * @return array<int,array{value:string,label:string}>
+     */
+    private static function fieldOptions(\App\Models\Form\FormDescription $field): array
+    {
+        $options = (array) ($field->field_options ?? []);
+
+        $source = \App\Forms\OptionSource::forField($options);
+        if ($source !== null) {
+            return array_slice(
+                \App\Forms\OptionSource::options($source, user: null, scoped: false),
+                0,
+                500,
+            );
+        }
+
+        return \App\Forms\FieldType::isOptioned($field->field_type)
+            ? \App\Forms\FieldType::optionPairs($options)
+            : [];
     }
 }

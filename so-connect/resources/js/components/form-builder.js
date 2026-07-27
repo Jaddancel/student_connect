@@ -1,15 +1,19 @@
+import Sortable from 'sortablejs';
+
 /**
  * Alpine component backing the WYSIWYG form-builder editor.
  *
- * The `rows`/`fields` model is the single source of truth. Reordering is driven
- * entirely by explicit buttons — ▲▼ move a row or a field within its column,
- * ◀▶ move a field between the columns of its row — so the canvas needs no drag
- * library and behaves predictably on touch devices.
+ * The `rows`/`fields` model is the single source of truth. Rows are reordered
+ * by explicit ▲▼ buttons only — rows are never draggable. Fields are reordered
+ * by dragging the field card (within its column, across columns, or into a
+ * different row), driven by SortableJS over each column's field list.
  */
 export function formBuilder(config) {
     return {
         // --- config from server ---
         catalog: config.catalog || {},
+        // Registered dynamic option sources: [{ key, label, searchable }].
+        optionSources: config.optionSources || [],
         storeUrl: config.storeUrl,
         updateUrl: config.updateUrl,
         uploadUrl: config.uploadUrl,
@@ -140,6 +144,11 @@ export function formBuilder(config) {
             if (['select', 'radio'].includes(type)) {
                 return { options: [{ value: 'option_1', label: 'Option 1' }] };
             }
+            // The search field is always sourced — default it to the first
+            // registered source so it renders something out of the box.
+            if (type === 'search') {
+                return { source: (this.optionSources[0] || {}).key || '' };
+            }
             if (type === 'age') return { min: 0, max: 150, step: 1 };
             if (type === 'static-text') return { content: 'Static text…' };
             if (type === 'password') return { min: 8 };
@@ -204,7 +213,9 @@ export function formBuilder(config) {
                     col.fields = col.fields.filter((k) => k !== key);
                 });
             });
-            this.rows = this.rows.filter((row) => row.columns.some((c) => c.fields.length));
+            // A row left empty is KEPT: empty rows/columns are layout the admin
+            // created ("+ Empty row", the column buttons) and drag targets they
+            // still need. "remove row" is how a row goes away.
             // Conditions pointing at the removed field would dangle — drop them.
             this.fields.forEach((f) => {
                 if (f.field_options && f.field_options.visible_when && f.field_options.visible_when.field === key) {
@@ -250,13 +261,26 @@ export function formBuilder(config) {
         },
 
         // --- row / column controls ---
+        /**
+         * Change how many columns a row has WITHOUT moving the fields already
+         * in it — the buttons arrange columns, dragging arranges fields.
+         * Growing adds empty columns to drag into; shrinking folds the dropped
+         * columns' fields into the last surviving one so nothing is lost.
+         */
         setColumnCount(rowIndex, count) {
             const row = this.rows[rowIndex];
-            const allKeys = row.columns.flatMap((c) => c.fields);
+            if (!row || count === row.columns.length) return;
             const span = Math.floor(12 / count);
-            const cols = Array.from({ length: count }, () => ({ span, fields: [] }));
-            allKeys.forEach((k, i) => cols[i % count].fields.push(k));
-            row.columns = cols;
+
+            if (count > row.columns.length) {
+                while (row.columns.length < count) row.columns.push({ span, fields: [] });
+            } else {
+                const dropped = row.columns.slice(count).flatMap((c) => c.fields);
+                row.columns = row.columns.slice(0, count);
+                row.columns[count - 1].fields.push(...dropped);
+            }
+
+            row.columns.forEach((c) => { c.span = span; });
         },
 
         addRow() {
@@ -270,7 +294,7 @@ export function formBuilder(config) {
             this.rows.splice(rowIndex, 1);
         },
 
-        // --- explicit reordering (replaces drag) ---
+        // --- row reordering (buttons only — rows are never draggable) ---
         /** Move a whole row up (dir=-1) or down (dir=+1), clamped to bounds. */
         moveRow(rowIndex, dir) {
             const target = rowIndex + dir;
@@ -279,25 +303,61 @@ export function formBuilder(config) {
             this.rows.splice(target, 0, moved);
         },
 
-        /** Reorder a field within its column (dir=-1 up, +1 down). */
-        moveField(rowIndex, colIndex, fieldIndex, dir) {
-            const fields = this.rows[rowIndex]?.columns[colIndex]?.fields;
-            if (!fields) return;
-            const target = fieldIndex + dir;
-            if (target < 0 || target >= fields.length) return;
-            const [moved] = fields.splice(fieldIndex, 1);
-            fields.splice(target, 0, moved);
+        // --- field reordering (SortableJS drag) ---
+        /**
+         * Attach SortableJS to one column's field list. Called from the
+         * column's x-init, so every column Alpine renders — including ones
+         * added later — wires itself exactly once.
+         *
+         * The column's own `data-row`/`data-col` are Alpine-bound, so they stay
+         * correct as rows are reordered or removed; onEnd reads them fresh
+         * rather than closing over the indices at wire time.
+         */
+        wireColumn(el) {
+            if (el._sortable) return;
+            el._sortable = Sortable.create(el, {
+                group: 'builder-fields',
+                animation: 150,
+                draggable: '[data-field-card]',
+                // The ✕ button must stay clickable, not start a drag.
+                filter: '[data-no-drag]',
+                preventOnFilter: false,
+                ghostClass: 'opacity-40',
+                onEnd: (evt) => this.onFieldDrop(evt),
+            });
         },
 
-        /** Move a field to the previous (dir=-1) or next (dir=+1) column of its row. */
-        moveFieldAcross(rowIndex, colIndex, fieldIndex, dir) {
-            const row = this.rows[rowIndex];
-            if (!row) return;
-            const target = colIndex + dir;
-            if (target < 0 || target >= row.columns.length) return;
-            const [moved] = row.columns[colIndex].fields.splice(fieldIndex, 1);
+        /**
+         * Apply a completed drag to the model. SortableJS has already moved the
+         * DOM node, but Alpine's x-for owns that DOM — so undo the physical
+         * move first and let Alpine re-render from the mutated model, keeping
+         * the model the single source of truth.
+         */
+        onFieldDrop(evt) {
+            const { item, from, to, oldIndex, newIndex } = evt;
+
+            // Revert Sortable's DOM mutation (see above). Index against the
+            // field cards only — a column's element children also include
+            // Alpine's <template> anchors, so raw `children` would misplace it.
+            to.removeChild(item);
+            const cards = from.querySelectorAll(':scope > [data-field-card]');
+            from.insertBefore(item, cards[oldIndex] || null);
+
+            const fromRow = parseInt(from.dataset.row, 10);
+            const fromCol = parseInt(from.dataset.col, 10);
+            const toRow = parseInt(to.dataset.row, 10);
+            const toCol = parseInt(to.dataset.col, 10);
+            if ([fromRow, fromCol, toRow, toCol, oldIndex, newIndex].some(Number.isNaN)) return;
+
+            const source = this.rows[fromRow]?.columns[fromCol]?.fields;
+            const target = this.rows[toRow]?.columns[toCol]?.fields;
+            if (!source || !target) return;
+            if (source === target && oldIndex === newIndex) return;
+
+            const [moved] = source.splice(oldIndex, 1);
             if (moved === undefined) return;
-            row.columns[target].fields.push(moved);
+            target.splice(newIndex, 0, moved);
+            // A row emptied by the drag is KEPT — see removeField().
         },
 
         // --- option editing (choice fields) ---
@@ -316,8 +376,48 @@ export function formBuilder(config) {
             // multi-option group, so the builder offers no option editor for it.
             return ['select', 'radio'].includes(type);
         },
+
+        // --- dynamic option sources (registered DB-backed entries) ---
+        /** Field types that can draw their choices from an OptionSource. */
+        supportsSource(type) {
+            return ['select', 'search'].includes(type);
+        },
+        /**
+         * Switch a select between hand-typed options and a registered source.
+         * The search field is always sourced, so it never calls this.
+         */
+        setOptionMode(f, mode) {
+            if (mode === 'source') {
+                if (!f.field_options.source) {
+                    f.field_options.source = (this.optionSources[0] || {}).key || '';
+                }
+            } else {
+                delete f.field_options.source;
+            }
+        },
         supportsAutofillNow(type) {
             return ['date', 'time', 'datetime'].includes(type);
+        },
+        /**
+         * "Current value" options the Autofill dropdown offers for a field
+         * type — mirrors App\Support\UniversalField's `current_*` system
+         * keys, filtered to the ones that make sense for `type`. Only one of
+         * these is ever shown per field: the type is fixed once the field is
+         * added, so there's no need to react to it changing later.
+         */
+        systemAutofillOptions(type) {
+            const byType = {
+                text: [
+                    { value: 'current_date', label: 'Current Date' },
+                    { value: 'current_school_year', label: 'Current School Year' },
+                ],
+                date: [{ value: 'current_date', label: 'Current Date' }],
+                time: [{ value: 'current_time', label: 'Time' }],
+                datetime: [{ value: 'current_datetime', label: 'Date/Time' }],
+                number: [{ value: 'current_year', label: 'Year' }],
+                age: [{ value: 'current_year', label: 'Year' }],
+            };
+            return byType[type] || [];
         },
 
         // --- table-input column editing ---

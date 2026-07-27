@@ -79,6 +79,13 @@ it('blocks non-admins from the builder', function () {
     $member = makeUser(3);
 
     $this->actingAs($member)->get(route('admin.form-builder.index'))->assertForbidden();
+
+    // Form authoring is Admin-only (user_type 2); super admins are out too.
+    $superAdmin = makeUser(1);
+
+    $this->actingAs($superAdmin)->get(route('admin.form-builder.index'))->assertForbidden();
+    $this->actingAs($superAdmin)->get(route('admin.form-builder.create'))->assertForbidden();
+    $this->actingAs($superAdmin)->get(route('admin.templates.index'))->assertForbidden();
 });
 
 it('stores a form with layout and fields', function () {

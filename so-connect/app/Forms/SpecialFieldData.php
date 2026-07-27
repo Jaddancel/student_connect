@@ -20,7 +20,7 @@ final class SpecialFieldData
 {
     /**
      * @param  Collection<int,\App\Models\Form\FormDescription>  $fields
-     * @return array{organizations:array, events:array, workplans:array, approved_plans:array}
+     * @return array{organizations:array, events:array, workplans:array, approved_plans:array, scanner:mixed, sources:array}
      */
     public static function resolve(?User $user, Collection $fields, Form $form): array
     {
@@ -37,6 +37,10 @@ final class SpecialFieldData
             'workplans' => [],
             'approved_plans' => [],
             'scanner' => null,
+            // fieldKey => ['options' => [{value,label}], 'searchable' => bool]
+            // for `select`/`search` fields drawing from a dynamic OptionSource,
+            // resolved scoped to the submitter.
+            'sources' => self::optionSources($user, $fields),
         ];
 
         if (in_array(FieldType::ID_SCAN, $types, true)) {
@@ -69,6 +73,35 @@ final class SpecialFieldData
         }
 
         return $data;
+    }
+
+    /**
+     * Resolve every `select`/`search` field that draws from a dynamic
+     * OptionSource into its scoped option list, keyed by field key. Scoped so a
+     * submitter is only ever offered entries they are authorized to see.
+     *
+     * @param  Collection<int,\App\Models\Form\FormDescription>  $fields
+     * @return array<string,array{options:array<int,array{value:string,label:string}>,searchable:bool}>
+     */
+    private static function optionSources(?User $user, Collection $fields): array
+    {
+        $sources = [];
+
+        foreach ($fields as $field) {
+            if (! in_array($field->field_type, [FieldType::SELECT, FieldType::SEARCH], true)) {
+                continue;
+            }
+            $source = OptionSource::forField((array) ($field->field_options ?? []));
+            if ($source === null) {
+                continue;
+            }
+            $sources[$field->field_key] = [
+                'options' => OptionSource::options($source, $user, scoped: true),
+                'searchable' => OptionSource::isSearchable($source),
+            ];
+        }
+
+        return $sources;
     }
 
     /**

@@ -37,8 +37,9 @@ final class FormRenderContext
     }
 
     /**
-     * Prefill each field carrying a universal_key from the submitter's profile
-     * (or their organization, for org-scoped keys).
+     * Prefill each field carrying a universal_key from its source: the
+     * submitter's profile, their organization (org-scoped keys), or the
+     * clock/school calendar (system-scoped keys).
      *
      * @param  \Illuminate\Support\Collection<int,\App\Models\Form\FormDescription>  $fields
      * @return array<string,mixed>
@@ -56,9 +57,11 @@ final class FormRenderContext
                 continue;
             }
 
-            $value = UniversalField::isOrgField($key)
-                ? OrganizationField::value($organization, $key)
-                : ($profile ? UniversalField::valueFor($profile, $key) : null);
+            $value = match (true) {
+                UniversalField::isOrgField($key) => OrganizationField::value($organization, $key),
+                UniversalField::isSystemField($key) => UniversalField::systemValue($key),
+                default => $profile ? UniversalField::valueFor($profile, $key) : null,
+            };
 
             if ($value !== null && $value !== '') {
                 $prefill[$field->field_key] = $value;

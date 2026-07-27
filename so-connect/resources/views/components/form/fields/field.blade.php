@@ -1,11 +1,13 @@
 @php
     use App\Forms\FieldType;
+    use App\Forms\OptionSource;
 
     /** @var \App\Models\Form\FormDescription $field */
     $type = $field->field_type;
     $key = $field->field_key;
     $opts = (array) ($field->field_options ?? []);
     $required = (bool) $field->is_required;
+    $special = $special ?? [];
     // Fall back to the universal-field autofill value (from the user's profile)
     // when there's no old() input yet; a resubmit still wins via old().
     $prefill = $prefill ?? [];
@@ -13,7 +15,14 @@
     $placeholder = $field->placeholder_hint ?? '';
     $inputClass = 'dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90 '
         . ($errors->has($key) ? 'border-error-500' : 'border-gray-300');
-    $pairs = FieldType::optionPairs($opts);
+    // A sourced select/search draws its choices from a scoped OptionSource list
+    // (resolved into $special['sources']); otherwise, from the field's own
+    // hand-typed options.
+    $sourceKey = OptionSource::forField($opts);
+    $sourceEntry = $sourceKey !== null
+        ? ($special['sources'][$key] ?? ['options' => [], 'searchable' => OptionSource::isSearchable($sourceKey)])
+        : ['options' => [], 'searchable' => false];
+    $pairs = $sourceKey !== null ? $sourceEntry['options'] : FieldType::optionPairs($opts);
 @endphp
 
 @if ($type === FieldType::HEADING)
@@ -59,6 +68,37 @@
                         <option value="{{ $p['value'] }}" @selected($old === $p['value'])>{{ $p['label'] }}</option>
                     @endforeach
                 </select>
+                @break
+
+            @case(FieldType::SEARCH)
+                {{-- Typeahead combobox over a scoped OptionSource list: submits
+                     the chosen entry's id via a hidden input while showing its
+                     label. Better than a giant <select> for large sources. --}}
+                <div x-data="searchSelectField({ options: {{ Illuminate\Support\Js::from($sourceEntry['options'] ?? []) }}, selected: @js((string) $old) })" class="relative">
+                    <input type="hidden" name="{{ $key }}" :value="selected" />
+                    <div class="relative">
+                        <input type="text" x-model="query" @focus="open = true" @click="open = true"
+                            @input="onInput()" @keydown.escape="open = false"
+                            placeholder="{{ $placeholder ?: 'Search…' }}" autocomplete="off"
+                            class="{{ $inputClass }}" />
+                        <button type="button" x-show="selected" x-cloak @click="clear()"
+                            class="absolute inset-y-0 right-2 my-auto h-5 text-gray-400 hover:text-gray-600">✕</button>
+                    </div>
+                    <div x-show="open" x-cloak @click.outside="open = false"
+                        class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                        <template x-if="!filtered.length">
+                            <p class="px-3 py-2 text-xs text-gray-400">No matches.</p>
+                        </template>
+                        <template x-for="opt in filtered" :key="opt.value">
+                            <button type="button" @click="choose(opt)"
+                                class="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-brand-50 dark:text-gray-200 dark:hover:bg-white/[0.06]"
+                                x-text="opt.label"></button>
+                        </template>
+                    </div>
+                </div>
+                @if (! count($pairs))
+                    <p class="mt-1 text-xs text-warning-600 dark:text-orange-400">No entries are available to search yet.</p>
+                @endif
                 @break
 
             @case(FieldType::RADIO)

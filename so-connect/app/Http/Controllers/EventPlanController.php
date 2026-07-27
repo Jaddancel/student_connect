@@ -46,7 +46,8 @@ class EventPlanController extends Controller
         $plans = $query->orderByDesc('created_at')->get();
 
         $grouped = [
-            // Initial plans awaiting workplan approval (no parent)
+            // Activities awaiting the admin decision that admits them to the
+            // workplan (no parent — the request's own plan carries the parent)
             'in_workplan' => $plans->where('status', 'pending')->whereNull('parent_plan_id')->values(),
             // Event item requests awaiting individual admin review (have a parent)
             'pending' => $plans->where('status', 'pending')->whereNotNull('parent_plan_id')->values(),

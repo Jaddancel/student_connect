@@ -59,7 +59,6 @@ class MenuHelper
                 'items' => [
                     ['icon' => 'user-profile', 'name' => 'Profile Manager', 'path' => '/superadmin/profiles'],
                     ['icon' => 'user-profile', 'name' => 'Create Admin', 'path' => '/superadmin/accounts/create'],
-                    ['icon' => 'forms', 'name' => 'Form Builder', 'path' => '/admin/form-builder'],
                     ['icon' => 'user-profile', 'name' => 'Organizations', 'path' => '/superadmin/organizations'],
                     ['icon' => 'pages', 'name' => 'ID Templates', 'path' => '/superadmin/id-templates'],
                     ['icon' => 'task', 'name' => 'Signature References', 'path' => '/superadmin/signature-references'],

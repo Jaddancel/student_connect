@@ -1,13 +1,23 @@
 @extends('layouts.app')
 
 @php
-    // Universal-field options for the "Autofill from profile" mapping. Grouped so
-    // the <select> can render <optgroup>s that mirror App\Support\UniversalField.
-    $universalGroups = \App\Support\UniversalField::grouped();
+    // Universal-field options for the "Autofill" mapping. Grouped so the
+    // <select> can render <optgroup>s that mirror App\Support\UniversalField.
+    // The `system` source (current date/time/year, school year) is excluded
+    // here — those options are type-dependent, so they're rendered separately
+    // by Alpine's systemAutofillOptions() instead of this static list.
+    $universalGroups = \App\Support\UniversalField::groupedBySource('profile')
+        + \App\Support\UniversalField::groupedBySource('org');
     $universalGroupLabels = [
         'name' => 'Name', 'contact' => 'Contact', 'personal' => 'Personal',
         'academic' => 'Academic', 'id' => 'Identity', 'organization' => 'Organization',
     ];
+    // Registered dynamic option sources for the select/search "From registered
+    // entries" picker, as a flat list Alpine's x-for can iterate.
+    $optionSources = collect(\App\Forms\OptionSource::catalog())
+        ->map(fn ($meta, $key) => ['key' => $key, 'label' => $meta['label'], 'searchable' => (bool) $meta['searchable']])
+        ->values()
+        ->all();
 @endphp
 
 @section('content')
@@ -16,6 +26,7 @@
     <div
         x-data="formBuilder({
             catalog: {{ Js::from($fieldCatalog) }},
+            optionSources: {{ Js::from($optionSources) }},
             data: {{ Js::from($editorData) }},
             isEdit: {{ $form ? 'true' : 'false' }},
             storeUrl: '{{ route('admin.form-builder.store') }}',
@@ -129,36 +140,31 @@
                                 <div class="grid grid-cols-1 gap-3"
                                     :class="{'sm:grid-cols-2': row.columns.length===2,'sm:grid-cols-3': row.columns.length===3}">
                                     <template x-for="(col, colIndex) in row.columns" :key="colIndex">
-                                        <div class="min-h-[48px] rounded-lg bg-gray-50 p-2 dark:bg-white/[0.02]">
+                                        {{-- SortableJS list: wireColumn() attaches on render; data-row/data-col
+                                             stay Alpine-bound so onFieldDrop reads current indices. --}}
+                                        <div class="min-h-[48px] rounded-lg bg-gray-50 p-2 dark:bg-white/[0.02]"
+                                            x-init="wireColumn($el)"
+                                            :data-row="rowIndex" :data-col="colIndex">
                                             <template x-for="(key, fi) in col.fields" :key="key">
                                                 <div @click="selectedKey = key"
-                                                    class="mb-2 cursor-pointer rounded-lg border bg-white px-3 py-2 dark:bg-gray-900"
+                                                    data-field-card
+                                                    class="mb-2 cursor-grab rounded-lg border bg-white px-3 py-2 active:cursor-grabbing dark:bg-gray-900"
                                                     :class="selectedKey === key ? 'border-brand-500 ring-1 ring-brand-300' : 'border-gray-200 dark:border-gray-700'">
                                                     <div class="flex items-center justify-between gap-2">
                                                         <div class="min-w-0">
                                                             <div class="flex items-center gap-1 text-sm font-medium text-gray-800 dark:text-white/90">
+                                                                <span class="shrink-0 text-gray-300" title="Drag to reorder">⠿</span>
                                                                 <span class="truncate" x-text="field(key)?.field_label"></span>
                                                                 <span x-show="field(key)?.is_required" class="text-error-500" title="Required">*</span>
                                                             </div>
                                                             <div class="text-[10px] uppercase tracking-wide text-gray-400" x-text="field(key)?.field_type"></div>
                                                         </div>
-                                                        {{-- ▲▼ reorder within column · ◀▶ move across columns --}}
-                                                        <div class="flex shrink-0 items-center text-gray-400">
-                                                            <button type="button" @click.stop="moveField(rowIndex, colIndex, fi, -1)" :disabled="fi === 0"
-                                                                class="px-0.5 leading-none hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30" title="Move up">▲</button>
-                                                            <button type="button" @click.stop="moveField(rowIndex, colIndex, fi, 1)" :disabled="fi === col.fields.length - 1"
-                                                                class="px-0.5 leading-none hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30" title="Move down">▼</button>
-                                                            <button type="button" @click.stop="moveFieldAcross(rowIndex, colIndex, fi, -1)" :disabled="colIndex === 0"
-                                                                class="px-0.5 leading-none hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30" title="Move to previous column">◀</button>
-                                                            <button type="button" @click.stop="moveFieldAcross(rowIndex, colIndex, fi, 1)" :disabled="colIndex === row.columns.length - 1"
-                                                                class="px-0.5 leading-none hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30" title="Move to next column">▶</button>
-                                                            <button type="button" @click.stop="removeField(key)" class="px-1 leading-none text-error-400 hover:text-error-500" title="Remove field">✕</button>
-                                                        </div>
+                                                        <button type="button" data-no-drag @click.stop="removeField(key)" class="shrink-0 px-1 leading-none text-error-400 hover:text-error-500" title="Remove field">✕</button>
                                                     </div>
                                                 </div>
                                             </template>
                                             <template x-if="col.fields.length === 0">
-                                                <div class="py-3 text-center text-[11px] text-gray-300">empty column — use ◀ ▶ to move a field here</div>
+                                                <div class="pointer-events-none py-3 text-center text-[11px] text-gray-300">empty column — drag a field here</div>
                                             </template>
                                         </div>
                                     </template>
@@ -200,9 +206,10 @@
                                 <input type="text" x-model="f.placeholder_hint" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
                             </div>
 
-                            {{-- autofill from profile (universal field mapping) --}}
+                            {{-- autofill (universal field mapping: profile, organization, or a
+                                 system value — current date/time/year, school year) --}}
                             <div x-show="!['heading','static-text'].includes(f.field_type)">
-                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Autofill from profile</label>
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Autofill</label>
                                 <select x-model="f.universal_key" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
                                     <option value="">— none —</option>
                                     @foreach ($universalGroups as $group => $entries)
@@ -212,8 +219,15 @@
                                             @endforeach
                                         </optgroup>
                                     @endforeach
+                                    <template x-if="systemAutofillOptions(f.field_type).length">
+                                        <optgroup label="Current value">
+                                            <template x-for="opt in systemAutofillOptions(f.field_type)" :key="opt.value">
+                                                <option :value="opt.value" x-text="opt.label"></option>
+                                            </template>
+                                        </optgroup>
+                                    </template>
                                 </select>
-                                <p class="mt-1 text-[10px] text-gray-400">Pre-fills this field from the signed-in user's profile.</p>
+                                <p class="mt-1 text-[10px] text-gray-400">Pre-fills this field when the form loads — from the signed-in user's profile, their organization, or a current value.</p>
                             </div>
 
                             {{-- static text body --}}
@@ -382,8 +396,38 @@
                                 </template>
                             </div>
 
-                            {{-- choice options --}}
-                            <div x-show="isOptioned(f.field_type)">
+                            {{-- option source toggle (select) / picker (search) --}}
+                            <div x-show="supportsSource(f.field_type)">
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Options</label>
+                                {{-- A dropdown can be pre-defined or drawn from registered entries;
+                                     the search field is always drawn from registered entries. --}}
+                                <template x-if="f.field_type === 'select'">
+                                    <div class="mb-2 flex flex-wrap gap-3 text-xs text-gray-600 dark:text-gray-300">
+                                        <label class="flex items-center gap-1.5">
+                                            <input type="radio" :checked="!f.field_options.source" @change="setOptionMode(f, 'static')"
+                                                class="h-3.5 w-3.5 border-gray-300 text-brand-500" /> Pre-defined
+                                        </label>
+                                        <label class="flex items-center gap-1.5">
+                                            <input type="radio" :checked="!!f.field_options.source" @change="setOptionMode(f, 'source')"
+                                                class="h-3.5 w-3.5 border-gray-300 text-brand-500" /> From registered entries
+                                        </label>
+                                    </div>
+                                </template>
+                                <template x-if="f.field_type === 'search' || f.field_options.source">
+                                    <div>
+                                        <select x-model="f.field_options.source"
+                                            class="h-8 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                            <template x-for="src in optionSources" :key="src.key">
+                                                <option :value="src.key" x-text="src.label"></option>
+                                            </template>
+                                        </select>
+                                        <p class="mt-1 text-[10px] text-gray-400">Submitters pick from this registered list, scoped to the entries they may access.</p>
+                                    </div>
+                                </template>
+                            </div>
+
+                            {{-- choice options (hand-typed; hidden when a source is chosen) --}}
+                            <div x-show="isOptioned(f.field_type) && !f.field_options.source">
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Options</label>
                                 <div class="space-y-2">
                                     <template x-for="(opt, i) in (f.field_options.options || [])" :key="i">

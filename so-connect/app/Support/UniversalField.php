@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Forms\FieldType;
 use App\Models\Profile;
+use App\Models\Semester;
 
 /**
  * Single source of truth for the app's "universal fields" — canonical keys the
@@ -11,12 +12,19 @@ use App\Models\Profile;
  * all reference by the SAME key so a field/token can be *mapped to a universal
  * field* and autofilled.
  *
- * Two sources of value:
+ * Three sources of value:
  *  - `source: 'profile'` — read from the signed-in user's {@see Profile} (the
  *    fixed, code-defined profile subset). `profile_column` names the column.
  *  - `source: 'org'` — resolved from the submitter's organization at render time
  *    (current officeholders, or the org's adviser list). These have NO
  *    `profile_column`; resolution lives in {@see OrganizationField}.
+ *  - `source: 'system'` — resolved from the clock/school-calendar at render
+ *    time (today's date/time/year, the current school year). Depend on
+ *    neither the submitter nor their organization; resolution lives in
+ *    {@see systemValue()}. Which field types the builder offers each one on
+ *    is a small hardcoded map in form-builder.js's `systemAutofillOptions()`
+ *    (mirrors how `isNumeric`/`supportsAutofillNow` gate other per-type UI
+ *    there), not modeled here.
  *
  * The registry is intentionally code-defined: profile fields mirror the fixed
  * `profiles` schema; org fields are derived, not per-tenant EAV.
@@ -63,6 +71,14 @@ final class UniversalField
             'org_auditor'    => ['label' => 'Organization Auditor',   'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_secretary'  => ['label' => 'Organization Secretary', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_category'   => ['label' => 'Organization Category',  'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
+
+            // System-scoped: resolved from the clock/school calendar at render time
+            // (see systemValue()), not from the submitter or their organization.
+            'current_date'         => ['label' => 'Current Date',        'type' => FieldType::DATE,     'source' => 'system', 'group' => 'current'],
+            'current_time'         => ['label' => 'Time',                'type' => FieldType::TIME,     'source' => 'system', 'group' => 'current'],
+            'current_datetime'     => ['label' => 'Date/Time',           'type' => FieldType::DATETIME, 'source' => 'system', 'group' => 'current'],
+            'current_year'         => ['label' => 'Year',                'type' => FieldType::NUMBER,   'source' => 'system', 'group' => 'current'],
+            'current_school_year'  => ['label' => 'Current School Year', 'type' => FieldType::TEXT,     'source' => 'system', 'group' => 'current'],
         ];
     }
 
@@ -115,6 +131,11 @@ final class UniversalField
     public static function isOrgField(string $key): bool
     {
         return self::source($key) === 'org';
+    }
+
+    public static function isSystemField(string $key): bool
+    {
+        return self::source($key) === 'system';
     }
 
     /**
@@ -186,5 +207,23 @@ final class UniversalField
         }
 
         return $value;
+    }
+
+    /**
+     * Resolve a `source: 'system'` key's value at render time — the current
+     * date/time/year or school year. None of these depend on a profile or
+     * organization, so unlike {@see valueFor()} this takes no arguments.
+     * Returns null for a key that isn't a system field.
+     */
+    public static function systemValue(string $key): ?string
+    {
+        return match ($key) {
+            'current_date' => now()->toDateString(),
+            'current_time' => now()->format('H:i'),
+            'current_datetime' => now()->format('Y-m-d H:i'),
+            'current_year' => now()->format('Y'),
+            'current_school_year' => Semester::currentSchoolYear(),
+            default => null,
+        };
     }
 }

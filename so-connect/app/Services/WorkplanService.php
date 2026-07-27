@@ -32,6 +32,10 @@ class WorkplanService
     /**
      * Returns approved EventPlans for the workplan's org whose target_date
      * falls within the semester's date range.
+     *
+     * Approved only: an activity enters the workplan when the admin approves
+     * its event request, not when the officer submits one. Pending plans are
+     * still awaiting that decision and rejected ones never made it.
      */
     public function getApprovedPlansForWorkplan(Workplan $workplan): Collection
     {
@@ -40,7 +44,7 @@ class WorkplanService
 
         $query = EventPlan::query()
             ->where('organization_id', $workplan->organization_id)
-            ->whereIn('status', ['approved', 'pending'])
+            ->where('status', 'approved')
             ->whereNull('parent_plan_id')
             ->where('target_date', '>=', $semester->starts_at);
 

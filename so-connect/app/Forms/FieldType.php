@@ -24,6 +24,7 @@ final class FieldType
     public const TIME = 'time';
     public const DATETIME = 'datetime';
     public const SELECT = 'select';
+    public const SEARCH = 'search';
     public const RADIO = 'radio';
     public const CHECKBOX = 'checkbox';
     public const SIGNATURE = 'signature';
@@ -107,6 +108,7 @@ final class FieldType
             self::TIME        => ['label' => 'Time',        'icon' => 'date',      'group' => 'basic'],
             self::DATETIME    => ['label' => 'Date + Time', 'icon' => 'date',      'group' => 'basic'],
             self::SELECT      => ['label' => 'Dropdown',    'icon' => 'select',    'group' => 'choice'],
+            self::SEARCH      => ['label' => 'Search bar',  'icon' => 'select',    'group' => 'choice'],
             self::RADIO       => ['label' => 'Radio',       'icon' => 'radio',     'group' => 'choice'],
             self::CHECKBOX    => ['label' => 'Checkbox',    'icon' => 'checkbox',  'group' => 'choice'],
             self::SIGNATURE   => ['label' => 'Signature',   'icon' => 'signature', 'group' => 'media'],
@@ -275,12 +277,25 @@ final class FieldType
 
             case self::SELECT:
             case self::RADIO:
+                // A sourced select validates against its scoped source set
+                // (values injected as `source_values` at submit time); a static
+                // one validates against its hand-typed options.
+                if (OptionSource::forField($options) !== null) {
+                    $rules[] = self::sourceInRule($options);
+                    break;
+                }
                 $choices = self::optionValues($options);
                 if (! empty($choices)) {
                     $rules[] = 'in:'.implode(',', $choices);
                 } else {
                     $rules[] = 'string';
                 }
+                break;
+
+            case self::SEARCH:
+                // The search field is a sourced select with a typeahead UI: its
+                // submitted value must be one of the scoped source's entries.
+                $rules[] = self::sourceInRule($options);
                 break;
 
             case self::CHECKBOX:
@@ -368,6 +383,25 @@ final class FieldType
         }
 
         return $rules;
+    }
+
+    /**
+     * The `in:` rule for a sourced field, restricting the submitted value to the
+     * scoped source set. The allowed values are resolved per-request and injected
+     * as `source_values` (see {@see \App\Http\Controllers\FormRenderController});
+     * an empty set rejects every non-empty value, so a spoofed id outside the
+     * submitter's authorized list never passes.
+     *
+     * @param  array<string,mixed>  $options
+     */
+    private static function sourceInRule(array $options): string
+    {
+        $values = array_values(array_filter(
+            array_map('strval', (array) ($options['source_values'] ?? [])),
+            fn ($v) => $v !== '',
+        ));
+
+        return 'in:'.implode(',', $values);
     }
 
     /**

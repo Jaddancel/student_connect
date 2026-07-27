@@ -485,8 +485,9 @@ Route::get('/documents', [DocumentController::class, 'index'])
     ->middleware('auth')
     ->name('documents.index');
 
-Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
+Route::middleware(['auth', 'admin'])->group(function () {
     // WYSIWYG form builder (replacement for the DOCX Template Manager).
+    // Form authoring is Admin-only (user_type 2) — super admins don't get this.
     Route::get('/admin/form-builder', [FormBuilderController::class, 'index'])
         ->name('admin.form-builder.index');
     Route::get('/admin/form-builder/create', [FormBuilderController::class, 'create'])
