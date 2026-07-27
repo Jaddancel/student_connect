@@ -1,23 +1,26 @@
 {{-- Proactive admin danger notifications (top-right stack), shown on every
      page load while a piece of setup the whole system depends on is missing.
-     Admins and super admins only; each card is dismissible for the page but
+     Admins (user_type 2) only; each card is dismissible for the page but
      reappears on every load until the underlying setup is done. --}}
 @auth
     @php
-        $adminAlertIsAdmin = in_array((int) (auth()->user()->user_type ?? 0), [1, 2], true);
+        // Form authoring (and the semesters page it links to) is Admin-only
+        // (user_type 2) — super admins would 403 on both, so they don't get
+        // either card.
+        $adminAlertIsFormAdmin = (int) (auth()->user()->user_type ?? 0) === 2;
 
         // No active or upcoming semester — the new school year has not been
         // defined yet. Submissions, event plans and scoring made in this gap
         // are not attributed to any scoring period.
-        $adminAlertNoSchoolYear = $adminAlertIsAdmin && ! \App\Models\Semester::hasActiveOrUpcoming();
+        $adminAlertNoSchoolYear = $adminAlertIsFormAdmin && ! \App\Models\Semester::hasActiveOrUpcoming();
 
         // No usable New Workplan form — the function is disabled, so officers
         // cannot submit a workplan at all and no workplan request can reach
         // the admin queue.
-        $adminAlertWorkplanForm = $adminAlertIsAdmin
+        $adminAlertWorkplanForm = $adminAlertIsFormAdmin
             ? \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_WORKPLAN)
             : null;
-        $adminAlertNoWorkplanForm = $adminAlertIsAdmin
+        $adminAlertNoWorkplanForm = $adminAlertIsFormAdmin
             && ($adminAlertWorkplanForm === null || ! $adminAlertWorkplanForm->is_published);
     @endphp
 
