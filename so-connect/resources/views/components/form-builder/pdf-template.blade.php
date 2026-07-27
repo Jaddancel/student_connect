@@ -2,8 +2,12 @@
 @php
     $assetBase = rtrim(\Illuminate\Support\Facades\Storage::disk(config('documents.disk', 'public'))->url('/'), '/');
     // Flat list of universal fields for the "Universal fields" token palette.
+    // `system` keys (current date/time/year, school year) are excluded: they're
+    // resolved by FormRenderContext for live field autofill only — the printed-
+    // PDF token resolver (PdfTemplateRenderer::universalNodes) doesn't handle
+    // that source, so a token wouldn't render here.
     $universalTokens = [];
-    foreach (\App\Support\UniversalField::grouped() as $group => $entries) {
+    foreach (\App\Support\UniversalField::groupedBySource('profile') + \App\Support\UniversalField::groupedBySource('org') as $group => $entries) {
         foreach ($entries as $ukey => $meta) {
             $universalTokens[] = ['key' => $ukey, 'label' => $meta['label'], 'group' => $group];
         }

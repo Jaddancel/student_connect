@@ -1,9 +1,13 @@
 @extends('layouts.app')
 
 @php
-    // Universal-field options for the "Autofill from profile" mapping. Grouped so
-    // the <select> can render <optgroup>s that mirror App\Support\UniversalField.
-    $universalGroups = \App\Support\UniversalField::grouped();
+    // Universal-field options for the "Autofill" mapping. Grouped so the
+    // <select> can render <optgroup>s that mirror App\Support\UniversalField.
+    // The `system` source (current date/time/year, school year) is excluded
+    // here — those options are type-dependent, so they're rendered separately
+    // by Alpine's systemAutofillOptions() instead of this static list.
+    $universalGroups = \App\Support\UniversalField::groupedBySource('profile')
+        + \App\Support\UniversalField::groupedBySource('org');
     $universalGroupLabels = [
         'name' => 'Name', 'contact' => 'Contact', 'personal' => 'Personal',
         'academic' => 'Academic', 'id' => 'Identity', 'organization' => 'Organization',
@@ -207,9 +211,10 @@
                                 <input type="text" x-model="f.placeholder_hint" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
                             </div>
 
-                            {{-- autofill from profile (universal field mapping) --}}
+                            {{-- autofill (universal field mapping: profile, organization, or a
+                                 system value — current date/time/year, school year) --}}
                             <div x-show="!['heading','static-text'].includes(f.field_type)">
-                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Autofill from profile</label>
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Autofill</label>
                                 <select x-model="f.universal_key" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
                                     <option value="">— none —</option>
                                     @foreach ($universalGroups as $group => $entries)
@@ -219,8 +224,13 @@
                                             @endforeach
                                         </optgroup>
                                     @endforeach
+                                    <optgroup label="Current value" x-show="systemAutofillOptions(f.field_type).length">
+                                        <template x-for="opt in systemAutofillOptions(f.field_type)" :key="opt.value">
+                                            <option :value="opt.value" x-text="opt.label"></option>
+                                        </template>
+                                    </optgroup>
                                 </select>
-                                <p class="mt-1 text-[10px] text-gray-400">Pre-fills this field from the signed-in user's profile.</p>
+                                <p class="mt-1 text-[10px] text-gray-400">Pre-fills this field when the form loads — from the signed-in user's profile, their organization, or a current value.</p>
                             </div>
 
                             {{-- static text body --}}

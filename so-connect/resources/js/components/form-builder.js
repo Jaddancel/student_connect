@@ -345,6 +345,27 @@ export function formBuilder(config) {
         supportsAutofillNow(type) {
             return ['date', 'time', 'datetime'].includes(type);
         },
+        /**
+         * "Current value" options the Autofill dropdown offers for a field
+         * type — mirrors App\Support\UniversalField's `current_*` system
+         * keys, filtered to the ones that make sense for `type`. Only one of
+         * these is ever shown per field: the type is fixed once the field is
+         * added, so there's no need to react to it changing later.
+         */
+        systemAutofillOptions(type) {
+            const byType = {
+                text: [
+                    { value: 'current_date', label: 'Current Date' },
+                    { value: 'current_school_year', label: 'Current School Year' },
+                ],
+                date: [{ value: 'current_date', label: 'Current Date' }],
+                time: [{ value: 'current_time', label: 'Time' }],
+                datetime: [{ value: 'current_datetime', label: 'Date/Time' }],
+                number: [{ value: 'current_year', label: 'Year' }],
+                age: [{ value: 'current_year', label: 'Year' }],
+            };
+            return byType[type] || [];
+        },
 
         // --- table-input column editing ---
         slugColumn(label) {
