@@ -140,36 +140,33 @@
                                 <div class="grid grid-cols-1 gap-3"
                                     :class="{'sm:grid-cols-2': row.columns.length===2,'sm:grid-cols-3': row.columns.length===3}">
                                     <template x-for="(col, colIndex) in row.columns" :key="colIndex">
-                                        <div class="min-h-[48px] rounded-lg bg-gray-50 p-2 dark:bg-white/[0.02]">
+                                        <div class="min-h-[48px] rounded-lg bg-gray-50 p-2 dark:bg-white/[0.02]"
+                                            @dragover.prevent
+                                            @drop.prevent="dropFieldAt(rowIndex, colIndex, col.fields.length)">
                                             <template x-for="(key, fi) in col.fields" :key="key">
                                                 <div @click="selectedKey = key"
-                                                    class="mb-2 cursor-pointer rounded-lg border bg-white px-3 py-2 dark:bg-gray-900"
-                                                    :class="selectedKey === key ? 'border-brand-500 ring-1 ring-brand-300' : 'border-gray-200 dark:border-gray-700'">
+                                                    draggable="true"
+                                                    @dragstart="onFieldDragStart($event, rowIndex, colIndex, fi)"
+                                                    @dragend="dragging = null"
+                                                    @dragover.prevent
+                                                    @drop.stop.prevent="dropFieldAt(rowIndex, colIndex, fi)"
+                                                    class="mb-2 cursor-move rounded-lg border bg-white px-3 py-2 dark:bg-gray-900"
+                                                    :class="[selectedKey === key ? 'border-brand-500 ring-1 ring-brand-300' : 'border-gray-200 dark:border-gray-700', dragging && dragging.key === key ? 'opacity-40' : '']">
                                                     <div class="flex items-center justify-between gap-2">
                                                         <div class="min-w-0">
                                                             <div class="flex items-center gap-1 text-sm font-medium text-gray-800 dark:text-white/90">
+                                                                <span class="shrink-0 text-gray-300" title="Drag to reorder">⠿</span>
                                                                 <span class="truncate" x-text="field(key)?.field_label"></span>
                                                                 <span x-show="field(key)?.is_required" class="text-error-500" title="Required">*</span>
                                                             </div>
                                                             <div class="text-[10px] uppercase tracking-wide text-gray-400" x-text="field(key)?.field_type"></div>
                                                         </div>
-                                                        {{-- ▲▼ reorder within column · ◀▶ move across columns --}}
-                                                        <div class="flex shrink-0 items-center text-gray-400">
-                                                            <button type="button" @click.stop="moveField(rowIndex, colIndex, fi, -1)" :disabled="fi === 0"
-                                                                class="px-0.5 leading-none hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30" title="Move up">▲</button>
-                                                            <button type="button" @click.stop="moveField(rowIndex, colIndex, fi, 1)" :disabled="fi === col.fields.length - 1"
-                                                                class="px-0.5 leading-none hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30" title="Move down">▼</button>
-                                                            <button type="button" @click.stop="moveFieldAcross(rowIndex, colIndex, fi, -1)" :disabled="colIndex === 0"
-                                                                class="px-0.5 leading-none hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30" title="Move to previous column">◀</button>
-                                                            <button type="button" @click.stop="moveFieldAcross(rowIndex, colIndex, fi, 1)" :disabled="colIndex === row.columns.length - 1"
-                                                                class="px-0.5 leading-none hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30" title="Move to next column">▶</button>
-                                                            <button type="button" @click.stop="removeField(key)" class="px-1 leading-none text-error-400 hover:text-error-500" title="Remove field">✕</button>
-                                                        </div>
+                                                        <button type="button" @click.stop="removeField(key)" class="shrink-0 px-1 leading-none text-error-400 hover:text-error-500" title="Remove field">✕</button>
                                                     </div>
                                                 </div>
                                             </template>
                                             <template x-if="col.fields.length === 0">
-                                                <div class="py-3 text-center text-[11px] text-gray-300">empty column — use ◀ ▶ to move a field here</div>
+                                                <div class="py-3 text-center text-[11px] text-gray-300">empty column — drag a field here</div>
                                             </template>
                                         </div>
                                     </template>
@@ -224,11 +221,13 @@
                                             @endforeach
                                         </optgroup>
                                     @endforeach
-                                    <optgroup label="Current value" x-show="systemAutofillOptions(f.field_type).length">
-                                        <template x-for="opt in systemAutofillOptions(f.field_type)" :key="opt.value">
-                                            <option :value="opt.value" x-text="opt.label"></option>
-                                        </template>
-                                    </optgroup>
+                                    <template x-if="systemAutofillOptions(f.field_type).length">
+                                        <optgroup label="Current value">
+                                            <template x-for="opt in systemAutofillOptions(f.field_type)" :key="opt.value">
+                                                <option :value="opt.value" x-text="opt.label"></option>
+                                            </template>
+                                        </optgroup>
+                                    </template>
                                 </select>
                                 <p class="mt-1 text-[10px] text-gray-400">Pre-fills this field when the form loads — from the signed-in user's profile, their organization, or a current value.</p>
                             </div>

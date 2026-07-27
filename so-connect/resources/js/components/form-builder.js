@@ -1,10 +1,10 @@
 /**
  * Alpine component backing the WYSIWYG form-builder editor.
  *
- * The `rows`/`fields` model is the single source of truth. Reordering is driven
- * entirely by explicit buttons — ▲▼ move a row or a field within its column,
- * ◀▶ move a field between the columns of its row — so the canvas needs no drag
- * library and behaves predictably on touch devices.
+ * The `rows`/`fields` model is the single source of truth. Rows are reordered
+ * by explicit ▲▼ buttons only. Fields are reordered by dragging the field card
+ * — within its column, across columns, or into a different row entirely — via
+ * native HTML5 drag-and-drop (no external drag library).
  */
 export function formBuilder(config) {
     return {
@@ -48,6 +48,8 @@ export function formBuilder(config) {
         saving: false,
         message: '',
         error: '',
+        // The field currently mid-drag: { fromRow, fromCol, fromIndex, key }.
+        dragging: null,
 
         init() {
             // Keys of already-saved fields are frozen: syncFields() upserts by
@@ -277,7 +279,7 @@ export function formBuilder(config) {
             this.rows.splice(rowIndex, 1);
         },
 
-        // --- explicit reordering (replaces drag) ---
+        // --- row reordering (buttons only — rows are never draggable) ---
         /** Move a whole row up (dir=-1) or down (dir=+1), clamped to bounds. */
         moveRow(rowIndex, dir) {
             const target = rowIndex + dir;
@@ -286,25 +288,43 @@ export function formBuilder(config) {
             this.rows.splice(target, 0, moved);
         },
 
-        /** Reorder a field within its column (dir=-1 up, +1 down). */
-        moveField(rowIndex, colIndex, fieldIndex, dir) {
-            const fields = this.rows[rowIndex]?.columns[colIndex]?.fields;
-            if (!fields) return;
-            const target = fieldIndex + dir;
-            if (target < 0 || target >= fields.length) return;
-            const [moved] = fields.splice(fieldIndex, 1);
-            fields.splice(target, 0, moved);
+        // --- field reordering (drag only — see the field card's draggable attr) ---
+        /** Start dragging the field at (rowIndex, colIndex, fieldIndex). */
+        onFieldDragStart(event, rowIndex, colIndex, fieldIndex) {
+            const key = this.rows[rowIndex]?.columns[colIndex]?.fields[fieldIndex];
+            if (key === undefined) return;
+            this.dragging = { fromRow: rowIndex, fromCol: colIndex, fromIndex: fieldIndex, key };
+            if (event.dataTransfer) {
+                event.dataTransfer.effectAllowed = 'move';
+                // Firefox won't start a drag without data registered here.
+                event.dataTransfer.setData('text/plain', key);
+            }
         },
 
-        /** Move a field to the previous (dir=-1) or next (dir=+1) column of its row. */
-        moveFieldAcross(rowIndex, colIndex, fieldIndex, dir) {
-            const row = this.rows[rowIndex];
-            if (!row) return;
-            const target = colIndex + dir;
-            if (target < 0 || target >= row.columns.length) return;
-            const [moved] = row.columns[colIndex].fields.splice(fieldIndex, 1);
-            if (moved === undefined) return;
-            row.columns[target].fields.push(moved);
+        /**
+         * Drop the field currently being dragged at `toIndex` within
+         * (toRow, toCol) — either another field card ("insert before it") or
+         * a column's empty space ("append to the end").
+         */
+        dropFieldAt(toRow, toCol, toIndex) {
+            const d = this.dragging;
+            this.dragging = null;
+            if (!d) return;
+
+            const fromFields = this.rows[d.fromRow]?.columns[d.fromCol]?.fields;
+            const toFields = this.rows[toRow]?.columns[toCol]?.fields;
+            if (!fromFields || !toFields) return;
+
+            const sameList = fromFields === toFields;
+            if (sameList && d.fromIndex === toIndex) return;
+
+            fromFields.splice(d.fromIndex, 1);
+            // Removing an earlier item from the SAME list shifts later indices down.
+            const insertAt = sameList && d.fromIndex < toIndex ? toIndex - 1 : toIndex;
+            toFields.splice(insertAt, 0, d.key);
+
+            // A row left with no fields in any column is dropped, same as removeField().
+            this.rows = this.rows.filter((row) => row.columns.some((c) => c.fields.length));
         },
 
         // --- option editing (choice fields) ---
