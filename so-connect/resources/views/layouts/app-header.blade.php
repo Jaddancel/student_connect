@@ -244,6 +244,9 @@
 
                 <!-- Notification Dropdown -->
                 <x-header.notification-dropdown />
+
+                <!-- AI Assistant -->
+                <x-assistant.chat-widget />
             </div>
 
             <!-- User Dropdown -->

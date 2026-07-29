@@ -72,9 +72,26 @@ services:
       - "${OCR_PORT:-5000}:5000"
     networks:
       - sail
+  # Local LLM sidecar for the in-app assistant. Service name MUST be `ollama`
+  # to match LLM_SERVICE_URL=http://ollama:11434. First run pulls the model
+  # (~6.6 GB) — expect a slow initial start.
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - sail-ollama:/root/.ollama
+      - "./docker/ollama/entrypoint.sh:/entrypoint.sh"
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    environment:
+      LLM_MODEL: "${LLM_MODEL:-qwen3.5:9b-q4_K_M}"
+    ports:
+      - "${LLM_PORT:-11434}:11434"
+    networks:
+      - sail
 networks:
   sail:
     driver: bridge
 volumes:
   sail-mysql:
+    driver: local
+  sail-ollama:
     driver: local

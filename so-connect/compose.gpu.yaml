@@ -1,0 +1,17 @@
+# WSL2 note (this project develops on Windows + WSL): GPU passthrough needs
+# the NVIDIA driver installed on Windows, not inside WSL. With Docker Desktop +
+# WSL2 backend, that plus this overlay is sufficient. If Docker runs natively
+# inside WSL instead, install nvidia-container-toolkit and run
+# `nvidia-ctk runtime configure --runtime=docker` first. Verify with
+# `docker run --rm --gpus all ubuntu nvidia-smi` before activating this file.
+#
+# Activate via .env: COMPOSE_FILE=compose.yaml:compose.gpu.yaml
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

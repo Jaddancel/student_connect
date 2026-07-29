@@ -1081,3 +1081,9 @@ Route::middleware(['auth', 'superadmin'])->group(function () {
 // Intentionally NOT behind `auth` — that form is filled by users without an
 // account yet. Fails soft when no active template / sidecar is available.
 Route::post('/id-scan', [IdScanController::class, 'scan'])->name('id-scan.scan');
+
+// In-app AI assistant. Auth-only: the knowledge base is filtered by user_type,
+// so an unauthenticated caller has no index to ground against. Throttled
+// because each call occupies the single local GPU for several seconds.
+Route::post('/assistant/chat', [\App\Http\Controllers\AssistantController::class, 'chat'])
+    ->middleware(['auth', 'throttle:20,1'])->name('assistant.chat');

@@ -14,6 +14,7 @@ import { waiverTemplateEditor } from './components/waiver-template-editor';
 import { tallyEditor } from './components/tally-editor';
 import { formConditions } from './components/form-conditions';
 import { searchSelectField } from './components/search-select-field';
+import { assistantChat } from './components/assistant-chat';
 
 // flatpickr
 import flatpickr from 'flatpickr';
@@ -40,6 +41,7 @@ Alpine.data('waiverTemplateEditor', waiverTemplateEditor);
 Alpine.data('tallyEditor', tallyEditor);
 Alpine.data('formConditions', formConditions);
 Alpine.data('searchSelectField', searchSelectField);
+Alpine.data('assistantChat', assistantChat);
 Alpine.start();
 
 // Initialize components on DOM ready

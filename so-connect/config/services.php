@@ -44,6 +44,12 @@ return [
         'timeout' => (int) env('OCR_TIMEOUT', 60),
     ],
 
+    'llm' => [
+        'url' => env('LLM_SERVICE_URL', 'http://ollama:11434'),
+        'timeout' => (int) env('LLM_TIMEOUT', 120),
+        'model' => env('LLM_MODEL', 'qwen3.5:9b-q4_K_M'),
+    ],
+
     // Google OAuth for the admin/officer "Sign in with Google" pre-fill. See
     // GOOGLE-AUTH-SETUP.md. Left blank, the feature is inert (button errors gracefully).
     'google' => [
