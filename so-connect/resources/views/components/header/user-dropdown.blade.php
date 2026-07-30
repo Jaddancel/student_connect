@@ -8,6 +8,7 @@
 
     $roleLabel = 'Officer';
     $roleBadgeClass = 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
+    $userType = null;
 
     if ($authUser) {
         $userType = (int) $authUser->user_type;

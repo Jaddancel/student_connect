@@ -61,7 +61,10 @@
         <x-common.wizard-steps :steps="['Online form', 'Printed template', 'Details']" />
 
         {{-- ========================= STEP 1: ONLINE FORM ========================= --}}
-        <div x-show="step === 1" class="grid grid-cols-12 gap-5 lg:items-start">
+        {{-- No `items-start` here: the side panels stick, and a start-aligned grid
+             item shrinks to its content height, leaving sticky nothing to travel
+             within. Default stretch gives each column the full row height. --}}
+        <div x-show="step === 1" class="grid grid-cols-12 gap-5">
             {{-- LEFT: palette + header designer (floats as the canvas scrolls) --}}
             <div class="col-span-12 space-y-5 lg:col-span-3">
                 <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
