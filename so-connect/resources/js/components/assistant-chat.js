@@ -1,3 +1,5 @@
+import { renderMarkdown } from '../lib/markdown';
+
 /**
  * ASSISTANT_CHAT widget: a floating panel that POSTs the running conversation
  * to POST /assistant/chat and renders the reply plus any deep-link chips it
@@ -5,6 +7,11 @@
  * links?: [{name, path}], failed?: bool }. `failed` marks a client-side
  * placeholder (network error / degraded response) — never sent back to the
  * server as conversation history.
+ *
+ * Assistant replies are Markdown and are rendered through lib/markdown.js at
+ * display time — `content` stays the raw reply, so what is persisted and what
+ * is replayed to the model is exactly what it sent. Only assistant bubbles go
+ * through that path; the user's own text is printed verbatim.
  *
  * Non-streaming: the whole reply lands at once behind a typing indicator (no
  * SSE helper exists in the codebase yet). History persists to sessionStorage
@@ -15,6 +22,8 @@ export function assistantChat(config) {
         endpoint: config.endpoint,
         csrf: config.csrf,
         currentPath: config.currentPath || '',
+
+        renderMarkdown,
 
         open: false,
         sending: false,

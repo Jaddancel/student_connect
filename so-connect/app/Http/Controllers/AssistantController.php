@@ -105,10 +105,19 @@ class AssistantController extends Controller
 
         {$index['workflows']}
 
+        Write in Markdown — it is rendered before the user sees it, so the syntax
+        itself never shows. Use **bold** for a UI label the user has to find or
+        click, a numbered list for steps that run in order, hyphen bullets for
+        points that don't, and `backticks` for a path, field key, or value typed
+        literally. Keep it light: the chat panel is narrow, so favour short
+        paragraphs over headings, skip tables entirely, and save fenced code blocks
+        for genuinely multi-line snippets.
+
         When recommending a page, cite it with a token in the exact form
         [[route:<route-name>]], using only a route name shown in brackets above. Do
-        not write raw URLs or markdown links. If nothing above fits the question, say
-        so plainly instead of guessing.
+        not write raw URLs or markdown links — the token becomes a button the user
+        can click, while a link you write yourself is stripped down to its text. If
+        nothing above fits the question, say so plainly instead of guessing.
         PROMPT;
     }
 
@@ -150,8 +159,10 @@ class AssistantController extends Controller
             return '';
         }, $reply) ?? $reply;
 
-        // Collapse whitespace left behind by stripped tokens.
-        $clean = preg_replace('/ {2,}/', ' ', $clean) ?? $clean;
+        // Collapse whitespace left behind by stripped tokens — mid-line only.
+        // Leading indentation is structural in the Markdown reply (it's what
+        // nests a sub-list), so it has to survive to reach the renderer.
+        $clean = preg_replace('/(?<=\S) {2,}/', ' ', $clean) ?? $clean;
         $clean = preg_replace('/[ \t]+\n/', "\n", $clean) ?? $clean;
         $clean = preg_replace('/\n{3,}/', "\n\n", $clean) ?? $clean;
 
