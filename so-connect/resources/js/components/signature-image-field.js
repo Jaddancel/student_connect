@@ -1,12 +1,17 @@
+import { extractSignatureInk } from './signature-ink';
+
 /**
  * Alpine component for an image-based signature FORM FIELD.
  *
  * The user either keeps their saved profile signature (autofilled) or uploads a
- * photo of a signature; the upload is processed client-side — grayscale +
- * threshold to isolate the ink, cropped to the ink's bounding box, re-encoded as
- * a transparent PNG — then written as a data-URL into a hidden input named after
- * the field key (the renderer stores it as a PNG file, unchanged from the pad).
- * The ID-scan wizard can still inject a cropped signature via `signature-set`.
+ * photo of a signature on paper. The photo is reduced to its ink client-side
+ * (see signature-ink.js) and written as a transparent-PNG data-URL into a hidden
+ * input named after the field key. The ID-scan wizard can inject an already
+ * extracted signature via `signature-set`.
+ *
+ * The photo itself is never submitted: if the ink cannot be found, the upload is
+ * rejected with an explanation rather than posted raw. The server re-extracts
+ * whatever arrives regardless, so this is a fast failure, not the safeguard.
  *
  * With a `verifyUrl`, a processed upload is (debounced) POSTed to ask whether it
  * is recognized among the stored signatures — advisory only, never blocks.
@@ -22,6 +27,7 @@ export function signatureImageField(config = {}) {
         usingSaved: false,
         verifyState: 'idle',
         matchedName: '',
+        extractError: '',
         _debounce: null,
         _fromScan: false,
 
@@ -36,8 +42,9 @@ export function signatureImageField(config = {}) {
         async onUpload(event) {
             const file = event.target.files && event.target.files[0];
             if (!file) return;
+            this.extractError = '';
             try {
-                const dataUrl = await this.extractSignature(file);
+                const dataUrl = await extractSignatureInk(await this.readAsDataUrl(file));
                 this.$refs.input.value = dataUrl;
                 this.preview = dataUrl;
                 this.usingSaved = false;
@@ -45,65 +52,14 @@ export function signatureImageField(config = {}) {
                 this.$refs.input.dispatchEvent(new Event('input', { bubbles: true }));
                 this.scheduleVerify(dataUrl);
             } catch (e) {
-                const raw = await this.readAsDataUrl(file);
-                this.$refs.input.value = raw;
-                this.preview = raw;
-                this.usingSaved = false;
+                // Never fall back to posting the raw photo: the server would
+                // reject it anyway, and the whole point is to keep the
+                // signature, not the picture it came from.
+                this.clear();
+                this.extractError = "We couldn't find a signature in that photo. "
+                    + 'Use a well-lit shot of the signature on plain paper, with nothing else in frame.';
+                event.target.value = '';
             }
-        },
-
-        async extractSignature(file) {
-            const img = await this.loadImage(await this.readAsDataUrl(file));
-            const maxEdge = 1000;
-            const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
-            const w = Math.max(1, Math.round(img.width * scale));
-            const h = Math.max(1, Math.round(img.height * scale));
-
-            const canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, w, h);
-
-            const data = ctx.getImageData(0, 0, w, h);
-            const px = data.data;
-            const threshold = 150;
-            let minX = w, minY = h, maxX = -1, maxY = -1;
-
-            for (let y = 0; y < h; y++) {
-                for (let x = 0; x < w; x++) {
-                    const i = (y * w + x) * 4;
-                    const lum = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
-                    if (lum < threshold && px[i + 3] > 20) {
-                        px[i] = 20; px[i + 1] = 20; px[i + 2] = 30; px[i + 3] = 255;
-                        if (x < minX) minX = x;
-                        if (x > maxX) maxX = x;
-                        if (y < minY) minY = y;
-                        if (y > maxY) maxY = y;
-                    } else {
-                        px[i + 3] = 0;
-                    }
-                }
-            }
-
-            if (maxX < minX || maxY < minY) {
-                throw new Error('no ink detected');
-            }
-
-            ctx.putImageData(data, 0, 0);
-
-            const pad = 6;
-            const cx = Math.max(0, minX - pad);
-            const cy = Math.max(0, minY - pad);
-            const cw = Math.min(w, maxX + pad) - cx;
-            const ch = Math.min(h, maxY + pad) - cy;
-
-            const out = document.createElement('canvas');
-            out.width = cw;
-            out.height = ch;
-            out.getContext('2d').drawImage(canvas, cx, cy, cw, ch, 0, 0, cw, ch);
-
-            return out.toDataURL('image/png');
         },
 
         clear() {
@@ -111,6 +67,7 @@ export function signatureImageField(config = {}) {
             this.preview = null;
             this.usingSaved = false;
             this._fromScan = false;
+            this.extractError = '';
             this.verifyState = 'idle';
             this.matchedName = '';
             clearTimeout(this._debounce);

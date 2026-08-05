@@ -245,6 +245,7 @@ class FormRenderController extends Controller
 
         $payload = [];
         $waiverValidations = [];
+        $capturedSignatures = [];
         foreach ($fields as $field) {
             $key = $field->field_key;
             $type = $field->field_type;
@@ -271,7 +272,14 @@ class FormRenderController extends Controller
             }
 
             if ($type === FieldType::SIGNATURE) {
-                $payload[$key] = $this->resolveSignature($validated[$key] ?? null, $form->route_name, $request);
+                $submitted = $validated[$key] ?? null;
+                $payload[$key] = $this->resolveSignature($submitted, $key, $form->route_name, $request);
+                // A freshly drawn/uploaded signature (as opposed to a re-used
+                // saved one) is registered after the payload is final, so the
+                // verifier recognizes it next time.
+                if (is_string($submitted) && str_starts_with($submitted, 'data:image')) {
+                    $capturedSignatures[] = $key;
+                }
                 continue;
             }
 
@@ -381,6 +389,14 @@ class FormRenderController extends Controller
 
         $user = $request->user();
 
+        // Register signatures captured on this submission so the verifier knows
+        // them from here on. Advisory bookkeeping — never block the submission.
+        try {
+            app(\App\Forms\SignatureEnroller::class)->enroll($fields, $payload, $capturedSignatures, $user);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Signature enrollment failed: '.$e->getMessage());
+        }
+
         // Persist any newly-typed adviser name so the org's dropdown offers it next time.
         $organization = OrganizationField::resolveOrganization($user);
         foreach ($fields as $field) {
@@ -471,19 +487,32 @@ class FormRenderController extends Controller
     }
 
     /**
-     * Resolve a submitted signature value to a stored path. A freshly-drawn
-     * data-URL is persisted as a new PNG; the submitter's own saved profile
-     * signature (offered as prefill) is kept as its existing path. Anything
-     * else — notably an arbitrary path a client could inject — is dropped.
+     * Resolve a submitted signature value to a stored path. A freshly-drawn or
+     * uploaded data-URL has its ink extracted and stored as a PNG; the
+     * submitter's own saved profile signature (offered as prefill) is kept as
+     * its existing path. Anything else — notably an arbitrary path a client
+     * could inject — is dropped.
+     *
+     * @throws \Illuminate\Validation\ValidationException  when the image holds no readable signature
      */
-    private function resolveSignature(?string $value, string $routeName, Request $request): ?string
+    private function resolveSignature(?string $value, string $key, string $routeName, Request $request): ?string
     {
         if (! is_string($value) || $value === '') {
             return null;
         }
 
         if (str_starts_with($value, 'data:image')) {
-            return SignatureImage::storeDataUrl($value, 'form-uploads/'.$routeName.'/signatures');
+            $path = SignatureImage::storeDataUrl($value, 'form-uploads/'.$routeName.'/signatures');
+
+            // Silently dropping it would submit the form with an empty
+            // signature and no explanation, so say what went wrong instead.
+            if ($path === null) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    $key => "We couldn't read a signature from that image. Draw it again, or upload a well-lit photo of the signature on plain paper.",
+                ]);
+            }
+
+            return $path;
         }
 
         $profileSignature = $request->user()?->profile()->first()?->signature_path;

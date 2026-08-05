@@ -207,11 +207,13 @@
                         </div>
                     </template>
 
-                    {{-- Upload a signature image (extracted client-side) --}}
+                    {{-- Upload a photo of a signature; only the ink is kept --}}
                     <label class="block cursor-pointer rounded-lg border-2 border-dashed border-gray-300 px-4 py-3 text-center text-xs font-medium text-gray-500 transition hover:border-brand-400 hover:text-brand-600 dark:border-gray-700">
                         <span x-text="preview ? 'Replace with another image' : 'Upload a photo of your signature (JPEG/PNG)'"></span>
                         <input type="file" accept="image/jpeg,image/png,image/heic" class="hidden" @change="onUpload($event)" />
                     </label>
+                    <p x-cloak x-show="extractError" x-text="extractError"
+                        class="rounded-lg bg-error-50 px-3 py-2 text-xs text-error-600 dark:bg-error-500/15 dark:text-error-500"></p>
 
                     <div class="flex flex-wrap items-center gap-2">
                         <button type="button" x-show="preview" @click="clear()"

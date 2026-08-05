@@ -52,14 +52,19 @@ class BackupService
     }
 
     /**
-     * Run a DB-only backup now.
+     * Run a DB-only backup now. Returns the name of the archive it produced, or
+     * null if the new file could not be identified.
      */
-    public function create(): void
+    public function create(): ?string
     {
+        $before = collect($this->list())->pluck('name')->all();
+
         Artisan::call('backup:run', [
             '--only-db' => true,
             '--disable-notifications' => true,
         ]);
+
+        return collect($this->list())->pluck('name')->diff($before)->first();
     }
 
     /**
@@ -88,23 +93,30 @@ class BackupService
      * Restore the database from a stored backup. Takes a safety backup, extracts
      * the SQL dump and pipes it into mysql. Throws on any failure so the caller
      * can surface it without leaving a half-applied state.
+     *
+     * Returns the name of the safety backup taken of the pre-restore state, so
+     * the caller can tell the user about the archive that just appeared.
      */
-    public function restore(string $filename): void
+    public function restore(string $filename): ?string
     {
         $archivePath = $this->path($filename);
 
-        // 1. Safety backup of the current state before we overwrite it.
-        $this->create();
-
-        // 2. Extract the SQL dump from the archive.
+        // 1. Extract the SQL dump first, so a bad archive fails before we have
+        //    written anything (including a pointless safety backup).
         $sqlPath = $this->extractSqlDump($archivePath);
+        $safety = null;
 
         try {
-            // 3. Pipe it into the database.
+            // 2. Safety backup of the current state before we overwrite it.
+            $safety = $this->create();
+
+            // 3. Pipe the dump into the database.
             $this->importSql($sqlPath);
         } finally {
             @unlink($sqlPath);
         }
+
+        return $safety;
     }
 
     /**
@@ -153,21 +165,34 @@ class BackupService
         $connection = config('database.default');
         $config = config("database.connections.{$connection}");
 
-        $process = Process::fromShellCommandline(
-            'mysql --host=${:DB_HOST} --port=${:DB_PORT} --user=${:DB_USER} '
-            .'--password=${:DB_PASS} ${:DB_NAME} < ${:DB_SQL}',
-            null,
+        $handle = fopen($sqlPath, 'r');
+        if ($handle === false) {
+            throw new RuntimeException('Could not read the extracted SQL dump.');
+        }
+
+        // No shell: the dump is streamed to the client's stdin and the password
+        // goes through MYSQL_PWD so it never lands in the process list.
+        $process = new Process(
             [
-                'DB_HOST' => (string) ($config['host'] ?? '127.0.0.1'),
-                'DB_PORT' => (string) ($config['port'] ?? '3306'),
-                'DB_USER' => (string) ($config['username'] ?? 'root'),
-                'DB_PASS' => (string) ($config['password'] ?? ''),
-                'DB_NAME' => (string) ($config['database'] ?? ''),
-                'DB_SQL' => $sqlPath,
+                'mysql',
+                '--host='.($config['host'] ?? '127.0.0.1'),
+                '--port='.($config['port'] ?? '3306'),
+                '--user='.($config['username'] ?? 'root'),
+                (string) ($config['database'] ?? ''),
             ],
+            null,
+            ['MYSQL_PWD' => (string) ($config['password'] ?? '')],
+            $handle,
         );
         $process->setTimeout(600);
-        $process->run();
+
+        try {
+            $process->run();
+        } finally {
+            if (is_resource($handle)) {
+                fclose($handle);
+            }
+        }
 
         if (! $process->isSuccessful()) {
             throw new RuntimeException('Database restore failed: '.trim($process->getErrorOutput()));

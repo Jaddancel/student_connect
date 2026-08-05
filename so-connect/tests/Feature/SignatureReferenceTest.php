@@ -98,7 +98,7 @@ it('auto-enrolls an unrecognized signature under a typed name', function () {
 
     $this->actingAs(recordsUser(3))
         ->postJson(route('signature.enroll'), [
-            'signature' => 'data:image/png;base64,'.base64_encode('drawn'),
+            'signature' => signatureDataUrl(),
             'name' => 'Jane External',
         ])
         ->assertOk()
@@ -108,6 +108,26 @@ it('auto-enrolls an unrecognized signature under a typed name', function () {
     expect($ref)->not->toBeNull();
     expect($ref->source)->toBe('enrolled');
     expect(Storage::disk(SignatureImage::disk())->exists($ref->signature_path))->toBeTrue();
+});
+
+it('refuses to enroll an image with no signature in it', function () {
+    Storage::fake(SignatureImage::disk());
+
+    $blank = imagecreatetruecolor(400, 200);
+    imagefill($blank, 0, 0, imagecolorallocate($blank, 252, 252, 250));
+    ob_start();
+    imagepng($blank);
+    $bytes = (string) ob_get_clean();
+
+    $this->actingAs(recordsUser(3))
+        ->postJson(route('signature.enroll'), [
+            'signature' => 'data:image/png;base64,'.base64_encode($bytes),
+            'name' => 'Blank Page',
+        ])
+        ->assertStatus(422);
+
+    expect(SignatureReference::where('name', 'Blank Page')->exists())->toBeFalse();
+    expect(Storage::disk(SignatureImage::disk())->allFiles())->toBe([]);
 });
 
 it('shows the reference registry to a super admin and hides it from others', function () {

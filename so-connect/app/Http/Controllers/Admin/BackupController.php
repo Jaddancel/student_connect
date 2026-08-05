@@ -59,13 +59,20 @@ class BackupController extends Controller
     public function restore(string $filename): RedirectResponse
     {
         try {
-            $this->backups->restore($filename);
+            $safety = $this->backups->restore($filename);
         } catch (\Throwable $e) {
             return back()->withErrors(['restore' => 'Restore failed: '.$e->getMessage()]);
         }
 
         ActionLogger::log(ActionLogger::CATEGORY_SETTINGS, 'backup_restored', 'Restored the database from '.$filename, ['file' => $filename]);
 
-        return back()->with('success', 'Database restored from '.$filename.'.');
+        // The safety snapshot shows up as a brand-new archive in the list; say so
+        // explicitly, otherwise it reads as a backup nobody asked for.
+        $message = 'Database restored from '.$filename.'.';
+        $message .= $safety
+            ? ' A safety backup of the previous state was saved as '.$safety.'.'
+            : ' A safety backup of the previous state was saved first.';
+
+        return back()->with('success', $message);
     }
 }

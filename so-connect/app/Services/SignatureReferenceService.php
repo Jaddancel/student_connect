@@ -97,6 +97,33 @@ class SignatureReferenceService
     }
 
     /**
+     * Enroll a signature, refreshing the existing enrolled reference for that
+     * owner name instead of stacking a new row per submission — the registry is
+     * capped at {@see MAX_CANDIDATES}, so duplicates would crowd out other
+     * signatories. Profile-sourced references are never touched.
+     *
+     * The superseded image file is left on disk: it is still referenced by the
+     * submission that captured it.
+     */
+    public function enrollOrUpdate(string $name, string $signaturePath): SignatureReference
+    {
+        $name = trim($name) !== '' ? trim($name) : 'Unknown';
+
+        $existing = SignatureReference::query()
+            ->where('source', SignatureReference::SOURCE_ENROLLED)
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
+            ->first();
+
+        if ($existing) {
+            $existing->update(['signature_path' => $signaturePath, 'embedding' => null]);
+
+            return $existing;
+        }
+
+        return $this->enroll($name, $signaturePath);
+    }
+
+    /**
      * Populate the registry from every profile signature. Returns the number of
      * references synced.
      */

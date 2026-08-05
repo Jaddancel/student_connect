@@ -8,8 +8,10 @@ Contract (frozen in docs/ocr-template-contract.md):
   ->  {"fields": {"<name>": "<text>", ...}, "raw": {"<name>": "<ocr text>", ...},
        "images": {"<name>": "data:image/png;base64,...", ...}}
 
-  Zones with type == "signature" are NOT OCR'd — their crop is returned as a
-  base64 PNG under `images` instead, so the caller can store the signature.
+  Zones with type == "signature" are NOT OCR'd. The ink inside the zone is
+  extracted and returned as a transparent base64 PNG under `images` — the ID's
+  artwork, the printed signature line and the card background are discarded, so
+  the caller stores the signature itself rather than a picture of the card.
 
   POST /signature-identify   multipart:
       probe      — the freshly-drawn signature image (png)
@@ -68,6 +70,81 @@ def _ocr_text(crop: Image.Image) -> str:
     return " ".join(lines).strip()
 
 
+MIN_INK_PIXELS = 40
+MIN_SHAPE_PIXELS = 12
+MIN_SHAPE_RATIO = 0.02
+MAX_INK_COVERAGE = 0.35
+CROP_PADDING = 6
+
+
+def _extract_signature(crop: Image.Image) -> str | None:
+    """Isolate the ink in a signature zone and encode it as a transparent PNG.
+
+    A zone rectangle drawn on an ID template always contains more than the
+    signature — card artwork, the printed rule the holder signs on, a slice of
+    the photo next to it. Returning that whole rectangle stored a picture of the
+    card, and gave the verifier a background to match on instead of a signature.
+
+    The ink is separated from whatever is behind it by comparing each pixel with
+    a blurred copy of its own surroundings (so a card printed on a coloured or
+    shaded panel still works), then dropping shapes that run off the edge of the
+    zone — the printed rule and the neighbouring artwork do, the signature does
+    not. Returns None when the zone holds no legible ink.
+    """
+    import cv2
+    import numpy as np
+
+    gray = np.array(crop.convert("L"))
+    height, width = gray.shape
+    if height < 8 or width < 8:
+        return None
+
+    # Local background: a heavy blur over a window wider than any pen stroke.
+    window = max(3, (min(height, width) // 4) | 1)
+    background = cv2.GaussianBlur(gray, (window, window), 0)
+    mask = ((background.astype("int16") - gray.astype("int16")) >= 26).astype("uint8")
+
+    ink = int(mask.sum())
+    if ink < MIN_INK_PIXELS or ink / float(height * width) > MAX_INK_COVERAGE:
+        return None
+
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    keep = np.zeros_like(mask)
+    largest = max((stats[i, cv2.CC_STAT_AREA] for i in range(1, count)), default=0)
+    minimum = max(MIN_SHAPE_PIXELS, int(largest * MIN_SHAPE_RATIO))
+
+    for i in range(1, count):
+        x, y, w, h, area = (
+            stats[i, cv2.CC_STAT_LEFT], stats[i, cv2.CC_STAT_TOP],
+            stats[i, cv2.CC_STAT_WIDTH], stats[i, cv2.CC_STAT_HEIGHT],
+            stats[i, cv2.CC_STAT_AREA],
+        )
+        if area < minimum:
+            continue
+        # Runs off the edge of the zone: the printed line or adjacent artwork.
+        if x == 0 or y == 0 or x + w >= width or y + h >= height:
+            continue
+        keep[labels == i] = 1
+
+    if int(keep.sum()) < MIN_INK_PIXELS:
+        return None
+
+    ys, xs = np.nonzero(keep)
+    x1 = max(0, int(xs.min()) - CROP_PADDING)
+    x2 = min(width, int(xs.max()) + 1 + CROP_PADDING)
+    y1 = max(0, int(ys.min()) - CROP_PADDING)
+    y2 = min(height, int(ys.max()) + 1 + CROP_PADDING)
+
+    cropped = keep[y1:y2, x1:x2]
+    rgba = np.zeros((cropped.shape[0], cropped.shape[1], 4), dtype="uint8")
+    rgba[..., 0], rgba[..., 1], rgba[..., 2] = 20, 20, 30
+    rgba[..., 3] = cropped * 255
+
+    buf = io.BytesIO()
+    Image.fromarray(rgba, mode="RGBA").save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+
+
 def _apply_regex(pattern: str, text: str) -> str:
     """Return the first regex match (or full match group) within text."""
     if not pattern:
@@ -123,12 +200,13 @@ async def scan(image: UploadFile, template: str = Form(...)):
 
         crop = photo.crop((x1, y1, x2, y2))
 
-        # Signature zones return their crop as an image — OCR'ing a signature
-        # yields garbage, and the caller wants the picture to store/compare.
+        # Signature zones return extracted ink, not text — OCR'ing a signature
+        # yields garbage, and the caller wants the signature itself to store and
+        # compare. A zone with nothing legible in it is simply omitted.
         if (zone.get("type") or "text") == "signature":
-            buf = io.BytesIO()
-            crop.convert("RGB").save(buf, format="PNG")
-            images[name] = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+            extracted = _extract_signature(crop)
+            if extracted is not None:
+                images[name] = extracted
             continue
 
         text = _ocr_text(crop)
@@ -428,10 +506,9 @@ async def waiver_scan(image: UploadFile, template: str = Form(...)):
         ztype = zone.get("type") or "text"
 
         if ztype == "signature":
-            buf = io.BytesIO()
-            crop.convert("RGB").save(buf, format="PNG")
-            images[name] = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
-            if _normalize_signature(crop) is not None:
+            extracted = _extract_signature(crop)
+            if extracted is not None:
+                images[name] = extracted
                 signature = True
             continue
 

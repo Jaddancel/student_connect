@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Form\FormDescription;
 use App\Models\IdTemplate;
 use App\Support\SignatureImage;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Submit-time handling for WAIVER_SCAN fields: store the scanned image and
@@ -29,9 +31,28 @@ class WaiverSubmissionService
             return ['path' => $value, 'validation' => null];
         }
 
-        $path = SignatureImage::storeDataUrl($value, 'waivers/'.now()->format('Y/m'));
+        return ['path' => $this->storeScan($value), 'validation' => $this->revalidate($value, $field)];
+    }
 
-        return ['path' => $path, 'validation' => $this->revalidate($value, $field)];
+    /**
+     * Store a scanned waiver as-is.
+     *
+     * Deliberately NOT {@see SignatureImage::storeDataUrl()}: that extracts the
+     * ink of a signature and discards everything around it. A waiver scan is
+     * the whole signed page — the printed text, the stamp and the reviewer's
+     * view of the document all have to survive.
+     */
+    private function storeScan(string $dataUrl): ?string
+    {
+        $binary = SignatureImage::decodeDataUrl($dataUrl);
+        if ($binary === null) {
+            return null;
+        }
+
+        $path = 'waivers/'.now()->format('Y/m').'/'.Str::random(20).'.png';
+        Storage::disk(SignatureImage::disk())->put($path, $binary);
+
+        return $path;
     }
 
     /**

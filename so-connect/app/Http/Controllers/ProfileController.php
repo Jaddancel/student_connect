@@ -124,16 +124,20 @@ class ProfileController extends Controller
                 ->with('status', 'Create your profile before adding a signature.');
         }
 
-        $path = null;
-        if ($request->hasFile('signature_file') && $request->file('signature_file')->isValid()) {
-            $path = $request->file('signature_file')->store('signatures/profiles', SignatureImage::disk());
-        } else {
-            $path = SignatureImage::storeDataUrl($validated['signature'] ?? null, 'signatures/profiles');
-        }
+        // Both routes store the extracted ink only — an uploaded photo of a
+        // signature on paper never lands on the disk as a photo.
+        $uploaded = $request->hasFile('signature_file') && $request->file('signature_file')->isValid();
+        $path = $uploaded
+            ? SignatureImage::store(file_get_contents($request->file('signature_file')->getRealPath()), 'signatures/profiles')
+            : SignatureImage::storeDataUrl($validated['signature'] ?? null, 'signatures/profiles');
 
         if ($path === null) {
-            return redirect()->route('profile')
-                ->with('toast_error', 'Draw or upload a signature first.');
+            return redirect()->route('profile')->with(
+                'toast_error',
+                $uploaded
+                    ? "We couldn't find a signature in that photo. Use a well-lit shot of the signature on plain paper."
+                    : 'Draw or upload a signature first.',
+            );
         }
 
         $old = $profile->signature_path;
