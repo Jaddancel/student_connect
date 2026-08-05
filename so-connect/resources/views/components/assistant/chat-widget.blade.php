@@ -54,14 +54,27 @@
             <template x-for="(message, index) in messages" :key="index">
                 <div :class="message.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
                     <div class="max-w-[85%] space-y-2">
-                        <div
-                            :class="message.role === 'user'
-                                ? 'rounded-2xl rounded-br-sm bg-brand-500 px-3.5 py-2 text-sm text-white'
-                                : (message.failed
-                                    ? 'rounded-2xl rounded-bl-sm bg-error-50 px-3.5 py-2 text-sm text-error-600 dark:bg-error-500/10 dark:text-error-400'
-                                    : 'rounded-2xl rounded-bl-sm bg-gray-100 px-3.5 py-2 text-sm text-gray-800 dark:bg-white/5 dark:text-white/90')"
-                            style="white-space: pre-wrap;"
-                            x-text="message.content"></div>
+                        {{--
+                            Assistant replies are Markdown (see the model's formatting
+                            brief in AssistantController::buildSystemPrompt) and are the
+                            only bubble rendered as HTML. renderMarkdown escapes before it
+                            emits any tag and never produces an <a>, so nothing the model
+                            writes can turn into live markup — resources/js/lib/markdown.js.
+                        --}}
+                        <template x-if="message.role === 'assistant' && !message.failed">
+                            <div class="assistant-markdown rounded-2xl rounded-bl-sm bg-gray-100 px-3.5 py-2 text-sm text-gray-800 dark:bg-white/5 dark:text-white/90"
+                                x-html="renderMarkdown(message.content)"></div>
+                        </template>
+
+                        {{-- The user's own text and the degraded placeholder stay verbatim. --}}
+                        <template x-if="message.role !== 'assistant' || message.failed">
+                            <div
+                                :class="message.role === 'user'
+                                    ? 'rounded-2xl rounded-br-sm bg-brand-500 px-3.5 py-2 text-sm text-white'
+                                    : 'rounded-2xl rounded-bl-sm bg-error-50 px-3.5 py-2 text-sm text-error-600 dark:bg-error-500/10 dark:text-error-400'"
+                                style="white-space: pre-wrap;"
+                                x-text="message.content"></div>
+                        </template>
                         <div x-show="(message.links || []).length > 0" class="flex flex-wrap gap-1.5">
                             <template x-for="link in (message.links || [])" :key="link.path">
                                 <a :href="link.path"

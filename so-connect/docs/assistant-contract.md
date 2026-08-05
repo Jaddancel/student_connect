@@ -43,14 +43,47 @@ so the widget never has to special-case a failed `fetch()`.
 - `ok` — false for an invalid payload, no reachable pages for this user
   (shouldn't happen for an authenticated request), or the Ollama sidecar
   being unreachable or erroring.
-- `reply` — the model's answer with every `[[route:…]]` token stripped out
-  (see below). Empty when `ok` is false.
+- `reply` — the model's answer as **Markdown**, with every `[[route:…]]` token
+  stripped out (see below). Empty when `ok` is false. Rendering is the
+  widget's job — see "Reply formatting".
 - `links` — deep links extracted from the reply, in the order they appeared.
   Each is `{name, path}` — display name and a same-origin path to render as
   an `<a>` chip. Empty when `ok` is false or the reply cited no page.
 - `note` — present only when `ok` is false: a short machine-readable reason
   (`invalid request`, `assistant unavailable`, `assistant error`). Not meant
   for verbatim display — the widget shows its own generic message instead.
+
+## Reply formatting
+
+`reply` is Markdown. The model was writing it regardless — bold UI labels,
+numbered steps, backticked field keys — so the system prompt now asks for it
+explicitly and bounds it: short paragraphs over headings, no tables, fenced
+blocks only for multi-line snippets. The panel is 22rem wide and anything
+heavier reads badly in it.
+
+`resources/js/lib/markdown.js` renders it in the browser, and only for
+assistant bubbles — the user's own text and the degraded placeholder are still
+printed verbatim through `x-text`. `content` in the widget's message list stays
+the **raw** reply, so what persists to `sessionStorage` and what is replayed to
+the model on the next turn is exactly what the model sent.
+
+The renderer is deliberately not a full CommonMark implementation:
+
+- Supported: ATX headings, nested ordered/unordered lists, fenced and inline
+  code, blockquotes, thematic breaks, bold, italic, strikethrough. Anything
+  else degrades to the plain text it was written as.
+- It escapes before it emits any tag and only ever emits that fixed set, so a
+  reply is inert markup regardless of what the model was talked into writing.
+- **It never emits an `<a>`.** `[label](url)` renders as `label` with the
+  destination dropped. That is the token contract below holding at the render
+  layer too: the only clickable link in the panel is a chip resolved against
+  the user's own page index, so a model-authored URL can't become one — and
+  with no href there is nothing for a `javascript:` payload to ride in on.
+
+One coupling worth knowing about: `extractLinks()` collapses runs of spaces
+left behind by a stripped token, but only *mid-line* (`/(?<=\S) {2,}/`).
+Leading indentation is what nests a sub-list, so collapsing it unconditionally
+would silently flatten every nested list in a reply.
 
 ## The `[[route:…]]` token contract
 

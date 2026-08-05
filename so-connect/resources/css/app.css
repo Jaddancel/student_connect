@@ -1189,3 +1189,58 @@ pre[class*='language-'] {
 .pdf-template-surface td, .pdf-template-surface th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; min-width: 2em; }
 .pdf-template-surface th { font-weight: 700; background: #f2f2f2; }
 .pdf-template-surface td.cell-selected, .pdf-template-surface th.cell-selected { background: rgba(56, 132, 255, .18); outline: 1px solid #3884ff; }
+
+/* Assistant chat bubble: HTML produced by resources/js/lib/markdown.js. Kept
+   here rather than as utility classes inside the renderer so that module stays
+   presentation-agnostic, and because the tags it emits are a fixed set. Sizing
+   is deliberately tight — the panel is only 22rem wide, so headings stay close
+   to body size and anything wide scrolls inside its own box. */
+.assistant-markdown > :first-child { margin-top: 0; }
+.assistant-markdown > :last-child { margin-bottom: 0; }
+.assistant-markdown p { @apply my-2; }
+.assistant-markdown strong { @apply font-semibold; }
+.assistant-markdown em { @apply italic; }
+.assistant-markdown del { @apply line-through opacity-70; }
+.assistant-markdown h1,
+.assistant-markdown h2,
+.assistant-markdown h3,
+.assistant-markdown h4,
+.assistant-markdown h5,
+.assistant-markdown h6 {
+  @apply mt-3 mb-1.5 font-semibold text-gray-900 dark:text-white;
+}
+.assistant-markdown h1 { @apply text-[0.9375rem]; }
+.assistant-markdown h2 { @apply text-sm; }
+.assistant-markdown h3,
+.assistant-markdown h4,
+.assistant-markdown h5,
+.assistant-markdown h6 { @apply text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400; }
+.assistant-markdown ul { @apply my-2 list-disc space-y-1 ps-5; }
+.assistant-markdown ol { @apply my-2 list-decimal space-y-1 ps-5; }
+/* Pseudo-elements take the dark variant as an explicit `.dark` prefix — the
+   `dark:` modifier nests to an empty `:is()` against `::marker` and drops out,
+   the same reason custom-scrollbar spells its dark rules out above. */
+.assistant-markdown li::marker { @apply text-gray-400; }
+.dark .assistant-markdown li::marker { @apply text-gray-500; }
+.assistant-markdown li > ul,
+.assistant-markdown li > ol { @apply my-1; }
+/* Spelled out rather than `font-mono`: the @theme block above resets
+   `--font-*` to initial, so Tailwind has no mono family to hand out. */
+.assistant-markdown code {
+  @apply rounded bg-gray-200/80 px-1 py-px text-[0.8125em] text-gray-900 dark:bg-white/10 dark:text-white/90;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+.assistant-markdown pre {
+  @apply my-2 max-w-full overflow-x-auto rounded-lg bg-gray-200/80 p-2.5 custom-scrollbar dark:bg-white/10;
+}
+/* `@apply custom-scrollbar` copies the utility's own declarations but not the
+   standalone `.dark .custom-scrollbar::-webkit-*` rules above, so the dark
+   track/thumb have to be restated here. */
+.dark .assistant-markdown pre::-webkit-scrollbar-track { background-color: #1d2939; }
+.dark .assistant-markdown pre::-webkit-scrollbar-thumb { background-color: #4b5563; }
+.dark .assistant-markdown pre::-webkit-scrollbar-thumb:hover { background-color: #6b7280; }
+.assistant-markdown pre code { @apply bg-transparent p-0 text-theme-xs; }
+.assistant-markdown blockquote {
+  @apply my-2 border-s-2 border-gray-300 ps-3 text-gray-600 dark:border-gray-600 dark:text-gray-400;
+}
+.assistant-markdown hr { @apply my-3 border-gray-300 dark:border-gray-700; }

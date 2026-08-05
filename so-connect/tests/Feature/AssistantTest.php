@@ -64,6 +64,38 @@ it('strips [[route:...]] tokens outside the users index and keeps ones inside it
     expect(collect($data['links'])->pluck('path')->all())->toBe(['/admin/form-builder']);
 });
 
+it('leaves the markdown in a reply intact while stripping tokens', function () {
+    // Leading indentation is what nests the sub-list — the whitespace cleanup
+    // that tidies up after a stripped token must not flatten it.
+    Http::fake([
+        '*/api/chat' => Http::response([
+            'message' => ['content' => <<<'REPLY'
+                1. Open **Form Builder** [[route:admin.form-builder.index]]  and add fields:
+                   - a `text` field
+                   - a `date` field
+                2. Attach a PDF template — it publishes on save.
+                REPLY],
+        ], 200),
+    ]);
+
+    $admin = recordsUser(2);
+
+    $reply = $this->actingAs($admin)
+        ->postJson(route('assistant.chat'), [
+            'messages' => [['role' => 'user', 'content' => 'how do I publish a form?']],
+        ])
+        ->assertOk()
+        ->json('reply');
+
+    expect($reply)->not->toContain('[[route:');
+    expect($reply)->toContain('**Form Builder**');
+    expect($reply)->toContain('`text`');
+    expect($reply)->toContain("\n   - a `text` field");
+    expect($reply)->toContain("\n   - a `date` field");
+    // The double space the stripped token left mid-sentence still collapses.
+    expect($reply)->toContain('**Form Builder** and add fields:');
+});
+
 it('returns ok:false when the sidecar is down', function () {
     Http::fake(['*/api/chat' => Http::response('', 503)]);
 
