@@ -87,6 +87,47 @@ services:
       - "${LLM_PORT:-11434}:11434"
     networks:
       - sail
+  # LibreOffice/unoserver conversion sidecar for DOCX→PDF. Service name MUST be
+  # `docxconvert` to match DOCX_CONVERT_URL=http://docxconvert:2003. CPU-only
+  # and lightweight; the app falls back to its own `soffice` if this is down.
+  docxconvert:
+    build:
+      context: "./docker/docxconvert"
+      dockerfile: Dockerfile
+    ports:
+      - "${DOCX_CONVERT_PORT:-2003}:2003"
+    networks:
+      - sail
+  # OnlyOffice Document Server — the in-browser DOCX editor behind the form
+  # builder's "Printed template" step. Service name MUST be `onlyoffice` to
+  # match ONLYOFFICE_INTERNAL_URL=http://onlyoffice.
+  #
+  # Heavy: upstream recommends 4-8GB RAM, and this image runs its own
+  # PostgreSQL, RabbitMQ and Redis internally. If it OOMs, raise the WSL memory
+  # cap in %UserProfile%\.wslconfig on the Windows host.
+  #
+  # The browser loads the editor from ONLYOFFICE_PUBLIC_URL (host-visible),
+  # while the server fetches and saves documents over the `sail` network using
+  # the app's internal hostname — the two URLs are deliberately different.
+  onlyoffice:
+    image: onlyoffice/documentserver:latest
+    environment:
+      # Every request between Laravel and the server is signed; the secret must
+      # match ONLYOFFICE_JWT_SECRET on the app side.
+      JWT_ENABLED: "true"
+      JWT_SECRET: "${ONLYOFFICE_JWT_SECRET:-change-me-to-32-plus-random-characters}"
+      JWT_HEADER: "Authorization"
+    ports:
+      - "${ONLYOFFICE_PORT:-8081}:80"
+    volumes:
+      - "sail-onlyoffice-data:/var/www/onlyoffice/Data"
+      - "sail-onlyoffice-log:/var/log/onlyoffice"
+      # No plugin mount: the token palette is served per-form by Laravel and
+      # injected through editorConfig.plugins.pluginsData, so it already knows
+      # which form's fields to offer. (The Automation API that would let the
+      # host page insert tokens directly is Developer-Edition-only.)
+    networks:
+      - sail
 networks:
   sail:
     driver: bridge
@@ -94,4 +135,8 @@ volumes:
   sail-mysql:
     driver: local
   sail-ollama:
+    driver: local
+  sail-onlyoffice-data:
+    driver: local
+  sail-onlyoffice-log:
     driver: local

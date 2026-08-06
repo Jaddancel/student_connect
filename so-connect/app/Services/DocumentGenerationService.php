@@ -15,7 +15,6 @@ use App\Models\RequestType;
 use App\Models\User;
 use App\Models\Workplan;
 use App\Support\OrganizationField;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -25,13 +24,16 @@ use RuntimeException;
 use Symfony\Component\Process\Process;
 
 /**
- * Generates the printable PDF for a form submission by rendering the form's
- * WYSIWYG layout (or, as a fallback, its ordered fields) to HTML and converting
- * it with dompdf.
+ * Generates the printable PDF for a form submission from the form's Word
+ * template: the `.docx` authored in the form builder's "Printed template" step
+ * is populated with the submission's values and converted to PDF through
+ * LibreOffice.
  *
- * This replaces the previous DOCX-template pipeline (phpword + LibreOffice).
- * The request/approval plumbing (action encode/decode via {@see FormTemplateHelper})
- * is unchanged, so existing approval workflows keep working.
+ * This supersedes the intermediate dompdf pipeline, which rendered a separate
+ * rich-text `pdf_template.html` blob. Those blobs are migrated to `.docx` on
+ * first open by {@see FormPrintTemplateService}, so nothing reads them here any
+ * more. The request/approval plumbing (action encode/decode via
+ * {@see FormTemplateHelper}) is unchanged, so existing workflows keep working.
  */
 class DocumentGenerationService
 {
@@ -195,21 +197,13 @@ class DocumentGenerationService
                 ->orderBy('field_order')
                 ->get();
 
-            // The printed document is driven by the form's separate PDF template
-            // (rich-text HTML with field tokens), not the online-form layout.
-            $pdfTemplate = (array) ($form->pdf_template ?? []);
-            $templateHtml = (string) ($pdfTemplate['html'] ?? '');
-            if (trim($templateHtml) === '') {
-                throw new RuntimeException('This form has no printed template; a document cannot be generated.');
-            }
+            // The printed document is the form's Word template (authored in the
+            // form builder's OnlyOffice step), populated with this submission
+            // and converted to PDF. Page setup, fonts and headers now live in
+            // the .docx itself rather than in a separate config blob.
+            $printTemplate = app(\App\Services\FormPrintTemplateService::class)->resolve($form);
 
-            $page = (array) ($pdfTemplate['page'] ?? []);
-            $size = (string) ($page['size'] ?? 'a4');
-            $size = in_array($size, ['a4', 'letter', 'legal'], true) ? $size : 'a4';
-            $orientation = (string) ($page['orientation'] ?? 'portrait');
-            $orientation = in_array($orientation, ['portrait', 'landscape'], true) ? $orientation : 'portrait';
-
-            // Resolve the submitter's profile + organization so `data-universal`
+            // Resolve the submitter's profile + organization so `{{profile.*}}`
             // tokens print from them. `profile` is a FK column that shadows the
             // relation, so the related model must be loaded explicitly.
             $submitter = $submission->submitted_by
@@ -218,26 +212,29 @@ class DocumentGenerationService
             $submitterProfile = $submitter?->profile()->first();
             $submitterOrganization = OrganizationField::resolveOrganization($submitter);
 
-            $body = app(\App\Forms\PdfTemplateRenderer::class)->render(
-                $templateHtml,
+            $templateData = app(\App\Forms\DocxTemplateData::class)->build(
                 (array) $submission->payload,
                 $fields,
-                $disk,
                 $submitterProfile,
                 $submitterOrganization,
+                $disk,
             );
 
-            $html = view('documents.form-template-pdf', [
-                'form' => $form,
-                'body' => $body,
-                'page' => $page,
-                'font' => (array) ($pdfTemplate['font'] ?? []),
-                'header' => (array) ($pdfTemplate['header'] ?? []),
-                'footer' => (array) ($pdfTemplate['footer'] ?? []),
-            ])->render();
+            $docxService = app(\App\Services\DocxTemplateService::class);
+            $populatedDocxPath = $docxService->populate(
+                $printTemplate,
+                $templateData['values'],
+                $templateData['images'],
+            );
 
-            $pdf = Pdf::loadHTML($html)->setPaper($size, $orientation);
-            Storage::disk($disk)->put($generatedPdfRelativePath, $pdf->output());
+            try {
+                $pdfAbsolutePath = $docxService->toPdf($populatedDocxPath);
+                Storage::disk($disk)->put($generatedPdfRelativePath, File::get($pdfAbsolutePath));
+            } finally {
+                // Both the populated .docx and its PDF live in the same scratch
+                // directory; the stored copy above is the one that survives.
+                File::deleteDirectory(dirname($populatedDocxPath));
+            }
 
             // Recognition forms attach the org's approved workplan PDF, if any.
             $workplanPdfAbsPath = $this->findWorkplanApprovedPdf((array) $submission->payload, $disk);
@@ -254,7 +251,8 @@ class DocumentGenerationService
 
             $generatedDocument = GeneratedDocument::query()->create([
                 'form_submission_id' => (int) $submission->getKey(),
-                'template_id' => null,
+                // Now traceable: the .docx revision this PDF was printed from.
+                'template_id' => (int) $printTemplate->getKey(),
                 'request_id' => $requestId,
                 'document_id' => (int) $document->getKey(),
                 'generated_by' => $generatedByUserId,

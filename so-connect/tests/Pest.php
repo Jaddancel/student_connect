@@ -166,3 +166,57 @@ function recordsOrganization(string $name, ?string $initials = null): \App\Model
         'organization_type' => 1,
     ]);
 }
+
+/**
+ * Write a sample .docx form template covering every placeholder shape the
+ * populator handles: plain, repeating-in-a-table, repeating-outside-a-table,
+ * PhpWord's legacy `${…}` syntax, and one with no data behind it.
+ */
+function makeDocxTemplate(string $path): string
+{
+    \Illuminate\Support\Facades\File::ensureDirectoryExists(dirname($path));
+
+    $phpWord = new \PhpOffice\PhpWord\PhpWord;
+    $section = $phpWord->addSection();
+
+    $section->addText('{{organization_name}} Attendance Sheet', ['bold' => true, 'size' => 16]);
+    $section->addText('Event: {{event_title}}');
+    $section->addText('Date: {{event_date}}');
+    $section->addText('Adviser: ${adviser_name}');
+    $section->addText('Notes: {{notes#}}');
+    $section->addText('Unmapped: {{unused_field}}');
+
+    $table = $section->addTable(['borderSize' => 6, 'borderColor' => '999999']);
+    $table->addRow();
+    $table->addCell(5000)->addText('Name', ['bold' => true]);
+    $table->addCell(4000)->addText('Course', ['bold' => true]);
+    $table->addRow();
+    $table->addCell(5000)->addText('{{attendee_name#}}');
+    $table->addCell(4000)->addText('{{attendee_course#}}');
+
+    \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+    return $path;
+}
+
+/**
+ * Visible text of a .docx. Runs are joined per paragraph so values that Word
+ * (or PhpWord) split across several <w:t> nodes read back as one string.
+ */
+function docxText(string $path): string
+{
+    $zip = new ZipArchive;
+
+    if ($zip->open($path) !== true) {
+        throw new RuntimeException('Unable to open .docx: '.$path);
+    }
+
+    $xml = (string) $zip->getFromName('word/document.xml');
+    $zip->close();
+
+    $xml = preg_replace('/<w:br\s*\/>/', "\n", $xml) ?? $xml;
+    $xml = preg_replace('/<\/w:tc\s*>/', ' | ', $xml) ?? $xml;
+    $xml = preg_replace('/<\/w:(p|tr)\s*>/', "\n", $xml) ?? $xml;
+
+    return html_entity_decode(strip_tags($xml), ENT_QUOTES | ENT_XML1, 'UTF-8');
+}

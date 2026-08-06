@@ -451,9 +451,8 @@
 
         {{-- ===================== STEP 2: PRINTED PDF TEMPLATE ===================== --}}
         <div x-show="step === 2" x-cloak>
-            <x-form-builder.pdf-template
-                :exportUrl="route('admin.form-builder.template.export-docx')"
-                :importUrl="route('admin.form-builder.template.import-docx')" />
+            <x-form-builder.onlyoffice-template
+                :configUrl="$form ? route('admin.form-builder.printed-template.config', $form) : null" />
         </div>
 
         {{-- ========================= STEP 3: META DETAILS ========================= --}}
@@ -516,14 +515,20 @@
                         </div>
                     @endif
 
-                    {{-- Forms publish on save — no draft/sidebar-targeting config. --}}
-                    <p class="rounded-lg px-3 py-2 text-xs font-medium"
-                        :class="hasTemplate
-                            ? 'bg-success-50 text-success-600 dark:bg-success-500/10 dark:text-success-500'
-                            : 'bg-warning-50 text-warning-600 dark:bg-warning-500/10 dark:text-orange-400'"
-                        x-text="hasTemplate
-                            ? 'Saving publishes this form to officers immediately.'
-                            : 'This form goes live to officers once it has a printed template (Step 2).'"></p>
+                    {{-- Forms publish on save — no draft/sidebar-targeting config.
+                         Every saved form now has a printed template: it is created
+                         (or migrated from the old rich-text one) the first time
+                         Step 2 is opened, so readiness is simply "has it been
+                         saved yet", which is a server-side fact. --}}
+                    @if ($form)
+                        <p class="rounded-lg bg-success-50 px-3 py-2 text-xs font-medium text-success-600 dark:bg-success-500/10 dark:text-success-500">
+                            Saving publishes this form to officers immediately.
+                        </p>
+                    @else
+                        <p class="rounded-lg bg-warning-50 px-3 py-2 text-xs font-medium text-warning-600 dark:bg-warning-500/10 dark:text-orange-400">
+                            Save this form first — its printed template is created once the form exists (Step 2).
+                        </p>
+                    @endif
                 </div>
             </div>
         </div>

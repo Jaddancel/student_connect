@@ -2,24 +2,109 @@
 
 namespace App\Services;
 
+use App\Helpers\FormTemplateHelper;
+use App\Models\Template as FormTemplate;
+use App\Support\DocxTemplateProcessor;
 use App\Support\UniversalField;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use PhpOffice\PhpWord\TemplateProcessor;
 use RuntimeException;
-use Symfony\Component\Process\Process;
 
 /**
  * Bridges the printed-PDF template between its stored form (rich-text HTML with
- * field-token spans) and Word `.docx` for interchange.
+ * field-token spans) and Word `.docx` for interchange, and populates uploaded
+ * `.docx` form templates with submission data.
  *
  * Tokens cross the boundary as human-editable `{{field_key}}` text placeholders:
  * export turns `<span data-field="k">` into `{{k}}`; import maps `{{k}}`/`${k}`
  * back into token chips. Conversion prefers LibreOffice headless for fidelity and
  * falls back to PhpWord when the binary is unavailable.
+ *
+ * {@see populate()} is the deterministic counterpart: it merges data into a
+ * template uploaded through the template manager, using the same `{{key}}`
+ * convention that {@see FormTemplateHelper::extractPlaceholdersFromDocx()}
+ * discovers at verify time.
  */
 class DocxTemplateService
 {
+    /** A trailing `#` marks a placeholder whose row/value repeats per data item. */
+    private const REPEAT_MARKER = '#';
+
+    public function __construct(private readonly DocxConverter $converter) {}
+
+    /**
+     * Merge `$data` into the template's uploaded `.docx` and return the absolute
+     * path of the generated file (written to a scratch directory — the caller
+     * decides whether to persist it).
+     *
+     * Placeholders follow the `{{field_key}}` convention; PhpWord's native
+     * `${field_key}` is resolved too. A placeholder ending in `#` repeats: if it
+     * sits in a table row the row is cloned once per value, otherwise the values
+     * are joined into one multi-line run.
+     *
+     * @param  array<string, mixed>  $data  field_key => value (keys are normalized)
+     * @param  array<string, string>  $images  field_key => absolute image path
+     */
+    public function populate(FormTemplate $template, array $data, array $images = []): string
+    {
+        $disk = (string) config('documents.disk', 'public');
+        $relativePath = (string) ($template->docx_path ?? '');
+
+        if ($relativePath === '' || ! Storage::disk($disk)->exists($relativePath)) {
+            throw new RuntimeException('Template #'.$template->getKey().' has no .docx file on disk.');
+        }
+
+        // The subclass fixes the delimiters before PhpWord's constructor repairs
+        // placeholders Word split across XML runs — see DocxTemplateProcessor.
+        $processor = new DocxTemplateProcessor(Storage::disk($disk)->path($relativePath));
+        $values = $this->normalizeData($data);
+
+        $pictures = $this->normalizeData($images);
+
+        try {
+            $this->fillRepeating($processor, $values);
+            $this->fillImages($processor, $pictures);
+            $this->fillRemaining($processor, $values);
+
+            // Second pass for templates authored against PhpWord's own syntax.
+            $processor->useMacroChars(
+                DocxTemplateProcessor::LEGACY_OPENING,
+                DocxTemplateProcessor::LEGACY_CLOSING,
+            );
+            $this->fillRepeating($processor, $values);
+            $this->fillImages($processor, $pictures);
+            $this->fillRemaining($processor, $values);
+        } finally {
+            DocxTemplateProcessor::resetMacroChars();
+        }
+
+        $outputPath = $this->tempDir().'/'.$this->outputBasename($template).'.docx';
+        $processor->saveAs($outputPath);
+
+        if (! is_file($outputPath)) {
+            throw new RuntimeException('Failed to write the populated .docx file.');
+        }
+
+        return $outputPath;
+    }
+
+    /**
+     * Convert a generated `.docx` to PDF; returns the absolute path of the PDF.
+     */
+    public function toPdf(string $docxPath): string
+    {
+        $pdfPath = $this->converter->convert($docxPath, 'pdf', dirname($docxPath));
+
+        if ($pdfPath === null) {
+            throw new RuntimeException('Could not convert the document to PDF — no converter is available.');
+        }
+
+        return $pdfPath;
+    }
+
     /**
      * Convert template HTML to a .docx file; returns the absolute temp path.
      * Field tokens are first flattened to `{{field_key}}` placeholders.
@@ -149,33 +234,202 @@ class DocxTemplateService
     }
 
     /**
-     * Run LibreOffice headless conversion; returns the output path or null if the
-     * binary is unavailable / the conversion failed.
+     * Run LibreOffice conversion (warm sidecar, else the local binary); returns
+     * the output path or null when no converter could produce a file.
      */
     private function libreConvert(string $inputPath, string $toFormat, string $outDir): ?string
     {
-        $binary = (string) config('documents.libreoffice.binary', 'soffice');
-        $timeout = max((int) config('documents.libreoffice.timeout', 120), 30);
+        return $this->converter->convert($inputPath, $toFormat, $outDir);
+    }
 
-        $process = new Process([
-            $binary, '--headless', '--convert-to', $toFormat,
-            '--outdir', $outDir, $inputPath,
-        ]);
-        $process->setTimeout($timeout);
+    /**
+     * Clone/repeat every `{{key#}}` placeholder, then resolve the indexed
+     * placeholders that cloning leaves behind.
+     *
+     * @param  array<string, mixed>  $values
+     */
+    private function fillRepeating(TemplateProcessor $processor, array $values): void
+    {
+        foreach ($processor->getVariables() as $variable) {
+            if (! str_ends_with($variable, self::REPEAT_MARKER)) {
+                continue;
+            }
 
-        try {
-            $process->run();
-        } catch (\Throwable $e) {
-            return null;
+            // Cloning a row consumes every placeholder in it, so a repeating
+            // sibling column may already be gone by the time we reach it.
+            if (! in_array($variable, $processor->getVariables(), true)) {
+                continue;
+            }
+
+            $rows = $this->listValues($values[$this->keyFor($variable)] ?? null);
+
+            try {
+                $processor->cloneRow($variable, max(count($rows), 1));
+            } catch (\Throwable) {
+                // Not inside a table — emit the values as one multi-line run.
+                $processor->setValue($variable, $this->xmlValue(implode("\n", $rows)));
+            }
         }
 
-        if (! $process->isSuccessful()) {
-            return null;
+        $this->fillIndexed($processor, $values);
+    }
+
+    /**
+     * Resolve the `key##N` / `key#N` placeholders produced by cloneRow.
+     *
+     * @param  array<string, mixed>  $values
+     */
+    private function fillIndexed(TemplateProcessor $processor, array $values): void
+    {
+        foreach ($processor->getVariables() as $variable) {
+            // `key##N` — a repeating placeholder that cloneRow indexed.
+            // `key#N`  — a plain placeholder that happened to sit in a cloned row.
+            if (preg_match('/^(.+)##(\d+)$/', $variable, $matches)) {
+                $isRepeating = true;
+            } elseif (preg_match('/^(.+)#(\d+)$/', $variable, $matches)) {
+                $isRepeating = false;
+            } else {
+                continue;
+            }
+
+            $value = $values[$this->keyFor($matches[1])] ?? null;
+            $index = (int) $matches[2] - 1;
+
+            if ($isRepeating || is_array($value)) {
+                $resolved = $this->listValues($value)[$index] ?? '';
+            } else {
+                // A non-repeating field repeats its single value down the rows.
+                $resolved = $this->scalarize($value);
+            }
+
+            $processor->setValue($variable, $this->xmlValue($resolved));
+        }
+    }
+
+    /**
+     * Swap picture placeholders for the actual images. Runs before
+     * {@see fillRemaining()}, which would otherwise blank them as text.
+     *
+     * @param  array<string, string>  $images  normalized key => absolute path
+     */
+    private function fillImages(TemplateProcessor $processor, array $images): void
+    {
+        if ($images === []) {
+            return;
         }
 
-        $expected = $outDir.'/'.pathinfo($inputPath, PATHINFO_FILENAME).'.'.$toFormat;
+        foreach ($processor->getVariables() as $variable) {
+            $path = $images[$this->keyFor($variable)] ?? null;
 
-        return is_file($expected) ? $expected : null;
+            if ($path === null || ! is_file($path)) {
+                continue;
+            }
+
+            // Bounded rather than fixed: a signature scan and an event photo
+            // want very different sizes, and 'true' keeps the aspect ratio.
+            $processor->setImageValue($variable, [
+                'path' => $path,
+                'width' => 200,
+                'height' => 120,
+                'ratio' => true,
+            ]);
+        }
+    }
+
+    /**
+     * Set every placeholder still standing, blanking those with no data so the
+     * generated document never ships raw `{{key}}` text.
+     *
+     * @param  array<string, mixed>  $values
+     */
+    private function fillRemaining(TemplateProcessor $processor, array $values): void
+    {
+        foreach ($processor->getVariables() as $variable) {
+            $processor->setValue(
+                $variable,
+                $this->xmlValue($this->scalarize($values[$this->keyFor($variable)] ?? null)),
+            );
+        }
+    }
+
+    /**
+     * Re-key caller data so lookups match however the placeholder was written.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function normalizeData(array $data): array
+    {
+        $normalized = [];
+
+        foreach ($data as $key => $value) {
+            $normalized[FormTemplateHelper::normalizeFieldKey((string) $key)] = $value;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * The data key a placeholder resolves against (repeat marker stripped).
+     */
+    private function keyFor(string $variable): string
+    {
+        return FormTemplateHelper::normalizeFieldKey(rtrim($variable, self::REPEAT_MARKER));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function listValues(mixed $value): array
+    {
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        return array_values(array_map(
+            fn ($item) => $this->scalarize($item),
+            is_array($value) ? $value : [$value],
+        ));
+    }
+
+    /**
+     * Flatten a field value to the text that belongs in the document.
+     */
+    private function scalarize(mixed $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'Yes' : 'No';
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('F j, Y');
+        }
+
+        if (is_array($value)) {
+            return implode(', ', array_map(fn ($item) => $this->scalarize($item), $value));
+        }
+
+        return (string) $value;
+    }
+
+    /**
+     * Escape for WordprocessingML. Newlines are left intact — PhpWord turns them
+     * into `<w:br/>` when the value is applied.
+     */
+    private function xmlValue(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_XML1, 'UTF-8');
+    }
+
+    private function outputBasename(FormTemplate $template): string
+    {
+        $slug = Str::slug((string) ($template->template_name ?? 'template'));
+
+        return ($slug !== '' ? $slug : 'template').'-v'.(int) ($template->version ?? 1);
     }
 
     /**

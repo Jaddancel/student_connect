@@ -85,7 +85,6 @@ it('blocks non-admins from the builder', function () {
 
     $this->actingAs($superAdmin)->get(route('admin.form-builder.index'))->assertForbidden();
     $this->actingAs($superAdmin)->get(route('admin.form-builder.create'))->assertForbidden();
-    $this->actingAs($superAdmin)->get(route('admin.templates.index'))->assertForbidden();
 });
 
 it('stores a form with layout and fields', function () {

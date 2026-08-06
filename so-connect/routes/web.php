@@ -15,7 +15,6 @@ use App\Http\Controllers\Admin\OrganizationScoringController;
 use App\Http\Controllers\Admin\ProjectRequestController;
 use App\Http\Controllers\Admin\RecognitionRequestController;
 use App\Http\Controllers\Admin\SemesterController;
-use App\Http\Controllers\Admin\TemplateManagerController;
 use App\Http\Controllers\Admin\WorkplanRequestController;
 use App\Http\Controllers\Auth\GoogleLinkController;
 use App\Http\Controllers\Auth\InvitationController;
@@ -510,20 +509,22 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::delete('/admin/form-builder/{form}', [FormBuilderController::class, 'destroy'])
         ->name('admin.form-builder.destroy');
 
-    Route::get('/admin/templates', [TemplateManagerController::class, 'index'])
-        ->name('admin.templates.index');
-    Route::get('/admin/templates/{form}/upload', [TemplateManagerController::class, 'showUpload'])
-        ->name('admin.templates.upload');
-    Route::post('/admin/templates/{form}/upload', [TemplateManagerController::class, 'storeUpload'])
-        ->name('admin.templates.store');
-    Route::get('/admin/templates/{template}/verify', [TemplateManagerController::class, 'showVerify'])
-        ->name('admin.templates.verify');
-    Route::post('/admin/templates/{template}/confirm', [TemplateManagerController::class, 'confirm'])
-        ->name('admin.templates.confirm');
-    Route::delete('/admin/templates/{template}', [TemplateManagerController::class, 'destroy'])
-        ->name('admin.templates.destroy');
-    Route::get('/admin/templates/field-reference', [TemplateManagerController::class, 'fieldReference'])
-        ->name('admin.templates.field-reference');
+    // Editor bootstrap for the form builder's "Printed template" step. Session
+    // authenticated, unlike the /onlyoffice/* routes below.
+    Route::get('/admin/form-builder/{form}/printed-template/config',
+        [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'config'])
+        ->name('admin.form-builder.printed-template.config');
+
+    // The upload / verify / activate pages are gone: printed templates are now
+    // authored in the form builder's Step 2 editor and created automatically
+    // per form, so there is nothing left to upload or hand-map.
+    // Populate a printed template's .docx from posted field data (docx or pdf
+    // back). Kept in the session-authenticated web group rather than under
+    // /api — there is no stateless API guard configured, so an /api route
+    // would be unauthenticated.
+    Route::post('/admin/templates/{template}/generate',
+        [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'generate'])
+        ->name('admin.templates.generate');
 });
 
 Route::get('/superadmin/profile-requests', [SuperAdminController::class, 'profileRequests'])
@@ -1087,3 +1088,32 @@ Route::post('/id-scan', [IdScanController::class, 'scan'])->name('id-scan.scan')
 // because each call occupies the single local GPU for several seconds.
 Route::post('/assistant/chat', [\App\Http\Controllers\AssistantController::class, 'chat'])
     ->middleware(['auth', 'throttle:20,1'])->name('assistant.chat');
+
+// ── OnlyOffice Document Server callbacks ────────────────────────────────────
+// Deliberately outside the session-authenticated area: the callers are the
+// Document Server (fetching and saving the .docx server-side) and the token
+// palette running inside the editor's iframe — neither carries the admin's
+// session cookie. Each request instead presents a short-lived HS256 token
+// scoped to one template and one purpose, verified in the controller.
+//
+// The web group's session/CSRF/hardening middleware is stripped: CSRF would
+// reject the server's POST, and SecurityHeaders' SAMEORIGIN + frame-ancestors
+// would stop the Document Server framing the palette.
+Route::prefix('onlyoffice/{form}')
+    ->withoutMiddleware([
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        \App\Http\Middleware\SecurityHeaders::class,
+        \App\Http\Middleware\EnsurePasswordChanged::class,
+        \App\Http\Middleware\EnsureOrganizationAccredited::class,
+        \App\Http\Middleware\PreventBackHistory::class,
+    ])
+    ->group(function () {
+        Route::get('/document', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'document'])
+            ->name('onlyoffice.document');
+        Route::post('/callback', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'callback'])
+            ->name('onlyoffice.callback');
+        Route::get('/plugin.json', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'pluginConfig'])
+            ->name('onlyoffice.plugin-config');
+        Route::get('/plugin', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'plugin'])
+            ->name('onlyoffice.plugin');
+    });

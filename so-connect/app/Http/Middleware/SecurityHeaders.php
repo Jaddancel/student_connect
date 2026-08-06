@@ -39,18 +39,25 @@ class SecurityHeaders
 
         $cdn = implode(' ', self::CDN_HOSTS);
 
-        $csp = implode('; ', [
+        // The form builder's printed-template step loads the OnlyOffice editor
+        // bundle and frames the editor, both from the Document Server's origin.
+        // A different port is a different origin, so 'self' does not cover it
+        // and the editor would be blocked outright.
+        $editor = $this->editorOrigin();
+
+        $csp = implode('; ', array_filter([
             "default-src 'self'",
             "base-uri 'self'",
             "object-src 'none'",
             "frame-ancestors 'self'",
             "form-action 'self'",
-            "img-src 'self' data: blob: {$cdn}",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' {$cdn}",
-            "style-src 'self' 'unsafe-inline' {$cdn}",
-            "font-src 'self' data: {$cdn}",
-            "connect-src 'self' {$cdn}",
-        ]);
+            "img-src 'self' data: blob: {$cdn} {$editor}",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' {$cdn} {$editor}",
+            "style-src 'self' 'unsafe-inline' {$cdn} {$editor}",
+            "font-src 'self' data: {$cdn} {$editor}",
+            "connect-src 'self' {$cdn} {$editor}",
+            $editor !== '' ? "frame-src 'self' {$editor}" : null,
+        ]));
 
         $response->headers->set('Content-Security-Policy', $csp);
         $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
@@ -64,5 +71,26 @@ class SecurityHeaders
         header_remove('X-Powered-By');
 
         return $response;
+    }
+
+    /**
+     * Scheme+host+port of the OnlyOffice Document Server, or '' when the
+     * editor is not configured (in which case the policy stays as it was).
+     */
+    private function editorOrigin(): string
+    {
+        $url = trim((string) config('onlyoffice.public_url', ''));
+
+        if ($url === '') {
+            return '';
+        }
+
+        $parts = parse_url($url);
+
+        if (! is_array($parts) || ! isset($parts['scheme'], $parts['host'])) {
+            return '';
+        }
+
+        return $parts['scheme'].'://'.$parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '');
     }
 }
