@@ -58,6 +58,19 @@ class Semester extends Model
     }
 
     /**
+     * Returns true if today falls within this semester's own running period
+     * (starts_at through the day before the next semester starts, or open-ended
+     * if this is the latest semester).
+     */
+    public function isCurrentPeriod(): bool
+    {
+        $today = Carbon::today();
+        $end = $this->endsAt();
+
+        return $today->gte($this->starts_at) && ($end === null || $today->lte($end));
+    }
+
+    /**
      * The end of this semester's event-plan date range:
      * the day before the next semester starts, or null if this is the last semester.
      */

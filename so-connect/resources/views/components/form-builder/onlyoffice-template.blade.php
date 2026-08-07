@@ -1,4 +1,4 @@
-@props(['configUrl' => null])
+@props(['configUrl' => null, 'importUrl' => null])
 
 {{--
     Wizard Step 2 — the printed template, edited in OnlyOffice.
@@ -29,17 +29,82 @@
         @else
             <div x-data="{
                     configUrl: '{{ $configUrl }}',
+                    importUrl: '{{ $importUrl }}',
+                    csrf: '{{ csrf_token() }}',
+                    editor: null,
                     mounted: false,
                     loading: false,
+                    importing: false,
                     error: '',
+                    importError: '',
                     saved: true,
+                    // OnlyOffice is unusable on a phone-sized screen; Step 2 shows
+                    // a notice instead and never boots the editor there. Tablets
+                    // and up (≥768px) get the editor.
+                    isMobile: window.matchMedia('(max-width: 767px)').matches,
 
                     start() {
-                        if (this.mounted) return;
+                        if (this.mounted || this.isMobile) return;
                         this.mounted = true;
                         this.loading = true;
                         this.boot().catch((e) => { this.error = e.message || String(e); })
                                    .finally(() => { this.loading = false; });
+                    },
+
+                    // Tear the editor down (e.g. when the viewport shrinks to
+                    // phone size) so it can be re-booted cleanly later.
+                    teardown() {
+                        if (this.editor && typeof this.editor.destroyEditor === 'function') {
+                            this.editor.destroyEditor();
+                        }
+                        this.editor = null;
+                        this.mounted = false;
+                    },
+
+                    // Replace the open document with an uploaded .docx. Only
+                    // enabled once the editor reports 'all changes saved', so it
+                    // has no pending edits to lose. On success the revision is
+                    // bumped server-side (new document key), so tearing the
+                    // editor down and re-booting loads the uploaded content. On
+                    // failure the live editor is left untouched.
+                    async importDocx(event) {
+                        const input = event.target;
+                        const file = input.files && input.files[0];
+                        input.value = '';
+                        if (!file || this.importing || !this.importUrl) return;
+
+                        this.importing = true;
+                        this.importError = '';
+
+                        try {
+                            const body = new FormData();
+                            body.append('docx', file);
+                            const response = await fetch(this.importUrl, {
+                                method: 'POST',
+                                headers: { 'X-CSRF-TOKEN': this.csrf, 'Accept': 'application/json' },
+                                credentials: 'same-origin',
+                                body,
+                            });
+                            const data = await response.json().catch(() => ({}));
+                            if (!response.ok || !data.ok) {
+                                throw new Error(data.message
+                                    || (data.errors && data.errors.docx && data.errors.docx[0])
+                                    || 'Could not import this document.');
+                            }
+
+                            if (this.editor && typeof this.editor.destroyEditor === 'function') {
+                                this.editor.destroyEditor();
+                                this.editor = null;
+                            }
+                            this.mounted = false;
+                            this.saved = true;
+                            this.error = '';
+                            this.start();
+                        } catch (e) {
+                            this.importError = e.message || String(e);
+                        } finally {
+                            this.importing = false;
+                        }
                     },
 
                     async boot() {
@@ -59,7 +124,7 @@
                             throw new Error('The editor script loaded but DocsAPI is missing.');
                         }
 
-                        new window.DocsAPI.DocEditor('onlyoffice-surface', Object.assign({}, data.config, {
+                        this.editor = new window.DocsAPI.DocEditor('onlyoffice-surface', Object.assign({}, data.config, {
                             width: '100%',
                             height: '100%',
                             events: {
@@ -88,21 +153,72 @@
                         });
                     },
                 }"
-                x-init="$watch('step', (value) => { if (value === 2) start(); }); if (step === 2) start();"
+                x-init="
+                    const syncNav = (value) => {
+                        if (!$store.sidebar) return;
+                        // Give the editor room on Step 2; restore the viewport
+                        // default (mini rail below 1280px) on the way out.
+                        $store.sidebar.isExpanded = value === 2 ? false : window.innerWidth >= 1280;
+                    };
+                    $watch('step', (value) => { syncNav(value); if (value === 2) start(); });
+                    if (step === 2) { syncNav(2); start(); }
+                    // Crossing the phone/tablet boundary swaps the editor for the
+                    // notice (and back) without leaving a stale editor behind.
+                    window.matchMedia('(max-width: 767px)').addEventListener('change', (e) => {
+                        isMobile = e.matches;
+                        if (isMobile) teardown();
+                        else if (step === 2) start();
+                    });
+                "
                 class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03]">
 
-                <div class="mb-3 flex items-center justify-between gap-3">
+                <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Printed template</h3>
                         <p class="text-xs text-gray-400">
                             Insert form fields from the <span class="font-medium">Field tokens</span> panel
-                            inside the editor. Changes save automatically.
+                            inside the editor. Changes save automatically; to download or print, use the
+                            editor's <span class="font-medium">File</span> menu.
+                        </p>
+                        <p class="mt-1 text-xs text-red-600 dark:text-red-400" x-show="importError" x-cloak x-text="importError"></p>
+                    </div>
+                    <div class="flex shrink-0 items-center gap-3" x-show="!isMobile" x-cloak>
+                        @if ($importUrl !== null)
+                            <input type="file" x-ref="docxInput" accept=".docx"
+                                   class="hidden" @change="importDocx($event)">
+                            <button type="button"
+                                    @click="$refs.docxInput.click()"
+                                    :disabled="!saved || loading || importing || !mounted"
+                                    class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-brand-400 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
+                                    title="Replace this template with an uploaded Word document">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                                <span x-text="importing ? 'Uploading…' : 'Upload .docx'"></span>
+                            </button>
+                        @endif
+                        <span class="text-xs" x-show="!loading && !error"
+                              :class="saved ? 'text-gray-400' : 'text-amber-600'"
+                              x-text="saved ? 'All changes saved' : 'Saving…'"></span>
+                    </div>
+                </div>
+
+                <template x-if="isMobile && !error">
+                    <div x-cloak class="rounded-xl border border-amber-200 bg-amber-50 p-8 text-center dark:border-amber-900/50 dark:bg-amber-950/30">
+                        <svg class="mx-auto h-10 w-10 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                            <line x1="8" y1="21" x2="16" y2="21"></line>
+                            <line x1="12" y1="17" x2="12" y2="21"></line>
+                        </svg>
+                        <h4 class="mt-3 text-sm font-semibold text-amber-800 dark:text-amber-200">Larger screen required</h4>
+                        <p class="mx-auto mt-1 max-w-sm text-xs text-amber-700 dark:text-amber-300">
+                            The printed-template editor is only available on desktop and tablet devices.
+                            Open this form on a wider screen to design its printed output.
                         </p>
                     </div>
-                    <span class="shrink-0 text-xs" x-show="!loading && !error"
-                          :class="saved ? 'text-gray-400' : 'text-amber-600'"
-                          x-text="saved ? 'All changes saved' : 'Saving…'"></span>
-                </div>
+                </template>
 
                 <template x-if="loading">
                     <p class="py-10 text-center text-xs text-gray-400">Loading the document editor…</p>
@@ -119,8 +235,8 @@
                     </div>
                 </template>
 
-                <div x-show="!error" class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800"
-                     style="height: calc(100vh - 20rem); min-height: 520px;">
+                <div x-show="!error && !isMobile" class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800"
+                     style="height: calc(100vh - 13rem); min-height: 640px;">
                     <div id="onlyoffice-surface" class="h-full w-full"></div>
                 </div>
             </div>

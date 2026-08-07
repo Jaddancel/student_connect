@@ -9,6 +9,12 @@
     The form's tokens are baked in at render time rather than fetched, which is
     what lets a single generic plugin know which form it is editing — the
     plugin URL is minted per form in FormPrintTemplateController.
+
+    The panel deliberately mirrors the form builder's own field palette: a
+    field-type icon + label, the {{key}} it inserts, and category sections
+    (Basic / Choice / Media, then Profile / Organization). It stays a narrow
+    single column because the panel is docked at 320px and each row also shows
+    the token text.
 --}}
 <!DOCTYPE html>
 <html lang="en">
@@ -19,35 +25,77 @@
     <script type="text/javascript" src="{{ $sdkBase }}/sdkjs-plugins/v1/plugins.js"></script>
     <script type="text/javascript" src="{{ $sdkBase }}/sdkjs-plugins/v1/plugins-ui.js"></script>
     <style>
+        /* Mirrors the form builder's palette (green brand accent, rounded card
+           rows, icon column). Kept self-contained: this page can't reach Vite,
+           Tailwind or the app's CSS variables. */
+        :root {
+            --brand-50: #dcfce7;
+            --brand-500: #16a34a;
+            --brand-400: #22c55e;
+            --ink: #1f2430;
+            --muted: #8b93a3;
+            --line: #e3e6ec;
+        }
         * { box-sizing: border-box; }
+        /* Fill the docked panel exactly and confine scrolling to the list, so
+           the hint + search stay pinned while a long field list scrolls on its
+           own. The panel iframe clips overflow, so the body must NOT grow past
+           it — it lays its children out as a flex column instead. OnlyOffice
+           draws the panel's own title bar (with the plugin name + close) around
+           this iframe, so this page adds none of its own. */
+        html, body { height: 100%; }
         body {
             margin: 0;
             padding: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
             font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            color: #1f2430;
+            color: var(--ink);
             background: #fff;
         }
-        .hint { margin: 0 0 10px; color: #6b7280; font-size: 12px; }
+        .hint { flex: 0 0 auto; margin: 0 0 10px; color: #6b7280; font-size: 12px; }
         .search {
-            width: 100%; padding: 7px 9px; margin-bottom: 12px;
-            border: 1px solid #d5d9e0; border-radius: 6px; font-size: 13px;
+            flex: 0 0 auto;
+            width: 100%; padding: 7px 9px 7px 30px; margin-bottom: 12px;
+            border: 1px solid #d5d9e0; border-radius: 8px; font-size: 13px;
+            background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238b93a3' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") no-repeat 8px 50%;
         }
-        .search:focus { outline: none; border-color: #4f7df3; }
+        .search:focus { outline: none; border-color: var(--brand-400); box-shadow: 0 0 0 3px rgba(34, 197, 94, .15); }
+        /* Only the list scrolls. min-height:0 lets this flex child shrink below
+           its content height — without it the child refuses to scroll and the
+           overflow is clipped by the body instead. The negative margins let the
+           scrollbar sit at the panel edge while rows keep their 12px inset. */
+        #list { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0 -12px; padding: 0 12px; }
         .group { margin-bottom: 14px; }
         .group h2 {
             margin: 0 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase;
-            letter-spacing: .04em; color: #8b93a3;
+            letter-spacing: .04em; color: var(--muted);
         }
         .token {
-            display: block; width: 100%; margin-bottom: 4px; padding: 7px 9px;
-            text-align: left; background: #fff; border: 1px solid #e3e6ec;
-            border-radius: 6px; cursor: pointer; font: inherit;
+            display: flex; align-items: center; gap: 9px; width: 100%;
+            margin-bottom: 5px; padding: 8px 9px; text-align: left;
+            background: #fff; border: 1px solid var(--line);
+            border-radius: 9px; cursor: pointer; font: inherit; color: var(--ink);
+            transition: border-color .12s, background-color .12s;
         }
-        .token:hover { border-color: #4f7df3; background: #f3f6fe; }
-        .token .label { display: block; font-weight: 500; }
-        .token .key { display: block; font-family: ui-monospace, Menlo, Consolas, monospace;
-                      font-size: 11px; color: #8b93a3; }
-        .empty { color: #8b93a3; font-size: 12px; }
+        .token:hover { border-color: var(--brand-400); background: var(--brand-50); }
+        .token:focus-visible { outline: none; border-color: var(--brand-400); box-shadow: 0 0 0 3px rgba(34, 197, 94, .18); }
+        .token .icon {
+            flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+            width: 26px; height: 26px; border-radius: 7px;
+            background: var(--brand-50); color: var(--brand-500);
+        }
+        .token:hover .icon { background: #fff; }
+        .token .icon svg { display: block; }
+        .token .text { min-width: 0; }
+        .token .label { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .token .key {
+            display: block; font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 11px; color: var(--muted);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .empty { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
     </style>
 </head>
 <body>
@@ -65,6 +113,31 @@
             var list = document.getElementById('list');
             var empty = document.getElementById('empty');
             var search = document.getElementById('search');
+
+            // Trusted, static SVG bodies keyed by the FieldType icon name the
+            // server sends. Icons come ONLY from this map (never from token
+            // data), so label/key stay rendered via textContent — XSS-safe.
+            var ICON_BODY = {
+                text:      '<path d="M5 6V5h14v1M12 5v14M9 19h6"/>',
+                paragraph: '<line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/>',
+                number:    '<line x1="10" y1="4" x2="8" y2="20"/><line x1="16" y1="4" x2="14" y2="20"/><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/>',
+                age:       '<line x1="10" y1="4" x2="8" y2="20"/><line x1="16" y1="4" x2="14" y2="20"/><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/>',
+                email:     '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+                date:      '<rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/>',
+                select:    '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M9 11l3 3 3-3"/>',
+                radio:     '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.4" fill="currentColor" stroke="none"/>',
+                checkbox:  '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12.5l2.4 2.4 4.6-5"/>',
+                signature: '<path d="M3 17c3 0 3-8 6-8s3 8 6 8 3-4 6-4"/>',
+                image:     '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5-8 8"/>',
+                file:      '<path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/>'
+            };
+            var ICON_DEFAULT = '<rect x="4" y="4" width="16" height="16" rx="4"/>';
+
+            function iconSvg(name) {
+                var body = ICON_BODY[name] || ICON_DEFAULT;
+                return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"'
+                    + ' stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + body + '</svg>';
+            }
 
             // Built by concatenation so the braces are never mistaken for a
             // template expression by anything processing this file.
@@ -106,6 +179,15 @@
                         button.type = 'button';
                         button.className = 'token';
 
+                        var icon = document.createElement('span');
+                        icon.className = 'icon';
+                        // Trusted static markup (see ICON_BODY); token.icon is
+                        // only ever used as a lookup key.
+                        icon.innerHTML = iconSvg(token.icon);
+
+                        var text = document.createElement('span');
+                        text.className = 'text';
+
                         var label = document.createElement('span');
                         label.className = 'label';
                         label.textContent = token.label;
@@ -114,8 +196,10 @@
                         key.className = 'key';
                         key.textContent = placeholder(token.key);
 
-                        button.appendChild(label);
-                        button.appendChild(key);
+                        text.appendChild(label);
+                        text.appendChild(key);
+                        button.appendChild(icon);
+                        button.appendChild(text);
                         button.addEventListener('click', function () {
                             insert(token.key);
                         });

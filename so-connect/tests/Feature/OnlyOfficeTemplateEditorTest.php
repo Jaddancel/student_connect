@@ -5,8 +5,17 @@ use App\Models\Template;
 use App\Services\FormPrintTemplateService;
 use App\Services\OnlyOfficeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+
+/** Pull the palette's baked-in token JSON out of the rendered plugin page. */
+function paletteTokens(string $html): array
+{
+    preg_match('~<script id="token-data" type="application/json">(.*?)</script>~s', $html, $m);
+
+    return json_decode($m[1] ?? '[]', true) ?: [];
+}
 
 uses(RefreshDatabase::class);
 
@@ -102,8 +111,10 @@ it('gives an admin a signed editor config', function () {
         // Fetched by the Document Server, so it must use the app's container host.
         ->and($config['document']['url'])->toStartWith('http://laravel.test/onlyoffice/')
         ->and($config['editorConfig']['callbackUrl'])->toStartWith('http://laravel.test/onlyoffice/')
-        // Loaded by the browser, so it must use the public app URL.
-        ->and($config['editorConfig']['plugins']['pluginsData'][0])->toContain('/plugin.json?token=');
+        // Loaded by the browser, so it must use the public app URL. The endpoint
+        // must literally end in "config.json": OnlyOffice derives the plugin's
+        // baseUrl as url.substring(0, url.lastIndexOf("config.json")).
+        ->and($config['editorConfig']['plugins']['pluginsData'][0])->toContain('/config.json?token=');
 
     // The signature has to cover the plugins block or the server rejects it.
     $claims = app(OnlyOfficeService::class)->verify($config['token']);
@@ -233,16 +244,137 @@ it('serves a per-form token palette listing that form\'s fields', function () {
     $template = app(FormPrintTemplateService::class)->resolve($form);
     $token = editorToken($template, 'plugin');
 
-    $this->get(route('onlyoffice.plugin-config', $form).'?token='.$token)
+    $config = $this->get(route('onlyoffice.plugin-config', $form).'?token='.$token)
         ->assertOk()
         ->assertJsonPath('guid', 'asc.{8B3D2A41-6C7E-4F55-9E2B-1A4C9D0E7F31}');
 
-    $palette = $this->get(route('onlyoffice.plugin', $form).'?token='.$token)->assertOk();
+    // The variation URL must be RELATIVE (a "plugin/{token}" path). OnlyOffice
+    // resolves it against the plugin baseUrl (…/onlyoffice/{form}/) it derived
+    // from the config.json URL; an absolute URL gets doubled by the editor.
+    expect($config->json('variations.0.url'))->toStartWith('plugin/')
+        ->and($config->json('variations.0.url'))->not->toStartWith('http');
+
+    // The editor fetches config.json cross-origin from the Document Server's
+    // origin; without CORS the browser drops it and the plugin never registers.
+    expect($config->headers->get('Access-Control-Allow-Origin'))->toBe('http://onlyoffice.test:8081');
+
+    // plugins.js inside the iframe fetches "./config.json" (…/plugin/config.json)
+    // to read the guid before it posts its init handshake — without this the
+    // panel loads but never renders its fields.
+    $handshake = $this->get(route('onlyoffice.plugin-handshake', $form))
+        ->assertOk()
+        ->assertJsonPath('guid', 'asc.{8B3D2A41-6C7E-4F55-9E2B-1A4C9D0E7F31}');
+    expect($handshake->headers->get('Access-Control-Allow-Origin'))->toBe('http://onlyoffice.test:8081');
+
+    $palette = $this->get(route('onlyoffice.plugin', ['form' => $form, 'token' => $token]))->assertOk();
 
     expect($palette->getContent())->toContain('attendee_name')
         ->not->toContain('section_title');
 
-    // The Document Server frames this, so SAMEORIGIN must not survive here.
-    expect($palette->headers->get('Content-Security-Policy'))->toContain('frame-ancestors http://onlyoffice.test:8081');
+    // The Document Server frames this, so SAMEORIGIN must not survive here — and
+    // frame-ancestors must allow BOTH the app's own origin ('self', the top-level
+    // host page) and the Document Server origin (the editor iframe around it).
+    expect($palette->headers->get('Content-Security-Policy'))
+        ->toContain("frame-ancestors 'self'")
+        ->toContain('http://onlyoffice.test:8081');
     expect($palette->headers->get('X-Frame-Options'))->toBeNull();
+    expect($palette->headers->get('Access-Control-Allow-Origin'))->toBe('http://onlyoffice.test:8081');
+});
+
+it('serves the plugin toolbar icon as an SVG coin', function () {
+    $form = editorForm();
+
+    // The editor resolves the config's icons [icon.png, icon@2x.png] against the
+    // plugin baseUrl and loads them as images; both must resolve to the coin.
+    foreach (['icon.png', 'icon@2x.png'] as $name) {
+        $icon = $this->get(route('onlyoffice.plugin-icon', ['form' => $form, 'icon' => $name]))->assertOk();
+        expect($icon->headers->get('Content-Type'))->toContain('image/svg+xml');
+        // The coin: a disc (circle) with a star emboss (a path).
+        expect($icon->getContent())->toContain('<svg')->toContain('<circle')->toContain('<path');
+    }
+});
+
+it('tags palette tokens with a field-type icon and category group', function () {
+    $form = editorForm();
+    $form->fields()->create([
+        'field_key' => 'attendee_name',
+        'field_label' => 'Attendee name',
+        'field_type' => 'text',
+        'field_order' => 1,
+    ]);
+    $form->fields()->create([
+        'field_key' => 'course',
+        'field_label' => 'Course',
+        'field_type' => 'select',
+        'field_order' => 2,
+    ]);
+
+    $template = app(FormPrintTemplateService::class)->resolve($form);
+    $token = editorToken($template, 'plugin');
+
+    $html = $this->get(route('onlyoffice.plugin', ['form' => $form, 'token' => $token]))->assertOk()->getContent();
+    $tokens = collect(paletteTokens($html))->keyBy('key');
+
+    // Form fields carry their FieldType icon + the builder's category label.
+    expect($tokens['attendee_name'])->toMatchArray(['icon' => 'text', 'group' => 'Basic'])
+        ->and($tokens['course'])->toMatchArray(['icon' => 'select', 'group' => 'Choice']);
+
+    // Universal tokens collapse into Profile / Organization sections.
+    expect($tokens['profile.first_name']['group'])->toBe('Profile')
+        ->and($tokens['profile.org_name']['group'])->toBe('Organization');
+});
+
+it('replaces the printed template with an uploaded .docx', function () {
+    $form = editorForm();
+    $template = app(FormPrintTemplateService::class)->resolve($form);
+    $versionBefore = $template->version;
+
+    // A genuine .docx to upload: seed a second form's document and reuse its bytes.
+    $other = app(FormPrintTemplateService::class)->resolve(editorForm());
+    $docxBytes = Storage::disk('public')->get($other->docx_path);
+
+    $this->actingAs(recordsUser(2))
+        ->post(route('admin.form-builder.printed-template.import', $form), [
+            'docx' => UploadedFile::fake()->createWithContent('replacement.docx', $docxBytes),
+        ])
+        ->assertOk()
+        ->assertJson(['ok' => true]);
+
+    $template->refresh();
+
+    // A new revision (fresh document key) carrying the uploaded bytes.
+    expect($template->version)->toBe($versionBefore + 1)
+        ->and(Storage::disk('public')->get($template->docx_path))->toBe($docxBytes);
+});
+
+it('rejects an import that is not a real .docx', function () {
+    $form = editorForm();
+    $template = app(FormPrintTemplateService::class)->resolve($form);
+    $versionBefore = $template->version;
+
+    $this->actingAs(recordsUser(2))
+        ->post(route('admin.form-builder.printed-template.import', $form), [
+            'docx' => UploadedFile::fake()->createWithContent('notes.docx', 'this is not a zip'),
+        ], ['Accept' => 'application/json'])
+        ->assertStatus(422);
+
+    // A rejected upload must not bump the revision.
+    expect($template->refresh()->version)->toBe($versionBefore);
+});
+
+it('keeps the import endpoint behind admin auth', function () {
+    $form = editorForm();
+
+    $this->actingAs(recordsUser(3))
+        ->post(route('admin.form-builder.printed-template.import', $form), [
+            'docx' => UploadedFile::fake()->create('x.docx', 10),
+        ])
+        ->assertForbidden();
+});
+
+it('no longer exposes the legacy template export/import routes', function () {
+    expect(fn () => route('admin.form-builder.template.export-docx'))
+        ->toThrow(\Symfony\Component\Routing\Exception\RouteNotFoundException::class);
+    expect(fn () => route('admin.form-builder.template.import-docx'))
+        ->toThrow(\Symfony\Component\Routing\Exception\RouteNotFoundException::class);
 });

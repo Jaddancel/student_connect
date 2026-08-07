@@ -452,7 +452,8 @@
         {{-- ===================== STEP 2: PRINTED PDF TEMPLATE ===================== --}}
         <div x-show="step === 2" x-cloak>
             <x-form-builder.onlyoffice-template
-                :configUrl="$form ? route('admin.form-builder.printed-template.config', $form) : null" />
+                :configUrl="$form ? route('admin.form-builder.printed-template.config', $form) : null"
+                :importUrl="$form ? route('admin.form-builder.printed-template.import', $form) : null" />
         </div>
 
         {{-- ========================= STEP 3: META DETAILS ========================= --}}

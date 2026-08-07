@@ -804,47 +804,4 @@ class FormBuilderController extends Controller
         return $values;
     }
 
-    /**
-     * Export the current in-wizard template HTML to a downloadable .docx, with
-     * field tokens bridged to `{{field_key}}` text placeholders.
-     */
-    public function exportDocx(Request $request, \App\Services\DocxTemplateService $docx)
-    {
-        $validated = $request->validate([
-            'html' => ['nullable', 'string'],
-        ]);
-
-        $html = $this->sanitizeTemplateHtml((string) ($validated['html'] ?? ''));
-        $path = $docx->htmlToDocx($html);
-
-        return response()->download($path, 'form-template.docx', [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        ])->deleteFileAfterSend(true);
-    }
-
-    /**
-     * Import a .docx into the wizard: convert to sanitized HTML and map
-     * `{{field_key}}` placeholders back into field-token chips. Operates on
-     * in-wizard state (no saved form required).
-     */
-    public function importDocx(Request $request, \App\Services\DocxTemplateService $docx)
-    {
-        $request->validate([
-            'docx' => ['required', 'file', 'mimes:docx', 'max:10240'],
-            'fields' => ['nullable', 'string'],
-        ]);
-
-        $fields = collect(json_decode((string) $request->input('fields', '[]'), true) ?: [])
-            ->filter(fn ($f) => is_array($f) && isset($f['key']))
-            ->mapWithKeys(fn ($f) => [(string) $f['key'] => (string) ($f['label'] ?? $f['key'])])
-            ->all();
-
-        try {
-            $html = $docx->docxToHtml($request->file('docx'), $fields);
-        } catch (\Throwable $e) {
-            return response()->json(['message' => 'Could not import this document: '.$e->getMessage()], 422);
-        }
-
-        return response()->json(['html' => $this->sanitizeTemplateHtml($html)]);
-    }
 }

@@ -1176,20 +1176,6 @@ pre[class*='language-'] {
   background-color: #fee2e2;
   color: #991b1b;
 }
-/* Font family/size are set on the page wrapper (bound to pdf_template.font) and
-   inherited here, so the editor matches the document's chosen default. */
-.pdf-template-surface { color: #1a1a1a; }
-.pdf-template-surface h1 { font-size: 1.6em; font-weight: 700; margin: 0 0 .4em; }
-.pdf-template-surface h2 { font-size: 1.35em; font-weight: 700; margin: 0 0 .35em; }
-.pdf-template-surface h3 { font-size: 1.15em; font-weight: 700; margin: 0 0 .3em; }
-.pdf-template-surface p { margin: 0 0 .6em; }
-.pdf-template-surface ul { list-style: disc; margin: 0 0 .6em 1.4em; }
-.pdf-template-surface ol { list-style: decimal; margin: 0 0 .6em 1.4em; }
-.pdf-template-surface table { border-collapse: collapse; width: 100%; margin: 0 0 .6em; }
-.pdf-template-surface td, .pdf-template-surface th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; min-width: 2em; }
-.pdf-template-surface th { font-weight: 700; background: #f2f2f2; }
-.pdf-template-surface td.cell-selected, .pdf-template-surface th.cell-selected { background: rgba(56, 132, 255, .18); outline: 1px solid #3884ff; }
-
 /* Assistant chat bubble: HTML produced by resources/js/lib/markdown.js. Kept
    here rather than as utility classes inside the renderer so that module stays
    presentation-agnostic, and because the tags it emits are a fixed set. Sizing

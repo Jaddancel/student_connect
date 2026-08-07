@@ -22,6 +22,7 @@ class SemesterController extends Controller
                     'active_start' => $s->activePeriodStart(),
                     'active_end' => $s->activePeriodEnd(),
                     'is_active' => $s->isCurrentlyActive(),
+                    'is_current' => $s->isCurrentPeriod(),
                     'has_finalized_workplan' => Workplan::query()
                         ->where('semester_id', $s->semester_id)
                         ->where('status', 'finalized')

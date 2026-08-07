@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Forms\FieldType;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
 use App\Models\Template as FormTemplate;
@@ -11,10 +12,12 @@ use App\Services\OnlyOfficeService;
 use App\Support\UniversalField;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Backs the OnlyOffice editor in the form builder's "Printed template" step.
@@ -40,6 +43,25 @@ class FormPrintTemplateController extends Controller
 
     /** Field types that carry no submitted value and so make no useful token. */
     private const NON_PRINTABLE_FIELD_TYPES = ['heading', 'static-text'];
+
+    /**
+     * Display label for each {@see FieldType} catalog group, so the palette can
+     * head its sections the way the form builder does. Anything unmapped falls
+     * back to the generic "Form fields" bucket.
+     */
+    private const FIELD_GROUP_LABELS = [
+        'basic' => 'Basic',
+        'choice' => 'Choice',
+        'media' => 'Media',
+        'special' => 'Special',
+        'layout' => 'Layout',
+    ];
+
+    /**
+     * Order the palette renders group headings in. Form-field groups first
+     * (mirroring the builder), then the universal token sources.
+     */
+    private const GROUP_ORDER = ['Basic', 'Choice', 'Media', 'Special', 'Layout', 'Form fields', 'Profile', 'Organization'];
 
     /**
      * Editor config for the wizard step. Session-authenticated (admin).
@@ -78,7 +100,7 @@ class FormPrintTemplateController extends Controller
         $config['editorConfig']['plugins'] = [
             'autostart' => [self::PLUGIN_GUID],
             'pluginsData' => [
-                rtrim((string) config('app.url'), '/').'/onlyoffice/'.$form->getKey().'/plugin.json?token='.$pluginToken,
+                rtrim((string) config('app.url'), '/').'/onlyoffice/'.$form->getKey().'/config.json?token='.$pluginToken,
             ],
         ];
 
@@ -218,17 +240,21 @@ class FormPrintTemplateController extends Controller
     /**
      * The plugin's config.json, generated per form.
      */
-    public function pluginConfig(Request $request, Form $form): JsonResponse
+    public function pluginConfig(Request $request, Form $form, OnlyOfficeService $onlyOffice): JsonResponse
     {
         $template = $this->authorizeToken($request, $form, self::PURPOSE_PLUGIN);
 
-        $pluginUrl = rtrim((string) config('app.url'), '/').'/onlyoffice/'.$form->getKey().'/plugin?token='
-            .$this->issue($template, self::PURPOSE_PLUGIN, minutes: 60 * 12);
+        // Relative to the plugin's baseUrl, which OnlyOffice derives from the
+        // config.json URL as ".../onlyoffice/{form}/". The editor concatenates
+        // baseUrl + this, giving ".../onlyoffice/{form}/plugin/{token}" on the
+        // app's own origin. The token rides in the path so the editor's appended
+        // ?theme-type&lang query can't corrupt it.
+        $pluginUrl = 'plugin/'.$this->issue($template, self::PURPOSE_PLUGIN, minutes: 60 * 12);
 
         return response()->json([
             'name' => 'Field tokens',
             'guid' => self::PLUGIN_GUID,
-            'version' => '1.0.0',
+            'version' => '1.1.0',
             'minVersion' => '7.0.0',
             'variations' => [[
                 'description' => 'Insert form field and profile tokens',
@@ -238,23 +264,132 @@ class FormPrintTemplateController extends Controller
                 'EditorsSupport' => ['word'],
                 'isVisual' => true,
                 'isModal' => false,
-                // Docked to the left panel so it stays open while typing,
-                // mirroring the palette the old rich-text editor had.
-                'isInsideMode' => false,
+                // Docked INSIDE the left panel: this is the mode whose native
+                // header carries OnlyOffice's own "Hide panel" collapse button,
+                // so the panel collapses from its own title bar.
+                'isInsideMode' => true,
                 'initDataType' => 'none',
                 'initData' => '',
                 'buttons' => [],
                 'size' => [320, 600],
             ]],
+        ])->withHeaders([
+            // The editor runs on the Document Server's origin but fetches this
+            // config.json from the app's origin. Without this the browser blocks
+            // the cross-origin read and the plugin silently never registers.
+            'Access-Control-Allow-Origin' => $onlyOffice->publicUrl() ?: '*',
         ]);
+    }
+
+    /**
+     * The plugin SDK's own handshake config, fetched from *inside* the plugin
+     * iframe.
+     *
+     * OnlyOffice's bundled plugins.js does `XHR('./config.json')` relative to the
+     * plugin page (…/plugin/{token}) on load, reads the `guid`, and only then
+     * posts its "initialize" message to the editor — which is what triggers
+     * `Asc.plugin.init` and lets the palette render. That relative fetch lands
+     * here (…/plugin/config.json), with no token, so it stays deliberately
+     * minimal: just the public GUID, nothing form-specific or sensitive. The
+     * token-bearing {@see pluginConfig()} is what the *editor* consumes.
+     */
+    public function pluginHandshake(Request $request, Form $form, OnlyOfficeService $onlyOffice): JsonResponse
+    {
+        return response()->json([
+            'name' => 'Field tokens',
+            'guid' => self::PLUGIN_GUID,
+        ])->withHeaders([
+            'Access-Control-Allow-Origin' => $onlyOffice->publicUrl() ?: '*',
+        ]);
+    }
+
+    /**
+     * The plugin's toolbar/panel icon: a gold coin.
+     *
+     * The variation config declares icons ['icon.png', 'icon@2x.png'], which the
+     * editor resolves against the plugin baseUrl (…/onlyoffice/{form}/) and loads
+     * as an <img>. Served as SVG (Content-Type wins over the .png name) so it
+     * stays crisp at any devicePixelRatio — the same file answers both the 1x and
+     * 2x requests.
+     */
+    public function pluginIcon(): \Illuminate\Http\Response
+    {
+        $coin = <<<'SVG'
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="Coin">
+              <circle cx="12" cy="12" r="10" fill="#F6C544" stroke="#D19A1C" stroke-width="1.5"/>
+              <circle cx="12" cy="12" r="7.4" fill="none" stroke="#E4AE2C" stroke-width="1"/>
+              <path d="M12 7.8 L13.03 10.58 L15.99 10.70 L13.66 12.54 L14.47 15.40 L12 13.75 L9.53 15.40 L10.34 12.54 L8.01 10.70 L10.97 10.58 Z"
+                    fill="#FFFBEA" stroke="#C9971A" stroke-width="0.5" stroke-linejoin="round"/>
+            </svg>
+            SVG;
+
+        return response($coin, 200, [
+            'Content-Type' => 'image/svg+xml',
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
+
+    /**
+     * Replace the form's printed template with an uploaded .docx. Session-
+     * authenticated (admin) — this is the browser's own request, unlike the
+     * Document Server endpoints.
+     *
+     * Bumping the revision here is what makes the re-opened editor load the
+     * uploaded content: {@see FormPrintTemplateService::storeRevision()} moves
+     * the version + `updated_at`, which changes {@see OnlyOfficeService::documentKey()}.
+     * The client only calls this after the editor reports "all changes saved",
+     * so tearing the editor down closes it cleanly (no forcesave that would race
+     * this upload).
+     */
+    public function import(Request $request, Form $form, FormPrintTemplateService $templates): JsonResponse
+    {
+        $request->validate([
+            'docx' => ['required', 'file', 'max:20480'],
+        ]);
+
+        $file = $request->file('docx');
+
+        // A real .docx is a zip carrying the main Word part; anything else would
+        // just make the Document Server fail to open the document.
+        if (! $this->isDocx($file)) {
+            throw ValidationException::withMessages([
+                'docx' => 'Please upload a valid Word (.docx) file.',
+            ]);
+        }
+
+        $template = $templates->resolve($form, (int) $request->user()->getKey());
+        $templates->storeRevision($template, (string) File::get($file->getRealPath()));
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * A file is a usable .docx only if it is a zip that contains the main Word
+     * document part.
+     */
+    private function isDocx(?UploadedFile $file): bool
+    {
+        if ($file === null || strtolower((string) $file->getClientOriginalExtension()) !== 'docx') {
+            return false;
+        }
+
+        $zip = new \ZipArchive;
+        if ($zip->open((string) $file->getRealPath()) !== true) {
+            return false;
+        }
+
+        $hasDocumentPart = $zip->locateName('word/document.xml') !== false;
+        $zip->close();
+
+        return $hasDocumentPart;
     }
 
     /**
      * The plugin UI itself, with this form's tokens baked in.
      */
-    public function plugin(Request $request, Form $form, OnlyOfficeService $onlyOffice)
+    public function plugin(Request $request, Form $form, string $token, OnlyOfficeService $onlyOffice)
     {
-        $this->authorizeToken($request, $form, self::PURPOSE_PLUGIN);
+        $this->authorizeToken($request, $form, self::PURPOSE_PLUGIN, $token);
 
         $response = response()->view('onlyoffice.token-palette', [
             'tokens' => $this->tokensFor($form),
@@ -268,23 +403,35 @@ class FormPrintTemplateController extends Controller
         // (SecurityHeaders is excluded from these routes, so nothing overwrites
         // this afterwards.)
         $response->headers->remove('X-Frame-Options');
+        // frame-ancestors checks the WHOLE ancestor chain. The palette's chain is
+        // the editor iframe (Document Server origin) nested in our own host page,
+        // so both origins must be allowed — 'self' covers the top-level host page
+        // (served from this same app origin), publicUrl() the editor around it.
         $response->headers->set(
             'Content-Security-Policy',
-            'frame-ancestors '.($onlyOffice->publicUrl() ?: "'self'"),
+            "frame-ancestors 'self' ".($onlyOffice->publicUrl() ?: "'self'"),
         );
+        // Same cross-origin story as the config.json above.
+        $response->headers->set('Access-Control-Allow-Origin', $onlyOffice->publicUrl() ?: '*');
 
         return $response;
     }
 
     /**
      * Field tokens for the palette: the form's own fields, then the universal
-     * profile/org tokens the PDF renderer knows how to resolve.
+     * profile/org tokens the PDF renderer knows how to resolve. Each token
+     * carries a field-type `icon` and a category `group` so the in-editor
+     * palette can render icons + grouped sections like the form builder does.
      *
-     * @return array<int, array{key: string, label: string, group: string}>
+     * @return array<int, array{key: string, label: string, icon: string, group: string}>
      */
     private function tokensFor(Form $form): array
     {
-        $tokens = [];
+        $catalog = FieldType::catalog();
+
+        // Bucket the form's fields by their display group so the palette can
+        // render them Basic → Choice → Media → … in a stable order.
+        $fieldsByGroup = [];
 
         foreach ($form->fields()->orderBy('field_order')->orderBy('id')->get() as $field) {
             $key = (string) ($field->field_key ?? '');
@@ -296,22 +443,46 @@ class FormPrintTemplateController extends Controller
                 continue;
             }
 
-            $tokens[] = [
+            $meta = $catalog[$field->field_type] ?? null;
+            $group = isset($meta['group']) ? (self::FIELD_GROUP_LABELS[$meta['group']] ?? 'Form fields') : 'Form fields';
+
+            $fieldsByGroup[$group][] = [
                 'key' => $key,
                 'label' => (string) ($field->field_label ?: $key),
-                'group' => 'Form fields',
+                'icon' => (string) ($meta['icon'] ?? 'text'),
+                'group' => $group,
             ];
         }
 
-        $universal = UniversalField::groupedBySource('profile') + UniversalField::groupedBySource('org');
+        $tokens = [];
 
-        foreach ($universal as $group => $entries) {
-            foreach ($entries as $key => $meta) {
+        // Emit field groups in the canonical order, then anything unexpected.
+        foreach (self::GROUP_ORDER as $group) {
+            foreach ($fieldsByGroup[$group] ?? [] as $token) {
+                $tokens[] = $token;
+            }
+            unset($fieldsByGroup[$group]);
+        }
+        foreach ($fieldsByGroup as $group) {
+            foreach ($group as $token) {
+                $tokens[] = $token;
+            }
+        }
+
+        // Universal tokens, grouped by source: profile fields, then org fields.
+        // The icon reuses the FieldType catalog via the universal field's type.
+        foreach (['profile' => 'Profile', 'org' => 'Organization'] as $source => $label) {
+            foreach (UniversalField::keysBySource($source) as $key) {
+                $ukey = (string) $key;
+                $meta = UniversalField::get($ukey) ?? [];
+                $type = (string) ($meta['type'] ?? FieldType::TEXT);
+
                 $tokens[] = [
                     // Namespaced so re-import can tell them from ordinary fields.
-                    'key' => 'profile.'.$key,
-                    'label' => (string) ($meta['label'] ?? $key),
-                    'group' => (string) $group,
+                    'key' => 'profile.'.$ukey,
+                    'label' => (string) ($meta['label'] ?? $ukey),
+                    'icon' => (string) ($catalog[$type]['icon'] ?? 'text'),
+                    'group' => $label,
                 ];
             }
         }
@@ -359,9 +530,12 @@ class FormPrintTemplateController extends Controller
     /**
      * Validate the query token and return the template it names.
      */
-    private function authorizeToken(Request $request, Form $form, string $purpose): FormTemplate
+    private function authorizeToken(Request $request, Form $form, string $purpose, ?string $token = null): FormTemplate
     {
-        $claims = app(OnlyOfficeService::class)->verify((string) $request->query('token', ''));
+        // Plugin HTML carries its token in the path (see plugin()); the other
+        // endpoints carry it in the query string.
+        $raw = $token ?? (string) $request->query('token', '');
+        $claims = app(OnlyOfficeService::class)->verify($raw);
 
         abort_if($claims === null, 403, 'Invalid or expired editor token.');
         abort_unless(($claims['purpose'] ?? null) === $purpose, 403, 'Token is not valid for this action.');

@@ -24,7 +24,10 @@
         <env name="CACHE_STORE" value="array"/>
         <env name="DB_CONNECTION" value="mysql"/>
         <env name="DB_HOST" value="127.0.0.1"/>
-        <env name="DB_DATABASE" value="so_connect"/>
+        <!-- Isolated test DB (auto-created by Sail's create-testing-database.sh
+             and covered by its `testing%` grant) so `artisan test` never wipes
+             the dev `so_connect` database. -->
+        <env name="DB_DATABASE" value="testing"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

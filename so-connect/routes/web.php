@@ -495,11 +495,6 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->name('admin.form-builder.store');
     Route::post('/admin/form-builder/upload-asset', [FormBuilderController::class, 'uploadAsset'])
         ->name('admin.form-builder.upload-asset');
-    // Printed-PDF template DOCX interchange (operates on in-wizard state).
-    Route::post('/admin/form-builder/template/export-docx', [FormBuilderController::class, 'exportDocx'])
-        ->name('admin.form-builder.template.export-docx');
-    Route::post('/admin/form-builder/template/import-docx', [FormBuilderController::class, 'importDocx'])
-        ->name('admin.form-builder.template.import-docx');
     Route::get('/admin/form-builder/{form}/preview', [FormBuilderController::class, 'preview'])
         ->name('admin.form-builder.preview');
     Route::get('/admin/form-builder/{form}/edit', [FormBuilderController::class, 'edit'])
@@ -514,6 +509,11 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/form-builder/{form}/printed-template/config',
         [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'config'])
         ->name('admin.form-builder.printed-template.config');
+
+    // Replace the printed template's .docx with an admin-uploaded Word file.
+    Route::post('/admin/form-builder/{form}/printed-template/import',
+        [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'import'])
+        ->name('admin.form-builder.printed-template.import');
 
     // The upload / verify / activate pages are gone: printed templates are now
     // authored in the form builder's Step 2 editor and created automatically
@@ -1112,8 +1112,27 @@ Route::prefix('onlyoffice/{form}')
             ->name('onlyoffice.document');
         Route::post('/callback', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'callback'])
             ->name('onlyoffice.callback');
-        Route::get('/plugin.json', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'pluginConfig'])
+        // Must literally end in "config.json": OnlyOffice 9.4 derives the plugin's
+        // baseUrl as url.substring(0, url.lastIndexOf("config.json")) — any other
+        // name yields an empty baseUrl and the editor mangles the variation URL.
+        Route::get('/config.json', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'pluginConfig'])
             ->name('onlyoffice.plugin-config');
-        Route::get('/plugin', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'plugin'])
+        // The plugin's toolbar icon. The editor resolves the config's
+        // icons [icon.png, icon@2x.png] against the plugin baseUrl
+        // (…/onlyoffice/{form}/), so both must be served here.
+        Route::get('/{icon}', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'pluginIcon'])
+            ->where('icon', 'icon(@2x)?\.png')
+            ->name('onlyoffice.plugin-icon');
+        // The plugin SDK (plugins.js) inside the iframe fetches "./config.json"
+        // relative to the plugin page (…/plugin/{token}) to complete its init
+        // handshake. That lands here — must be registered before the {token}
+        // catch-all below, which would otherwise swallow "config.json".
+        Route::get('/plugin/config.json', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'pluginHandshake'])
+            ->name('onlyoffice.plugin-handshake');
+        // Token is a path segment, not a query param: OnlyOffice appends its own
+        // query string (theme-type, lang) to the plugin URL, which would corrupt
+        // any token=… carried in the query.
+        Route::get('/plugin/{token}', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'plugin'])
+            ->where('token', '[^/]+')
             ->name('onlyoffice.plugin');
     });
