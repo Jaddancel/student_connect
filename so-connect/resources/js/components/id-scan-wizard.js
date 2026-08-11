@@ -451,25 +451,43 @@ export function idScanWizard(config = {}) {
         },
 
         /**
+         * Where a scanned signature crop may land, within this wizard's own form.
+         *
+         * A field bound to the universal `signature` key is an explicit target.
+         * Without one, a lone signature field is still unambiguous — that box is
+         * the signer's — so it is filled too; the binding is an authoring detail
+         * the person scanning their ID cannot be expected to have set up. Several
+         * unbound signature fields are NOT filled: a form that collects an
+         * adviser's or a parent's signature alongside the signer's must say which
+         * one the scanner owns (bind "Signature" in the builder's Autofill), or
+         * the scan would sign someone else's box.
+         */
+        signatureTargets() {
+            const scope = (this.$root && this.$root.closest('form')) || document;
+
+            const bound = Array.from(scope.querySelectorAll('[data-universal-key="signature"]'));
+            if (bound.length) return bound;
+
+            const legacy = scope.querySelector('input[type="file"][name="signature"]');
+            if (legacy) return [legacy];
+
+            const fields = Array.from(scope.querySelectorAll('[data-signature-field]'));
+            return fields.length === 1 ? fields : [];
+        },
+
+        /**
          * A signature-type template zone returns its crop as a data-URL under
-         * `images.signature`. Feed it into every element bound to the universal
-         * `signature` field: file inputs get a File via DataTransfer (like the
-         * ID photos), signature-pad components get a `signature-set` event and
-         * draw it themselves. Anything the user already provided is never
-         * replaced.
+         * `images.signature`. Feed it into this form's signature target(s): file
+         * inputs get a File via DataTransfer (like the ID photos), signature-pad
+         * components get a `signature-set` event and draw it themselves. Anything
+         * the user already provided is never replaced.
          */
         applySignatureCrop(images, side) {
             const dataUrl = images && images.signature;
             if (!dataUrl || this.signatureCaptured) return;
 
-            const targets = Array.from(document.querySelectorAll('[data-universal-key="signature"]'));
-            if (!targets.length) {
-                const legacy = document.querySelector('input[type="file"][name="signature"]');
-                if (legacy) targets.push(legacy);
-            }
-
             let applied = 0;
-            targets.forEach((el) => {
+            this.signatureTargets().forEach((el) => {
                 if (el instanceof HTMLInputElement && el.type === 'file') {
                     if (el.files.length) return; // a manually-picked file wins
                     try {
@@ -483,8 +501,13 @@ export function idScanWizard(config = {}) {
                         // A malformed crop just means no auto-filled signature.
                     }
                 } else {
+                    // The component keeps its value in a hidden input and ignores
+                    // the event when it already holds one (a saved signature, or
+                    // one the user drew) — read it back rather than claim a
+                    // capture the form never took.
+                    const holder = el.querySelector('input[type="hidden"]');
                     el.dispatchEvent(new CustomEvent('signature-set', { detail: { dataUrl } }));
-                    applied++;
+                    if (!holder || holder.value) applied++;
                 }
             });
 
@@ -526,7 +549,7 @@ export function idScanWizard(config = {}) {
 
         /** Remove a scanned signature crop wherever applySignatureCrop put it. */
         discardSignature() {
-            document.querySelectorAll('[data-universal-key="signature"], input[type="file"][name="signature"]').forEach((el) => {
+            this.signatureTargets().forEach((el) => {
                 if (el instanceof HTMLInputElement && el.type === 'file') {
                     const current = el.files[0];
                     if (current && current.name === SCAN_SIGNATURE_FILENAME) {

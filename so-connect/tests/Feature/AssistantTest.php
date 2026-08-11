@@ -109,6 +109,42 @@ it('returns ok:false when the sidecar is down', function () {
         ->assertJson(['ok' => false, 'reply' => '', 'links' => []]);
 });
 
+it('degrades rather than answering with an empty reply', function () {
+    // Nothing to render is not a successful turn: `ok: true` with a blank
+    // reply is what surfaced as an empty (or "undefined") chat bubble.
+    Http::fake(['*/api/chat' => Http::response(['message' => ['content' => '   ']], 200)]);
+
+    $admin = recordsUser(2);
+
+    $this->actingAs($admin)
+        ->postJson(route('assistant.chat'), [
+            'messages' => [['role' => 'user', 'content' => 'hi']],
+        ])
+        ->assertOk()
+        ->assertJson(['ok' => false, 'reply' => '', 'links' => [], 'note' => 'empty reply']);
+});
+
+it('stands on its links when the reply was nothing but route tokens', function () {
+    Http::fake([
+        '*/api/chat' => Http::response([
+            'message' => ['content' => '[[route:admin.form-builder.index]]'],
+        ], 200),
+    ]);
+
+    $admin = recordsUser(2);
+
+    $data = $this->actingAs($admin)
+        ->postJson(route('assistant.chat'), [
+            'messages' => [['role' => 'user', 'content' => 'where is the form builder?']],
+        ])
+        ->assertOk()
+        ->assertJson(['ok' => true])
+        ->json();
+
+    expect($data['reply'])->not->toBe('');
+    expect(collect($data['links'])->pluck('path')->all())->toBe(['/admin/form-builder']);
+});
+
 it('rejects an oversized payload cleanly as json', function () {
     $admin = recordsUser(2);
 

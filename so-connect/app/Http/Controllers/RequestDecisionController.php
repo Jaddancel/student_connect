@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Forms\SystemFunction;
 use App\Helpers\FormTemplateHelper;
 use App\Http\Resources\ApprovalResource;
 use App\Mail\OfficerActivationMail;
+use App\Mail\SignupApprovedMail;
+use App\Mail\SignupRejectedMail;
 use App\Models\Approval;
 use App\Models\Event;
 use App\Models\Event\EventDetail;
@@ -12,12 +15,13 @@ use App\Models\EventPlan;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Profile;
-use App\Models\Profile\profileAddress;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
 use App\Models\User;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
+use App\Support\OfficerProfileData;
+use App\Support\SignupRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +33,13 @@ use Illuminate\Validation\Rule;
 
 class RequestDecisionController extends Controller
 {
+    /**
+     * How many times a sign-up may be rejected before the applicant's guest
+     * account is closed. The count is per account, so it resets if they ever
+     * start over with a fresh sign-up.
+     */
+    public const MAX_SIGNUP_REJECTIONS = 3;
+
     public function store(Request $request, int $requestId, DocumentGenerationService $documentGenerationService): JsonResponse
     {
         $validated = $request->validate([
@@ -202,96 +213,18 @@ class RequestDecisionController extends Controller
 
         if ($this->isNewOfficerRequest($actionType) && $validated['decision'] === 'approve') {
             $payload = (array) ($actionRequest->payload ?? []);
-            $newUserId = 0;
+            $applicant = $this->pendingApplicant($payload);
 
-            DB::transaction(function () use ($payload, $approval, &$newUserId) {
-                $addr = profileAddress::create([
-                    'country'  => 'Philippines',
-                    'province' => '',
-                    'town'     => '',
-                    'barangay' => (string) ($payload['present_address'] ?? ''),
-                ]);
+            // Sign-ups create the applicant's account up front (as a pending
+            // guest), so approving it is a promotion. Requests filed before
+            // that — still sitting in the queue — carry no account, and are
+            // approved the old way: create it here, then email an activation
+            // link so the address is proven before the first sign-in.
+            $newUserId = $applicant
+                ? $this->promoteApplicant($applicant, $payload, $approval)
+                : $this->createOfficerAccount($payload, $approval);
 
-                $profile = Profile::create([
-                    'first_name'              => (string) ($payload['first_name'] ?? ''),
-                    'middle_name'             => (string) ($payload['middle_name'] ?? ''),
-                    'last_name'               => (string) ($payload['last_name'] ?? ''),
-                    'contact_number'          => (string) ($payload['contact_number'] ?? ''),
-                    'age'                     => (int)    ($payload['age'] ?? 0),
-                    'sex'                     => (string) ($payload['sex'] ?? ''),
-                    'religion'                => (string) ($payload['religious_affiliation'] ?? ''),
-                    'nationality'             => (string) ($payload['nationality'] ?? ''),
-                    'birthday'                => (string) ($payload['birthday'] ?? ''),
-                    'birthplace'              => (string) ($payload['birthplace'] ?? ''),
-                    'course_year'             => trim(($payload['course'] ?? '') . ' - ' . ($payload['year_level'] ?? '')),
-                    'occupation'              => 'Student',
-                    'address'                 => (int) $addr->profile_address_id,
-                    'position'                => (string) ($payload['position'] ?? ''),
-                    'photo'                   => (string) ($payload['photo'] ?? ''),
-                    'home_address'            => (string) ($payload['home_address'] ?? ''),
-                    'parents_guardian'        => (string) ($payload['parents_guardian'] ?? ''),
-                    'talents_hobbies'         => (string) ($payload['talents_hobbies'] ?? ''),
-                    'financial_support'       => $payload['financial_support'] ?? [],
-                    'scholar_provider'        => (string) ($payload['scholar_provider'] ?? ''),
-                    'financial_support_other' => (string) ($payload['others_specify'] ?? ''),
-                    'student_id'              => (string) ($payload['student_id'] ?? ''),
-                    'id_photo_front'          => (string) ($payload['id_photo_front'] ?? ''),
-                    'id_photo_back'           => (string) ($payload['id_photo_back'] ?? ''),
-                    'signature_path'          => (string) ($payload['signature'] ?? ''),
-                ]);
-
-                $newUser = User::create([
-                    'user_email'        => (string) ($payload['email'] ?? ''),
-                    'google_id'         => $payload['google_id'] ?? null,
-                    // A Google-linked email is already verified by Google.
-                    'email_verified_at' => ! empty($payload['google_id']) ? now() : null,
-                    'user_password'     => (string) ($payload['password'] ?? Hash::make(Str::random(16))),
-                    'user_type'         => 3,
-                    'profile'           => (int) $profile->profile_id,
-                    'profile_pending'   => false,
-                ]);
-
-                $orgId = (int) ($payload['organization_id'] ?? 0);
-                if ($orgId > 0) {
-                    DB::table('organization_officers')->insert([
-                        'user'          => (int) $newUser->user_id,
-                        'approval'      => (int) $approval->approval_id,
-                        'organization'  => $orgId,
-                        'role'          => 'officer',
-                        'yearterm'      => null,
-                        'member_since'  => now(),
-                        'registered_at' => now(),
-                        'reassigned_at' => now(),
-                    ]);
-                }
-
-                $newUserId = (int) $newUser->user_id;
-            });
-
-            // Send activation email after the transaction completes
-            $recipientEmail = (string) ($payload['email'] ?? '');
-            if ($recipientEmail !== '') {
-                $rawToken = Str::random(64);
-                DB::table('invitation_tokens')->updateOrInsert(
-                    ['user_email' => $recipientEmail],
-                    [
-                        'token'      => hash('sha256', $rawToken),
-                        'created_at' => now(),
-                        'expires_at' => now()->addHours(72),
-                    ]
-                );
-
-                try {
-                    Mail::to($recipientEmail)->send(new OfficerActivationMail(
-                        recipientEmail:   $recipientEmail,
-                        organizationName: (string) ($payload['organization_name'] ?? ''),
-                        position:         (string) ($payload['position'] ?? ''),
-                        activationUrl:    route('invitation.verify', ['token' => $rawToken]),
-                    ));
-                } catch (\Throwable) {
-                    // Email failure does not roll back the approval
-                }
-            }
+            $this->sendApprovalMail($applicant, $payload);
 
             // Generate the Directory of Student Leader PDF now that the officer account exists
             $formSubmissionId = (int) ($payload['form_submission_id'] ?? 0);
@@ -311,6 +244,10 @@ class RequestDecisionController extends Controller
                     }
                 }
             }
+        }
+
+        if ($this->isNewOfficerRequest($actionType) && $validated['decision'] === 'reject') {
+            $this->handleSignupRejection($actionRequest, $approval);
         }
 
         if ($this->isEventPlanRequest($actionType, $systemKey)) {
@@ -477,6 +414,212 @@ class RequestDecisionController extends Controller
     private function isNewOfficerRequest(int $actionType): bool
     {
         return $actionType === 11;
+    }
+
+    /**
+     * The pending guest account a sign-up request belongs to, if it has one.
+     * Requests filed before pending accounts existed simply return null.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function pendingApplicant(array $payload): ?User
+    {
+        $applicantId = (int) ($payload['pending_user_id'] ?? 0);
+        if ($applicantId <= 0) {
+            return null;
+        }
+
+        $applicant = User::query()->find($applicantId);
+
+        return $applicant && $applicant->isGuest() ? $applicant : null;
+    }
+
+    /**
+     * Approve a sign-up whose account already exists: the guest becomes an
+     * officer and joins the organization they applied to.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return int  the promoted user's id
+     */
+    private function promoteApplicant(User $applicant, array $payload, Approval $approval): int
+    {
+        DB::transaction(function () use ($applicant, $payload, $approval) {
+            $applicant->forceFill([
+                'user_type' => User::TYPE_OFFICER,
+                // Approval implies the address is good; a confirmed applicant
+                // is already verified, and this covers the rare case where an
+                // admin approves before they got round to the email.
+                'email_verified_at' => $applicant->email_verified_at ?? now(),
+            ])->save();
+
+            $organizationId = (int) ($payload['organization_id'] ?? 0);
+            if ($organizationId > 0) {
+                DB::table('organization_officers')->updateOrInsert(
+                    ['user' => (int) $applicant->getKey(), 'organization' => $organizationId],
+                    [
+                        'approval' => (int) $approval->approval_id,
+                        'role' => 'officer',
+                        'yearterm' => null,
+                        'member_since' => now(),
+                        'registered_at' => now(),
+                        'reassigned_at' => now(),
+                    ],
+                );
+            }
+        });
+
+        return (int) $applicant->getKey();
+    }
+
+    /**
+     * Legacy path: create the officer account at approval time, for sign-up
+     * requests filed before applicants got a pending account of their own.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return int  the new user's id
+     */
+    private function createOfficerAccount(array $payload, Approval $approval): int
+    {
+        $newUserId = 0;
+
+        DB::transaction(function () use ($payload, $approval, &$newUserId) {
+            $address = OfficerProfileData::createAddress($payload);
+            $profile = Profile::create(OfficerProfileData::fromPayload($payload, (int) $address->profile_address_id));
+
+            $newUser = User::create([
+                'user_email' => (string) ($payload['email'] ?? ''),
+                'google_id' => $payload['google_id'] ?? null,
+                // A Google-linked email is already verified by Google.
+                'email_verified_at' => ! empty($payload['google_id']) ? now() : null,
+                'user_password' => (string) ($payload['password'] ?? Hash::make(Str::random(16))),
+                'user_type' => User::TYPE_OFFICER,
+                'profile' => (int) $profile->profile_id,
+                'profile_pending' => false,
+            ]);
+
+            $organizationId = (int) ($payload['organization_id'] ?? 0);
+            if ($organizationId > 0) {
+                DB::table('organization_officers')->insert([
+                    'user' => (int) $newUser->user_id,
+                    'approval' => (int) $approval->approval_id,
+                    'organization' => $organizationId,
+                    'role' => 'officer',
+                    'yearterm' => null,
+                    'member_since' => now(),
+                    'registered_at' => now(),
+                    'reassigned_at' => now(),
+                ]);
+            }
+
+            $newUserId = (int) $newUser->user_id;
+        });
+
+        return $newUserId;
+    }
+
+    /**
+     * Tell the applicant they were approved: a promoted account is ready to
+     * sign in to, a freshly created one still needs its activation link.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function sendApprovalMail(?User $applicant, array $payload): void
+    {
+        $recipientEmail = (string) ($payload['email'] ?? '');
+        if ($recipientEmail === '') {
+            return;
+        }
+
+        try {
+            if ($applicant !== null) {
+                Mail::to($recipientEmail)->send(new SignupApprovedMail(
+                    firstName: (string) ($payload['first_name'] ?? ''),
+                    organizationName: (string) ($payload['organization_name'] ?? ''),
+                    position: (string) ($payload['position'] ?? ''),
+                    dashboardUrl: route('dashboard'),
+                ));
+
+                return;
+            }
+
+            $rawToken = Str::random(64);
+            DB::table('invitation_tokens')->updateOrInsert(
+                ['user_email' => $recipientEmail],
+                [
+                    'token' => hash('sha256', $rawToken),
+                    'created_at' => now(),
+                    'expires_at' => now()->addHours(72),
+                ],
+            );
+
+            Mail::to($recipientEmail)->send(new OfficerActivationMail(
+                recipientEmail: $recipientEmail,
+                organizationName: (string) ($payload['organization_name'] ?? ''),
+                position: (string) ($payload['position'] ?? ''),
+                activationUrl: route('invitation.verify', ['token' => $rawToken]),
+            ));
+        } catch (\Throwable) {
+            // Email failure does not roll back the approval.
+        }
+    }
+
+    /**
+     * A rejected sign-up: tell the applicant why, and how many attempts they
+     * have left. On the final rejection the guest account is closed — the
+     * request rows survive (their `user` column is nulled by the FK), so the
+     * audit trail of what was submitted and why it was refused is kept.
+     */
+    private function handleSignupRejection(ActionRequest $actionRequest, Approval $approval): void
+    {
+        $payload = (array) ($actionRequest->payload ?? []);
+        $applicant = $this->pendingApplicant($payload);
+
+        if ($applicant === null) {
+            return; // legacy request: no account exists to notify or close
+        }
+
+        $rejections = SignupRequests::rejectionCount($applicant);
+        $isFinal = $rejections >= self::MAX_SIGNUP_REJECTIONS;
+        $signUpForm = SystemFunction::form(SystemFunction::SIGN_UP);
+
+        try {
+            Mail::to((string) $applicant->user_email)->send(new SignupRejectedMail(
+                firstName: (string) ($payload['first_name'] ?? ''),
+                reason: (string) ($approval->rejection_reason ?? ''),
+                attemptsLeft: max(0, self::MAX_SIGNUP_REJECTIONS - $rejections),
+                accountDeleted: $isFinal,
+                retryUrl: $signUpForm && $signUpForm->route_name
+                    ? route('forms.render', $signUpForm->route_name)
+                    : route('login'),
+            ));
+        } catch (\Throwable) {
+            // Email failure does not roll back the decision.
+        }
+
+        if ($isFinal) {
+            $this->closeGuestAccount($applicant);
+        }
+    }
+
+    /**
+     * Remove a guest account that ran out of attempts, along with the profile
+     * it owns and any unused confirmation token. Sign-up requests and form
+     * submissions are left in place for the record.
+     */
+    private function closeGuestAccount(User $applicant): void
+    {
+        DB::transaction(function () use ($applicant) {
+            $profileId = (int) ($applicant->profile ?? 0);
+            $email = (string) $applicant->user_email;
+
+            $applicant->delete();
+
+            if ($profileId > 0) {
+                Profile::query()->where('profile_id', $profileId)->delete();
+            }
+
+            DB::table('invitation_tokens')->where('user_email', $email)->delete();
+        });
     }
 
     private function isPresidentScopeRequest(int $actionType, string $systemKey): bool

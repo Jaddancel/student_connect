@@ -164,6 +164,26 @@ export function formBuilder(config) {
         },
 
         /**
+         * Switch a field to a different type from the settings panel. The
+         * type-specific `field_options` no longer apply, so they're reset to the
+         * new type's defaults — but the field's own visibility condition rides
+         * along, since it describes when the field shows, not what it is.
+         */
+        changeFieldType(f, newType) {
+            if (!f || !newType || newType === f.field_type) return;
+            const keepVisible = f.field_options && f.field_options.visible_when;
+            f.field_type = newType;
+            f.field_options = this.defaultOptions(newType);
+            if (keepVisible) f.field_options.visible_when = keepVisible;
+            // Value-less layout types (heading/static-text) can't autofill or be
+            // required, so drop mappings that would now be meaningless.
+            if (['heading', 'static-text'].includes(newType)) {
+                f.universal_key = '';
+                f.is_required = false;
+            }
+        },
+
+        /**
          * Auto-generate a field key from its label ("Event Title" →
          * `event_title`), unique within this form (`_2`, `_3`… on collision).
          */

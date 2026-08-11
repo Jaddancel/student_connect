@@ -157,7 +157,9 @@ function recordsOrganization(string $name, ?string $initials = null): \App\Model
 {
     $detail = \App\Models\Organization\OrganizationDetail::query()->create([
         'name' => $name,
-        'initials' => $initials,
+        // The column is NOT NULL, so a caller that does not care still needs
+        // something in it.
+        'initials' => $initials ?? \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($name, 0, 3)),
         'detail_text' => $name.' description',
     ]);
 

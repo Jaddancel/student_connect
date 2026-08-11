@@ -193,6 +193,10 @@
                         savedUrl: @js($savedSignatureUrl),
                         savedPath: @js($savedSignaturePath),
                     })" class="space-y-2"
+                    {{-- data-signature-field lets the ID-scan wizard fill this box with a
+                         scanned signature even when no universal key is bound — it only
+                         does so when the form has exactly one signature field. --}}
+                    data-signature-field
                     @if ($field->universal_key) data-universal-key="{{ $field->universal_key }}" @endif
                     @signature-set="fromDataUrl($event.detail.dataUrl)"
                     @signature-clear="clearFromScan()">

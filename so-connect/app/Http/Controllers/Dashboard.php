@@ -12,6 +12,12 @@ class Dashboard extends Controller
 
         $userType = (int) $user->user_type;
 
+        // Sign-up applicant awaiting approval: they hold no membership, so the
+        // officer dashboard would be empty — send them to their request status.
+        if ($user->isGuest()) {
+            return redirect()->route('guest.dashboard');
+        }
+
         // Super admin: reuse the existing monitoring-dashboard data builder.
         if ($userType === 1) {
             return app(SuperAdminController::class)->monitoringDashboard();

@@ -217,8 +217,10 @@ window.addEventListener('resize', checkMobile);">
          @click.self="$store.lightbox.close()"
          @keydown.escape.window="$store.lightbox.close()"
          style="display:none">
+        {{-- On white: signatures and scanned ink are stored as dark strokes on a
+             transparent background, and vanish against the dark backdrop. --}}
         <img :src="$store.lightbox.src" :alt="$store.lightbox.alt"
-             class="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl cursor-default"
+             class="max-h-[90vh] max-w-[90vw] rounded-xl bg-white object-contain p-2 shadow-2xl cursor-default"
              @click.stop />
         <button @click="$store.lightbox.close()"
                 class="absolute top-4 right-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur-sm transition hover:bg-white/20 hover:text-white">

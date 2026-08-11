@@ -192,6 +192,28 @@
                                 <input type="text" x-model="f.field_label" @input="onLabelInput(f)" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
                             </div>
                             <div>
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Type</label>
+                                <select @change="changeFieldType(f, $event.target.value)" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
+                                    <optgroup label="Fields">
+                                        <template x-for="(meta, type) in fieldPalette" :key="type">
+                                            <option :value="type" :selected="type === f.field_type" x-text="meta.label"></option>
+                                        </template>
+                                    </optgroup>
+                                    <optgroup label="Layout">
+                                        <template x-for="(meta, type) in layoutPalette" :key="type">
+                                            <option :value="type" :selected="type === f.field_type" x-text="meta.label"></option>
+                                        </template>
+                                    </optgroup>
+                                    <template x-if="hasSpecialPalette">
+                                        <optgroup label="Special">
+                                            <template x-for="(meta, type) in specialPalette" :key="type">
+                                                <option :value="type" :selected="type === f.field_type" x-text="meta.label"></option>
+                                            </template>
+                                        </optgroup>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Field key</label>
                                 <p class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-xs text-gray-600 dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-300" x-text="f.field_key"></p>
                                 <p class="mt-1 text-[10px] text-gray-400"
@@ -231,6 +253,10 @@
                                     </template>
                                 </select>
                                 <p class="mt-1 text-[10px] text-gray-400">Pre-fills this field when the form loads — from the signed-in user's profile, their organization, or a current value.</p>
+                                <p x-show="f.field_type === 'signature'" x-cloak class="mt-1 text-[10px] text-gray-400">
+                                    The ID scanner fills the form's only signature field on its own. With more than one, bind
+                                    “Signature” here to say which box the scanned signature belongs in.
+                                </p>
                             </div>
 
                             {{-- static text body --}}

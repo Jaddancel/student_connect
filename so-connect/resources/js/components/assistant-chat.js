@@ -1,4 +1,4 @@
-import { renderMarkdown } from '../lib/markdown';
+import { escapeHtml, renderMarkdown } from '../lib/markdown';
 
 /**
  * ASSISTANT_CHAT widget: a floating panel that POSTs the running conversation
@@ -8,7 +8,7 @@ import { renderMarkdown } from '../lib/markdown';
  * placeholder (network error / degraded response) — never sent back to the
  * server as conversation history.
  *
- * Assistant replies are Markdown and are rendered through lib/markdown.js at
+ * Assistant replies are Markdown and are rendered through `bubbleHtml()` at
  * display time — `content` stays the raw reply, so what is persisted and what
  * is replayed to the model is exactly what it sent. Only assistant bubbles go
  * through that path; the user's own text is printed verbatim.
@@ -22,8 +22,6 @@ export function assistantChat(config) {
         endpoint: config.endpoint,
         csrf: config.csrf,
         currentPath: config.currentPath || '',
-
-        renderMarkdown,
 
         open: false,
         sending: false,
@@ -61,6 +59,35 @@ export function assistantChat(config) {
             if (log) log.scrollTop = log.scrollHeight;
         },
 
+        /**
+         * HTML for one assistant bubble. Always returns a non-empty string:
+         * Alpine assigns whatever an `x-html` expression evaluates to straight
+         * into `innerHTML`, and both a throw and an `undefined` result land
+         * there as the literal word "undefined" — which is what a reply the
+         * renderer choked on, or one the sidecar returned empty, used to look
+         * like in the panel. Anything the renderer can't turn into markup
+         * degrades to the escaped text instead.
+         */
+        bubbleHtml(message) {
+            const content = typeof message?.content === 'string' ? message.content : '';
+
+            let html = '';
+            try {
+                html = renderMarkdown(content) || '';
+            } catch (e) {
+                html = '';
+            }
+            if (html !== '') return html;
+
+            const fallback = content.trim() !== ''
+                ? content
+                : ((message?.links || []).length > 0
+                    ? 'Here’s the page for that:'
+                    : "Sorry, I couldn't put an answer together for that — try rephrasing it?");
+
+            return `<p>${escapeHtml(fallback).replace(/\n/g, '<br>')}</p>`;
+        },
+
         async send() {
             const content = this.draft.trim();
             if (!content || this.sending) return;
@@ -88,9 +115,15 @@ export function assistantChat(config) {
                     }),
                 });
                 const data = await response.json();
+                // `reply` is coerced here rather than trusted: a bubble whose
+                // content isn't a string has nothing to render, so a malformed
+                // response is treated as a failed turn instead of being pushed
+                // into the history and replayed to the model on the next one.
+                const reply = typeof data.reply === 'string' ? data.reply : '';
+                const links = Array.isArray(data.links) ? data.links : [];
 
-                if (data.ok) {
-                    this.messages.push({ role: 'assistant', content: data.reply, links: data.links || [] });
+                if (data.ok && (reply !== '' || links.length > 0)) {
+                    this.messages.push({ role: 'assistant', content: reply, links });
                 } else {
                     this.pushUnavailable();
                 }

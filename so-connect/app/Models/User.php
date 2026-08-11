@@ -20,6 +20,19 @@ class User extends Authenticatable
 
     protected $table = 'users';
 
+    /**
+     * `user_type` values. GUEST is a sign-up applicant: the account exists (so
+     * they can confirm their email and follow their request) but carries no
+     * organization membership, which is what every officer gate keys on.
+     */
+    public const TYPE_SUPERADMIN = 1;
+
+    public const TYPE_ADMIN = 2;
+
+    public const TYPE_OFFICER = 3;
+
+    public const TYPE_GUEST = 4;
+
     protected $attributes = [
         'user_type' => 3,
         'profile_pending' => false,
@@ -73,6 +86,12 @@ class User extends Authenticatable
     public function hasVerifiedEmail(): bool
     {
         return $this->email_verified_at !== null;
+    }
+
+    /** A sign-up applicant whose account is still awaiting admin approval. */
+    public function isGuest(): bool
+    {
+        return (int) $this->user_type === self::TYPE_GUEST;
     }
 
     public function getAuthPassword()

@@ -218,7 +218,14 @@ async def scan(image: UploadFile, template: str = Form(...)):
 
 # --- signature identification ------------------------------------------------
 
-SIGNATURE_MATCH_THRESHOLD = float(os.environ.get("SIGNATURE_MATCH_THRESHOLD", "0.45"))
+# Measured on the three-signature scenario suite (tests/Feature/
+# SignatureRecognitionScenarioTest.php): a signature captured a second time —
+# re-photographed at another angle, scale and exposure — scores 0.41..0.52
+# against its own stored reference, while a different person's signature never
+# passes 0.09. 0.45 sat inside the genuine range and rejected half of the real
+# re-captures; 0.30 clears every genuine pairing and still leaves 3x headroom
+# over the closest impostor. Override with SIGNATURE_MATCH_THRESHOLD.
+SIGNATURE_MATCH_THRESHOLD = float(os.environ.get("SIGNATURE_MATCH_THRESHOLD", "0.30"))
 _SIG_SIZE = (320, 160)  # normalized (w, h) frame every signature is compared in
 
 
@@ -230,6 +237,17 @@ def _normalize_signature(img: Image.Image):
     """
     import cv2
     import numpy as np
+
+    # Stored references are transparent-background ink PNGs (that is how every
+    # capture surface saves a signature), while probes arrive opaque — a pad
+    # drawing on white, or a photo. `convert("L")` drops alpha, which turned a
+    # transparent reference into near-black ink on a black ground: Otsu then
+    # returned the background instead of the strokes and no genuine signature
+    # ever cleared the threshold. Flatten onto white first so both sides reach
+    # the threshold as dark ink on a light ground.
+    if img.mode in ("RGBA", "LA", "P"):
+        opaque = Image.new("RGBA", img.size, (255, 255, 255, 255))
+        img = Image.alpha_composite(opaque, img.convert("RGBA"))
 
     gray = np.array(img.convert("L"))
     # Otsu splits ink from paper regardless of pen darkness / jpeg noise.

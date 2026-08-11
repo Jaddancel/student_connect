@@ -41,16 +41,21 @@ so the widget never has to special-case a failed `fetch()`.
 ```
 
 - `ok` — false for an invalid payload, no reachable pages for this user
-  (shouldn't happen for an authenticated request), or the Ollama sidecar
-  being unreachable or erroring.
+  (shouldn't happen for an authenticated request), the Ollama sidecar being
+  unreachable or erroring, or a completion with nothing to render (`empty
+  reply`).
 - `reply` — the model's answer as **Markdown**, with every `[[route:…]]` token
-  stripped out (see below). Empty when `ok` is false. Rendering is the
-  widget's job — see "Reply formatting".
+  stripped out (see below). Empty when `ok` is false, and **never empty when
+  `ok` is true**: a completion that was blank or nothing but route tokens
+  either falls back to a one-line lead-in for its links or degrades to
+  `ok: false`, so the widget never has to render an empty bubble. Rendering is
+  the widget's job — see "Reply formatting".
 - `links` — deep links extracted from the reply, in the order they appeared.
   Each is `{name, path}` — display name and a same-origin path to render as
   an `<a>` chip. Empty when `ok` is false or the reply cited no page.
 - `note` — present only when `ok` is false: a short machine-readable reason
-  (`invalid request`, `assistant unavailable`, `assistant error`). Not meant
+  (`invalid request`, `assistant unavailable`, `assistant error`, `empty
+  reply`). Not meant
   for verbatim display — the widget shows its own generic message instead.
 
 ## Reply formatting

@@ -38,6 +38,20 @@ class MenuHelper
             ];
         }
 
+        // A sign-up applicant awaiting approval: the calendar, forms and
+        // documents pages are all officer-gated, so listing them would only
+        // offer a menu of 403s. Their request status is the whole menu.
+        if ($user->isGuest()) {
+            return [
+                [
+                    'title' => 'General',
+                    'items' => [
+                        ['icon' => 'dashboard', 'name' => 'Account request', 'path' => '/guest'],
+                    ],
+                ],
+            ];
+        }
+
         // Profile and Settings are intentionally omitted here — they are reached
         // from the navbar profile dropdown (see components/header/user-dropdown),
         // so a duplicate sidebar "Account" group would be redundant.

@@ -11,6 +11,7 @@ use App\Models\FormSubmission;
 use App\Services\DocumentGenerationService;
 use App\Support\OrganizationField;
 use App\Support\SignatureImage;
+use App\Support\SignupRequests;
 use Illuminate\Http\Request;
 
 /**
@@ -47,6 +48,8 @@ class FormRenderController extends Controller
         // along as a hidden input the SignUp approval reads.
         if ($form->system_function === SystemFunction::SIGN_UP) {
             [$prefill, $hidden] = $this->signupQueryPrefill($request, $fields, $prefill);
+            $prefill = $this->signupRetryPrefill($request, $fields, $prefill);
+            $this->relaxPasswordForRetry($request, $fields);
         }
 
         // The calendar's "Create Event" action links here with the clicked day
@@ -99,6 +102,64 @@ class FormRenderController extends Controller
         }
 
         return [$prefill, $hidden];
+    }
+
+    /**
+     * A rejected applicant re-applying picks up where they left off: their last
+     * sign-up payload is merged over the profile prefill so they only have to
+     * fix what the admin objected to. Uploads are skipped (a file input cannot
+     * be pre-filled) and so is the password, which is only ever stored hashed.
+     *
+     * @param  \Illuminate\Support\Collection<int,\App\Models\Form\FormDescription>  $fields
+     * @param  array<string,mixed>  $prefill
+     * @return array<string,mixed>
+     */
+    private function signupRetryPrefill(Request $request, $fields, array $prefill): array
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isGuest()) {
+            return $prefill;
+        }
+
+        $payload = (array) (SignupRequests::statusFor($user)['request']?->payload ?? []);
+        if ($payload === []) {
+            return $prefill;
+        }
+
+        foreach ($fields as $field) {
+            if (FieldType::isFileLike($field->field_type) || $field->field_type === FieldType::PASSWORD) {
+                continue;
+            }
+
+            $value = $payload[$field->field_key] ?? null;
+            if ($value !== null && $value !== '' && $value !== []) {
+                $prefill[$field->field_key] = $value;
+            }
+        }
+
+        return $prefill;
+    }
+
+    /**
+     * A re-applying guest keeps the password they already chose, so the field
+     * stops being mandatory for them — drop the required marker and say what
+     * leaving it blank means. The models are only mutated for this render;
+     * nothing is saved.
+     *
+     * @param  \Illuminate\Support\Collection<int,\App\Models\Form\FormDescription>  $fields
+     */
+    private function relaxPasswordForRetry(Request $request, $fields): void
+    {
+        if (! $request->user()?->isGuest()) {
+            return;
+        }
+
+        foreach ($fields as $field) {
+            if ($field->field_type === FieldType::PASSWORD) {
+                $field->is_required = false;
+                $field->placeholder_hint = 'Leave blank to keep your current password';
+            }
+        }
     }
 
     /**
@@ -222,9 +283,17 @@ class FormRenderController extends Controller
             if ($source !== null) {
                 $options['source_values'] = \App\Forms\OptionSource::values($source, $request->user(), scoped: true);
             }
+            // A re-applying guest already set an account password, and the
+            // sign-up handler keeps it when the field is left blank — so a
+            // required password field must not force them to invent a new one
+            // on every resubmission.
+            $isRequired = (bool) $field->is_required;
+            if ($field->field_type === FieldType::PASSWORD && $request->user()?->isGuest()) {
+                $isRequired = false;
+            }
             $fieldRules = FieldType::validationRules(
                 $field->field_type,
-                (bool) $field->is_required,
+                $isRequired,
                 $options,
             );
             if (! empty($fieldRules)) {

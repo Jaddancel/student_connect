@@ -2,6 +2,7 @@
 
 @php
     use App\Forms\FieldType;
+    use App\Forms\SubmissionPresenter;
 @endphp
 
 @section('content')
@@ -50,28 +51,16 @@
                         @php
                             $type = $field->field_type;
                             $value = $submissionPayload[$field->field_key] ?? null;
-                            $isImagePath = is_string($value) && $value !== ''
-                                && (FieldType::isFileLike($type) || $type === FieldType::SIGNATURE)
-                                && preg_match('/\.(jpe?g|png|gif|webp|heic|heif)$/i', $value);
-                            $isFilePath = is_string($value) && $value !== '' && FieldType::isFileLike($type) && ! $isImagePath;
-                            $isDataUri = is_string($value) && str_starts_with($value, 'data:image');
+                            // Photos, files, captured signatures and scanned waivers all
+                            // resolve to the same shape, and each opens full size.
+                            $attachments = SubmissionPresenter::attachments($submissionPayload, $field->field_key, $type);
                             $tableCols = $type === FieldType::TABLE_INPUT ? FieldType::tableColumns((array) ($field->field_options ?? [])) : [];
                         @endphp
-                        <div @class(['sm:col-span-2' => in_array($type, [FieldType::TEXTAREA, FieldType::TABLE_INPUT, FieldType::MULTI_IMAGE], true)])>
+                        <div @class(['sm:col-span-2' => in_array($type, [FieldType::TEXTAREA, FieldType::TABLE_INPUT, FieldType::MULTI_IMAGE, FieldType::WAIVER_SCAN], true)
+                            || count($attachments) > 1])>
                             <p class="text-xs font-medium text-gray-400">{{ $field->field_label }}</p>
-                            @if ($isImagePath || $isDataUri)
-                                <img src="{{ $isDataUri ? $value : asset('storage/'.$value) }}" alt="{{ $field->field_label }}"
-                                     class="mt-2 max-h-40 rounded-lg border border-gray-200 object-contain dark:border-gray-700" />
-                            @elseif ($isFilePath)
-                                <a href="{{ asset('storage/'.$value) }}" target="_blank" class="mt-1 inline-block text-brand-500 hover:underline">Open file</a>
-                            @elseif ($type === FieldType::MULTI_IMAGE && is_array($value))
-                                <div class="mt-2 flex flex-wrap gap-2">
-                                    @forelse ($value as $photo)
-                                        <img src="{{ asset('storage/'.$photo) }}" alt="Photo" class="h-24 w-24 rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
-                                    @empty
-                                        <span class="text-gray-800 dark:text-white/90">—</span>
-                                    @endforelse
-                                </div>
+                            @if (SubmissionPresenter::holdsAttachments($type))
+                                <x-admin.attachments :items="$attachments" :label="$field->field_label" />
                             @elseif ($type === FieldType::TABLE_INPUT && count($tableCols))
                                 <div class="mt-1 overflow-x-auto">
                                     <table class="w-full border-collapse text-xs">
@@ -100,6 +89,31 @@
                     @endforeach
                 </div>
             </div>
+
+            {{-- Files the submission carries that no field owns: the ID-scan
+                 wizard's front/back captures ride along beside the fields, and
+                 the admin has to be able to see the ID that was photographed. --}}
+            @php
+                $extraAttachments = SubmissionPresenter::orphanAttachments(
+                    $submissionPayload,
+                    $fields->pluck('field_key')->map(fn ($key) => (string) $key)->all(),
+                );
+            @endphp
+            @if ($extraAttachments !== [])
+                <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                    <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+                        <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Attachments</h3>
+                    </div>
+                    <div class="grid grid-cols-1 gap-x-6 gap-y-4 px-6 py-5 text-sm sm:grid-cols-2">
+                        @foreach ($extraAttachments as $label => $items)
+                            <div>
+                                <p class="text-xs font-medium text-gray-400">{{ $label }}</p>
+                                <x-admin.attachments :items="$items" :label="$label" />
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         @else
             <div class="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-400">
                 No form submission is attached to this request.

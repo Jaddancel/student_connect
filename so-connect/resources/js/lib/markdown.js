@@ -61,10 +61,14 @@ export function renderMarkdown(source) {
 }
 
 /**
+ * Exported so a caller that has to fall back to plain text — see
+ * `bubbleHtml()` in components/assistant-chat.js — escapes it the same way
+ * this module does rather than reaching for its own.
+ *
  * @param {string} text
  * @returns {string}
  */
-function escapeHtml(text) {
+export function escapeHtml(text) {
     return text.replace(/[&<>"']/g, (char) => HTML_ESCAPES[char]);
 }
 

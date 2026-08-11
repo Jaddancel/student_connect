@@ -52,6 +52,18 @@ class AssistantController extends Controller
 
         [$reply, $links] = $this->extractLinks($result['reply'], $index['pages']);
 
+        // `ok: true` promises something to render. A completion that was empty
+        // to begin with, or that was nothing but route tokens, would otherwise
+        // reach the panel as a blank bubble — so it stands on its links if it
+        // has any, and degrades if it doesn't.
+        if ($reply === '') {
+            if ($links === []) {
+                return $this->degraded('empty reply');
+            }
+
+            $reply = 'Here’s the page for that:';
+        }
+
         return response()->json(['ok' => true, 'reply' => $reply, 'links' => $links]);
     }
 

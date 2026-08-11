@@ -23,6 +23,7 @@ use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\Auth\Register;
 use App\Http\Controllers\Dashboard;
+use App\Http\Controllers\GuestAccessController;
 use App\Http\Controllers\DashboardSearchController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EventController;
@@ -69,6 +70,13 @@ Route::get('/sample_dashboard', function () {
 })->name('sample-dashboard');
 
 Route::get('/dashboard', [Dashboard::class, 'viewDashboard'])->middleware('auth')->name('dashboard');
+
+// Sign-up applicants: the post-submit page (public — they are not signed in
+// yet) and the guest dashboard their confirmed account lands on.
+Route::get('/signup/success', [GuestAccessController::class, 'success'])->name('signup.success');
+Route::get('/guest', [GuestAccessController::class, 'dashboard'])
+    ->middleware('auth')
+    ->name('guest.dashboard');
 
 // Auth routes.
 

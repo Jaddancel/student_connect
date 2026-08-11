@@ -37,11 +37,22 @@ class InvitationController extends Controller
         DB::table('invitation_tokens')->where('user_email', $record->user_email)->delete();
 
         // Admin accounts: auto-login and redirect to first-login password wizard
-        if ((int) $user->user_type === 2) {
+        if ((int) $user->user_type === User::TYPE_ADMIN) {
             Auth::login($user);
             $request->session()->regenerate();
 
             return redirect()->route('password.change');
+        }
+
+        // Sign-up applicants confirming their address: the account already has
+        // the password they chose, so sign them in and show them where their
+        // request stands rather than bouncing them to a login form.
+        if ($user->isGuest()) {
+            Auth::login($user);
+            $request->session()->regenerate();
+
+            return redirect()->route('guest.dashboard')
+                ->with('success', 'Email confirmed. An administrator is reviewing your sign-up request.');
         }
 
         return redirect()->route('login')

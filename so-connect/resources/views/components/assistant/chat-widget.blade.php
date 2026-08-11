@@ -57,23 +57,32 @@
                         {{--
                             Assistant replies are Markdown (see the model's formatting
                             brief in AssistantController::buildSystemPrompt) and are the
-                            only bubble rendered as HTML. renderMarkdown escapes before it
+                            only bubble rendered as HTML. bubbleHtml escapes before it
                             emits any tag and never produces an <a>, so nothing the model
                             writes can turn into live markup — resources/js/lib/markdown.js.
+
+                            The `typeof` guard is what keeps a build of app.js older than
+                            this template from printing the word "undefined" in every
+                            reply: Alpine writes an expression that throws straight into
+                            innerHTML as `undefined`, so a missing bubbleHtml has to fall
+                            through to the plain-text bubble below instead.
                         --}}
-                        <template x-if="message.role === 'assistant' && !message.failed">
+                        <template x-if="message.role === 'assistant' && !message.failed && typeof bubbleHtml === 'function'">
                             <div class="assistant-markdown rounded-2xl rounded-bl-sm bg-gray-100 px-3.5 py-2 text-sm text-gray-800 dark:bg-white/5 dark:text-white/90"
-                                x-html="renderMarkdown(message.content)"></div>
+                                x-html="bubbleHtml(message)"></div>
                         </template>
 
-                        {{-- The user's own text and the degraded placeholder stay verbatim. --}}
-                        <template x-if="message.role !== 'assistant' || message.failed">
+                        {{-- The user's own text, the degraded placeholder, and any reply
+                             the renderer above couldn't be reached for, stay verbatim. --}}
+                        <template x-if="message.role !== 'assistant' || message.failed || typeof bubbleHtml !== 'function'">
                             <div
                                 :class="message.role === 'user'
                                     ? 'rounded-2xl rounded-br-sm bg-brand-500 px-3.5 py-2 text-sm text-white'
-                                    : 'rounded-2xl rounded-bl-sm bg-error-50 px-3.5 py-2 text-sm text-error-600 dark:bg-error-500/10 dark:text-error-400'"
+                                    : (message.failed
+                                        ? 'rounded-2xl rounded-bl-sm bg-error-50 px-3.5 py-2 text-sm text-error-600 dark:bg-error-500/10 dark:text-error-400'
+                                        : 'rounded-2xl rounded-bl-sm bg-gray-100 px-3.5 py-2 text-sm text-gray-800 dark:bg-white/5 dark:text-white/90')"
                                 style="white-space: pre-wrap;"
-                                x-text="message.content"></div>
+                                x-text="message.content || ''"></div>
                         </template>
                         <div x-show="(message.links || []).length > 0" class="flex flex-wrap gap-1.5">
                             <template x-for="link in (message.links || [])" :key="link.path">

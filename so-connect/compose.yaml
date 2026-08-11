@@ -110,7 +110,12 @@ services:
   # while the server fetches and saves documents over the `sail` network using
   # the app's internal hostname — the two URLs are deliberately different.
   onlyoffice:
-    image: onlyoffice/documentserver:latest
+    # Built rather than pulled: the stock image lets the user close the docked
+    # "Field tokens" plugin panel, which we patch out. See
+    # docker/onlyoffice/patch-plugin-panel.sh for why and how.
+    build:
+      context: ./docker/onlyoffice
+    image: so-connect-onlyoffice
     environment:
       # Every request between Laravel and the server is signed; the secret must
       # match ONLYOFFICE_JWT_SECRET on the app side.
