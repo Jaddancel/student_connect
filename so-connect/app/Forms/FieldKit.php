@@ -54,7 +54,7 @@ final class FieldKit
             ],
             SystemFunction::NEW_WORKPLAN => [
                 'label' => 'Workplan fields',
-                'types' => [FieldType::WORKPLAN_EVENTS],
+                'types' => [FieldType::WORKPLAN_EVENTS, FieldType::ACTIVITY_TABLE],
                 'required' => [
                     'workplan_events' => FieldType::WORKPLAN_EVENTS,
                     'name' => FieldType::TEXT,

@@ -27,6 +27,8 @@
         x-data="formBuilder({
             catalog: {{ Js::from($fieldCatalog) }},
             optionSources: {{ Js::from($optionSources) }},
+            eventFieldChoices: {{ Js::from($eventFieldChoices ?? []) }},
+            kit: '{{ $kit }}',
             data: {{ Js::from($editorData) }},
             isEdit: {{ $form ? 'true' : 'false' }},
             storeUrl: '{{ route('admin.form-builder.store') }}',
@@ -162,6 +164,20 @@
                                                                 <span x-show="field(key)?.is_required" class="text-error-500" title="Required">*</span>
                                                             </div>
                                                             <div class="text-[10px] uppercase tracking-wide text-gray-400" x-text="field(key)?.field_type"></div>
+                                                            {{-- Activity table: preview the selected columns right on the card. --}}
+                                                            <template x-if="field(key)?.field_type === 'activity-table'">
+                                                                <div class="mt-1.5 rounded-lg border border-gray-200 p-2 dark:border-gray-700">
+                                                                    <template x-if="(field(key)?.field_options?.columns || []).length === 0">
+                                                                        <p class="text-[10px] text-gray-400">No columns selected yet.</p>
+                                                                    </template>
+                                                                    <template x-for="col in (field(key)?.field_options?.columns || [])" :key="col.key">
+                                                                        <div class="flex items-center justify-between gap-2 py-0.5 text-[11px]">
+                                                                            <span class="truncate text-gray-700 dark:text-gray-300" x-text="col.label"></span>
+                                                                            <span class="shrink-0 text-gray-400" x-text="columnTypeLabel(col)"></span>
+                                                                        </div>
+                                                                    </template>
+                                                                </div>
+                                                            </template>
                                                         </div>
                                                         <button type="button" data-no-drag @click.stop="removeField(key)" class="shrink-0 px-1 leading-none text-error-400 hover:text-error-500" title="Remove field">✕</button>
                                                     </div>
@@ -248,6 +264,14 @@
                                     <template x-if="systemAutofillOptions(f.field_type).length">
                                         <optgroup label="Current value">
                                             <template x-for="opt in systemAutofillOptions(f.field_type)" :key="opt.value">
+                                                <option :value="opt.value" x-text="opt.label"></option>
+                                            </template>
+                                        </optgroup>
+                                    </template>
+                                    {{-- Computed-from-a-sibling-field autofills (Sign Up form only) --}}
+                                    <template x-if="derivedAutofillOptions(f.field_type).length">
+                                        <optgroup label="Computed">
+                                            <template x-for="opt in derivedAutofillOptions(f.field_type)" :key="opt.value">
                                                 <option :value="opt.value" x-text="opt.label"></option>
                                             </template>
                                         </optgroup>
@@ -415,6 +439,38 @@
                                     @input="f.field_options.row_total.multiply = $event.target.value.split(',').map(s => s.trim()).filter(Boolean)"
                                     placeholder="e.g. price_per_unit, quantity"
                                     class="h-8 w-full rounded border border-gray-300 bg-transparent px-2 font-mono text-[10px] dark:border-gray-700 dark:text-white/90" />
+                            </div>
+
+                            {{-- activity-table columns (choose from the New Events form's fields) --}}
+                            <div x-show="f.field_type === 'activity-table'" class="space-y-2">
+                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400">Columns — fields of the New Events form</label>
+                                <template x-if="eventFieldChoices.length === 0">
+                                    <p class="text-[10px] text-gray-400">The New Events form has no printable fields yet. Build it first, then pick its fields here.</p>
+                                </template>
+                                <div class="space-y-1.5">
+                                    <template x-for="choice in eventFieldChoices" :key="choice.key">
+                                        <label class="flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-gray-200 px-2 py-1.5 text-xs dark:border-gray-700">
+                                            <span class="flex items-center gap-2">
+                                                <input type="checkbox" :checked="activityColumnChecked(f, choice)" @change="toggleActivityColumn(f, choice)"
+                                                    class="h-3.5 w-3.5 rounded border-gray-300 text-brand-500" />
+                                                <span class="text-gray-700 dark:text-gray-300" x-text="choice.label"></span>
+                                            </span>
+                                            <span class="shrink-0 text-gray-400" x-text="choice.type_label"></span>
+                                        </label>
+                                    </template>
+                                </div>
+                                {{-- Columns whose source field is gone from the New Events form: kept so
+                                     the printed heading survives, but flagged so the admin can drop them. --}}
+                                <template x-for="col in staleActivityColumns(f)" :key="col.key">
+                                    <div class="flex items-center justify-between gap-2 rounded-lg border border-warning-300 bg-warning-50 px-2 py-1.5 text-xs dark:border-orange-500/40 dark:bg-orange-500/10">
+                                        <span class="text-warning-700 dark:text-orange-300">
+                                            <span x-text="col.label"></span>
+                                            <span class="text-[10px] opacity-80"> — no longer on the New Events form</span>
+                                        </span>
+                                        <button type="button" @click="toggleActivityColumn(f, col)" class="shrink-0 px-1 text-warning-600 dark:text-orange-300">✕</button>
+                                    </div>
+                                </template>
+                                <p class="text-[10px] text-gray-400">Each approved activity of the submitter's organization prints as one row with these columns. Not shown on the web form.</p>
                             </div>
 
                             {{-- computed formula --}}

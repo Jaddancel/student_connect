@@ -54,14 +54,18 @@
                             // Photos, files, captured signatures and scanned waivers all
                             // resolve to the same shape, and each opens full size.
                             $attachments = SubmissionPresenter::attachments($submissionPayload, $field->field_key, $type);
-                            $tableCols = $type === FieldType::TABLE_INPUT ? FieldType::tableColumns((array) ($field->field_options ?? [])) : [];
+                            $tableCols = match ($type) {
+                                FieldType::TABLE_INPUT => FieldType::tableColumns((array) ($field->field_options ?? [])),
+                                FieldType::ACTIVITY_TABLE => FieldType::activityTableColumns((array) ($field->field_options ?? [])),
+                                default => [],
+                            };
                         @endphp
-                        <div @class(['sm:col-span-2' => in_array($type, [FieldType::TEXTAREA, FieldType::TABLE_INPUT, FieldType::MULTI_IMAGE, FieldType::WAIVER_SCAN], true)
+                        <div @class(['sm:col-span-2' => in_array($type, [FieldType::TEXTAREA, FieldType::TABLE_INPUT, FieldType::ACTIVITY_TABLE, FieldType::MULTI_IMAGE, FieldType::WAIVER_SCAN], true)
                             || count($attachments) > 1])>
                             <p class="text-xs font-medium text-gray-400">{{ $field->field_label }}</p>
                             @if (SubmissionPresenter::holdsAttachments($type))
                                 <x-admin.attachments :items="$attachments" :label="$field->field_label" />
-                            @elseif ($type === FieldType::TABLE_INPUT && count($tableCols))
+                            @elseif (in_array($type, [FieldType::TABLE_INPUT, FieldType::ACTIVITY_TABLE], true) && count($tableCols))
                                 <div class="mt-1 overflow-x-auto">
                                     <table class="w-full border-collapse text-xs">
                                         <thead><tr class="border-b border-gray-200 dark:border-gray-700">

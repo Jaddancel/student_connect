@@ -47,6 +47,7 @@ final class FieldType
     public const MULTI_IMAGE = 'multi-image';
     public const EVENT_SELECT = 'event-select';
     public const WORKPLAN_SELECT = 'workplan-select';
+    public const ACTIVITY_TABLE = 'activity-table';
 
     /**
      * The officer positions the sign-up position picker offers by default
@@ -132,6 +133,7 @@ final class FieldType
             self::MULTI_IMAGE     => ['label' => 'Photo set',           'icon' => 'image',     'group' => 'special'],
             self::EVENT_SELECT    => ['label' => 'Event picker',        'icon' => 'select',    'group' => 'special'],
             self::WORKPLAN_SELECT => ['label' => 'Workplan picker',     'icon' => 'select',    'group' => 'special'],
+            self::ACTIVITY_TABLE  => ['label' => 'Activity Table',      'icon' => 'table',     'group' => 'special'],
         ];
     }
 
@@ -161,6 +163,7 @@ final class FieldType
             && ! in_array($type, [
                 self::SIGNATURE, self::PASSWORD, self::ID_SCAN, self::COMPUTED,
                 self::TEXT_LIST, self::TABLE_INPUT, self::MULTI_IMAGE, self::WORKPLAN_EVENTS,
+                self::ACTIVITY_TABLE,
             ], true);
     }
 
@@ -273,7 +276,9 @@ final class FieldType
     {
         // Presentational fields never validate (they hold no value), and
         // computed fields are derived server-side — client input is ignored.
-        if (self::isPresentational($type) || $type === self::COMPUTED) {
+        // The activity table is likewise server-snapshotted (never shown on the
+        // web form), so any client input under its key is ignored too.
+        if (self::isPresentational($type) || $type === self::COMPUTED || $type === self::ACTIVITY_TABLE) {
             return [];
         }
 
@@ -516,6 +521,40 @@ final class FieldType
                 'label' => (string) ($column['label'] ?? $key),
                 'type' => in_array($type, ['text', 'number', 'date', 'event-select'], true) ? $type : 'text',
                 'required' => (bool) ($column['required'] ?? false),
+            ];
+        }
+
+        return $columns;
+    }
+
+    /**
+     * Normalised column definitions for an activity-table field. Each column is
+     * a snapshot of a New Events form field the admin chose: `key` (the New
+     * Events field key), `label` (heading text — kept even after the source
+     * field is removed, so the printed table still names its column) and `type`
+     * (used to format the resolved cell). Keys are de-duped and order preserved.
+     *
+     * @param  array<string,mixed>  $options
+     * @return array<int,array{key:string,label:string,type:string}>
+     */
+    public static function activityTableColumns(array $options): array
+    {
+        $columns = [];
+        $seen = [];
+        foreach ((array) ($options['columns'] ?? []) as $column) {
+            if (! is_array($column)) {
+                continue;
+            }
+            $key = trim((string) ($column['key'] ?? ''));
+            if ($key === '' || ! preg_match('/^[A-Za-z0-9_]+$/', $key) || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $type = (string) ($column['type'] ?? 'text');
+            $columns[] = [
+                'key' => $key,
+                'label' => (string) ($column['label'] ?? '') !== '' ? (string) $column['label'] : $key,
+                'type' => self::isValid($type) ? $type : self::TEXT,
             ];
         }
 

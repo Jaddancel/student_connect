@@ -396,6 +396,8 @@ class FormPrintTemplateController extends Controller
             // The plugin SDK is served by the Document Server, and this page
             // runs in the browser, so it needs the public URL.
             'sdkBase' => $onlyOffice->publicUrl(),
+            // Scopes the palette's localStorage (inserted/expanded state) per form.
+            'formId' => (int) $form->getKey(),
         ]);
 
         // The editor frames this page from the Document Server's origin, so the
@@ -446,12 +448,30 @@ class FormPrintTemplateController extends Controller
             $meta = $catalog[$field->field_type] ?? null;
             $group = isset($meta['group']) ? (self::FIELD_GROUP_LABELS[$meta['group']] ?? 'Form fields') : 'Form fields';
 
-            $fieldsByGroup[$group][] = [
+            $token = [
                 'key' => $key,
                 'label' => (string) ($field->field_label ?: $key),
                 'icon' => (string) ($meta['icon'] ?? 'text'),
                 'group' => $group,
             ];
+
+            // The Activity Table inserts a whole table (heading labels + one
+            // `{{key.col#}}` token per cell) rather than a single token, so it
+            // carries an `insert:'table'` marker and its columns as children.
+            if ((string) $field->field_type === FieldType::ACTIVITY_TABLE) {
+                $token['insert'] = 'table';
+                $token['children'] = [];
+                foreach (FieldType::activityTableColumns((array) ($field->field_options ?? [])) as $column) {
+                    $token['children'][] = [
+                        'key' => $key.'.'.$column['key'],
+                        'label' => (string) $column['label'],
+                        'icon' => (string) ($catalog[$column['type']]['icon'] ?? 'text'),
+                        'type_label' => FieldType::label((string) $column['type']),
+                    ];
+                }
+            }
+
+            $fieldsByGroup[$group][] = $token;
         }
 
         $tokens = [];
