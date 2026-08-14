@@ -69,6 +69,11 @@ window.addEventListener('resize', checkMobile);">
     <x-common.preloader />
     {{-- preloader end --}}
 
+    {{-- Auth/fullscreen screens have no header, so the theme control floats.
+         Without it these pages inherit dark from the dashboard with no way out. --}}
+    <x-theme-toggle
+        class="fixed bottom-6 right-6 z-[99999] flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-theme-md transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white" />
+
     @yield('content')
 
     @include('layouts.partials.auto-hide-alerts')

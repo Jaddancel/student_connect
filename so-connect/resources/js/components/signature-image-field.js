@@ -21,6 +21,8 @@ export function signatureImageField(config = {}) {
 
     return {
         verifyUrl: options.verifyUrl || null,
+        enrollUrl: options.enrollUrl || null,
+        compare: !!options.compare,
         savedUrl: options.savedUrl || null,
         savedPath: options.savedPath || null,
         preview: null,
@@ -28,6 +30,11 @@ export function signatureImageField(config = {}) {
         verifyState: 'idle',
         matchedName: '',
         extractError: '',
+        // Interactive naming of an unrecognized signature (Normal mode only).
+        ownerName: '',
+        saveState: 'idle', // idle|saving|saved|error
+        saveError: '',
+        savedName: '',
         _debounce: null,
         _fromScan: false,
 
@@ -70,7 +77,15 @@ export function signatureImageField(config = {}) {
             this.extractError = '';
             this.verifyState = 'idle';
             this.matchedName = '';
+            this.resetNaming();
             clearTimeout(this._debounce);
+        },
+
+        resetNaming() {
+            this.ownerName = '';
+            this.saveState = 'idle';
+            this.saveError = '';
+            this.savedName = '';
         },
 
         useSaved() {
@@ -115,10 +130,48 @@ export function signatureImageField(config = {}) {
         },
 
         scheduleVerify(dataUrl) {
+            // A new drawing supersedes any prior "saved as" result.
+            this.resetNaming();
             if (!this.verifyUrl || !dataUrl || !dataUrl.startsWith('data:')) return;
             clearTimeout(this._debounce);
             this.verifyState = 'checking';
             this._debounce = setTimeout(() => this.verify(dataUrl), 600);
+        },
+
+        /**
+         * Name an unrecognized signature: POST the current drawing + typed name
+         * to the enroll endpoint, which files it as a profile. Normal mode only.
+         */
+        async saveOwnerName() {
+            const name = this.ownerName.trim();
+            const dataUrl = this.$refs.input.value;
+            if (!this.enrollUrl || !name || !dataUrl || !dataUrl.startsWith('data:')) return;
+            this.saveState = 'saving';
+            this.saveError = '';
+            try {
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                const res = await fetch(this.enrollUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrf,
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({ signature: dataUrl, name }),
+                });
+                if (!res.ok) {
+                    const json = await res.json().catch(() => ({}));
+                    this.saveState = 'error';
+                    this.saveError = json.message || "We couldn't save that signature. Please try again.";
+                    return;
+                }
+                const json = await res.json();
+                this.saveState = 'saved';
+                this.savedName = json.name || name;
+            } catch (e) {
+                this.saveState = 'error';
+                this.saveError = "We couldn't save that signature. Please try again.";
+            }
         },
 
         async verify(dataUrl) {

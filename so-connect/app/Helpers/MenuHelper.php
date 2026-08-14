@@ -75,7 +75,6 @@ class MenuHelper
                     ['icon' => 'user-profile', 'name' => 'Create Admin', 'path' => '/superadmin/accounts/create'],
                     ['icon' => 'user-profile', 'name' => 'Organizations', 'path' => '/superadmin/organizations'],
                     ['icon' => 'pages', 'name' => 'ID Templates', 'path' => '/superadmin/id-templates'],
-                    ['icon' => 'task', 'name' => 'Signature References', 'path' => '/superadmin/signature-references'],
                     ['icon' => 'tables', 'name' => 'Export Data', 'path' => '/superadmin/export'],
                     ['icon' => 'charts', 'name' => 'Score Audit', 'path' => '/superadmin/scoring/audit'],
                     ['icon' => 'task', 'name' => 'Action Logs', 'path' => '/superadmin/action-logs'],

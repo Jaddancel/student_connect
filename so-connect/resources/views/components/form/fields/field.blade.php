@@ -190,6 +190,8 @@
                 @endphp
                 <div x-data="signatureImageField({
                         verifyUrl: @js(auth()->check() ? route('signature.verify') : null),
+                        enrollUrl: @js(auth()->check() ? route('signature.enroll') : null),
+                        compare: @js(FieldType::signatureExpectsMatch($opts)),
                         savedUrl: @js($savedSignatureUrl),
                         savedPath: @js($savedSignaturePath),
                     })" class="space-y-2"
@@ -240,8 +242,16 @@
                             <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
                             <span>Signature recognized<template x-if="matchedName"><span> as <span x-text="matchedName"></span></span></template></span>
                         </span>
-                        <span x-cloak x-show="verifyState === 'not_recognized'" class="inline-flex items-center gap-1 rounded-full bg-warning-50 px-2.5 py-1 text-xs font-medium text-warning-600 dark:bg-warning-500/15 dark:text-orange-400">
+                        {{-- Compare-mode fields enforce the match server-side; the
+                             badge is advisory and never offers to name the signer. --}}
+                        <span x-cloak x-show="verifyState === 'not_recognized' && compare" class="inline-flex items-center gap-1 rounded-full bg-warning-50 px-2.5 py-1 text-xs font-medium text-warning-600 dark:bg-warning-500/15 dark:text-orange-400">
+                            Not recognized as the expected signer
+                        </span>
+                        <span x-cloak x-show="verifyState === 'not_recognized' && !compare && !savedName" class="inline-flex items-center gap-1 rounded-full bg-warning-50 px-2.5 py-1 text-xs font-medium text-warning-600 dark:bg-warning-500/15 dark:text-orange-400">
                             Not recognized in the system — you can still submit
+                        </span>
+                        <span x-cloak x-show="savedName" class="inline-flex items-center gap-1 rounded-full bg-success-50 px-2.5 py-1 text-xs font-medium text-success-600 dark:bg-success-500/15 dark:text-success-500">
+                            Saved as <span x-text="savedName"></span>
                         </span>
                         <span x-cloak x-show="verifyState === 'no_signatures'" class="text-xs text-gray-400">
                             No saved signatures to compare against yet
@@ -249,6 +259,23 @@
                         <span x-cloak x-show="verifyState === 'unavailable'" class="text-xs text-gray-400">
                             Signature recognition is unavailable right now
                         </span>
+                    </div>
+
+                    {{-- Normal-mode: name an unrecognized signature so it's saved as a
+                         profile and recognized next time. Hidden in Compare mode. --}}
+                    <div x-cloak x-show="enrollUrl && !compare && verifyState === 'not_recognized' && !savedName"
+                        class="flex flex-wrap items-end gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-white/[0.03]">
+                        <div class="flex-1">
+                            <label class="mb-1 block text-[11px] text-gray-500 dark:text-gray-400">Whose signature is this?</label>
+                            <input type="text" x-model="ownerName" placeholder="Full name"
+                                @keydown.enter.prevent="saveOwnerName()"
+                                class="h-8 w-full rounded-lg border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700 dark:text-white/90" />
+                        </div>
+                        <button type="button" @click="saveOwnerName()" :disabled="saveState === 'saving' || !ownerName.trim()"
+                            class="h-8 rounded-lg bg-brand-500 px-3 text-xs font-medium text-white disabled:opacity-50">
+                            <span x-text="saveState === 'saving' ? 'Saving…' : 'Save'"></span>
+                        </button>
+                        <p x-cloak x-show="saveState === 'error'" class="w-full text-[11px] text-error-500" x-text="saveError"></p>
                     </div>
                 </div>
                 @break

@@ -71,7 +71,7 @@ final class FieldKit
             // ---- Re-created legacy form kits ----
             'project_request' => [
                 'label' => 'Project Request fields',
-                'types' => [FieldType::ORG_SELECT, FieldType::TEXT_LIST],
+                'types' => [FieldType::ORG_SELECT],
                 'required' => [
                     'organization_id' => FieldType::ORG_SELECT,
                 ],
@@ -80,7 +80,6 @@ final class FieldKit
                 'label' => 'Recognition fields',
                 'types' => [
                     FieldType::ORG_SELECT,
-                    FieldType::TEXT_LIST,
                     FieldType::COMPUTED,
                     FieldType::WORKPLAN_SELECT,
                 ],
@@ -92,7 +91,6 @@ final class FieldKit
                 'label' => 'Accomplishment fields',
                 'types' => [
                     FieldType::ORG_SELECT,
-                    FieldType::TEXT_LIST,
                     FieldType::EVENT_SELECT,
                     FieldType::MULTI_IMAGE,
                 ],

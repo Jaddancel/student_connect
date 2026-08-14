@@ -74,7 +74,7 @@ class ProfileMatchHelper
     {
         $query = trim($query);
 
-        $columns = ['profile_id', 'first_name', 'middle_name', 'last_name', 'occupation', 'course_year', 'sex'];
+        $columns = ['profile_id', 'first_name', 'middle_name', 'last_name', 'occupation', 'course_year', 'sex', 'origin'];
 
         // Restrict to profiles linked to an administrator account (user_type 1/2)
         // — used by the Action Logs filter, whose entries are all admin actions.

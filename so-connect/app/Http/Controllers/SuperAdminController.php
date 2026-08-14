@@ -930,6 +930,7 @@ public function searchProfiles(Request $request): JsonResponse
             'occupation' => (string) $profile->occupation,
             'course_year' => (string) $profile->course_year,
             'sex' => (string) $profile->sex,
+            'origin' => (string) ($profile->origin ?? Profile::ORIGIN_REGISTERED),
             'user_email' => $userEmail,
             'has_user' => $hasUser,
         ];

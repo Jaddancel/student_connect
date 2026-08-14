@@ -22,6 +22,7 @@ use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\Auth\Register;
+use App\Http\Controllers\Auth\SystemSetupController;
 use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\GuestAccessController;
 use App\Http\Controllers\DashboardSearchController;
@@ -58,6 +59,16 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
+
+// First-run system setup: creates the initial superadmin, who must confirm the
+// email address before the account activates. Locked once one is confirmed.
+Route::get('/setup', [SystemSetupController::class, 'create'])->name('setup.create');
+Route::post('/setup', [SystemSetupController::class, 'store'])->name('setup.store');
+Route::get('/setup/confirm', [SystemSetupController::class, 'pending'])->name('setup.pending');
+Route::post('/setup/confirm/resend', [SystemSetupController::class, 'resend'])
+    ->middleware('throttle:6,1')->name('setup.resend');
+Route::get('/setup/confirm/{token}', [SystemSetupController::class, 'confirm'])->name('setup.confirm');
+Route::post('/setup/restart', [SystemSetupController::class, 'restart'])->name('setup.restart');
 
 Route::get('/', [LandingPage::class, 'view'])->name('home');
 Route::get('/organizations/{organizationId}/{slug?}', [LandingPage::class, 'organizationFeed'])
@@ -499,6 +510,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->name('admin.form-builder.index');
     Route::get('/admin/form-builder/create', [FormBuilderController::class, 'create'])
         ->name('admin.form-builder.create');
+    // Typeahead for picking a signature field's expected signer(s): names + org role.
+    Route::get('/admin/form-builder/signatory-search', [FormBuilderController::class, 'searchSignatories'])
+        ->name('admin.form-builder.signatory-search');
     Route::post('/admin/form-builder', [FormBuilderController::class, 'store'])
         ->name('admin.form-builder.store');
     Route::post('/admin/form-builder/upload-asset', [FormBuilderController::class, 'uploadAsset'])
@@ -726,14 +740,6 @@ Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
 Route::get('/admin/waiver-review', [\App\Http\Controllers\Admin\WaiverReviewController::class, 'index'])
     ->middleware(['auth', 'admin'])
     ->name('admin.waiver-review.index');
-
-// Signature reference registry maintenance (super admin).
-Route::middleware(['auth', 'superadmin'])->group(function () {
-    Route::get('/superadmin/signature-references', [\App\Http\Controllers\Admin\SignatureReferenceController::class, 'index'])
-        ->name('superadmin.signature-references.index');
-    Route::delete('/superadmin/signature-references/{reference}', [\App\Http\Controllers\Admin\SignatureReferenceController::class, 'destroy'])
-        ->name('superadmin.signature-references.destroy');
-});
 
 // form pages
 Route::get('/form-elements', function () {

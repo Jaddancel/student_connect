@@ -17,6 +17,7 @@ export function formBuilder(config) {
         storeUrl: config.storeUrl,
         updateUrl: config.updateUrl,
         uploadUrl: config.uploadUrl,
+        signatorySearchUrl: config.signatorySearchUrl,
         csrf: config.csrf,
         isEdit: config.isEdit,
 
@@ -50,6 +51,12 @@ export function formBuilder(config) {
         saving: false,
         message: '',
         error: '',
+
+        // --- signature expected-signer picker ---
+        // Mirrors App\Forms\FieldType::POSITION_OPTIONS.
+        expectedPositionChoices: ['President', 'Treasurer', 'Auditor', 'Secretary', 'Others'],
+        signatoryQuery: '',
+        signatoryResults: [],
 
         init() {
             // Keys of already-saved fields are frozen: syncFields() upserts by
@@ -430,6 +437,7 @@ export function formBuilder(config) {
                 text: [
                     { value: 'current_date', label: 'Current Date' },
                     { value: 'current_school_year', label: 'Current School Year' },
+                    { value: 'current_semester', label: 'Current Semester' },
                 ],
                 date: [{ value: 'current_date', label: 'Current Date' }],
                 time: [{ value: 'current_time', label: 'Time' }],
@@ -517,6 +525,67 @@ export function formBuilder(config) {
             list = list.includes(ext) ? list.filter((e) => e !== ext) : [...list, ext];
             list = choices.filter((e) => list.includes(e));
             f.field_options.accept = list.length === choices.length ? '' : list.join(',');
+        },
+
+        // --- signature expected-signer picker ---
+        // Whether the field has any expected signer configured (position or person).
+        hasExpectedSigner(f) {
+            const positions = f.field_options.expected_positions || [];
+            const profiles = f.field_options.expected_profiles || [];
+            return positions.length > 0 || profiles.length > 0;
+        },
+        hasExpectedPosition(f, pos) {
+            return (f.field_options.expected_positions || []).includes(pos);
+        },
+        toggleExpectedPosition(f, pos) {
+            if (!f.field_options.expected_positions) f.field_options.expected_positions = [];
+            const list = f.field_options.expected_positions;
+            const i = list.indexOf(pos);
+            if (i === -1) list.push(pos);
+            else list.splice(i, 1);
+            this.syncCompareMode(f);
+        },
+        async searchExpectedPeople() {
+            const q = this.signatoryQuery.trim();
+            if (!this.signatorySearchUrl) return;
+            try {
+                const url = new URL(this.signatorySearchUrl, window.location.origin);
+                url.searchParams.set('q', q);
+                const res = await fetch(url, { headers: { Accept: 'application/json' } });
+                if (!res.ok) { this.signatoryResults = []; return; }
+                const json = await res.json();
+                this.signatoryResults = json.data || [];
+            } catch (e) {
+                this.signatoryResults = [];
+            }
+        },
+        addExpectedPerson(f, person) {
+            if (!f.field_options.expected_profiles) f.field_options.expected_profiles = [];
+            if (!f.field_options.expected_people) f.field_options.expected_people = [];
+            const id = Number(person.profile_id);
+            if (!f.field_options.expected_profiles.includes(id)) {
+                f.field_options.expected_profiles.push(id);
+                // Companion display list (name + role) so chips render without a lookup.
+                f.field_options.expected_people.push({ id, name: person.name, org_role: person.org_role || null });
+            }
+            this.signatoryQuery = '';
+            this.signatoryResults = [];
+            this.syncCompareMode(f);
+        },
+        removeExpectedPerson(f, id) {
+            id = Number(id);
+            f.field_options.expected_profiles = (f.field_options.expected_profiles || []).filter((x) => Number(x) !== id);
+            f.field_options.expected_people = (f.field_options.expected_people || []).filter((p) => Number(p.id) !== id);
+            this.syncCompareMode(f);
+        },
+        // An expected signer implies Compare mode by default; the admin can still
+        // uncheck it. Once they've explicitly chosen a mode, we don't override it.
+        syncCompareMode(f) {
+            if (this.hasExpectedSigner(f)) {
+                if (f.field_options.match_mode !== 'normal') f.field_options.match_mode = 'compare';
+            } else if (f.field_options.match_mode === 'compare') {
+                f.field_options.match_mode = 'normal';
+            }
         },
 
         // --- persistence ---

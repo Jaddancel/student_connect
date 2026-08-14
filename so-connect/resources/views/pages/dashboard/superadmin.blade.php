@@ -397,10 +397,23 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const isDark     = document.documentElement.classList.contains('dark');
+    const isDark     = window.appTheme.isDark();
     const gridColor  = isDark ? 'rgba(255,255,255,0.05)' : '#f3f4f6';
     const labelColor = isDark ? '#6b7280' : '#9ca3af';
     const fontFamily = 'Outfit, sans-serif';
+
+    // Grid/axis colours are baked in at render time, so without this the charts
+    // keep their load-time palette after the user flips the theme.
+    // (Label fill and tooltip chrome are handled by app.css, which styles
+    // .apexcharts-text / .apexcharts-theme-light with `dark:` variants.)
+    const charts = [];
+    window.appTheme.onChange((theme) => {
+        const dark = theme === 'dark';
+
+        charts.forEach(({ chart }) => chart.updateOptions({
+            grid: { borderColor: dark ? 'rgba(255,255,255,0.05)' : '#f3f4f6' },
+        }, false, false));
+    });
 
     const growthLabels  = {{ Js::from($userGrowthLabels) }};
     const growthData    = {{ Js::from($userGrowthData) }};
@@ -411,7 +424,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // ── Chart 1: User Growth ─────────────────────────────────────────────────
     const growthEl = document.getElementById('chartUserGrowth');
     if (growthEl) {
-        new ApexCharts(growthEl, {
+        const growthChart = new ApexCharts(growthEl, {
             series: [{ name: 'New Users', data: growthData }],
             chart: {
                 type: 'bar',
@@ -461,7 +474,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 yaxis: { lines: { show: true } },
                 xaxis: { lines: { show: false } },
             },
-            tooltip: { theme: isDark ? 'dark' : 'light', style: { fontFamily } },
+            tooltip: { style: { fontFamily } },
             fill: {
                 type: 'gradient',
                 gradient: {
@@ -472,13 +485,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     stops: [0, 100],
                 },
             },
-        }).render();
+        });
+        growthChart.render();
+        charts.push({ chart: growthChart });
     }
 
     // ── Chart 2: System Activity ─────────────────────────────────────────────
     const actEl = document.getElementById('chartSystemActivity');
     if (actEl) {
-        new ApexCharts(actEl, {
+        const activityChart = new ApexCharts(actEl, {
             series: [
                 { name: 'Requests Submitted', data: actRequests },
                 { name: 'Approvals Resolved',  data: actApprovals },
@@ -532,13 +547,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 xaxis: { lines: { show: false } },
             },
             tooltip: {
-                theme: isDark ? 'dark' : 'light',
                 style: { fontFamily },
                 shared: true,
                 intersect: false,
             },
             fill: { opacity: [0.9, 0.85] },
-        }).render();
+        });
+        activityChart.render();
+        charts.push({ chart: activityChart });
     }
 });
 </script>

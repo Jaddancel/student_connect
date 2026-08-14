@@ -137,6 +137,11 @@
                                 class="truncate text-xs text-gray-500 dark:text-gray-400"></p>
 
                             <div class="mt-1.5 flex flex-wrap gap-1.5">
+                                <span x-show="profile.origin === 'signature_only'"
+                                    class="inline-flex items-center rounded-full border border-warning-200 bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-600 dark:border-warning-700 dark:bg-warning-500/10 dark:text-warning-400"
+                                    title="Auto-created from a captured signature — not yet claimed by a registered account">
+                                    Signature only
+                                </span>
                                 <span x-show="profile.occupation"
                                     class="inline-flex items-center rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
                                     x-text="profile.occupation"></span>

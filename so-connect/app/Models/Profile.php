@@ -44,13 +44,37 @@ class Profile extends Model
         'id_photo_front',
         'id_photo_back',
         'signature_path',
+        'origin',
     ];
+
+    /** A profile created by a person signing up or an admin (the normal case). */
+    public const ORIGIN_REGISTERED = 'registered';
+
+    /** An auto-created placeholder holding only a captured name + signature. */
+    public const ORIGIN_SIGNATURE_ONLY = 'signature_only';
 
     protected function casts(): array
     {
         return [
             'financial_support' => 'array',
         ];
+    }
+
+    /**
+     * Only the auto-created signature-only placeholder profiles.
+     */
+    public function scopeSignatureOnly($query)
+    {
+        return $query->where('origin', self::ORIGIN_SIGNATURE_ONLY);
+    }
+
+    /**
+     * Whether this profile was auto-created from a captured signature (as
+     * opposed to a real registration).
+     */
+    public function wasAutoCreated(): bool
+    {
+        return $this->origin === self::ORIGIN_SIGNATURE_ONLY;
     }
 
     public function user()

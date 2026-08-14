@@ -22,6 +22,61 @@ use Illuminate\Validation\Rule;
  */
 class FormBuilderController extends Controller
 {
+    /**
+     * Typeahead for a signature field's expected-signer picker. Returns matching
+     * people by name, each annotated with their current organization role (from
+     * their most recent officer assignment) — the only details the picker
+     * exposes. Backs `admin.form-builder.signatory-search`.
+     */
+    public function searchSignatories(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:255'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:30'],
+        ]);
+
+        $query = (string) ($validated['q'] ?? '');
+        $limit = (int) ($validated['limit'] ?? 15);
+
+        $profiles = \App\Helpers\ProfileMatchHelper::search($query, $limit);
+
+        $profileIds = $profiles->pluck('profile_id')->map(fn ($id) => (int) $id)->all();
+        $roleByProfile = [];
+        if ($profileIds !== []) {
+            $officers = \App\Models\Officer::query()
+                ->join('users', 'users.user_id', '=', 'organization_officers.user')
+                ->whereIn('users.profile', $profileIds)
+                ->orderByDesc('organization_officers.org_officer_id')
+                ->get(['users.profile as profile_id', 'organization_officers.role', 'organization_officers.position']);
+
+            foreach ($officers as $officer) {
+                $pid = (int) $officer->profile_id;
+                if (isset($roleByProfile[$pid])) {
+                    continue; // keep the most recent assignment (ordered desc)
+                }
+                $role = trim((string) ($officer->position ?: $officer->role));
+                if ($role !== '') {
+                    $roleByProfile[$pid] = Str::title($role);
+                }
+            }
+        }
+
+        $data = $profiles->map(function (\App\Models\Profile $profile) use ($roleByProfile) {
+            $name = trim(implode(' ', array_filter(
+                [$profile->first_name, $profile->middle_name, $profile->last_name],
+                static fn ($part) => trim((string) $part) !== '',
+            )));
+
+            return [
+                'profile_id' => (int) $profile->profile_id,
+                'name' => $name,
+                'org_role' => $roleByProfile[(int) $profile->profile_id] ?? null,
+            ];
+        })->values();
+
+        return response()->json(['data' => $data]);
+    }
+
     public function index()
     {
         $forms = Form::query()
@@ -293,6 +348,18 @@ class FormBuilderController extends Controller
             'fields.*.field_options.visible_when.field' => ['nullable', 'string', 'max:255'],
             'fields.*.field_options.visible_when.op' => ['nullable', 'string', Rule::in(ConditionEvaluator::OPS)],
             'fields.*.field_options.visible_when.value' => ['nullable', 'string', 'max:255'],
+            // Signature expected-signer config (Compare/Normal mode). Whitelisted
+            // or validate() silently drops them like the option keys above.
+            'fields.*.field_options.match_mode' => ['nullable', 'string', Rule::in(['normal', 'compare'])],
+            'fields.*.field_options.expected_positions' => ['nullable', 'array'],
+            'fields.*.field_options.expected_positions.*' => ['nullable', 'string', Rule::in(FieldType::POSITION_OPTIONS)],
+            'fields.*.field_options.expected_profiles' => ['nullable', 'array'],
+            'fields.*.field_options.expected_profiles.*' => ['nullable', 'integer'],
+            // Display-only companion for the chips (backend reads expected_profiles).
+            'fields.*.field_options.expected_people' => ['nullable', 'array'],
+            'fields.*.field_options.expected_people.*.id' => ['nullable', 'integer'],
+            'fields.*.field_options.expected_people.*.name' => ['nullable', 'string', 'max:255'],
+            'fields.*.field_options.expected_people.*.org_role' => ['nullable', 'string', 'max:255'],
             'fields.*.universal_key' => ['nullable', 'string', Rule::in(UniversalField::keys())],
             'rows' => ['present', 'array'],
             'pdf_template' => ['nullable', 'array'],

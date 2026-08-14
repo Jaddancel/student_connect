@@ -314,6 +314,7 @@ class FormRenderController extends Controller
 
         $payload = [];
         $waiverValidations = [];
+        $signatureVerifications = [];
         $capturedSignatures = [];
         foreach ($fields as $field) {
             $key = $field->field_key;
@@ -342,7 +343,16 @@ class FormRenderController extends Controller
 
             if ($type === FieldType::SIGNATURE) {
                 $submitted = $validated[$key] ?? null;
-                $payload[$key] = $this->resolveSignature($submitted, $key, $form->route_name, $request);
+                $path = $this->resolveSignature($submitted, $key, $form->route_name, $request);
+                $payload[$key] = $path;
+
+                // Compare mode: the stored signature must match the field's
+                // expected signer, or the submission is rejected (fail-closed).
+                $options = (array) ($field->field_options ?? []);
+                if ($path !== null && FieldType::signatureExpectsMatch($options)) {
+                    $signatureVerifications[$key] = $this->enforceSignatureMatch($path, $key, $options, $request);
+                }
+
                 // A freshly drawn/uploaded signature (as opposed to a re-used
                 // saved one) is registered after the payload is final, so the
                 // verifier recognizes it next time.
@@ -441,6 +451,11 @@ class FormRenderController extends Controller
         // Stash the authoritative waiver re-validation results for the review UI.
         if ($waiverValidations !== []) {
             $payload['_waiver_validation'] = $waiverValidations;
+        }
+
+        // Stash the signature match outcomes (Compare-mode fields) for review.
+        if ($signatureVerifications !== []) {
+            $payload['_signature_verification'] = $signatureVerifications;
         }
 
         // The public sign-up form carries a hidden google_id from the OAuth
@@ -587,5 +602,53 @@ class FormRenderController extends Controller
         $profileSignature = $request->user()?->profile()->first()?->signature_path;
 
         return ($profileSignature !== null && $value === $profileSignature) ? $value : null;
+    }
+
+    /**
+     * Enforce a Compare-mode signature field: the stored signature must match one
+     * of the field's expected signer(s). Fail-closed — a missing reference or an
+     * unreachable OCR sidecar rejects the submission rather than letting an
+     * unverifiable signature through.
+     *
+     * @param  array<string,mixed>  $options  the field's `field_options`
+     * @return array{status:string, matched:?string, score:?float}  recorded in the payload
+     *
+     * @throws \Illuminate\Validation\ValidationException  on any non-match
+     */
+    private function enforceSignatureMatch(string $path, string $key, array $options, Request $request): array
+    {
+        $expected = app(\App\Forms\ExpectedSignatories::class)->resolve($options, $request->user());
+
+        [$candidates, $names] = app(\App\Services\SignatureReferenceService::class)->candidatesFrom($expected);
+        if ($candidates === []) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                $key => "No reference signature is on file for the expected signer, so this one can't be verified. Please contact the form owner.",
+            ]);
+        }
+
+        $probe = \Illuminate\Support\Facades\Storage::disk(SignatureImage::disk())->get($path);
+        $result = app(\App\Services\OcrClient::class)->identifySignature((string) $probe, $candidates);
+
+        // Fail-closed when the match cannot be determined (sidecar unreachable).
+        if (! $result['ok']) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                $key => "We couldn't verify this signature right now. Please try again in a moment.",
+            ]);
+        }
+
+        $expectedIds = array_map(static fn (array $c) => (int) $c['id'], $candidates);
+        $bestId = isset($result['best']['id']) ? (int) $result['best']['id'] : null;
+
+        if (! $result['match'] || $bestId === null || ! in_array($bestId, $expectedIds, true)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                $key => "This signature doesn't match the expected signer.",
+            ]);
+        }
+
+        return [
+            'status' => 'verified',
+            'matched' => $names[$bestId] ?? null,
+            'score' => isset($result['best']['score']) ? (float) $result['best']['score'] : null,
+        ];
     }
 }

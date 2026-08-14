@@ -9,7 +9,12 @@
 @source '../**/*.js';
 
 
-@custom-variant dark (&:is(.dark *));
+/* Matches both the element carrying `.dark` and its descendants — `&:is(.dark *)`
+   alone skips the carrier, so `dark:` utilities on <html>/<body> silently no-op.
+   `:is()` (not `:where()`) keeps the extra specificity Tailwind's own variant has;
+   with `:where()` a `dark:` utility ties with its light counterpart and only wins
+   on source order. */
+@custom-variant dark (&:is(.dark, .dark *));
 
 @theme {
   --font-*: initial;
@@ -196,13 +201,21 @@
   [role='button']:not(:disabled) {
     cursor: pointer;
   }
+  /* The dark background belongs in CSS, not on a class Alpine adds after boot —
+     otherwise dark pages paint white until the JS bundle runs. */
   body {
-    @apply relative font-normal font-outfit z-1 bg-gray-50;
+    @apply relative font-normal font-outfit z-1 bg-gray-50 dark:bg-gray-900;
   }
 }
 
 .dark {
   color-scheme: dark;
+}
+
+/* Pin native controls (scrollbars, selects, date pickers) to the app's theme.
+   Without this an app running light on a dark OS gets dark UA widgets. */
+html[data-theme='light'] {
+  color-scheme: light;
 }
 
 ::-webkit-scrollbar {

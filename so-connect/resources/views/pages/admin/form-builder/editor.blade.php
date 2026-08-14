@@ -32,6 +32,7 @@
             storeUrl: '{{ route('admin.form-builder.store') }}',
             updateUrl: '{{ $form ? route('admin.form-builder.update', $form) : '' }}',
             uploadUrl: '{{ route('admin.form-builder.upload-asset') }}',
+            signatorySearchUrl: '{{ route('admin.form-builder.signatory-search') }}',
             csrf: '{{ csrf_token() }}',
         })"
         @keydown.window.ctrl.s.prevent="save()"
@@ -256,6 +257,68 @@
                                 <p x-show="f.field_type === 'signature'" x-cloak class="mt-1 text-[10px] text-gray-400">
                                     The ID scanner fills the form's only signature field on its own. With more than one, bind
                                     “Signature” here to say which box the scanned signature belongs in.
+                                </p>
+                            </div>
+
+                            {{-- signature: expected signer(s) + Compare mode --}}
+                            <div x-show="f.field_type === 'signature'" x-cloak class="space-y-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                                <p class="text-xs font-medium text-gray-600 dark:text-gray-300">Expected signer</p>
+                                <p class="text-[10px] text-gray-400">
+                                    Set who is expected to sign here. When set, the field verifies the submitted
+                                    signature against that person and rejects it if it doesn't match (Compare mode).
+                                    Leave empty for an ordinary signature box.
+                                </p>
+
+                                {{-- Expected positions (org roles) --}}
+                                <div>
+                                    <label class="mb-1 block text-[10px] text-gray-500">Organization positions</label>
+                                    <div class="flex flex-wrap gap-x-3 gap-y-1.5">
+                                        <template x-for="pos in expectedPositionChoices" :key="pos">
+                                            <label class="flex cursor-pointer items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
+                                                <input type="checkbox" :checked="hasExpectedPosition(f, pos)" @change="toggleExpectedPosition(f, pos)"
+                                                    class="h-3.5 w-3.5 rounded border-gray-300 text-brand-500" />
+                                                <span x-text="pos"></span>
+                                            </label>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                {{-- Expected specific people (name search) --}}
+                                <div>
+                                    <label class="mb-1 block text-[10px] text-gray-500">Specific people</label>
+                                    <input type="text" x-model="signatoryQuery" @input.debounce.300ms="searchExpectedPeople()"
+                                        placeholder="Search a name…"
+                                        class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
+                                    <div x-show="signatoryResults.length" class="mt-1 max-h-40 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                                        <template x-for="person in signatoryResults" :key="person.profile_id">
+                                            <button type="button" @click="addExpectedPerson(f, person)"
+                                                class="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/[0.05]">
+                                                <span x-text="person.name"></span>
+                                                <span x-show="person.org_role" x-text="person.org_role" class="text-[10px] text-gray-400"></span>
+                                            </button>
+                                        </template>
+                                    </div>
+                                    <div class="mt-1.5 flex flex-wrap gap-1.5">
+                                        <template x-for="person in (f.field_options.expected_people || [])" :key="person.id">
+                                            <span class="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
+                                                <span x-text="person.name"></span>
+                                                <span x-show="person.org_role" class="text-[10px] opacity-70" x-text="'· ' + person.org_role"></span>
+                                                <button type="button" @click="removeExpectedPerson(f, person.id)" class="ml-0.5 text-brand-400 hover:text-brand-600">&times;</button>
+                                            </span>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                {{-- Compare-mode toggle (auto-on when an expected signer is set) --}}
+                                <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                                    <input type="checkbox" :checked="f.field_options.match_mode === 'compare'"
+                                        @change="f.field_options.match_mode = $event.target.checked ? 'compare' : 'normal'"
+                                        class="h-4 w-4 rounded border-gray-300 text-brand-500" />
+                                    Reject signatures that don't match the expected signer
+                                </label>
+                                <p x-show="!hasExpectedSigner(f) && f.field_options.match_mode === 'compare'" x-cloak
+                                    class="text-[10px] text-warning-500">
+                                    Add at least one expected position or person, or this field can never verify a signature.
                                 </p>
                             </div>
 

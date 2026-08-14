@@ -331,10 +331,12 @@ it('accepts the borrowed signature on submit and files it under the name typed o
 
     scenarioReport('scenario 1 — submission stored at '.$payload['sig'].' (no gate on a mismatched signature)');
 
-    // The capture is registered under the name typed next to it, so a second
-    // reference for Silverton now exists alongside her profile one.
+    // The capture is filed under the name typed next to it and recognized as
+    // Silverton, so it is deduped into her existing profile rather than stacking
+    // a second reference — and because she already had a signature, hers is left
+    // untouched (a borrowed capture never overwrites the real owner's).
     $silvertonReferences = SignatureReference::query()->where('name', 'Dana Silverton')->get();
-    expect($silvertonReferences->pluck('source')->all())->toContain('profile', 'enrolled')
+    expect($silvertonReferences->pluck('source')->unique()->values()->all())->toBe(['profile'])
         // Lopez's own profile signature is untouched by someone else's capture.
         ->and($lopez->profile()->first()->signature_path)->not->toBe($payload['sig']);
 });

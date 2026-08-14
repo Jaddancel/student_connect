@@ -5,9 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * A known signature the verifier compares drawn signatures against. Sourced
- * either from a user profile ('profile') or auto-enrolled under a typed owner
- * name ('enrolled').
+ * A known signature the verifier compares drawn signatures against. Every
+ * reference mirrors a profile's signature ('profile'); unrecognized signatures
+ * become flagged profiles (see {@see \App\Services\SignatureProfileRegistrar}),
+ * which then sync in here — so the registry is uniformly profile-sourced.
  */
 class SignatureReference extends Model
 {
@@ -31,6 +32,4 @@ class SignatureReference extends Model
     }
 
     public const SOURCE_PROFILE = 'profile';
-
-    public const SOURCE_ENROLLED = 'enrolled';
 }

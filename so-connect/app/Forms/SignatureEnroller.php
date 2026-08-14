@@ -4,6 +4,7 @@ namespace App\Forms;
 
 use App\Models\Form\FormDescription;
 use App\Models\User;
+use App\Services\SignatureProfileRegistrar;
 use App\Services\SignatureReferenceService;
 use Illuminate\Support\Collection;
 
@@ -35,7 +36,10 @@ class SignatureEnroller
     /** Labels that contain "name" but never name a signatory. */
     private const NAME_LABEL_EXCLUDES = '/organi[sz]ation|\borg\b|event|file|document|form|user\s*name|username|program|course|school|company/i';
 
-    public function __construct(private readonly SignatureReferenceService $references) {}
+    public function __construct(
+        private readonly SignatureReferenceService $references,
+        private readonly SignatureProfileRegistrar $registrar,
+    ) {}
 
     /**
      * @param  Collection<int,FormDescription>  $fields  the form's fields, in field_order
@@ -64,9 +68,15 @@ class SignatureEnroller
             /** @var FormDescription $field */
             $field = $ordered[$index];
 
+            // Compare-mode fields are enforced at submit against a known signer;
+            // there is no unknown owner to auto-profile here.
+            if (FieldType::signatureExpectsMatch((array) ($field->field_options ?? []))) {
+                continue;
+            }
+
             // The submitter's own signature field: adopt it as their profile
             // signature when they have none, which registers it via the profile
-            // sync. Falls through to a plain enrollment when there is no profile.
+            // sync. Falls through to a plain registration when there is no profile.
             if ($field->universal_key === 'signature' && $this->adoptAsProfileSignature($user, $path)) {
                 continue;
             }
@@ -76,7 +86,11 @@ class SignatureEnroller
                 continue;
             }
 
-            $this->references->enrollOrUpdate($name, $path);
+            // File the captured signature under its signatory as a real (flagged)
+            // profile, so it is browsable and recognized from here on. Deduped by
+            // name, so a signature already named via the interactive prompt — or
+            // re-submitted — does not create a second profile.
+            $this->registrar->register($name, $path);
         }
     }
 

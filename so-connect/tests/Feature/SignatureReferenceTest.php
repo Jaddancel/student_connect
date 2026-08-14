@@ -19,14 +19,29 @@ it('returns only references whose image exists, with a name map', function () {
     Storage::fake(SignatureImage::disk());
     putSignature('signatures/a.png');
 
-    $present = SignatureReference::create(['name' => 'Alice Ref', 'signature_path' => 'signatures/a.png', 'source' => 'enrolled']);
-    SignatureReference::create(['name' => 'Ghost', 'signature_path' => 'signatures/missing.png', 'source' => 'enrolled']);
+    $present = SignatureReference::create(['name' => 'Alice Ref', 'signature_path' => 'signatures/a.png', 'source' => 'profile']);
+    SignatureReference::create(['name' => 'Ghost', 'signature_path' => 'signatures/missing.png', 'source' => 'profile']);
 
     [$candidates, $names] = app(SignatureReferenceService::class)->candidates();
 
     expect($candidates)->toHaveCount(1);
     expect($candidates[0]['id'])->toBe((int) $present->reference_id);
     expect($names[(int) $present->reference_id])->toBe('Alice Ref');
+});
+
+it('builds candidates from a supplied reference set only', function () {
+    Storage::fake(SignatureImage::disk());
+    putSignature('signatures/a.png');
+    putSignature('signatures/b.png');
+
+    $wanted = SignatureReference::create(['name' => 'Wanted', 'signature_path' => 'signatures/a.png', 'source' => 'profile']);
+    SignatureReference::create(['name' => 'Other', 'signature_path' => 'signatures/b.png', 'source' => 'profile']);
+
+    [$candidates, $names] = app(SignatureReferenceService::class)->candidatesFrom(collect([$wanted]));
+
+    expect($candidates)->toHaveCount(1);
+    expect($candidates[0]['id'])->toBe((int) $wanted->reference_id);
+    expect($names[(int) $wanted->reference_id])->toBe('Wanted');
 });
 
 it('mirrors a profile signature into the registry and is idempotent', function () {
@@ -72,7 +87,7 @@ it('backfills references from all profile signatures', function () {
 it('reports a recognized signature via the verify endpoint', function () {
     Storage::fake(SignatureImage::disk());
     putSignature('signatures/a.png');
-    $ref = SignatureReference::create(['name' => 'Alice Ref', 'signature_path' => 'signatures/a.png', 'source' => 'enrolled']);
+    $ref = SignatureReference::create(['name' => 'Alice Ref', 'signature_path' => 'signatures/a.png', 'source' => 'profile']);
 
     Http::fake([
         '*/signature-identify' => Http::response(['match' => true, 'best' => ['id' => $ref->reference_id, 'score' => 0.92]], 200),
@@ -93,24 +108,44 @@ it('reports no_signatures when the registry is empty', function () {
         ->assertJson(['status' => 'no_signatures']);
 });
 
-it('auto-enrolls an unrecognized signature under a typed name', function () {
+it('names an unrecognized signature, creating one flagged profile and a profile-sourced reference', function () {
     Storage::fake(SignatureImage::disk());
 
     $this->actingAs(recordsUser(3))
         ->postJson(route('signature.enroll'), [
             'signature' => signatureDataUrl(),
-            'name' => 'Jane External',
+            'name' => 'Cruz, Jane Marie',
         ])
         ->assertOk()
-        ->assertJson(['status' => 'enrolled']);
+        ->assertJson(['status' => 'saved']);
 
-    $ref = SignatureReference::where('name', 'Jane External')->first();
+    $profile = Profile::where('last_name', 'Cruz')->first();
+    expect($profile)->not->toBeNull();
+    expect($profile->first_name)->toBe('Jane Marie');
+    expect($profile->origin)->toBe(Profile::ORIGIN_SIGNATURE_ONLY);
+    expect(Storage::disk(SignatureImage::disk())->exists($profile->signature_path))->toBeTrue();
+
+    $ref = SignatureReference::where('profile_id', $profile->profile_id)->first();
     expect($ref)->not->toBeNull();
-    expect($ref->source)->toBe('enrolled');
-    expect(Storage::disk(SignatureImage::disk())->exists($ref->signature_path))->toBeTrue();
+    expect($ref->source)->toBe('profile');
 });
 
-it('refuses to enroll an image with no signature in it', function () {
+it('does not create a second profile when the same name is submitted twice', function () {
+    Storage::fake(SignatureImage::disk());
+
+    foreach (['first', 'second'] as $_) {
+        $this->actingAs(recordsUser(3))
+            ->postJson(route('signature.enroll'), [
+                'signature' => signatureDataUrl(),
+                'name' => 'Jane External',
+            ])
+            ->assertOk();
+    }
+
+    expect(Profile::where('last_name', 'External')->count())->toBe(1);
+});
+
+it('refuses to name an image with no signature in it', function () {
     Storage::fake(SignatureImage::disk());
 
     $blank = imagecreatetruecolor(400, 200);
@@ -126,32 +161,6 @@ it('refuses to enroll an image with no signature in it', function () {
         ])
         ->assertStatus(422);
 
-    expect(SignatureReference::where('name', 'Blank Page')->exists())->toBeFalse();
+    expect(Profile::where('last_name', 'Page')->exists())->toBeFalse();
     expect(Storage::disk(SignatureImage::disk())->allFiles())->toBe([]);
-});
-
-it('shows the reference registry to a super admin and hides it from others', function () {
-    SignatureReference::create(['name' => 'On File', 'signature_path' => 'signatures/x.png', 'source' => 'enrolled']);
-
-    $this->actingAs(recordsUser(1))
-        ->get(route('superadmin.signature-references.index'))
-        ->assertOk()
-        ->assertSee('On File');
-
-    $this->actingAs(recordsUser(2))
-        ->get(route('superadmin.signature-references.index'))
-        ->assertForbidden();
-});
-
-it('lets a super admin delete an enrolled reference and its image', function () {
-    Storage::fake(SignatureImage::disk());
-    Storage::disk(SignatureImage::disk())->put('signatures/enrolled/x.png', 'img');
-    $ref = SignatureReference::create(['name' => 'Bad', 'signature_path' => 'signatures/enrolled/x.png', 'source' => 'enrolled']);
-
-    $this->actingAs(recordsUser(1))
-        ->delete(route('superadmin.signature-references.destroy', $ref->reference_id))
-        ->assertRedirect();
-
-    expect(SignatureReference::find($ref->reference_id))->toBeNull();
-    expect(Storage::disk(SignatureImage::disk())->exists('signatures/enrolled/x.png'))->toBeFalse();
 });

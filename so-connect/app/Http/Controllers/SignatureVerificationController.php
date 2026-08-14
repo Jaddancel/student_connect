@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\OcrClient;
+use App\Services\SignatureProfileRegistrar;
 use App\Services\SignatureReferenceService;
 use App\Support\SignatureImage;
 use Illuminate\Http\JsonResponse;
@@ -50,11 +51,14 @@ class SignatureVerificationController extends Controller
     }
 
     /**
-     * Auto-enroll an unrecognized signature under a typed owner name (owners may
-     * be non-users). Server-authoritative: the server stores the image and
-     * creates the reference — the client only supplies the drawing + name.
+     * Name an unrecognized signature: a Normal-mode field whose drawing the
+     * verifier didn't recognize asks the submitter who signed, and posts the
+     * name + drawing here. The server stores the extracted signature and files
+     * it as a real (flagged) profile via {@see SignatureProfileRegistrar}, so it
+     * becomes browsable in the Profile Manager and recognized from here on.
+     * Server-authoritative: the client only supplies the drawing + name.
      */
-    public function enroll(Request $request, SignatureReferenceService $references): JsonResponse
+    public function enroll(Request $request, SignatureProfileRegistrar $registrar): JsonResponse
     {
         $validated = $request->validate([
             'signature' => ['required', 'string', 'starts_with:data:image'],
@@ -66,11 +70,17 @@ class SignatureVerificationController extends Controller
             return response()->json(['status' => 'error'], 422);
         }
 
-        $reference = $references->enroll($validated['name'], $path);
+        $profile = $registrar->register($validated['name'], $path);
+        if ($profile === null) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Please enter at least a first or last name.',
+            ], 422);
+        }
 
         return response()->json([
-            'status' => 'enrolled',
-            'reference_id' => (int) $reference->reference_id,
+            'status' => 'saved',
+            'name' => trim($profile->first_name.' '.$profile->last_name),
         ]);
     }
 }

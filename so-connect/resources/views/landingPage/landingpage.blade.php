@@ -17,6 +17,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
     <!-- Core theme CSS (includes Bootstrap)-->
     @vite(['resources/css/landingPage.css'])
+
+    <!-- Shared light/dark bootstrap (same localStorage key as the dashboard) -->
+    @include('layouts.partials.theme-boot')
 </head>
 
 <body id="page-top" class="landing-page">
@@ -51,10 +54,13 @@
                     <li class="nav-item">
                         <a class="nav-link" href="#activity">Recent Activities</a>
                     </li>
-                    <li class="nav-item ms-lg-3">
-                        <a class="nav-link btn btn-sm text-uppercase" href="#auth"
-                            style="padding: 8px 20px; border-radius: 20px; font-weight: 600; background-color: #C9A84C; color: white; transition: all 0.3s ease; display: inline-block;">Login
+                    {{-- Login + theme toggle share one nav-item so the toggle stays
+                         beside the button instead of dropping to its own row when
+                         the navbar collapses. --}}
+                    <li class="nav-item ms-lg-3 d-flex align-items-center gap-2">
+                        <a class="nav-link btn btn-sm text-uppercase lp-login-btn" href="#auth">Login
                             / Sign Up</a>
+                        <x-theme-toggle class="lp-theme-toggle" />
                     </li>
                 </ul>
             </div>
@@ -435,7 +441,7 @@
         {{-- Right form panel --}}
         <div style="
             flex: 1;
-            background: #f8f6f1;
+            background: var(--lp-surface-alt);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -449,8 +455,8 @@
 
                 {{-- Mobile-only top bar --}}
                 <div class="d-lg-none" style="margin-bottom:32px;text-align:center;">
-                    <div style="width:40px;height:3px;background:#C9A84C;margin:0 auto 16px;"></div>
-                    <p style="font-family:'Lato',sans-serif;font-size:0.8rem;letter-spacing:0.12em;text-transform:uppercase;color:#2D6A4F;font-weight:700;">SO Connect</p>
+                    <div style="width:40px;height:3px;background:var(--lp-gold);margin:0 auto 16px;"></div>
+                    <p style="font-family:'Lato',sans-serif;font-size:0.8rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--lp-accent);font-weight:700;">SO Connect</p>
                 </div>
 
                 {{-- Form heading --}}
@@ -458,17 +464,17 @@
                     font-family: 'Playfair Display', Georgia, serif;
                     font-size: 2rem;
                     font-weight: 700;
-                    color: #1A3C2E;
+                    color: var(--lp-heading);
                     margin-bottom: 6px;
                     line-height: 1.2;
                 ">Welcome back</h3>
-                <p style="font-family:'Lato',sans-serif;font-size:0.92rem;color:#6b7a6f;margin-bottom:32px;font-weight:300;">Sign in to your account to continue.</p>
+                <p style="font-family:'Lato',sans-serif;font-size:0.92rem;color:var(--lp-muted);margin-bottom:32px;font-weight:300;">Sign in to your account to continue.</p>
 
                 {{-- Error message --}}
                 @if ($errors->has('user_email'))
                     <div style="
-                        background:#fff0f0;
-                        border:1px solid #f5c6cb;
+                        background:var(--lp-error-bg);
+                        border:1px solid var(--lp-error-border);
                         border-left:4px solid #dc3545;
                         border-radius:6px;
                         padding:12px 16px;
@@ -478,7 +484,7 @@
                         gap:10px;
                     ">
                         <i class="fas fa-exclamation-circle" style="color:#dc3545;margin-top:2px;flex-shrink:0;font-size:0.85rem;"></i>
-                        <p style="margin:0;font-family:'Lato',sans-serif;font-size:0.875rem;color:#721c24;line-height:1.4;">
+                        <p style="margin:0;font-family:'Lato',sans-serif;font-size:0.875rem;color:var(--lp-error-text);line-height:1.4;">
                             {{ $errors->first('user_email') }}
                         </p>
                     </div>
@@ -494,7 +500,7 @@
                             font-family:'Lato',sans-serif;
                             font-size:0.8rem;
                             font-weight:700;
-                            color:#1A3C2E;
+                            color:var(--lp-heading);
                             letter-spacing:0.08em;
                             text-transform:uppercase;
                             margin-bottom:8px;
@@ -509,17 +515,17 @@
                             style="
                                 width:100%;
                                 padding:13px 16px;
-                                border:1.5px solid {{ $errors->has('user_email') ? '#dc3545' : '#d4d0c8' }};
+                                border:1.5px solid {{ $errors->has('user_email') ? '#dc3545' : 'var(--lp-border-strong)' }};
                                 border-radius:8px;
                                 font-family:'Lato',sans-serif;
                                 font-size:0.95rem;
-                                color:#1A3C2E;
-                                background:#fff;
+                                color:var(--lp-heading);
+                                background:var(--lp-surface);
                                 outline:none;
                                 transition:border-color 0.2s,box-shadow 0.2s;
                             "
-                            onfocus="this.style.borderColor='#2D6A4F';this.style.boxShadow='0 0 0 3px rgba(45,106,79,0.12)'"
-                            onblur="this.style.borderColor='{{ $errors->has('user_email') ? '#dc3545' : '#d4d0c8' }}';this.style.boxShadow='none'"
+                            onfocus="this.style.borderColor='var(--lp-accent)';this.style.boxShadow='0 0 0 3px rgba(45,106,79,0.12)'"
+                            onblur="this.style.borderColor='{{ $errors->has('user_email') ? '#dc3545' : 'var(--lp-border-strong)' }}';this.style.boxShadow='none'"
                         />
                     </div>
 
@@ -530,7 +536,7 @@
                             font-family:'Lato',sans-serif;
                             font-size:0.8rem;
                             font-weight:700;
-                            color:#1A3C2E;
+                            color:var(--lp-heading);
                             letter-spacing:0.08em;
                             text-transform:uppercase;
                             margin-bottom:8px;
@@ -546,17 +552,17 @@
                                 style="
                                     width:100%;
                                     padding:13px 48px 13px 16px;
-                                    border:1.5px solid #d4d0c8;
+                                    border:1.5px solid var(--lp-border-strong);
                                     border-radius:8px;
                                     font-family:'Lato',sans-serif;
                                     font-size:0.95rem;
-                                    color:#1A3C2E;
-                                    background:#fff;
+                                    color:var(--lp-heading);
+                                    background:var(--lp-surface);
                                     outline:none;
                                     transition:border-color 0.2s,box-shadow 0.2s;
                                 "
-                                onfocus="this.style.borderColor='#2D6A4F';this.style.boxShadow='0 0 0 3px rgba(45,106,79,0.12)'"
-                                onblur="this.style.borderColor='#d4d0c8';this.style.boxShadow='none'"
+                                onfocus="this.style.borderColor='var(--lp-accent)';this.style.boxShadow='0 0 0 3px rgba(45,106,79,0.12)'"
+                                onblur="this.style.borderColor='var(--lp-border-strong)';this.style.boxShadow='none'"
                                 onkeyup="document.getElementById('caps-warn').style.display=event.getModifierState('CapsLock')?'flex':'none'"
                                 onkeydown="document.getElementById('caps-warn').style.display=event.getModifierState('CapsLock')?'flex':'none'"
                             />
@@ -567,7 +573,7 @@
                                 style="
                                     position:absolute;right:14px;top:50%;transform:translateY(-50%);
                                     background:none;border:none;cursor:pointer;padding:0;
-                                    color:#6b7a6f;display:flex;align-items:center;
+                                    color:var(--lp-muted);display:flex;align-items:center;
                                 "
                                 tabindex="-1"
                             >
@@ -586,7 +592,7 @@
                         <a href="/reset-password" style="
                             font-family:'Lato',sans-serif;
                             font-size:0.82rem;
-                            color:#2D6A4F;
+                            color:var(--lp-accent);
                             text-decoration:none;
                             font-weight:700;
                             letter-spacing:0.02em;
@@ -622,9 +628,9 @@
 
                 {{-- Divider --}}
                 <div style="display:flex;align-items:center;gap:14px;margin:28px 0;">
-                    <div style="flex:1;height:1px;background:#d4d0c8;"></div>
-                    <span style="font-family:'Lato',sans-serif;font-size:0.8rem;color:#9ca89f;font-weight:400;">New to SO Connect?</span>
-                    <div style="flex:1;height:1px;background:#d4d0c8;"></div>
+                    <div style="flex:1;height:1px;background:var(--lp-border-strong);"></div>
+                    <span style="font-family:'Lato',sans-serif;font-size:0.8rem;color:var(--lp-subtle);font-weight:400;">New to SO Connect?</span>
+                    <div style="flex:1;height:1px;background:var(--lp-border-strong);"></div>
                 </div>
 
                 {{-- Sign Up with Google — opens the OAuth popup, then continues to
@@ -637,9 +643,9 @@
                     width:100%;
                     padding:13px 24px;
                     margin-bottom:12px;
-                    background:#fff;
-                    color:#3c4043;
-                    border:1.5px solid #d4d0c8;
+                    background:var(--lp-surface);
+                    color:var(--lp-google-text);
+                    border:1.5px solid var(--lp-border-strong);
                     border-radius:8px;
                     font-family:'Lato',sans-serif;
                     font-size:0.9rem;
@@ -648,8 +654,8 @@
                     cursor:pointer;
                     transition:background 0.2s,box-shadow 0.2s;
                 "
-                onmouseover="this.style.background='#f7f7f5'"
-                onmouseout="this.style.background='#fff'"
+                onmouseover="this.style.background='var(--lp-google-hover)'"
+                onmouseout="this.style.background='var(--lp-surface)'"
                 >
                     <i class="fab fa-google" style="color:#4285F4;font-size:1rem;"></i>
                     Sign Up with Google
@@ -662,8 +668,8 @@
                     width:100%;
                     padding:14px 24px;
                     background:transparent;
-                    color:#2D6A4F;
-                    border:1.5px solid #2D6A4F;
+                    color:var(--lp-accent);
+                    border:1.5px solid var(--lp-accent);
                     border-radius:8px;
                     font-family:'Lato',sans-serif;
                     font-size:0.9rem;
@@ -674,8 +680,8 @@
                     text-decoration:none;
                     transition:background 0.2s,color 0.2s;
                 "
-                onmouseover="this.style.background='#2D6A4F';this.style.color='#fff'"
-                onmouseout="this.style.background='transparent';this.style.color='#2D6A4F'"
+                onmouseover="this.style.background='var(--lp-accent)';this.style.color='var(--lp-accent-contrast)'"
+                onmouseout="this.style.background='transparent';this.style.color='var(--lp-accent)'"
                 >
                     <i class="fas fa-user-plus" style="margin-right:8px;"></i>
                     Register as Officer
@@ -722,7 +728,7 @@
             return;
         }
 
-        status.style.color = '#6b7a6f';
+        status.style.color = 'var(--lp-muted)';
         status.textContent = 'Opening Google…';
 
         var w = 500, h = 600;
@@ -761,32 +767,32 @@
     <section class="page-section bg-light" id="activity">
         <div class="container">
             <div class="text-center mb-5">
-                <i class="fas fa-history fa-2x" style="color: #2D6A4F; margin-bottom: 20px;"></i>
+                <i class="fas fa-history fa-2x" style="color: var(--lp-accent); margin-bottom: 20px;"></i>
                 <h2 class="section-heading text-uppercase">Recent Activities</h2>
             </div>
             <div class="row g-4">
                 @forelse ($recentActivities as $activity)
                 <div class="col-lg-4 col-md-6">
                     <div class="activity-card"
-                        style="overflow: hidden; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+                        style="overflow: hidden; border-radius: 10px; background: var(--lp-surface); box-shadow: 0 5px 20px var(--lp-shadow); transition: transform 0.3s ease;">
                         <div
                             style="background: linear-gradient(135deg, #2D6A4F 0%, #1A3C2E 100%); height: 200px; display: flex; align-items: center; justify-content: center;">
                             <i class="fas fa-calendar-check fa-5x" style="color: rgba(255,255,255,0.8);"></i>
                         </div>
                         <div style="padding: 20px;">
-                            <div style="color: #2D6A4F; font-size: 0.8rem; font-weight: 600; margin-bottom: 8px;">
+                            <div style="color: var(--lp-accent); font-size: 0.8rem; font-weight: 600; margin-bottom: 8px;">
                                 <i class="fas fa-calendar-day"></i>
                                 {{ \Carbon\Carbon::parse($activity->start_time)->format('M j, Y') }}
                             </div>
-                            <h5 style="margin: 0; font-weight: 700; color: #1A3C2E;">{{ $activity->event_name }}</h5>
-                            <p style="margin: 4px 0 0; font-size: 0.8rem; color: #555;">{{ $activity->organization_name }}</p>
+                            <h5 style="margin: 0; font-weight: 700; color: var(--lp-heading);">{{ $activity->event_name }}</h5>
+                            <p style="margin: 4px 0 0; font-size: 0.8rem; color: var(--lp-muted);">{{ $activity->organization_name }}</p>
                         </div>
                     </div>
                 </div>
                 @empty
                 <div class="col-12 text-center text-muted py-4">
-                    <i class="fas fa-calendar-times fa-2x mb-2" style="color: #ccc;"></i>
-                    <p style="color: #999;">No recent activities yet.</p>
+                    <i class="fas fa-calendar-times fa-2x mb-2" style="color: var(--lp-faint);"></i>
+                    <p style="color: var(--lp-subtle);">No recent activities yet.</p>
                 </div>
                 @endforelse
             </div>
@@ -822,7 +828,7 @@
         z-index:9999;
         min-width:300px;
         max-width:380px;
-        background:#fff;
+        background:var(--lp-surface);
         border-radius:10px;
         box-shadow:0 8px 32px rgba(0,0,0,0.18);
         border-left:4px solid #dc3545;
@@ -835,12 +841,12 @@
     ">
         <i class="fas fa-exclamation-circle" style="color:#dc3545;font-size:1.1rem;margin-top:2px;flex-shrink:0;"></i>
         <div style="flex:1;">
-            <div style="font-weight:700;color:#1A3C2E;font-size:0.9rem;margin-bottom:4px;">Login Failed</div>
-            <div style="color:#6b7a6f;font-size:0.85rem;line-height:1.4;">{{ $errors->first('user_email') }}</div>
+            <div style="font-weight:700;color:var(--lp-heading);font-size:0.9rem;margin-bottom:4px;">Login Failed</div>
+            <div style="color:var(--lp-muted);font-size:0.85rem;line-height:1.4;">{{ $errors->first('user_email') }}</div>
         </div>
         <button onclick="dismissLoginToast()" style="
             background:none;border:none;cursor:pointer;padding:0;
-            color:#9ca89f;font-size:1.25rem;flex-shrink:0;line-height:1;margin-top:1px;
+            color:var(--lp-subtle);font-size:1.25rem;flex-shrink:0;line-height:1;margin-top:1px;
         " aria-label="Dismiss">&times;</button>
     </div>
     <style>

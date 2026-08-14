@@ -79,6 +79,7 @@ final class UniversalField
             'current_datetime'     => ['label' => 'Date/Time',           'type' => FieldType::DATETIME, 'source' => 'system', 'group' => 'current'],
             'current_year'         => ['label' => 'Year',                'type' => FieldType::NUMBER,   'source' => 'system', 'group' => 'current'],
             'current_school_year'  => ['label' => 'Current School Year', 'type' => FieldType::TEXT,     'source' => 'system', 'group' => 'current'],
+            'current_semester'     => ['label' => 'Current Semester',    'type' => FieldType::TEXT,     'source' => 'system', 'group' => 'current'],
         ];
     }
 
@@ -223,6 +224,7 @@ final class UniversalField
             'current_datetime' => now()->format('Y-m-d H:i'),
             'current_year' => now()->format('Y'),
             'current_school_year' => Semester::currentSchoolYear(),
+            'current_semester' => Semester::currentSemesterLabel(),
             default => null,
         };
     }

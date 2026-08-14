@@ -107,6 +107,7 @@ final class FieldType
             self::DATE        => ['label' => 'Date',        'icon' => 'date',      'group' => 'basic'],
             self::TIME        => ['label' => 'Time',        'icon' => 'date',      'group' => 'basic'],
             self::DATETIME    => ['label' => 'Date + Time', 'icon' => 'date',      'group' => 'basic'],
+            self::TEXT_LIST   => ['label' => 'Text list',   'icon' => 'paragraph', 'group' => 'basic'],
             self::SELECT      => ['label' => 'Dropdown',    'icon' => 'select',    'group' => 'choice'],
             self::SEARCH      => ['label' => 'Search bar',  'icon' => 'select',    'group' => 'choice'],
             self::RADIO       => ['label' => 'Radio',       'icon' => 'radio',     'group' => 'choice'],
@@ -126,7 +127,6 @@ final class FieldType
             self::ID_SCAN         => ['label' => 'ID scan',             'icon' => 'image',     'group' => 'special'],
             self::WAIVER_SCAN     => ['label' => 'Waiver scan',         'icon' => 'image',     'group' => 'special'],
             self::WORKPLAN_EVENTS => ['label' => 'Approved events',     'icon' => 'checkbox',  'group' => 'special'],
-            self::TEXT_LIST       => ['label' => 'Text list',           'icon' => 'paragraph', 'group' => 'special'],
             self::TABLE_INPUT     => ['label' => 'Table',               'icon' => 'select',    'group' => 'special'],
             self::COMPUTED        => ['label' => 'Computed value',      'icon' => 'number',    'group' => 'special'],
             self::MULTI_IMAGE     => ['label' => 'Photo set',           'icon' => 'image',     'group' => 'special'],
@@ -215,6 +215,52 @@ final class FieldType
     public static function label(string $type): string
     {
         return self::catalog()[$type]['label'] ?? ucfirst($type);
+    }
+
+    /**
+     * The expected signer(s) declared on a signature field: a subset of
+     * {@see POSITION_OPTIONS} and a list of `profiles.profile_id` values. Both
+     * are validated/normalised so callers can trust the shape.
+     *
+     * @param  array<string,mixed>  $options  the field's `field_options`
+     * @return array{positions: string[], profiles: int[]}
+     */
+    public static function signatureExpected(array $options): array
+    {
+        $positions = array_values(array_filter(
+            array_map('strval', (array) ($options['expected_positions'] ?? [])),
+            fn ($p) => in_array($p, self::POSITION_OPTIONS, true),
+        ));
+
+        $profiles = array_values(array_unique(array_filter(
+            array_map('intval', (array) ($options['expected_profiles'] ?? [])),
+        )));
+
+        return ['positions' => $positions, 'profiles' => $profiles];
+    }
+
+    /**
+     * Whether a signature field enforces identity at submit time (Compare mode).
+     * Compare is on when the admin set `match_mode = 'compare'`, or — when the
+     * mode is left unset — implied by any expected signer being configured.
+     * Setting `match_mode = 'normal'` is an explicit opt-out that wins even when
+     * expected signers are present.
+     *
+     * @param  array<string,mixed>  $options  the field's `field_options`
+     */
+    public static function signatureExpectsMatch(array $options): bool
+    {
+        $mode = $options['match_mode'] ?? null;
+        if ($mode === 'compare') {
+            return true;
+        }
+        if ($mode === 'normal') {
+            return false;
+        }
+
+        $expected = self::signatureExpected($options);
+
+        return $expected['positions'] !== [] || $expected['profiles'] !== [];
     }
 
     /**

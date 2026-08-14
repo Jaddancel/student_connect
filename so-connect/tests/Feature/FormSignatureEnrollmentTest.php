@@ -81,9 +81,16 @@ it('registers a signature captured on a form under the name typed on that form',
 
     $reference = SignatureReference::query()->where('name', 'Maria Santos')->first();
 
+    // The captured signature is now filed as a flagged profile, mirrored into
+    // the registry as a profile-sourced reference (the "enrolled" source is gone).
     expect($reference)->not->toBeNull()
-        ->and($reference->source)->toBe('enrolled')
+        ->and($reference->source)->toBe('profile')
         ->and(Storage::disk(SignatureImage::disk())->exists($reference->signature_path))->toBeTrue();
+
+    $profile = \App\Models\Profile::query()->where('first_name', 'Maria')->where('last_name', 'Santos')->first();
+    expect($profile)->not->toBeNull()
+        ->and($profile->origin)->toBe(\App\Models\Profile::ORIGIN_SIGNATURE_ONLY)
+        ->and((int) $reference->profile_id)->toBe((int) $profile->profile_id);
 });
 
 it('files each signature under the name nearest to it', function () {

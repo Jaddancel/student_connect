@@ -141,6 +141,23 @@ class Semester extends Model
     }
 
     /**
+     * Returns the current semester label (e.g. "1st Semester"), using the current
+     * semester if one exists, otherwise deriving it from today's month so forms
+     * are always pre-filled — mirrors {@see currentSchoolYear()}.
+     */
+    public static function currentSemesterLabel(): string
+    {
+        $semester = static::current();
+        if ($semester) {
+            return $semester->semesterLabel() . ' Semester';
+        }
+
+        $month = (int) Carbon::today()->format('n');
+
+        return $month >= 8 ? '1st Semester' : '2nd Semester';
+    }
+
+    /**
      * Derives the school year string (e.g. "2024–2025") from starts_at.
      * Aug–Dec → that year to next. Jan–Jul → previous year to that year.
      */

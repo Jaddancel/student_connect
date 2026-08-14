@@ -11950,3 +11950,247 @@ section#contact form#contactForm :-ms-input-placeholder {
   padding: 2rem 0;
   font-style: italic;
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   Light/dark theming for the public landing page.
+
+   The landing page is Bootstrap, not Tailwind, so it can't use the dashboard's
+   `dark:` utilities. Instead it reads the same signal the dashboard does — the
+   `data-theme` attribute that `layouts/partials/theme-boot` stamps on <html>
+   from the shared `theme` localStorage key — so a choice made in either place
+   holds everywhere.
+
+   Two mechanisms:
+     * tokens (--lp-*), for the chunks of markup that are styled inline and so
+       can't be overridden by a plain rule;
+     * `html[data-theme='dark']` overrides, for everything class-driven.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --lp-page-bg: #ffffff;
+  --lp-page-bg-alt: #f8f9fa;
+  --lp-events-bg: #F9F9F7;
+  --lp-surface: #ffffff;
+  --lp-surface-alt: #f8f6f1;
+  --lp-media-bg: #f1f3f5;
+  --lp-border: #e9ecef;
+  --lp-border-strong: #d4d0c8;
+  --lp-heading: #1A3C2E;
+  --lp-text: #212529;
+  --lp-muted: #6b7a6f;
+  --lp-subtle: #9ca89f;
+  --lp-faint: #adb5bd;
+  --lp-accent: #2D6A4F;
+  --lp-accent-contrast: #ffffff;
+  --lp-gold: #C9A84C;
+  --lp-shadow: rgba(0, 0, 0, 0.08);
+  --lp-shadow-strong: rgba(0, 0, 0, 0.14);
+  --lp-error-bg: #fff0f0;
+  --lp-error-border: #f5c6cb;
+  --lp-error-text: #721c24;
+  --lp-google-text: #3c4043;
+  --lp-google-hover: #f7f7f5;
+}
+
+html[data-theme='light'] {
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+
+  --lp-page-bg: #0e1613;
+  --lp-page-bg-alt: #121d18;
+  --lp-events-bg: #101a16;
+  --lp-surface: #16241d;
+  --lp-surface-alt: #101a16;
+  --lp-media-bg: #1c2c24;
+  --lp-border: #24382e;
+  --lp-border-strong: #2f4a3c;
+  --lp-heading: #e8f0ea;
+  --lp-text: #dbe5de;
+  --lp-muted: #9bb0a3;
+  --lp-subtle: #7d8f84;
+  --lp-faint: #6b7d72;
+  --lp-accent: #4fae83;
+  --lp-accent-contrast: #08120d;
+  --lp-gold: #D8BC6A;
+  --lp-shadow: rgba(0, 0, 0, 0.5);
+  --lp-shadow-strong: rgba(0, 0, 0, 0.65);
+  --lp-error-bg: #33191c;
+  --lp-error-border: #6d2a31;
+  --lp-error-text: #f4b3b9;
+  --lp-google-text: #dbe5de;
+  --lp-google-hover: #1d2f26;
+}
+
+/* ── Theme toggle in the navbar ─────────────────────────────────────────── */
+
+.lp-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid rgba(201, 168, 76, 0.45);
+  border-radius: 50%;
+  background: transparent;
+  color: #C9A84C;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.lp-theme-toggle:hover {
+  background: rgba(201, 168, 76, 0.15);
+  border-color: #C9A84C;
+}
+
+.lp-theme-toggle svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Login/Sign Up pill — was an inline style; a class lets it follow the theme.
+   Scoped to out-specify `#mainNav .navbar-nav .nav-item .nav-link`, which sets
+   its own colour and (above 992px) a narrower horizontal padding. */
+#mainNav .navbar-nav .nav-item .nav-link.lp-login-btn {
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-weight: 600;
+  background-color: #C9A84C;
+  color: #fff;
+  transition: all 0.3s ease;
+  display: inline-block;
+}
+
+#mainNav .navbar-nav .nav-item .nav-link.lp-login-btn:hover {
+  background-color: #B8963A;
+  color: #fff;
+}
+
+/* ── Dark overrides ─────────────────────────────────────────────────────── */
+
+html[data-theme='dark'] body.landing-page {
+  background-color: var(--lp-page-bg);
+  color: var(--lp-text);
+}
+
+html[data-theme='dark'] .landing-page .page-section {
+  background-color: var(--lp-page-bg);
+}
+
+html[data-theme='dark'] .landing-page .bg-light,
+html[data-theme='dark'] .landing-page .page-section.bg-light {
+  background-color: var(--lp-page-bg-alt) !important;
+}
+
+html[data-theme='dark'] .landing-page #events {
+  background-color: var(--lp-events-bg);
+}
+
+html[data-theme='dark'] .landing-page .section-heading,
+html[data-theme='dark'] .landing-page .events-heading,
+html[data-theme='dark'] .landing-page .events-icon {
+  color: var(--lp-heading);
+}
+
+html[data-theme='dark'] .landing-page .section-subheading,
+html[data-theme='dark'] .landing-page .text-muted {
+  color: var(--lp-muted) !important;
+}
+
+/* Cards: Featured Organizations, Featured Posts, category front faces, events */
+html[data-theme='dark'] .landing-page .feature-card,
+html[data-theme='dark'] .landing-page .post-card,
+html[data-theme='dark'] .landing-page .cat-face--front,
+html[data-theme='dark'] .landing-page .card {
+  background: var(--lp-surface);
+  color: var(--lp-text);
+  box-shadow: 0 2px 8px var(--lp-shadow);
+}
+
+html[data-theme='dark'] .landing-page .cat-face--front {
+  box-shadow: 0 4px 24px var(--lp-shadow), 0 0 0 1px var(--lp-border);
+}
+
+html[data-theme='dark'] .landing-page .cat-flip:hover .cat-face--front {
+  box-shadow: 0 12px 40px var(--lp-shadow-strong);
+}
+
+html[data-theme='dark'] .landing-page .feature-card-title,
+html[data-theme='dark'] .landing-page .post-card-title,
+html[data-theme='dark'] .landing-page .cat-front-title,
+html[data-theme='dark'] .landing-page .event-title,
+html[data-theme='dark'] .landing-page .card-title {
+  color: var(--lp-heading);
+}
+
+html[data-theme='dark'] .landing-page .feature-card-text,
+html[data-theme='dark'] .landing-page .post-card-text,
+html[data-theme='dark'] .landing-page .cat-front-desc,
+html[data-theme='dark'] .landing-page .empty-state,
+html[data-theme='dark'] .landing-page .card-text {
+  color: var(--lp-muted);
+}
+
+html[data-theme='dark'] .landing-page .feature-card-footer,
+html[data-theme='dark'] .landing-page .post-card-footer {
+  color: var(--lp-subtle);
+  border-top-color: var(--lp-border);
+}
+
+html[data-theme='dark'] .landing-page .feature-card-media,
+html[data-theme='dark'] .landing-page .img-placeholder,
+html[data-theme='dark'] .landing-page .post-card-media--empty {
+  background: var(--lp-media-bg);
+  color: var(--lp-faint);
+}
+
+html[data-theme='dark'] .landing-page .feature-card-initials,
+html[data-theme='dark'] .landing-page .cat-hint {
+  color: var(--lp-faint);
+}
+
+/* The gold tags read as muddy on a dark card — lift them. */
+html[data-theme='dark'] .landing-page .feature-card-tag,
+html[data-theme='dark'] .landing-page .post-card-meta {
+  color: var(--lp-gold);
+}
+
+html[data-theme='dark'] .landing-page .event-date.emerald,
+html[data-theme='dark'] .landing-page .event-link.emerald {
+  color: var(--lp-accent);
+}
+
+html[data-theme='dark'] .landing-page .event-date.blue,
+html[data-theme='dark'] .landing-page .event-link.blue {
+  color: #6fa4e8;
+}
+
+html[data-theme='dark'] .landing-page .event-card.event-emerald {
+  border-top-color: var(--lp-accent);
+}
+
+html[data-theme='dark'] .landing-page .event-header.emerald-gradient {
+  background: linear-gradient(135deg, #1f5540 0%, #2D6A4F 100%);
+}
+
+/* Navbar sits over the (unchanged) photographic masthead, so it only needs the
+   shrunk state — which does have a solid fill — deepened. */
+html[data-theme='dark'] #mainNav {
+  background-color: #0b1310;
+}
+
+@media (min-width: 992px) {
+  html[data-theme='dark'] #mainNav {
+    background-color: transparent;
+  }
+
+  html[data-theme='dark'] #mainNav.navbar-shrink {
+    background-color: #0b1310;
+  }
+}
+
+html[data-theme='dark'] #mainNav .dropdown-menu {
+  background-color: #0b1310;
+}

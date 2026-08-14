@@ -131,7 +131,7 @@ class FormPagesSeeder extends Seeder
             $this->f('middle_name', 'Middle Name', FieldType::TEXT, ['universal_key' => 'middle_name']),
             $this->f('last_name', 'Last Name', FieldType::TEXT, ['required' => true, 'universal_key' => 'last_name']),
             $this->f('email', 'Email', FieldType::EMAIL, ['required' => true]),
-            $this->f('contact_number', 'Contact Number', FieldType::TEXT, ['universal_key' => 'contact_number']),
+            $this->f('contact_number', 'Contact Number', FieldType::TEXT),
             $this->f('age', 'Age', FieldType::NUMBER),
             $this->f('sex', 'Sex', FieldType::SELECT, ['options' => ['options' => [
                 ['value' => 'Male', 'label' => 'Male'], ['value' => 'Female', 'label' => 'Female'],

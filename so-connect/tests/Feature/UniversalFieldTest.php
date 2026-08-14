@@ -17,11 +17,14 @@ it('exposes a catalog keyed by canonical universal keys', function () {
         ->and(UniversalField::label('home_address'))->toBe('Home Address');
 });
 
-it('no longer exposes the removed universal fields', function () {
-    $keys = UniversalField::keys();
-
-    expect($keys)->not->toContain('contact_number', 'age', 'nationality', 'course_year', 'student_id', 'id_photo_front', 'photo', 'address');
-});
+// Asserted one key at a time: a negated multi-argument `toContain` passes as soon as
+// *any* one needle is absent, so the grouped form silently allowed a retired key back
+// into the catalog. Retired keys still stamped on a form make it unsaveable, because
+// the builder validates universal_key with Rule::in(UniversalField::keys()).
+it('no longer exposes the removed universal fields', function (string $retired) {
+    expect(UniversalField::keys())->not->toContain($retired)
+        ->and(UniversalField::has($retired))->toBeFalse();
+})->with(['contact_number', 'age', 'nationality', 'course_year', 'student_id', 'id_photo_front', 'photo', 'address']);
 
 it('exposes birthday as a personal profile field', function () {
     expect(UniversalField::keys())->toContain('birthday')
@@ -43,7 +46,7 @@ it('leaves an unparseable birthday untouched and null when empty', function () {
 
 it('separates profile-source from org-source keys', function () {
     expect(UniversalField::keysBySource('org'))
-        ->toEqualCanonicalizing(['org_name', 'adviser', 'org_president', 'org_auditor', 'org_secretary'])
+        ->toEqualCanonicalizing(['org_name', 'adviser', 'org_president', 'org_auditor', 'org_secretary', 'org_category'])
         ->and(UniversalField::keysBySource('profile'))->not->toContain('adviser', 'org_president')
         ->and(UniversalField::isOrgField('org_president'))->toBeTrue()
         ->and(UniversalField::isOrgField('org_name'))->toBeTrue()
@@ -94,4 +97,20 @@ it('returns null for missing profile, unknown key, empty value, or an org-source
         ->and(UniversalField::valueFor($profile, 'year_section'))->toBeNull()
         // Org-source keys never resolve off a profile (use OrganizationField).
         ->and(UniversalField::valueFor($profile, 'org_president'))->toBeNull();
+});
+
+// The seeder once stamped `contact_number` — retired from the catalog — onto the
+// Directory of Student Officers, which made that form impossible to save: the builder
+// validates every field with Rule::in(UniversalField::keys()) and rejected the key the
+// seeder itself had written.
+it('seeds no form field with a universal key outside the catalog', function () {
+    $this->seed(\Database\Seeders\FormPagesSeeder::class);
+
+    $stale = \App\Models\Form\FormDescription::query()
+        ->whereNotNull('universal_key')
+        ->where('universal_key', '<>', '')
+        ->whereNotIn('universal_key', UniversalField::keys())
+        ->pluck('universal_key', 'field_key');
+
+    expect($stale)->toBeEmpty();
 });
