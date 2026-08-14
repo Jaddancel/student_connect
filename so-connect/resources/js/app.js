@@ -14,6 +14,7 @@ import { tallyEditor } from './components/tally-editor';
 import { formConditions } from './components/form-conditions';
 import { searchSelectField } from './components/search-select-field';
 import { assistantChat } from './components/assistant-chat';
+import { registerAgeAutofill } from './components/age-autofill';
 
 // flatpickr
 import flatpickr from 'flatpickr';
@@ -41,6 +42,9 @@ Alpine.data('formConditions', formConditions);
 Alpine.data('searchSelectField', searchSelectField);
 Alpine.data('assistantChat', assistantChat);
 Alpine.start();
+
+// Live age-from-birthday autofill (Sign Up form); delegated at the document level.
+registerAgeAutofill();
 
 // Initialize components on DOM ready
 

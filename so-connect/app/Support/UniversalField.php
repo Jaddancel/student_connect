@@ -64,6 +64,12 @@ final class UniversalField
             // signature fields render it as an image preview, never as text.
             'signature'     => ['label' => 'Signature',    'type' => FieldType::SIGNATURE, 'source' => 'profile', 'profile_column' => 'signature_path', 'group' => 'personal'],
 
+            // Form-derived: not read from a profile/org/system, but computed from a
+            // sibling field on the SAME form (the birthday date field). Unique to
+            // the Sign Up builder — at sign-up there is no profile yet, so the age
+            // is computed live client-side and authoritatively recomputed at submit.
+            'age_from_birthday' => ['label' => 'Age - Computed from Birthday', 'type' => FieldType::NUMBER, 'source' => 'form', 'group' => 'personal'],
+
             // Organization-scoped: resolved from the submitter's org (see OrganizationField).
             'org_name'      => ['label' => 'Organization Name',      'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'adviser'       => ['label' => 'Adviser',                'type' => FieldType::SELECT, 'source' => 'org', 'group' => 'organization'],
@@ -137,6 +143,17 @@ final class UniversalField
     public static function isSystemField(string $key): bool
     {
         return self::source($key) === 'system';
+    }
+
+    /**
+     * Whether a key is derived from another field on the same form (source
+     * 'form'), rather than from a profile/org/system value. These have no
+     * profile/render-time value — they are computed client-side and recomputed
+     * at submit — so consumers that iterate the whole catalog skip them.
+     */
+    public static function isFormDerived(string $key): bool
+    {
+        return self::source($key) === 'form';
     }
 
     /**

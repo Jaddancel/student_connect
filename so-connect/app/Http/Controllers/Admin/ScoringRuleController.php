@@ -248,6 +248,9 @@ class ScoringRuleController extends Controller
             ])->values()->all();
 
         $universal = collect(UniversalField::catalog())
+            // Form-derived keys (age-from-birthday) have no profile/system value
+            // to score against — they exist only on the form that computes them.
+            ->reject(fn (array $meta) => ($meta['source'] ?? '') === 'form')
             ->map(fn (array $meta, string $key) => ['key' => $key, 'label' => $meta['label'], 'type' => $meta['type']])
             ->values()
             ->all();
