@@ -97,11 +97,17 @@ class FormBuilderController extends Controller
             ];
         })->values();
 
+        // Sign Up is the account-creation flow — it gets its own section,
+        // separate from the other system functions.
+        $signUpSlot = $slots->firstWhere('key', SystemFunction::SIGN_UP);
+        $slots = $slots->reject(fn ($slot) => $slot['key'] === SystemFunction::SIGN_UP)->values();
+
         return view('pages.admin.form-builder.index', [
             'title' => 'Form Builder',
             // Regular forms table excludes function-bound forms (they live in
-            // the System Functions section).
+            // the System Functions / Sign Up sections).
             'forms' => $forms->whereNull('system_function')->values(),
+            'signUpSlot' => $signUpSlot,
             'slots' => $slots,
         ]);
     }

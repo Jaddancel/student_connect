@@ -12,21 +12,6 @@ export function calendarInit() {
     }
 
     const canRequestEvent = calendarWrapper.dataset.canRequestEvent === "1";
-    // The drawer now embeds the new_event builder form, which submits itself to
-    // the generic form renderer. These legacy endpoints are gone from the DOM;
-    // the empty fallbacks keep the dormant drawer helpers reference-safe.
-    const eventRequestEndpoint =
-        calendarWrapper.dataset.eventRequestEndpoint || "";
-    const directRequestEndpoint =
-        calendarWrapper.dataset.directRequestEndpoint || "";
-    const officersEndpointTemplate =
-        calendarWrapper.dataset.officersEndpoint ||
-        "/api/organizations/{id}/officers";
-    const lockedOrgIds = JSON.parse(
-        calendarWrapper.dataset.lockedOrgIds || "[]",
-    ).map(Number);
-    const presidentName = calendarWrapper.dataset.presidentName || "";
-    const presidentContact = calendarWrapper.dataset.presidentContact || "";
     const semesters = JSON.parse(calendarWrapper.dataset.semesters || "[]");
     const workplanStatuses = JSON.parse(
         calendarWrapper.dataset.workplanStatuses || "{}",
@@ -68,21 +53,12 @@ export function calendarInit() {
     );
     const openEventPlanBtn = document.getElementById("open-event-plan-btn");
 
-    // Event Plan Drawer
+    // Event Plan Drawer — embeds the new_event builder form, which submits
+    // itself to the generic form renderer; this JS only opens/closes it.
     const eventPlanDrawer = document.getElementById("eventPlanDrawer");
     const eventPlanDrawerPanel = eventPlanDrawer?.querySelector(
         "[data-event-plan-drawer-panel]",
     );
-    const planFeedbackEl = document.getElementById("event-plan-feedback");
-    const eventPlanDrawerForm = document.getElementById("eventPlanDrawerForm");
-    const planOrgEl = document.getElementById("plan-organization");
-    const planTitleEl = document.getElementById("plan-title");
-    const planTargetDateEl = document.getElementById("plan-target-date");
-    const planResourcesEl = document.getElementById("plan-resources");
-    const personsContainer = document.getElementById(
-        "persons-responsible-container",
-    );
-    const submitPlanBtn = document.getElementById("submit-event-plan-btn");
     const drawerBackdrop = eventPlanDrawer?.querySelector(
         "[data-event-plan-drawer-backdrop]",
     );
@@ -90,88 +66,6 @@ export function calendarInit() {
     let currentPlanDate = "";
     let currentFormMode = "event-plan";
     let calendarInstance = null;
-    let successDismissTimer = null;
-
-    const pageSuccessAlert = document.getElementById("calendar-success-alert");
-    const pageSuccessMessage = document.getElementById(
-        "calendar-success-message",
-    );
-    const pageSuccessDismiss = document.getElementById(
-        "calendar-success-dismiss",
-    );
-
-    const showPageSuccess = (message) => {
-        if (!pageSuccessAlert || !pageSuccessMessage) return;
-        if (successDismissTimer) clearTimeout(successDismissTimer);
-        pageSuccessMessage.textContent = message;
-        pageSuccessAlert.classList.remove("hidden");
-        pageSuccessAlert.classList.add("flex");
-        pageSuccessAlert.scrollIntoView({
-            behavior: "smooth",
-            block: "nearest",
-        });
-        successDismissTimer = setTimeout(hidePageSuccess, 5000);
-    };
-
-    const hidePageSuccess = () => {
-        if (!pageSuccessAlert) return;
-        pageSuccessAlert.classList.add("hidden");
-        pageSuccessAlert.classList.remove("flex");
-    };
-
-    if (pageSuccessDismiss) {
-        pageSuccessDismiss.addEventListener("click", hidePageSuccess);
-    }
-
-    // ─── Feedback helpers ───────────────────────────────────────────────────────
-
-    const setPlanFeedback = (message, type = "error") => {
-        if (!planFeedbackEl) return;
-
-        planFeedbackEl.classList.remove(
-            "hidden",
-            "border-error-200",
-            "bg-error-50",
-            "text-error-700",
-            "dark:border-error-500/20",
-            "dark:bg-error-500/10",
-            "dark:text-error-400",
-            "border-success-200",
-            "bg-success-50",
-            "text-success-700",
-            "dark:border-success-500/20",
-            "dark:bg-success-500/10",
-            "dark:text-success-400",
-        );
-
-        if (type === "success") {
-            planFeedbackEl.classList.add(
-                "border-success-200",
-                "bg-success-50",
-                "text-success-700",
-                "dark:border-success-500/20",
-                "dark:bg-success-500/10",
-                "dark:text-success-400",
-            );
-        } else {
-            planFeedbackEl.classList.add(
-                "border-error-200",
-                "bg-error-50",
-                "text-error-700",
-                "dark:border-error-500/20",
-                "dark:bg-error-500/10",
-                "dark:text-error-400",
-            );
-        }
-
-        planFeedbackEl.textContent = message;
-    };
-
-    const clearPlanFeedback = () => {
-        if (!planFeedbackEl) return;
-        planFeedbackEl.textContent = "";
-        planFeedbackEl.classList.add("hidden");
-    };
 
     // ─── Day Summary Modal ───────────────────────────────────────────────────────
 
@@ -316,148 +210,16 @@ export function calendarInit() {
         document.body.style.overflow = "";
     };
 
-    // ─── Persons Responsible ─────────────────────────────────────────────────────
-
-    const loadOfficers = async (organizationId) => {
-        if (!personsContainer) return;
-
-        personsContainer.innerHTML =
-            '<p class="text-xs text-gray-400 dark:text-gray-500 italic">Loading officers...</p>';
-
-        try {
-            const url = officersEndpointTemplate.replace(
-                "{id}",
-                organizationId,
-            );
-            const response = await fetch(url, {
-                headers: { Accept: "application/json" },
-            });
-
-            if (!response.ok) throw new Error("Failed to load officers.");
-
-            const officers = await response.json();
-
-            if (!officers.length) {
-                personsContainer.innerHTML =
-                    '<p class="text-xs text-gray-400 dark:text-gray-500 italic">No officers found in this organization.</p>';
-                return;
-            }
-
-            personsContainer.innerHTML = officers
-                .map(
-                    (o) => `
-          <label class="flex items-center gap-2 py-1 cursor-pointer">
-            <input type="checkbox" class="persons-checkbox rounded border-gray-300 dark:border-gray-600"
-              name="persons_responsible[]" value="${o.user_id}" />
-            <span class="text-sm text-gray-700 dark:text-gray-300">${o.name}</span>
-          </label>`,
-                )
-                .join("");
-        } catch {
-            personsContainer.innerHTML =
-                '<p class="text-xs text-red-400 italic">Could not load officers.</p>';
-        }
-    };
-
-    const getSelectedPersons = () => {
-        if (!personsContainer) return [];
-        return Array.from(
-            personsContainer.querySelectorAll(".persons-checkbox:checked"),
-        ).map((el) => parseInt(el.value, 10));
-    };
-
-    const formatDateTimeLocal = (dateStr, timeStr) => {
-        if (!dateStr) return "";
-        return `${dateStr}T${timeStr}`;
-    };
-
-    const getFormState = () => {
-        if (!window.Alpine || !eventPlanDrawerForm) return null;
-
-        try {
-            return window.Alpine.$data(eventPlanDrawerForm);
-        } catch {
-            return null;
-        }
-    };
-
     // ─── Event Plan Drawer ───────────────────────────────────────────────────────
 
-    const resetPlanModal = () => {
-        clearPlanFeedback();
-        if (eventPlanDrawerForm) {
-            eventPlanDrawerForm.reset();
-        }
-
-        const formState = getFormState();
-
-        if (formState) {
-            formState.facilities = ["", ""];
-            formState.advisers = [""];
-            formState.activityTypes = [];
-            formState.activityTypeOther = "";
-            formState.areaScope = "";
-            formState.areaScopeOther = "";
-            formState.sponsor = "";
-            formState.sponsorOther = "";
-            formState.extensionServices = "";
-        }
-
-        if (planOrgEl) planOrgEl.value = "";
-        if (planTitleEl) planTitleEl.value = "";
-        if (planTargetDateEl) planTargetDateEl.value = currentPlanDate || "";
-        if (planResourcesEl) planResourcesEl.value = "";
-        if (submitPlanBtn) submitPlanBtn.disabled = false;
-        if (personsContainer) {
-            personsContainer.innerHTML =
-                '<p class="text-xs text-gray-400 dark:text-gray-500 italic">Select an organization first.</p>';
-        }
-
-        const presidentNameEl = document.getElementById("president-name");
-        const presidentContactEl = document.getElementById("president-contact");
-        if (presidentNameEl && !presidentNameEl.value)
-            presidentNameEl.value = presidentName;
-        if (presidentContactEl && !presidentContactEl.value)
-            presidentContactEl.value = presidentContact;
-    };
-
-    const openEventPlanDrawer = async (prefillDate) => {
+    const openEventPlanDrawer = (prefillDate) => {
         if (!eventPlanDrawer) return;
 
         closeDaySummaryModal();
         currentPlanDate = prefillDate || "";
-        resetPlanModal();
 
-        // Update drawer title and subtitle based on current form mode
-        const drawerTitle = document.getElementById("event-plan-drawer-title");
-        const drawerSubtitle = document.getElementById(
-            "event-plan-drawer-subtitle",
-        );
-        if (currentFormMode === "activity-request") {
-            if (drawerTitle)
-                drawerTitle.textContent = "Request Activity";
-            if (drawerSubtitle)
-                drawerSubtitle.textContent =
-                    "Submit a direct activity request to admin for approval.";
-        } else {
-            if (drawerTitle) drawerTitle.textContent = "Create Event Plan";
-            if (drawerSubtitle)
-                drawerSubtitle.textContent =
-                    "Submit an event plan for your workplan.";
-        }
-
-        window.dispatchEvent(
-            new CustomEvent("calendar-form-mode", {
-                detail: { mode: currentFormMode },
-            }),
-        );
-
-        if (planTargetDateEl && prefillDate) {
-            planTargetDateEl.value = prefillDate;
-        }
-
-        // The drawer now embeds the new_event builder form; prefill its
-        // target_date field (a flatpickr text input) with the clicked day.
+        // The drawer embeds the new_event builder form; prefill its target_date
+        // field (a flatpickr text input) with the clicked day.
         if (prefillDate) {
             const dateInput = eventPlanDrawer.querySelector(
                 'input[name="target_date"]',
@@ -468,30 +230,6 @@ export function calendarInit() {
                 } else {
                     dateInput.value = prefillDate;
                 }
-            }
-        }
-
-        const startTimeEl = document.getElementById("event-start-time");
-        const endTimeEl = document.getElementById("event-end-time");
-        if (startTimeEl && prefillDate) {
-            startTimeEl.value = formatDateTimeLocal(prefillDate, "09:00");
-        }
-        if (endTimeEl && prefillDate) {
-            endTimeEl.value = formatDateTimeLocal(prefillDate, "17:00");
-        }
-
-        const organizationValue = planOrgEl
-            ? planOrgEl.value.trim()
-            : eventPlanDrawerForm
-                  ?.querySelector('input[name="organization_id"]')
-                  ?.value.trim() || "";
-        if (organizationValue) {
-            await loadOfficers(organizationValue);
-            if (lockedOrgIds.includes(parseInt(organizationValue, 10))) {
-                setPlanFeedback(
-                    "This organization's workplan for the current semester has been finalized. New event plans cannot be submitted until the next preparation period begins.",
-                );
-                if (submitPlanBtn) submitPlanBtn.disabled = true;
             }
         }
 
@@ -514,122 +252,6 @@ export function calendarInit() {
             eventPlanDrawerPanel.classList.remove("translate-x-0");
         }
         document.body.style.overflow = "";
-    };
-
-    const parseErrorMessage = async (response) => {
-        const payload = await response.json().catch(() => ({}));
-
-        if (payload?.errors && typeof payload.errors === "object") {
-            const firstError = Object.values(payload.errors)
-                .flat()
-                .find((v) => typeof v === "string");
-            if (firstError) return firstError;
-        }
-
-        return typeof payload?.message === "string" && payload.message.trim()
-            ? payload.message
-            : "Unable to submit event plan.";
-    };
-
-    const submitEventPlan = async (event) => {
-        event.preventDefault();
-
-        const isActivityRequest = currentFormMode === "activity-request";
-        const endpoint = isActivityRequest
-            ? directRequestEndpoint
-            : eventRequestEndpoint;
-
-        if (!canRequestEvent || !endpoint) {
-            setPlanFeedback("You are not authorized to submit event plans.");
-            return;
-        }
-
-        const form = eventPlanDrawerForm;
-        if (!form) return;
-
-        const organizationId = planOrgEl
-            ? planOrgEl.value.trim()
-            : form
-                  .querySelector('input[name="organization_id"]')
-                  ?.value.trim() || "";
-        const title = planTitleEl ? planTitleEl.value.trim() : "";
-        const targetDate = planTargetDateEl ? planTargetDateEl.value : "";
-        const resourcesNeeded = planResourcesEl
-            ? planResourcesEl.value.trim()
-            : "";
-        const personsResponsible = getSelectedPersons();
-
-        if (
-            !organizationId ||
-            !title ||
-            !targetDate ||
-            (!isActivityRequest &&
-                (!resourcesNeeded || personsResponsible.length === 0))
-        ) {
-            setPlanFeedback("Please fill in the required fields.");
-            return;
-        }
-
-        if (!isActivityRequest && lockedOrgIds.includes(parseInt(organizationId, 10))) {
-            setPlanFeedback(
-                "This organization's workplan has been finalized. New event plans cannot be submitted until the next preparation period begins.",
-            );
-            return;
-        }
-
-        const originalLabel = submitPlanBtn ? submitPlanBtn.textContent : "";
-        if (submitPlanBtn) {
-            submitPlanBtn.disabled = true;
-            submitPlanBtn.textContent = "Submitting...";
-        }
-
-        try {
-            const csrfToken =
-                document
-                    .querySelector('meta[name="csrf-token"]')
-                    ?.getAttribute("content") || "";
-            const formData = new FormData(form);
-            formData.set("organization_id", organizationId);
-
-            const response = await fetch(endpoint, {
-                method: "POST",
-                headers: {
-                    Accept: "application/json",
-                    "X-CSRF-TOKEN": csrfToken,
-                },
-                body: formData,
-            });
-
-            if (!response.ok) {
-                const errorMessage = await parseErrorMessage(response);
-                throw new Error(errorMessage);
-            }
-
-            const successText = isActivityRequest
-                ? "Activity request submitted successfully. Awaiting admin approval."
-                : "Event plan submitted successfully. It will appear in your workplan.";
-
-            setPlanFeedback(successText, "success");
-            window.setTimeout(() => {
-                closeEventPlanDrawer();
-                showPageSuccess(successText);
-            }, 700);
-        } catch (error) {
-            const message =
-                error instanceof Error && error.message
-                    ? error.message
-                    : isActivityRequest
-                      ? "Unable to submit activity request."
-                      : "Unable to submit event plan.";
-            setPlanFeedback(message);
-        } finally {
-            if (submitPlanBtn) {
-                submitPlanBtn.disabled = false;
-                submitPlanBtn.textContent =
-                    originalLabel ||
-                    (isActivityRequest ? "Submit Request" : "Submit Event Plan");
-            }
-        }
     };
 
     // ─── Calendar setup ──────────────────────────────────────────────────────────
@@ -748,37 +370,6 @@ export function calendarInit() {
         });
     }
 
-    if (eventPlanDrawerForm) {
-        eventPlanDrawerForm.addEventListener("submit", submitEventPlan);
-    }
-
-    if (planOrgEl) {
-        planOrgEl.addEventListener("change", () => {
-            const orgId = planOrgEl.value;
-            if (!orgId) {
-                clearPlanFeedback();
-                if (submitPlanBtn) submitPlanBtn.disabled = false;
-                if (personsContainer)
-                    personsContainer.innerHTML =
-                        '<p class="text-xs text-gray-400 dark:text-gray-500 italic">Select an organization first.</p>';
-                return;
-            }
-            if (lockedOrgIds.includes(parseInt(orgId, 10))) {
-                setPlanFeedback(
-                    "This organization's workplan for the current semester has been finalized. New event plans cannot be submitted until the next preparation period begins.",
-                );
-                if (submitPlanBtn) submitPlanBtn.disabled = true;
-                if (personsContainer)
-                    personsContainer.innerHTML =
-                        '<p class="text-xs text-gray-400 dark:text-gray-500 italic">Submissions are locked.</p>';
-            } else {
-                clearPlanFeedback();
-                if (submitPlanBtn) submitPlanBtn.disabled = false;
-                loadOfficers(orgId);
-            }
-        });
-    }
-
     document
         .querySelectorAll(".day-summary-close, .modal-close-btn")
         .forEach((btn) => {
@@ -793,19 +384,6 @@ export function calendarInit() {
         drawerBackdrop.addEventListener("click", closeEventPlanDrawer);
     }
 
-    if (planOrgEl) {
-        const orgId = planOrgEl.value;
-        if (orgId) {
-            loadOfficers(orgId);
-        }
-    } else {
-        const hiddenOrgId = eventPlanDrawerForm
-            ?.querySelector('input[name="organization_id"]')
-            ?.value.trim();
-        if (hiddenOrgId) {
-            loadOfficers(hiddenOrgId);
-        }
-    }
 }
 
 export default calendarInit;

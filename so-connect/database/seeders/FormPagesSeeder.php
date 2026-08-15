@@ -196,11 +196,11 @@ class FormPagesSeeder extends Seeder
         $fields = [
             $this->heading('Event Details'),
             $this->f('organization_id', 'Organization', FieldType::ORG_SELECT, ['required' => true]),
-            $this->f('title', 'Activity / Title', FieldType::TEXT, ['required' => true]),
-            $this->f('target_date', 'Target Date', FieldType::DATE, ['required' => true]),
-            $this->f('event_location', 'Event Location', FieldType::TEXT, ['required' => true]),
-            $this->f('event_start_time', 'Start', FieldType::TIME, ['required' => true]),
-            $this->f('event_end_time', 'End', FieldType::TIME, ['required' => true]),
+            $this->f('title', 'Activity / Title', FieldType::TEXT),
+            $this->f('target_date', 'Target Date', FieldType::DATE),
+            $this->f('event_location', 'Event Location', FieldType::TEXT),
+            $this->f('event_start_time', 'Start', FieldType::TIME),
+            $this->f('event_end_time', 'End', FieldType::TIME),
             $this->heading('Activity Details'),
             $this->f('purpose_of_activity', 'Purpose of Activity', FieldType::TEXTAREA, ['options' => ['rows' => 4]]),
             $this->f('resources_needed', 'Resources Needed', FieldType::TEXTAREA, ['options' => ['rows' => 3]]),
@@ -321,8 +321,8 @@ class FormPagesSeeder extends Seeder
                 ['value' => 'recognition', 'label' => 'Accreditation'], ['value' => 'renewal', 'label' => 'Renewal'],
             ]]]),
             $this->f('organization_id', 'Organization', FieldType::ORG_SELECT, ['required' => true]),
-            $this->f('name_of_president', 'President', FieldType::TEXT, ['required' => true, 'universal_key' => 'org_president']),
-            $this->f('adviser_names', 'Faculty Adviser/s', FieldType::TEXT_LIST, ['required' => true]),
+            $this->f('name_of_president', 'President', FieldType::TEXT, ['universal_key' => 'org_president']),
+            $this->f('adviser_names', 'Faculty Adviser/s', FieldType::TEXT_LIST),
             $this->f('date', 'Date of 1st Recognition', FieldType::DATE),
             $this->f('freshman', 'No. of Freshman Members', FieldType::NUMBER),
             $this->f('sophomore', 'No. of Sophomore Members', FieldType::NUMBER),
@@ -332,7 +332,7 @@ class FormPagesSeeder extends Seeder
             ]]),
             $this->f('objectives', 'Objectives', FieldType::TEXTAREA, ['options' => ['rows' => 5]]),
             $this->f('workplan_id', 'Workplan', FieldType::WORKPLAN_SELECT),
-            $this->f('president_signature', 'President Signature', FieldType::SIGNATURE, ['required' => true]),
+            $this->f('president_signature', 'President Signature', FieldType::SIGNATURE),
         ];
 
         $html = '<h2>Application for Accreditation</h2>'
