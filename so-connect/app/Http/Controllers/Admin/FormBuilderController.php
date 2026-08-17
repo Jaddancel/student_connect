@@ -496,7 +496,22 @@ class FormBuilderController extends Controller
         $missing = [];
         foreach (\App\Forms\FieldKit::required($kit) as $requiredKey => $requiredType) {
             $field = $byKey->get($requiredKey);
-            if (! $field || (string) $field['field_type'] !== $requiredType) {
+            $satisfied = $field && (string) $field['field_type'] === $requiredType;
+
+            // The approved-events picker is matched by TYPE, not key: the
+            // workplan handler resolves it by field_type (NewWorkplanHandler),
+            // and its palette label ("Approved events") slugs to a different key
+            // than `workplan_events`. So any field of that type satisfies it,
+            // whatever its key. (Other required keys — email, first_name,
+            // organization_id, … — are resolved by key/universal key, so they
+            // stay key-matched.)
+            if (! $satisfied && $requiredType === FieldType::WORKPLAN_EVENTS) {
+                $satisfied = $byKey->contains(
+                    fn ($f) => (string) $f['field_type'] === FieldType::WORKPLAN_EVENTS,
+                );
+            }
+
+            if (! $satisfied) {
                 $missing[] = $requiredKey.' ('.FieldType::label($requiredType).')';
             }
         }

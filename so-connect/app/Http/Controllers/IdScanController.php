@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\IdTemplate;
 use App\Services\OcrClient;
+use App\Support\IdScanRetryCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -71,6 +73,11 @@ class IdScanController extends Controller
 
         $result = $ocr->scan($template, $request->file('photo'), $side);
 
+        // Cache this side's photo + detected fields against the session, so a
+        // validation failure elsewhere on the form doesn't force a re-scan —
+        // see IdScanRetryCache for why this is needed only for the photo.
+        IdScanRetryCache::remember($request->session()->getId(), $side, $request->file('photo'), $result['fields'] ?? []);
+
         return response()->json([
             'student_id' => $result['student_id'] ?? null,
             'fields' => $result['fields'] ?? [],
@@ -79,5 +86,25 @@ class IdScanController extends Controller
             'images' => $result['images'] ?? [],
             'note' => $result['note'] ?? null,
         ]);
+    }
+
+    /**
+     * Serve back a side's cached photo for this session — lets the wizard
+     * show "already scanned" previews after a validation-failure reload
+     * without re-uploading. Not behind `auth` for the same reason `/id-scan`
+     * isn't: the directory form is filled by users without an account yet.
+     */
+    public function retryPhoto(Request $request, string $side): Response
+    {
+        abort_unless(in_array($side, ['front', 'back'], true), 404);
+
+        $path = IdScanRetryCache::photoPath($request->session()->getId(), $side);
+        abort_if($path === null, 404);
+
+        return response(
+            \Illuminate\Support\Facades\Storage::disk('local')->get($path),
+            200,
+            ['Content-Type' => 'image/jpeg', 'Cache-Control' => 'private, no-store'],
+        );
     }
 }

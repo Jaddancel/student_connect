@@ -69,8 +69,20 @@ export function formBuilder(config) {
             // orphan its submissions and scoring variables.
             this.fields.forEach((f) => { f._keyLocked = true; });
 
-            // Auto-slug the route name from the title while creating.
             if (!this.isEdit) {
+                // The real name is entered in Step 3, but name (and its derived
+                // route) are required on save. Seed a temporary name up front —
+                // the bound system function's name, else the current timestamp —
+                // so saving/advancing before Step 3 isn't blocked. The user can
+                // still overwrite it in Step 3 (the route follows along).
+                if (!this.name) {
+                    this.name = this.system_function
+                        ? this.titleCase(this.system_function)
+                        : `Untitled form ${this.timestampTag()}`;
+                    this.route_name = this.slug(this.name);
+                }
+
+                // Auto-slug the route name from the title while creating.
                 this.$watch('name', (v) => {
                     if (!this.routeTouched) this.route_name = this.slug(v);
                 });
@@ -80,6 +92,20 @@ export function formBuilder(config) {
         slug(v) {
             return (v || '').toString().toLowerCase().trim()
                 .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        },
+
+        /** "new_event" → "New Event" for a friendly temporary form name. */
+        titleCase(key) {
+            return (key || '').toString().replace(/[_-]+/g, ' ').trim()
+                .replace(/\b\w/g, (c) => c.toUpperCase());
+        },
+
+        /** Local "YYYY-MM-DD HH:MM:SS" tag, unique enough for a temp name/route. */
+        timestampTag() {
+            const d = new Date();
+            const p = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+                + ` ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
         },
 
         // --- wizard navigation ---

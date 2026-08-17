@@ -338,20 +338,26 @@
             // row of `{{key.col#}}` tokens. Plain tr/td (not thead/th) so
             // PasteHtml maps row-for-row and the token cells land inside <w:tr>,
             // which is what cloneRow needs to repeat per approved activity.
+            //
+            // No inline CSS (borders/padding/width): hardcoded styling won't
+            // match the template's institutional table/heading style and bakes a
+            // mismatch into every generated row. Letting the table adopt the
+            // document's default table style keeps the generated document
+            // consistent with the rest of the template; the author can apply a
+            // named table style in OnlyOffice after inserting.
             function insertTable(token) {
                 var cols = token.children || [];
                 if (!cols.length) {
                     // No columns chosen yet: fall back to one repeating token.
                     window.Asc.plugin.executeMethod('PasteText', [placeholder(token.key + '#')]);
                 } else {
-                    var cell = 'border:1px solid #000;padding:4px;';
                     var head = '<tr>' + cols.map(function (c) {
-                        return '<td style="' + cell + '"><b>' + escapeHtml(c.label) + '</b></td>';
+                        return '<td><b>' + escapeHtml(c.label) + '</b></td>';
                     }).join('') + '</tr>';
                     var body = '<tr>' + cols.map(function (c) {
-                        return '<td style="' + cell + '">' + escapeHtml(placeholder(c.key + '#')) + '</td>';
+                        return '<td>' + escapeHtml(placeholder(c.key + '#')) + '</td>';
                     }).join('') + '</tr>';
-                    var html = '<table style="border-collapse:collapse;width:100%;">' + head + body + '</table>';
+                    var html = '<table>' + head + body + '</table>';
                     window.Asc.plugin.executeMethod('PasteHtml', [html]);
                 }
                 state.inserted[token.key] = true;
