@@ -10,9 +10,10 @@
     $scanner = $special['scanner'] ?? null;
     $scannerOrientation = $scanner['orientation'] ?? 'vertical';
     $scannerTemplates = $scanner['templates'] ?? [];
+    $scannerRetry = $scanner['retry'] ?? [];
 @endphp
 
-<div x-data="idScanWizard({ scanUrl: '{{ route('id-scan.scan') }}', csrf: '{{ csrf_token() }}', orientation: '{{ $scannerOrientation }}', templates: {{ Illuminate\Support\Js::from($scannerTemplates) }}, hasErrors: {{ $errors->any() ? 'true' : 'false' }} })"
+<div x-data="idScanWizard({ scanUrl: '{{ route('id-scan.scan') }}', csrf: '{{ csrf_token() }}', orientation: '{{ $scannerOrientation }}', templates: {{ Illuminate\Support\Js::from($scannerTemplates) }}, retry: {{ Illuminate\Support\Js::from($scannerRetry) }}, hasErrors: {{ $errors->any() ? 'true' : 'false' }} })"
     x-init="init()" class="space-y-4">
 
     {{-- Hidden capture inputs the wizard writes into (fixed names). --}}

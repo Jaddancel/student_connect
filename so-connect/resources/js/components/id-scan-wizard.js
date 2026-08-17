@@ -113,8 +113,34 @@ export function idScanWizard(config = {}) {
 
         init() {
             if (this.templates.length === 1) this.chooseTemplate(this.templates[0].id);
+            // A validation failure on some other field forces a reload; the
+            // browser can't resubmit the id_photo_front/back file inputs, but
+            // the server cached this session's scan (see IdScanRetryCache) —
+            // replay it so the user isn't sent back to a bare scanner.
+            if (config.retry) this.hydrateFromRetry(config.retry);
             // A failed submit round-trips old() into Step 2 — land the user there.
             if (config.hasErrors) this.step = 2;
+        },
+
+        /**
+         * Restore previews + detected fields from this session's cached scan
+         * (config.retry: { front?: {url, fields}, back?: {url, fields} }).
+         * The real id_photo_front/back inputs stay empty client-side — the
+         * server falls back to its own cached copy at submit time if they're
+         * still empty, so this is purely a UI restore, not a re-upload.
+         */
+        hydrateFromRetry(retry) {
+            ['front', 'back'].forEach((side) => {
+                const data = retry[side];
+                if (!data) return;
+                const key = side === 'back' ? 'backPreview' : 'frontPreview';
+                this[key] = data.url;
+                this.sidesScanned[side] = true;
+                this.applyPrefill(data.fields || {}, side);
+            });
+            if (this.frontPreview || this.backPreview) {
+                this.scanNote = 'Using the ID you already scanned.';
+            }
         },
 
         // --- template chooser (2+ active templates) ---

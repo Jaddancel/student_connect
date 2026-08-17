@@ -43,6 +43,16 @@ export function signatureImageField(config = {}) {
                 this.$refs.input.value = this.savedPath;
                 this.preview = this.savedUrl;
                 this.usingSaved = true;
+                return;
+            }
+            // A validation failure elsewhere on the form round-trips this
+            // field's value back via old() — Blade already rendered it onto
+            // the hidden input, but nothing had shown it as a preview yet,
+            // which made a signature that survived the retry look like it
+            // hadn't (and invited clearing/redrawing a value that was fine).
+            const restored = this.$refs.input.value;
+            if (restored && restored.startsWith('data:')) {
+                this.preview = restored;
             }
         },
 

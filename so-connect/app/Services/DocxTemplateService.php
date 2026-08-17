@@ -124,8 +124,12 @@ class DocxTemplateService
             return $docxPath;
         }
 
-        // Fallback: PhpWord.
+        // Fallback: PhpWord. Pin the house default (Times New Roman 12pt) so
+        // HTML without an explicit font maps to the authored look rather than
+        // PhpWord's own default. Settings are process-wide statics.
         $out = $workDir.'/template.docx';
+        \PhpOffice\PhpWord\Settings::setDefaultFontName('Times New Roman');
+        \PhpOffice\PhpWord\Settings::setDefaultFontSize(12);
         $phpWord = new \PhpOffice\PhpWord\PhpWord();
         $section = $phpWord->addSection();
         \PhpOffice\PhpWord\Shared\Html::addHtml($section, $html, false, false);

@@ -324,6 +324,38 @@ it('tags palette tokens with a field-type icon and category group', function () 
         ->and($tokens['profile.org_name']['group'])->toBe('Organization');
 });
 
+it('emits an activity-table token that inserts a table with column children', function () {
+    $form = editorForm();
+    $form->fields()->create([
+        'field_key' => 'attendee_name', 'field_label' => 'Attendee', 'field_type' => 'text', 'field_order' => 1,
+    ]);
+    $form->fields()->create([
+        'field_key' => 'wp_activities', 'field_label' => 'Activities', 'field_type' => 'activity-table', 'field_order' => 2,
+        'field_options' => ['columns' => [
+            ['key' => 'title', 'label' => 'Title', 'type' => 'text'],
+            ['key' => 'target_date', 'label' => 'Date', 'type' => 'date'],
+        ]],
+    ]);
+
+    $template = app(FormPrintTemplateService::class)->resolve($form);
+    $token = editorToken($template, 'plugin');
+
+    $html = $this->get(route('onlyoffice.plugin', ['form' => $form, 'token' => $token]))->assertOk()->getContent();
+    $tokens = collect(paletteTokens($html))->keyBy('key');
+
+    // The Activity Table inserts a whole table, carrying its columns as children.
+    expect($tokens['wp_activities']['insert'])->toBe('table')
+        ->and(collect($tokens['wp_activities']['children'])->pluck('key')->all())
+        ->toBe(['wp_activities.title', 'wp_activities.target_date']);
+
+    // Plain fields carry neither marker.
+    expect($tokens['attendee_name'])->not->toHaveKey('children')
+        ->and($tokens['attendee_name'])->not->toHaveKey('insert');
+
+    // The palette JS knows how to paste a real Word table.
+    expect($html)->toContain('PasteHtml');
+});
+
 it('replaces the printed template with an uploaded .docx', function () {
     $form = editorForm();
     $template = app(FormPrintTemplateService::class)->resolve($form);

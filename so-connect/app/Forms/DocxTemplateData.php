@@ -63,13 +63,38 @@ class DocxTemplateData
                 continue;
             }
 
+            // Activity Table: the stored snapshot is a list of row objects keyed
+            // by column key. Emit one parallel array per column under a dotted
+            // `{{key.col#}}` token (normalizeData collapses '.'→'_' exactly as the
+            // token side does), so the row-repeat machinery clones one table row
+            // per approved activity. A bare `{{key}}`/`{{key#}}` falls back to the
+            // first column's values.
+            if ($type === FieldType::ACTIVITY_TABLE) {
+                $rows = array_values(array_filter((array) ($payload[$key] ?? []), 'is_array'));
+                $columns = FieldType::activityTableColumns($options);
+                foreach ($columns as $column) {
+                    $values[$key.'.'.$column['key']] = array_map(
+                        fn ($row) => (string) ($row[$column['key']] ?? ''),
+                        $rows,
+                    );
+                }
+                $first = $columns[0]['key'] ?? null;
+                $values[$key] = $first
+                    ? array_map(fn ($row) => (string) ($row[$first] ?? ''), $rows)
+                    : [];
+
+                continue;
+            }
+
             $values[$key] = $this->textValue($payload, $key, $type, $options);
         }
 
         foreach (UniversalField::keys() as $universalKey) {
             // System keys (today's date and friends) are resolved for live
             // autofill only; the printed template has never supported them.
-            if (UniversalField::isSystemField($universalKey)) {
+            // Form-derived keys (e.g. age-from-birthday) have no profile/org
+            // value, so they'd only emit a dead `profile.<key>` token.
+            if (UniversalField::isSystemField($universalKey) || UniversalField::isFormDerived($universalKey)) {
                 continue;
             }
 

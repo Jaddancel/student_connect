@@ -22,10 +22,10 @@ class NewEventHandler implements SystemFunctionHandler
 {
     use ResolvesPayloadKeys;
 
-    private const REQUIRED_KEYS = [
-        'organization_id', 'title', 'target_date',
-        'event_location', 'event_start_time', 'event_end_time',
-    ];
+    // Only the organization binding is structurally required. Every other
+    // (non-special) field is optional so officers aren't blocked mid-form; a
+    // blank target date defaults to today in handle() (the column is NOT NULL).
+    private const REQUIRED_KEYS = ['organization_id'];
 
     public function validatePayload(Form $form, array $payload, Request $request): void
     {
@@ -43,16 +43,21 @@ class NewEventHandler implements SystemFunctionHandler
             ]);
         }
 
-        try {
-            if (Carbon::parse((string) $values['target_date'])->startOfDay()->lt(Carbon::today())) {
+        // Target date is optional; only validate it when the officer supplied
+        // one. A blank date is defaulted to today at handle() time.
+        $targetDate = $this->payloadValue($form, $payload, 'target_date');
+        if ($targetDate !== null && $targetDate !== '') {
+            try {
+                if (Carbon::parse((string) $targetDate)->startOfDay()->lt(Carbon::today())) {
+                    throw ValidationException::withMessages([
+                        'form' => 'Event requests cannot target a past date.',
+                    ]);
+                }
+            } catch (\Carbon\Exceptions\InvalidFormatException) {
                 throw ValidationException::withMessages([
-                    'form' => 'Event requests cannot target a past date.',
+                    'form' => 'The target date could not be understood.',
                 ]);
             }
-        } catch (\Carbon\Exceptions\InvalidFormatException) {
-            throw ValidationException::withMessages([
-                'form' => 'The target date could not be understood.',
-            ]);
         }
     }
 
@@ -60,7 +65,13 @@ class NewEventHandler implements SystemFunctionHandler
     {
         $userId = (int) $request->user()->getKey();
         $organizationId = (int) $this->payloadValue($form, $payload, 'organization_id');
-        $targetDate = (string) $this->payloadValue($form, $payload, 'target_date');
+
+        // target_date is optional but event_plans.target_date is NOT NULL — fall
+        // back to today when the officer left it blank.
+        $rawTargetDate = $this->payloadValue($form, $payload, 'target_date');
+        $targetDate = ($rawTargetDate === null || $rawTargetDate === '')
+            ? Carbon::today()->toDateString()
+            : (string) $rawTargetDate;
 
         $sharedPlanFields = [
             'organization_id' => $organizationId,
@@ -87,10 +98,15 @@ class NewEventHandler implements SystemFunctionHandler
 
         // event_start_time/event_end_time are Time-only fields (H:i); combine
         // them with the target date so the stored value is a real datetime.
+        // event_start_time/event_end_time are Time-only (H:i); combine each with
+        // the target date into a real datetime, or leave null when not provided.
+        $startTime = $this->payloadValue($form, $payload, 'event_start_time');
+        $endTime = $this->payloadValue($form, $payload, 'event_end_time');
+
         $childPlan = EventPlan::query()->create(array_merge($sharedPlanFields, [
-            'event_location' => (string) $this->payloadValue($form, $payload, 'event_location'),
-            'event_start_time' => $targetDate.' '.(string) $this->payloadValue($form, $payload, 'event_start_time'),
-            'event_end_time' => $targetDate.' '.(string) $this->payloadValue($form, $payload, 'event_end_time'),
+            'event_location' => $this->payloadValue($form, $payload, 'event_location'),
+            'event_start_time' => ($startTime === null || $startTime === '') ? null : $targetDate.' '.(string) $startTime,
+            'event_end_time' => ($endTime === null || $endTime === '') ? null : $targetDate.' '.(string) $endTime,
             'status' => 'pending',
             'parent_plan_id' => (int) $parentPlan->getKey(),
             'request_id' => (int) $actionRequest->getKey(),

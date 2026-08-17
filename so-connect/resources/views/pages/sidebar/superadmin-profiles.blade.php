@@ -7,6 +7,38 @@
         results: [],
         loading: false,
         searched: false,
+        deleteTarget: null,
+        deleting: false,
+        confirmDelete(profile) {
+            this.deleteTarget = profile;
+            this.$dispatch('open-profile-delete-modal');
+        },
+        async deleteProfile() {
+            if (!this.deleteTarget) return;
+            this.deleting = true;
+            const csrf = document.querySelector('meta[name=csrf-token]')?.content || '';
+            try {
+                const res = await fetch(`/superadmin/profiles/${this.deleteTarget.profile_id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': csrf,
+                        Accept: 'application/json',
+                    },
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    alert(data.message || 'Unable to delete this profile.');
+                    this.deleting = false;
+                    return;
+                }
+                this.results = this.results.filter(p => p.profile_id !== this.deleteTarget.profile_id);
+                this.deleteTarget = null;
+                this.$dispatch('close-profile-delete-modal');
+            } catch (e) {
+                alert('Unable to delete this profile.');
+            }
+            this.deleting = false;
+        },
         async search() {
             if (this.query.trim().length < 2) {
                 this.results = [];
@@ -155,20 +187,75 @@
                         </div>
                     </div>
 
-                    {{-- Edit Button --}}
-                    <a
-                        :href="`/superadmin/profiles/${profile.profile_id}/edit`"
-                        class="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3.5 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-brand-600">
-                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 18 18">
-                            <path fill-rule="evenodd" clip-rule="evenodd"
-                                d="M15.0911 2.78206C14.2125 1.90338 12.7878 1.90338 11.9092 2.78206L4.57524 10.116C4.26682 10.4244 4.0547 10.8158 3.96468 11.2426L3.31231 14.3352C3.25997 14.5833 3.33653 14.841 3.51583 15.0203C3.69512 15.1996 3.95286 15.2761 4.20096 15.2238L7.29355 14.5714C7.72031 14.4814 8.11172 14.2693 8.42013 13.9609L15.7541 6.62695C16.6327 5.74827 16.6327 4.32365 15.7541 3.44497L15.0911 2.78206Z"
-                                fill="currentColor"/>
-                        </svg>
-                        Edit Profile
-                    </a>
+                    {{-- Actions --}}
+                    <div class="flex shrink-0 items-center gap-2">
+                        <a
+                            :href="`/superadmin/profiles/${profile.profile_id}/edit`"
+                            class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3.5 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-brand-600">
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 18 18">
+                                <path fill-rule="evenodd" clip-rule="evenodd"
+                                    d="M15.0911 2.78206C14.2125 1.90338 12.7878 1.90338 11.9092 2.78206L4.57524 10.116C4.26682 10.4244 4.0547 10.8158 3.96468 11.2426L3.31231 14.3352C3.25997 14.5833 3.33653 14.841 3.51583 15.0203C3.69512 15.1996 3.95286 15.2761 4.20096 15.2238L7.29355 14.5714C7.72031 14.4814 8.11172 14.2693 8.42013 13.9609L15.7541 6.62695C16.6327 5.74827 16.6327 4.32365 15.7541 3.44497L15.0911 2.78206Z"
+                                    fill="currentColor"/>
+                            </svg>
+                            Edit Profile
+                        </a>
+
+                        <button
+                            type="button"
+                            @click="confirmDelete(profile)"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-error-300 bg-white px-3.5 py-2 text-xs font-medium text-error-600 shadow-sm transition hover:bg-error-50 dark:border-error-700 dark:bg-transparent dark:text-error-400 dark:hover:bg-error-500/10">
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 18 18">
+                                <path fill-rule="evenodd" clip-rule="evenodd"
+                                    d="M6.75 3.75V3C6.75 2.17157 7.42157 1.5 8.25 1.5H9.75C10.5784 1.5 11.25 2.17157 11.25 3V3.75H14.25C14.6642 3.75 15 4.08579 15 4.5C15 4.91421 14.6642 5.25 14.25 5.25H14.0175L13.335 13.9051C13.2427 15.0763 12.2652 16 11.0904 16H6.90964C5.73478 16 4.75733 15.0763 4.66495 13.9051L3.98249 5.25H3.75C3.33579 5.25 3 4.91421 3 4.5C3 4.08579 3.33579 3.75 3.75 3.75H6.75ZM8.25 3H9.75V3.75H8.25V3ZM5.48674 5.25L6.15997 13.7865C6.19077 14.1769 6.51659 14.5 6.90964 14.5H11.0904C11.4834 14.5 11.8092 14.1769 11.84 13.7865L12.5133 5.25H5.48674Z"
+                                    fill="currentColor"/>
+                            </svg>
+                            Delete
+                        </button>
+                    </div>
                 </div>
             </template>
         </div>
     </div>
+
+    {{-- Delete Confirmation Modal --}}
+    <x-ui.modal x-data="{ open: false }" @open-profile-delete-modal.window="open = true" @close-profile-delete-modal.window="open = false" :isOpen="false" class="max-w-[440px]">
+        <div class="p-6">
+            <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-error-50 dark:bg-error-500/10">
+                <svg class="h-6 w-6 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                        d="M12 9v3.75m0 3.75h.008v.008H12v-.008zM10.29 3.86l-8.18 14.18A1.5 1.5 0 003.42 20.5h17.16a1.5 1.5 0 001.31-2.46L13.71 3.86a1.5 1.5 0 00-2.42 0z" />
+                </svg>
+            </div>
+
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Delete this profile?</h3>
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                You're about to permanently delete
+                <span class="font-medium text-gray-800 dark:text-white/90"
+                    x-text="[deleteTarget?.first_name, deleteTarget?.last_name].filter(Boolean).join(' ')"></span>.
+                This cannot be undone.
+            </p>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button
+                    type="button"
+                    @click="open = false; deleteTarget = null"
+                    :disabled="deleting"
+                    class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5">
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    @click="deleteProfile()"
+                    :disabled="deleting"
+                    class="inline-flex items-center gap-2 rounded-lg bg-error-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-error-700 disabled:opacity-50">
+                    <svg x-show="deleting" class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                    </svg>
+                    <span x-text="deleting ? 'Deleting…' : 'Delete Profile'"></span>
+                </button>
+            </div>
+        </div>
+    </x-ui.modal>
 </div>
 @endsection

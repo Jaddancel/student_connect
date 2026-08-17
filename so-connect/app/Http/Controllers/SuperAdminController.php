@@ -775,6 +775,22 @@ public function searchProfiles(Request $request): JsonResponse
             ->with('status', 'Profile updated successfully.');
     }
 
+    public function destroyProfile(int $id): JsonResponse
+    {
+        $profile = Profile::findOrFail($id);
+        $user = $profile->user()->first();
+
+        if ($user && (int) $user->user_type === 1) {
+            abort(403, 'Cannot delete a superadmin profile.');
+        }
+
+        $profile->delete();
+
+        return response()->json([
+            'message' => 'Profile deleted successfully.',
+        ]);
+    }
+
     public function dataSyncPage()
     {
         return view('pages.sidebar.superadmin-data-sync', [

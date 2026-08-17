@@ -97,11 +97,17 @@ class FormBuilderController extends Controller
             ];
         })->values();
 
+        // Sign Up is the account-creation flow — it gets its own section,
+        // separate from the other system functions.
+        $signUpSlot = $slots->firstWhere('key', SystemFunction::SIGN_UP);
+        $slots = $slots->reject(fn ($slot) => $slot['key'] === SystemFunction::SIGN_UP)->values();
+
         return view('pages.admin.form-builder.index', [
             'title' => 'Form Builder',
             // Regular forms table excludes function-bound forms (they live in
-            // the System Functions section).
+            // the System Functions / Sign Up sections).
             'forms' => $forms->whereNull('system_function')->values(),
+            'signUpSlot' => $signUpSlot,
             'slots' => $slots,
         ]);
     }
@@ -131,6 +137,7 @@ class FormBuilderController extends Controller
             'editorData' => $editorData,
             'fieldCatalog' => FieldType::paletteCatalog($kit),
             'kit' => $kit,
+            'eventFieldChoices' => $kit === SystemFunction::NEW_WORKPLAN ? $this->eventFieldChoices() : [],
             'lockedFunction' => $function !== '' ? $function : null,
             'iconChoices' => $this->iconChoices(),
         ]);
@@ -146,6 +153,7 @@ class FormBuilderController extends Controller
             'editorData' => $this->editorDataFromForm($form),
             'fieldCatalog' => FieldType::paletteCatalog($kit),
             'kit' => $kit,
+            'eventFieldChoices' => $kit === SystemFunction::NEW_WORKPLAN ? $this->eventFieldChoices() : [],
             // A form's system-function binding is immutable after creation.
             'lockedFunction' => $form->system_function ?: null,
             'iconChoices' => $this->iconChoices(),
@@ -161,6 +169,43 @@ class FormBuilderController extends Controller
     {
         return collect(MenuHelper::iconNames())
             ->mapWithKeys(fn (string $name) => [$name => MenuHelper::getIconSvg($name)])
+            ->all();
+    }
+
+    /**
+     * The New Events form's fields that can be printed as an Activity Table
+     * column: everything with a submitted, cell-able value (presentational,
+     * file, signature, waiver, photo-set and password fields are dropped). Used
+     * by the workplan builder's Activity-Table column picker. Empty when the
+     * New Events function has no bound form.
+     *
+     * @return array<int,array{key:string,label:string,type:string,type_label:string}>
+     */
+    private function eventFieldChoices(): array
+    {
+        $eventForm = SystemFunction::form(SystemFunction::NEW_EVENT);
+        if ($eventForm === null) {
+            return [];
+        }
+
+        $excluded = array_merge(
+            FieldType::presentational(),
+            FieldType::fileLike(),
+            [FieldType::SIGNATURE, FieldType::WAIVER_SCAN, FieldType::MULTI_IMAGE, FieldType::PASSWORD],
+        );
+
+        return $eventForm->fields()
+            ->orderBy('field_order')
+            ->orderBy('id')
+            ->get()
+            ->reject(fn ($field) => in_array((string) $field->field_type, $excluded, true))
+            ->map(fn ($field) => [
+                'key' => (string) $field->field_key,
+                'label' => (string) ($field->field_label ?: $field->field_key),
+                'type' => (string) $field->field_type,
+                'type_label' => FieldType::label((string) $field->field_type),
+            ])
+            ->values()
             ->all();
     }
 
@@ -324,10 +369,14 @@ class FormBuilderController extends Controller
             'fields.*.field_options.autofill_now' => ['nullable', 'boolean'],
             // Special kit-scoped option keys: table columns + totals, computed
             // formulas, photo-set limits and media mirroring, event autofill.
+            // Shared by table-input and activity-table columns. The key/type are
+            // widened for activity-table (whose column key is a New Events field
+            // key, and whose type is any FieldType); tableColumns() still coerces
+            // the type down to its own four for table-input.
             'fields.*.field_options.columns' => ['nullable', 'array'],
-            'fields.*.field_options.columns.*.key' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_]*$/'],
+            'fields.*.field_options.columns.*.key' => ['nullable', 'string', 'max:255', 'regex:/^[A-Za-z0-9_]*$/'],
             'fields.*.field_options.columns.*.label' => ['nullable', 'string', 'max:255'],
-            'fields.*.field_options.columns.*.type' => ['nullable', 'string', Rule::in(['text', 'number', 'date', 'event-select'])],
+            'fields.*.field_options.columns.*.type' => ['nullable', 'string', Rule::in(FieldType::all())],
             'fields.*.field_options.columns.*.required' => ['nullable', 'boolean'],
             'fields.*.field_options.row_total' => ['nullable', 'array'],
             'fields.*.field_options.row_total.key' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_]*$/'],
@@ -386,6 +435,7 @@ class FormBuilderController extends Controller
         $this->enforceFieldKit($validated, $form);
 
         $validated['fields'] = $this->normalizeVisibilityConditions($validated['fields']);
+        $validated['fields'] = $this->normalizeActivityTableColumns($validated['fields']);
 
         $pdfTemplate = $this->cleanPdfTemplate($validated['pdf_template'] ?? []);
 
@@ -433,12 +483,35 @@ class FormBuilderController extends Controller
                         .($kit ? ' — this form\'s "'.\App\Forms\FieldKit::label($kit).'" category does not include them.' : '.'),
                 ], 422));
             }
+
+            // "Age - Computed from Birthday" is a Sign-Up-only autofill: it needs
+            // a sibling birthday field, which only that form guarantees.
+            if (($field['universal_key'] ?? '') === 'age_from_birthday' && $kit !== SystemFunction::SIGN_UP) {
+                abort(response()->json([
+                    'message' => 'The "'.UniversalField::label('age_from_birthday').'" autofill is only available on the Sign Up form.',
+                ], 422));
+            }
         }
 
         $missing = [];
         foreach (\App\Forms\FieldKit::required($kit) as $requiredKey => $requiredType) {
             $field = $byKey->get($requiredKey);
-            if (! $field || (string) $field['field_type'] !== $requiredType) {
+            $satisfied = $field && (string) $field['field_type'] === $requiredType;
+
+            // The approved-events picker is matched by TYPE, not key: the
+            // workplan handler resolves it by field_type (NewWorkplanHandler),
+            // and its palette label ("Approved events") slugs to a different key
+            // than `workplan_events`. So any field of that type satisfies it,
+            // whatever its key. (Other required keys — email, first_name,
+            // organization_id, … — are resolved by key/universal key, so they
+            // stay key-matched.)
+            if (! $satisfied && $requiredType === FieldType::WORKPLAN_EVENTS) {
+                $satisfied = $byKey->contains(
+                    fn ($f) => (string) $f['field_type'] === FieldType::WORKPLAN_EVENTS,
+                );
+            }
+
+            if (! $satisfied) {
                 $missing[] = $requiredKey.' ('.FieldType::label($requiredType).')';
             }
         }
@@ -547,6 +620,42 @@ class FormBuilderController extends Controller
         }
 
         return array_values($fields);
+    }
+
+    /**
+     * Normalise each activity-table field's `columns`: keep only well-formed
+     * `{key,label,type}` entries (de-duped, order preserved) and, for keys that
+     * still exist on the live New Events form, refresh the `label`/`type` from
+     * it. Keys no longer on that form keep their stored snapshot — the label
+     * snapshot is what keeps a stale column printing its heading.
+     *
+     * @param  array<int,array<string,mixed>>  $fields
+     * @return array<int,array<string,mixed>>
+     */
+    private function normalizeActivityTableColumns(array $fields): array
+    {
+        $liveByKey = collect($this->eventFieldChoices())->keyBy('key');
+
+        foreach ($fields as $i => $field) {
+            if ((string) ($field['field_type'] ?? '') !== FieldType::ACTIVITY_TABLE) {
+                continue;
+            }
+
+            $columns = FieldType::activityTableColumns((array) ($field['field_options'] ?? []));
+            $columns = array_map(function (array $column) use ($liveByKey) {
+                $live = $liveByKey->get($column['key']);
+                if ($live !== null) {
+                    $column['label'] = $live['label'];
+                    $column['type'] = $live['type'];
+                }
+
+                return $column;
+            }, $columns);
+
+            $fields[$i]['field_options']['columns'] = $columns;
+        }
+
+        return $fields;
     }
 
     /**
@@ -858,7 +967,7 @@ class FormBuilderController extends Controller
         $values = [];
         $skip = [
             FieldType::SIGNATURE, FieldType::PASSWORD, FieldType::ID_SCAN,
-            FieldType::MULTI_IMAGE, FieldType::TABLE_INPUT,
+            FieldType::MULTI_IMAGE, FieldType::TABLE_INPUT, FieldType::ACTIVITY_TABLE,
         ];
         foreach ($fields as $field) {
             if (FieldType::isPresentational($field->field_type) || FieldType::isFileLike($field->field_type)

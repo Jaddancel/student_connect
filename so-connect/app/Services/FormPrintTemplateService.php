@@ -138,6 +138,13 @@ class FormPrintTemplateService
         $path = $workDir.'/blank.docx';
 
         try {
+            // Pin the house default (Times New Roman 12pt, matching the legacy
+            // PDF template) so a stub template doesn't start in PhpWord's own
+            // default font and drift from the authored look. Settings are
+            // process-wide statics, so set them before the document is built.
+            \PhpOffice\PhpWord\Settings::setDefaultFontName('Times New Roman');
+            \PhpOffice\PhpWord\Settings::setDefaultFontSize(12);
+
             $phpWord = new \PhpOffice\PhpWord\PhpWord;
             $section = $phpWord->addSection();
             $section->addText(trim((string) ($form->name ?? 'Printed template')), ['bold' => true, 'size' => 16]);

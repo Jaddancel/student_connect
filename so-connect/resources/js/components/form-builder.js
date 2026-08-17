@@ -14,6 +14,11 @@ export function formBuilder(config) {
         catalog: config.catalog || {},
         // Registered dynamic option sources: [{ key, label, searchable }].
         optionSources: config.optionSources || [],
+        // New Events form fields offered as Activity-Table columns:
+        // [{ key, label, type, type_label }]. Empty unless this is the workplan form.
+        eventFieldChoices: config.eventFieldChoices || [],
+        // The form's field kit (e.g. 'sign_up'), used to gate kit-only autofills.
+        kit: config.kit || '',
         storeUrl: config.storeUrl,
         updateUrl: config.updateUrl,
         uploadUrl: config.uploadUrl,
@@ -64,8 +69,20 @@ export function formBuilder(config) {
             // orphan its submissions and scoring variables.
             this.fields.forEach((f) => { f._keyLocked = true; });
 
-            // Auto-slug the route name from the title while creating.
             if (!this.isEdit) {
+                // The real name is entered in Step 3, but name (and its derived
+                // route) are required on save. Seed a temporary name up front —
+                // the bound system function's name, else the current timestamp —
+                // so saving/advancing before Step 3 isn't blocked. The user can
+                // still overwrite it in Step 3 (the route follows along).
+                if (!this.name) {
+                    this.name = this.system_function
+                        ? this.titleCase(this.system_function)
+                        : `Untitled form ${this.timestampTag()}`;
+                    this.route_name = this.slug(this.name);
+                }
+
+                // Auto-slug the route name from the title while creating.
                 this.$watch('name', (v) => {
                     if (!this.routeTouched) this.route_name = this.slug(v);
                 });
@@ -75,6 +92,20 @@ export function formBuilder(config) {
         slug(v) {
             return (v || '').toString().toLowerCase().trim()
                 .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        },
+
+        /** "new_event" → "New Event" for a friendly temporary form name. */
+        titleCase(key) {
+            return (key || '').toString().replace(/[_-]+/g, ' ').trim()
+                .replace(/\b\w/g, (c) => c.toUpperCase());
+        },
+
+        /** Local "YYYY-MM-DD HH:MM:SS" tag, unique enough for a temp name/route. */
+        timestampTag() {
+            const d = new Date();
+            const p = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+                + ` ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
         },
 
         // --- wizard navigation ---
@@ -161,6 +192,7 @@ export function formBuilder(config) {
             if (type === 'password') return { min: 8 };
             if (type === 'multi-image') return { max_files: 5 };
             if (type === 'computed') return { formula: 'sum', args: [] };
+            if (type === 'activity-table') return { columns: [] };
             if (type === 'table-input') {
                 return {
                     columns: [{ key: 'column_1', label: 'Column 1', type: 'text', required: false }],
@@ -447,6 +479,17 @@ export function formBuilder(config) {
             };
             return byType[type] || [];
         },
+        /**
+         * "Computed" autofill options derived from a sibling field on this form.
+         * Unique to the Sign Up builder: `age_from_birthday` computes the age
+         * from the form's own birthday date field. Offered only on number-ish
+         * fields (age/number/text).
+         */
+        derivedAutofillOptions(type) {
+            if (this.kit !== 'sign_up') return [];
+            if (!['age', 'number', 'text'].includes(type)) return [];
+            return [{ value: 'age_from_birthday', label: 'Age - Computed from Birthday' }];
+        },
 
         // --- table-input column editing ---
         slugColumn(label) {
@@ -465,6 +508,40 @@ export function formBuilder(config) {
         },
         onColumnLabel(col) {
             col.key = this.slugColumn(col.label);
+        },
+
+        // --- activity-table columns (chosen from the New Events form's fields) ---
+        /** Whether the field already includes a column for this New Events field. */
+        activityColumnChecked(f, choice) {
+            return (f.field_options.columns || []).some((c) => c.key === choice.key);
+        },
+        /**
+         * Toggle a New Events field in/out of the activity table's columns. Newly
+         * checked columns append in selection order, snapshotting label + type so
+         * a later change to the source field still prints its old heading.
+         */
+        toggleActivityColumn(f, choice) {
+            if (!f.field_options.columns) f.field_options.columns = [];
+            const i = f.field_options.columns.findIndex((c) => c.key === choice.key);
+            if (i === -1) {
+                f.field_options.columns.push({ key: choice.key, label: choice.label, type: choice.type });
+            } else {
+                f.field_options.columns.splice(i, 1);
+            }
+        },
+        /** Stored columns whose source field is no longer on the New Events form. */
+        staleActivityColumns(f) {
+            const live = new Set(this.eventFieldChoices.map((c) => c.key));
+            return (f.field_options.columns || []).filter((c) => !live.has(c.key));
+        },
+        /**
+         * A column's type label: the live New Events field's label when the field
+         * still exists, else the FieldType catalog label for the stored snapshot.
+         */
+        columnTypeLabel(col) {
+            const live = this.eventFieldChoices.find((c) => c.key === col.key);
+            if (live) return live.type_label;
+            return this.labelFor(col.type);
         },
 
         // --- computed args ---

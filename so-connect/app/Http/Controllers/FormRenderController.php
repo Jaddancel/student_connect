@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Forms\ActivityTableData;
 use App\Forms\ConditionEvaluator;
 use App\Forms\FieldType;
 use App\Forms\FormRenderContext;
 use App\Forms\SystemFunction;
+use App\Services\OrganizationAuthorizationService;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Services\DocumentGenerationService;
+use App\Support\IdScanRetryCache;
 use App\Support\OrganizationField;
 use App\Support\SignatureImage;
 use App\Support\SignupRequests;
@@ -50,6 +53,13 @@ class FormRenderController extends Controller
             [$prefill, $hidden] = $this->signupQueryPrefill($request, $fields, $prefill);
             $prefill = $this->signupRetryPrefill($request, $fields, $prefill);
             $this->relaxPasswordForRetry($request, $fields);
+        }
+
+        // Any ID_SCAN field: surface this session's already-scanned photo(s)
+        // so a validation-failure reload doesn't present an empty scanner —
+        // see IdScanRetryCache.
+        if (($context['special']['scanner'] ?? null) !== null) {
+            $context['special']['scanner']['retry'] = $this->idScanRetry($request);
         }
 
         // The calendar's "Create Event" action links here with the clicked day
@@ -138,6 +148,29 @@ class FormRenderController extends Controller
         }
 
         return $prefill;
+    }
+
+    /**
+     * This session's already-scanned ID photo(s), if any, keyed by side —
+     * `{url, fields}` for each side that has one cached. Lets the wizard show
+     * "already scanned" previews across a validation-failure reload instead
+     * of forcing the user to re-scan. See {@see IdScanRetryCache}.
+     *
+     * @return array<string,array{url:string,fields:array<string,mixed>}>
+     */
+    private function idScanRetry(Request $request): array
+    {
+        $cached = IdScanRetryCache::summary($request->session()->getId());
+
+        $retry = [];
+        foreach ($cached as $side => $data) {
+            $retry[$side] = [
+                'url' => route('id-scan.retry-photo', $side),
+                'fields' => $data['fields'] ?? [],
+            ];
+        }
+
+        return $retry;
     }
 
     /**
@@ -316,6 +349,11 @@ class FormRenderController extends Controller
         $waiverValidations = [];
         $signatureVerifications = [];
         $capturedSignatures = [];
+        // Officer org ids for the Activity Table snapshot (mirrors
+        // SpecialFieldData): resolved once, not per field.
+        $officerOrgIds = ($request->user() && (int) $request->user()->user_type === 3)
+            ? OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $request->user()->getKey())
+            : [];
         foreach ($fields as $field) {
             $key = $field->field_key;
             $type = $field->field_type;
@@ -386,13 +424,19 @@ class FormRenderController extends Controller
 
             if ($type === FieldType::ID_SCAN) {
                 $payload[$key] = $validated[$key] ?? null;
-                foreach (['id_photo_front', 'id_photo_back'] as $photoKey) {
-                    $payload[$photoKey] = $request->hasFile($photoKey)
-                        ? $request->file($photoKey)->store(
-                            'form-uploads/'.$form->route_name,
-                            (string) config('documents.disk', 'public'),
-                        )
-                        : null;
+                $uploadDir = 'form-uploads/'.$form->route_name;
+                $uploadDisk = (string) config('documents.disk', 'public');
+                foreach (['id_photo_front' => 'front', 'id_photo_back' => 'back'] as $photoKey => $side) {
+                    if ($request->hasFile($photoKey)) {
+                        $payload[$photoKey] = $request->file($photoKey)->store($uploadDir, $uploadDisk);
+                    } else {
+                        // The browser never resubmits a file input across a
+                        // validation-failure redirect — reuse this session's
+                        // already-scanned photo instead of losing it.
+                        $payload[$photoKey] = IdScanRetryCache::storeInto(
+                            $request->session()->getId(), $side, $uploadDisk, $uploadDir,
+                        );
+                    }
                 }
                 continue;
             }
@@ -435,6 +479,14 @@ class FormRenderController extends Controller
                 continue;
             }
 
+            // The Activity Table is hidden on the web form: its rows are
+            // snapshotted here from the org's current approved activities, so
+            // any client-submitted value under this key is ignored.
+            if ($type === FieldType::ACTIVITY_TABLE) {
+                $payload[$key] = ActivityTableData::forField((array) ($field->field_options ?? []), $officerOrgIds)['rows'];
+                continue;
+            }
+
             // A single checkmark (no option list) is a boolean the browser omits
             // entirely when unticked. Store it as 1 (checked) / 0 (unchecked) so
             // scoring-rule conditions can reliably test it (`field:key = 1`/`= 0`).
@@ -470,6 +522,10 @@ class FormRenderController extends Controller
         // Derived values (table row totals, computed fields) are recomputed
         // server-side — whatever the client posted for them is overwritten.
         $payload = \App\Forms\FieldCompute::apply($fields, $payload);
+
+        // "Age - Computed from Birthday": authoritatively recompute from the
+        // form's own birthday field — the client-typed age is never trusted.
+        $payload = $this->applyAgeFromBirthday($fields, $payload);
 
         $user = $request->user();
 
@@ -514,6 +570,12 @@ class FormRenderController extends Controller
         // Kit side effects (event linking, posts-wall media mirroring).
         \App\Forms\FieldKit::afterSubmit($form, $submission, $payload);
 
+        // The scanned photo(s) are durably stored on the submission now —
+        // this session's retry cache has nothing left to contribute.
+        if ($fields->contains(fn ($f) => $f->field_type === FieldType::ID_SCAN)) {
+            IdScanRetryCache::forget($request->session()->getId());
+        }
+
         if ($handler) {
             return $handler->handle($form, $submission, $payload, $request);
         }
@@ -531,6 +593,49 @@ class FormRenderController extends Controller
 
         return redirect()->route('forms.render', $form->route_name)
             ->with('success', $form->name.' submitted for approval — the document will be generated once an admin approves it.');
+    }
+
+    /**
+     * Recompute every `age_from_birthday`-mapped field from the sibling field
+     * mapped to `birthday` on the same form. The client's value is never
+     * trusted; an unreadable/missing birthday yields null.
+     *
+     * @param  \Illuminate\Support\Collection<int,\App\Models\Form\FormDescription>  $fields
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function applyAgeFromBirthday($fields, array $payload): array
+    {
+        $birthdayField = $fields->firstWhere('universal_key', 'birthday');
+        if ($birthdayField === null) {
+            // No birthday to compute from: blank any age-from-birthday fields.
+            foreach ($fields as $field) {
+                if ($field->universal_key === 'age_from_birthday') {
+                    $payload[$field->field_key] = null;
+                }
+            }
+
+            return $payload;
+        }
+
+        $age = null;
+        $birthday = $payload[$birthdayField->field_key] ?? null;
+        if (is_string($birthday) && $birthday !== '') {
+            try {
+                $parsed = \Illuminate\Support\Carbon::parse($birthday);
+                $age = $parsed->isFuture() ? null : $parsed->age;
+            } catch (\Throwable) {
+                $age = null;
+            }
+        }
+
+        foreach ($fields as $field) {
+            if ($field->universal_key === 'age_from_birthday') {
+                $payload[$field->field_key] = $age;
+            }
+        }
+
+        return $payload;
     }
 
     /**

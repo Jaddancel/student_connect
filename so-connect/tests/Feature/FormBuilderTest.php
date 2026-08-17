@@ -526,6 +526,141 @@ it('rejects an icon outside the allow-list', function () {
     expect(Form::where('route_name', 'bad-icon')->exists())->toBeFalse();
 });
 
+/** The bound New Events form the Activity-Table column picker reads from. */
+function builderNewEventForm(): Form
+{
+    $form = Form::create([
+        'name' => 'New Event', 'route_name' => 'new-event-src',
+        'system_function' => 'new_event', 'is_active' => true,
+    ]);
+    FormDescription::create([
+        'form_id' => $form->id, 'field_key' => 'title', 'field_label' => 'Activity Title',
+        'field_type' => 'text', 'field_order' => 1,
+    ]);
+
+    return $form;
+}
+
+it('persists normalized activity-table columns on the workplan form', function () {
+    $admin = makeUser(2);
+    builderNewEventForm();
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
+        'name' => 'Workplan', 'route_name' => 'wp-built', 'system_function' => 'new_workplan',
+        'fields' => [
+            ['field_key' => 'name', 'field_label' => 'Workplan Name', 'field_type' => 'text'],
+            ['field_key' => 'workplan_events', 'field_label' => 'Events', 'field_type' => 'workplan-events'],
+            ['field_key' => 'wp_activities', 'field_label' => 'Activities', 'field_type' => 'activity-table',
+                'field_options' => ['columns' => [
+                    // Live key: label + type refreshed from the New Events form.
+                    ['key' => 'title', 'label' => 'STALE LABEL', 'type' => 'number'],
+                    // Empty key: dropped by normalization.
+                    ['key' => '', 'label' => 'Empty', 'type' => 'text'],
+                    // Unknown key (not on the live form): snapshot kept as-is.
+                    ['key' => 'custom', 'label' => 'Custom', 'type' => 'text'],
+                    // Duplicate key: deduped (first occurrence wins).
+                    ['key' => 'title', 'label' => 'Dup', 'type' => 'text'],
+                ]]],
+        ],
+        'rows' => [],
+        'pdf_template' => ['html' => '<p>x</p>', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ])->assertOk();
+
+    $columns = Form::where('route_name', 'wp-built')->first()
+        ->fields()->where('field_key', 'wp_activities')->value('field_options')['columns'];
+
+    expect($columns)->toEqual([
+        ['key' => 'title', 'label' => 'Activity Title', 'type' => 'text'],
+        ['key' => 'custom', 'label' => 'Custom', 'type' => 'text'],
+    ]);
+});
+
+it('rejects an activity-table field on a non-workplan form', function () {
+    $admin = makeUser(2);
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
+        'name' => 'Plain', 'route_name' => 'plain-at',
+        'fields' => [
+            ['field_key' => 'acts', 'field_label' => 'Acts', 'field_type' => 'activity-table', 'field_options' => ['columns' => []]],
+        ],
+        'rows' => [],
+        'pdf_template' => ['html' => '', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ])->assertStatus(422);
+
+    expect(Form::where('route_name', 'plain-at')->exists())->toBeFalse();
+});
+
+it('rejects a visibility condition that depends on an activity-table field', function () {
+    $admin = makeUser(2);
+    builderNewEventForm();
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
+        'name' => 'Workplan', 'route_name' => 'wp-cond', 'system_function' => 'new_workplan',
+        'fields' => [
+            ['field_key' => 'name', 'field_label' => 'Name', 'field_type' => 'text'],
+            ['field_key' => 'workplan_events', 'field_label' => 'Events', 'field_type' => 'workplan-events'],
+            ['field_key' => 'wp_activities', 'field_label' => 'Acts', 'field_type' => 'activity-table', 'field_options' => ['columns' => []]],
+            ['field_key' => 'note', 'field_label' => 'Note', 'field_type' => 'text',
+                'field_options' => ['visible_when' => ['field' => 'wp_activities', 'op' => 'filled']]],
+        ],
+        'rows' => [],
+        'pdf_template' => ['html' => '<p>x</p>', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ])->assertStatus(422);
+});
+
+it('exposes eventFieldChoices to the workplan editor page', function () {
+    $admin = makeUser(2);
+    builderNewEventForm();
+
+    $form = Form::create([
+        'name' => 'WP', 'route_name' => 'wp-edit', 'field_kit' => 'new_workplan', 'is_active' => true,
+        'layout' => ['rows' => []],
+    ]);
+
+    $choices = $this->actingAs($admin)->get(route('admin.form-builder.edit', $form))
+        ->assertOk()->viewData('eventFieldChoices');
+
+    expect(collect($choices)->pluck('key'))->toContain('title');
+});
+
+it('saves the age-from-birthday autofill on the sign-up form', function () {
+    $admin = makeUser(2);
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
+        'name' => 'Sign Up', 'route_name' => 'sign-up-age', 'system_function' => 'sign_up',
+        'fields' => [
+            ['field_key' => 'email', 'field_label' => 'Email', 'field_type' => 'email'],
+            ['field_key' => 'first_name', 'field_label' => 'First', 'field_type' => 'text'],
+            ['field_key' => 'last_name', 'field_label' => 'Last', 'field_type' => 'text'],
+            ['field_key' => 'organization_id', 'field_label' => 'Org', 'field_type' => 'org-select'],
+            ['field_key' => 'position', 'field_label' => 'Position', 'field_type' => 'position-select'],
+            ['field_key' => 'password', 'field_label' => 'Password', 'field_type' => 'password'],
+            ['field_key' => 'birthday', 'field_label' => 'Birthday', 'field_type' => 'date', 'universal_key' => 'birthday'],
+            ['field_key' => 'age', 'field_label' => 'Age', 'field_type' => 'number', 'universal_key' => 'age_from_birthday'],
+        ],
+        'rows' => [],
+        'pdf_template' => ['html' => '<p>x</p>', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ])->assertOk();
+
+    expect(Form::where('route_name', 'sign-up-age')->first()
+        ->fields()->where('field_key', 'age')->value('universal_key'))->toBe('age_from_birthday');
+});
+
+it('rejects the age-from-birthday autofill on a non-signup form', function () {
+    $admin = makeUser(2);
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
+        'name' => 'Plain', 'route_name' => 'plain-age',
+        'fields' => [
+            ['field_key' => 'age', 'field_label' => 'Age', 'field_type' => 'number', 'universal_key' => 'age_from_birthday'],
+        ],
+        'rows' => [],
+        'pdf_template' => ['html' => '', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ])->assertStatus(422);
+
+    expect(Form::where('route_name', 'plain-age')->exists())->toBeFalse();
+});
+
 it('round-trips the multi-column layout shape', function () {
     $admin = makeUser(2);
 

@@ -54,10 +54,14 @@ final class FieldKit
             ],
             SystemFunction::NEW_WORKPLAN => [
                 'label' => 'Workplan fields',
-                'types' => [FieldType::WORKPLAN_EVENTS],
+                'types' => [FieldType::WORKPLAN_EVENTS, FieldType::ACTIVITY_TABLE],
+                // Only the approved-events picker is mandatory; the handler
+                // derives everything else from the selected plans. The submitter
+                // isn't asked for their name here — it's already recorded
+                // (FormSubmission.submitted_by) and shown to admins on the
+                // activity-requests page.
                 'required' => [
                     'workplan_events' => FieldType::WORKPLAN_EVENTS,
-                    'name' => FieldType::TEXT,
                 ],
             ],
             SystemFunction::MEMBERSHIP_REGISTRATION => [

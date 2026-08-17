@@ -707,6 +707,10 @@ Route::patch('/superadmin/profiles/{id}', [SuperAdminController::class, 'updateP
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.profiles.update');
 
+Route::delete('/superadmin/profiles/{id}', [SuperAdminController::class, 'destroyProfile'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.profiles.destroy');
+
 // profile pages
 Route::get('/profile', function () {
     $user = auth()->user();
@@ -1096,6 +1100,13 @@ Route::middleware(['auth', 'superadmin'])->group(function () {
 // Intentionally NOT behind `auth` — that form is filled by users without an
 // account yet. Fails soft when no active template / sidecar is available.
 Route::post('/id-scan', [IdScanController::class, 'scan'])->name('id-scan.scan');
+
+// Serves back a side's cached scan for this session (see IdScanRetryCache) so
+// the wizard can show "already scanned" previews after a validation-failure
+// reload instead of forcing a re-scan.
+Route::get('/id-scan/retry/{side}', [IdScanController::class, 'retryPhoto'])
+    ->where('side', 'front|back')
+    ->name('id-scan.retry-photo');
 
 // In-app AI assistant. Auth-only: the knowledge base is filtered by user_type,
 // so an unauthenticated caller has no index to ground against. Throttled

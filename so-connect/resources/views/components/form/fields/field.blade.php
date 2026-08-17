@@ -25,7 +25,11 @@
     $pairs = $sourceKey !== null ? $sourceEntry['options'] : FieldType::optionPairs($opts);
 @endphp
 
-@if ($type === FieldType::HEADING)
+@if ($type === FieldType::ACTIVITY_TABLE)
+    {{-- PDF-only: the approved-activity rows are snapshotted server-side at
+         submit (see FormRenderController), so the web form shows nothing —
+         not even a label. --}}
+@elseif ($type === FieldType::HEADING)
     <h3 class="mb-1 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">
         {{ $field->field_label }}
     </h3>
