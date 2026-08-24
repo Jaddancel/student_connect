@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Form;
 use App\Models\Template as FormTemplate;
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -19,6 +21,16 @@ use RuntimeException;
  */
 class FormPrintTemplateService
 {
+    /**
+     * How long a Step-2 draft survives without activity. Every read slides the
+     * TTL forward, so an actively-edited draft never expires mid-session; an
+     * abandoned one is reaped by the cache 12h after the last touch.
+     */
+    private const DRAFT_TTL = 60 * 60 * 12;
+
+    /** Cache-key namespace for draft metadata and documents. */
+    private const DRAFT_PREFIX = 'draft:print:';
+
     public function __construct(private readonly DocxTemplateService $docx) {}
 
     /**
@@ -94,7 +106,7 @@ class FormPrintTemplateService
 
         $bytes = $legacyHtml !== ''
             ? $this->convertLegacyHtml($legacyHtml)
-            : $this->blankDocument($form);
+            : $this->blankDocumentFor((string) ($form->name ?? 'Printed template'));
 
         Storage::disk($this->disk())->put($relativePath, $bytes);
 
@@ -129,9 +141,11 @@ class FormPrintTemplateService
     }
 
     /**
-     * A minimal starting document for a form with no legacy template.
+     * A minimal starting document for a form with no legacy template, titled
+     * `$name`. Used both when seeding a real template and when synthesising a
+     * draft's starter document (which has no Form row to read a name from).
      */
-    private function blankDocument(Form $form): string
+    public function blankDocumentFor(string $name): string
     {
         $workDir = storage_path('app/tmp/seed-'.bin2hex(random_bytes(6)));
         File::ensureDirectoryExists($workDir);
@@ -147,7 +161,7 @@ class FormPrintTemplateService
 
             $phpWord = new \PhpOffice\PhpWord\PhpWord;
             $section = $phpWord->addSection();
-            $section->addText(trim((string) ($form->name ?? 'Printed template')), ['bold' => true, 'size' => 16]);
+            $section->addText(trim($name) !== '' ? trim($name) : 'Printed template', ['bold' => true, 'size' => 16]);
             $section->addTextBreak();
             $section->addText('Use the Field tokens panel to insert form fields, e.g. {{full_name}}.');
 
@@ -157,6 +171,158 @@ class FormPrintTemplateService
         } finally {
             File::deleteDirectory($workDir);
         }
+    }
+
+    // ── Non-persistent Step-2 drafts ────────────────────────────────────────
+    //
+    // A draft lets the printed-template editor open — and its field-token
+    // palette reflect just-added fields — *before* the form is saved, with zero
+    // writes to forms/templates/form_descriptions. Metadata and the working
+    // .docx live only in the `file` cache store, keyed by a server-minted
+    // draftId, and are cleared on final save (see adoptDraft()). The `file`
+    // store is used explicitly because the default cache/session drivers here
+    // are `database`, which the non-persistent requirement rules out.
+
+    /**
+     * The file cache store, chosen explicitly so drafts never touch the DB.
+     */
+    private function draftCache(): CacheRepository
+    {
+        return Cache::store('file');
+    }
+
+    private function draftKey(string $draftId): string
+    {
+        return self::DRAFT_PREFIX.$draftId;
+    }
+
+    private function draftDocxKey(string $draftId): string
+    {
+        return self::DRAFT_PREFIX.$draftId.':docx';
+    }
+
+    /**
+     * Read a draft's metadata, sliding its TTL forward on the way out so an
+     * active session never expires. Returns null for an unknown/expired draft.
+     *
+     * @return array{form_id: ?int, name: string, fields: array<int, array<string, mixed>>, version: int, created_by: ?int, updated_at: int}|null
+     */
+    public function readDraft(string $draftId): ?array
+    {
+        $draft = $this->draftCache()->get($this->draftKey($draftId));
+
+        if (! is_array($draft)) {
+            return null;
+        }
+
+        // Sliding TTL: touching the draft keeps it (and its document) alive.
+        $this->draftCache()->put($this->draftKey($draftId), $draft, self::DRAFT_TTL);
+
+        return $draft;
+    }
+
+    /**
+     * Write (create or replace) a draft's metadata.
+     *
+     * @param  array<int, array<string, mixed>>  $fields  descriptors: field_key/field_label/field_type/field_options
+     */
+    public function writeDraft(string $draftId, ?int $formId, string $name, array $fields, int $version, ?int $userId): void
+    {
+        $this->draftCache()->put($this->draftKey($draftId), [
+            'form_id' => $formId,
+            'name' => trim($name) !== '' ? trim($name) : 'Printed template',
+            'fields' => array_values($fields),
+            'version' => max(1, $version),
+            'created_by' => $userId,
+            'updated_at' => now()->getTimestamp(),
+        ], self::DRAFT_TTL);
+    }
+
+    /**
+     * Raw draft document bytes, or null when none have been stored yet.
+     */
+    public function readDraftDocx(string $draftId): ?string
+    {
+        $bytes = $this->draftCache()->get($this->draftDocxKey($draftId));
+
+        return is_string($bytes) && $bytes !== '' ? $bytes : null;
+    }
+
+    public function putDraftDocx(string $draftId, string $contents): void
+    {
+        $this->draftCache()->put($this->draftDocxKey($draftId), $contents, self::DRAFT_TTL);
+    }
+
+    /**
+     * Ensure the draft has a document to open, synthesising a starter .docx
+     * from the draft's name the first time. Idempotent.
+     */
+    public function ensureDraftDocx(string $draftId, string $name): void
+    {
+        if ($this->readDraftDocx($draftId) === null) {
+            $this->putDraftDocx($draftId, $this->blankDocumentFor($name));
+        }
+    }
+
+    /**
+     * Persist an edited revision of the draft document (from a Document Server
+     * save) and bump the draft's version so the editor's document key moves.
+     */
+    public function storeDraftRevision(string $draftId, string $contents): int
+    {
+        if ($contents === '') {
+            throw new RuntimeException('Refusing to save an empty draft template.');
+        }
+
+        $draft = $this->readDraft($draftId);
+        if ($draft === null) {
+            throw new RuntimeException('Draft no longer exists.');
+        }
+
+        $this->putDraftDocx($draftId, $contents);
+
+        $version = (int) $draft['version'] + 1;
+        $this->writeDraft(
+            $draftId,
+            $draft['form_id'],
+            $draft['name'],
+            $draft['fields'],
+            $version,
+            $draft['created_by'],
+        );
+
+        return $version;
+    }
+
+    public function forgetDraft(string $draftId): void
+    {
+        $this->draftCache()->forget($this->draftKey($draftId));
+        $this->draftCache()->forget($this->draftDocxKey($draftId));
+    }
+
+    /**
+     * Fold a finished draft into the form's real printed template on save:
+     * copy the draft's edited document into a persisted revision, then clear
+     * the draft. A no-op (returns null) when no draft bytes exist — the seeded
+     * blank template already covers that case. Never throws for a missing
+     * draft; callers wrap this so template adoption can't fail the save.
+     */
+    public function adoptDraft(Form $form, string $draftId, ?int $userId = null): ?FormTemplate
+    {
+        $bytes = $this->readDraftDocx($draftId);
+
+        if ($bytes === null) {
+            $this->forgetDraft($draftId);
+
+            return null;
+        }
+
+        $template = $this->resolve($form, $userId);
+        $template = $this->storeRevision($template, $bytes);
+
+        $this->forgetDraft($draftId);
+
+        return $template;
     }
 
     private function pathFor(Form $form): string

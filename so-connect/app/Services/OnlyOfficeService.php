@@ -84,12 +84,63 @@ class OnlyOfficeService
         string $callbackUrl,
         bool $canEdit = true,
     ): array {
+        return $this->assembleEditorConfig(
+            $this->documentKey($template),
+            ((string) ($template->template_name ?: 'Printed template')).'.docx',
+            $user,
+            $documentUrl,
+            $callbackUrl,
+            $canEdit,
+        );
+    }
+
+    /**
+     * Editor config for a non-persistent Step-2 draft, which has no Template
+     * row — the document key is derived from the draftId + its cache version
+     * instead. {@see FormPrintTemplateService} for the draft lifecycle.
+     *
+     * @return array<string, mixed>
+     */
+    public function editorConfigForDraft(
+        string $draftId,
+        int $version,
+        string $name,
+        User $user,
+        string $documentUrl,
+        string $callbackUrl,
+        bool $canEdit = true,
+    ): array {
+        return $this->assembleEditorConfig(
+            $this->draftDocumentKey($draftId, $version),
+            (trim($name) !== '' ? trim($name) : 'Printed template').'.docx',
+            $user,
+            $documentUrl,
+            $callbackUrl,
+            $canEdit,
+        );
+    }
+
+    /**
+     * Build and sign the editor config object handed to `new DocsAPI.DocEditor`.
+     * Shared by the persisted-template and draft paths, which differ only in
+     * how the document key and title are derived.
+     *
+     * @return array<string, mixed>
+     */
+    private function assembleEditorConfig(
+        string $documentKey,
+        string $title,
+        User $user,
+        string $documentUrl,
+        string $callbackUrl,
+        bool $canEdit = true,
+    ): array {
         $config = [
             'documentType' => 'word',
             'document' => [
                 'fileType' => 'docx',
-                'key' => $this->documentKey($template),
-                'title' => ((string) ($template->template_name ?: 'Printed template')).'.docx',
+                'key' => $documentKey,
+                'title' => $title,
                 'url' => $documentUrl,
                 'permissions' => [
                     'edit' => $canEdit,
@@ -174,6 +225,17 @@ class OnlyOfficeService
         ]);
 
         return 'tpl-'.$template->getKey().'-'.substr(sha1($fingerprint), 0, 24);
+    }
+
+    /**
+     * Document key for a draft. The `draft-` prefix keeps it from ever
+     * colliding with a real template's `tpl-` key, and it moves only when a
+     * callback save bumps the draft version — so the Document Server reloads
+     * the document only on an actual content change, not on every re-sync.
+     */
+    public function draftDocumentKey(string $draftId, int $version): string
+    {
+        return 'draft-'.$draftId.'-'.substr(sha1($draftId.'|'.$version), 0, 16);
     }
 
     private function displayName(User $user): string

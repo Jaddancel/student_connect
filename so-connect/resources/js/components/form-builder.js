@@ -4,9 +4,11 @@ import Sortable from 'sortablejs';
  * Alpine component backing the WYSIWYG form-builder editor.
  *
  * The `rows`/`fields` model is the single source of truth. Rows are reordered
- * by explicit ▲▼ buttons only — rows are never draggable. Fields are reordered
- * by dragging the field card (within its column, across columns, or into a
- * different row), driven by SortableJS over each column's field list.
+ * by dragging a row's handle (top-level reorder only — a row can never be
+ * dropped into a column; rows and fields drag in separate SortableJS groups
+ * so the two hierarchies can't cross). Fields are reordered by dragging the
+ * field card (within its column, across columns, or into a different row),
+ * driven by SortableJS over each column's field list.
  */
 export function formBuilder(config) {
     return {
@@ -25,6 +27,17 @@ export function formBuilder(config) {
         signatorySearchUrl: config.signatorySearchUrl,
         csrf: config.csrf,
         isEdit: config.isEdit,
+        // Printed-template draft (Step 2). syncDraft() snapshots the current
+        // fields into non-persistent storage so the editor's token palette
+        // reflects unsaved fields; printEnabled gates it on OnlyOffice being
+        // configured. draftId is server-minted on first sync and echoed back on
+        // save so the draft can be folded into the real template.
+        draftSyncUrl: config.draftSyncUrl || '',
+        formId: config.formId || null,
+        printEnabled: !!config.printEnabled,
+        draftId: null,
+        draftSyncing: false,
+        draftError: '',
 
         // --- model ---
         name: config.data.name || '',
@@ -52,6 +65,9 @@ export function formBuilder(config) {
         // --- wizard / ui state ---
         step: 1,
         selectedKey: null,
+        // Currently selected row, tracked by its client-only stable `_id` (not
+        // an index, so reordering/removing rows can't misdirect the selection).
+        selectedRow: null,
         routeTouched: false,
         saving: false,
         message: '',
@@ -68,6 +84,13 @@ export function formBuilder(config) {
             // (form_id, field_key), so renaming one would prune the row and
             // orphan its submissions and scoring variables.
             this.fields.forEach((f) => { f._keyLocked = true; });
+
+            // Legacy forms stored "Section"/"Static text" as fields inside a
+            // column; they're now row properties. Hoist them onto their row and
+            // drop the fields so the builder works with a single, clean model.
+            this.migrateLegacyLayoutFields();
+            // Every row needs a stable id for selection (see selectedRow).
+            this.rows.forEach((row) => { if (!row._id) row._id = this.newId(); });
 
             if (!this.isEdit) {
                 // The real name is entered in Step 3, but name (and its derived
@@ -114,10 +137,25 @@ export function formBuilder(config) {
                 || /data-field=/.test(this.pdf_template.html || '');
         },
 
-        goToStep(n) {
+        async goToStep(n) {
             this.error = '';
             if (n === 2 && this.fields.length === 0) {
                 this.error = 'Add at least one field in Step 1 first.';
+                return;
+            }
+            // Entering Step 2: snapshot the current fields into a draft so the
+            // printed-template editor's token palette includes unsaved fields.
+            // Re-entry re-syncs (fresh tokens). Bail on sync failure so we don't
+            // show the step with a dead editor. Skipped entirely when OnlyOffice
+            // isn't configured — the component then renders its "editor
+            // unavailable" notice instead.
+            if (n === 2 && this.printEnabled) {
+                const detail = await this.syncDraft();
+                if (!detail) return;
+                this.step = 2;
+                // Boot (or reboot) the editor only after the step is shown, so
+                // OnlyOffice never initialises into a hidden, zero-size surface.
+                window.dispatchEvent(new CustomEvent('printed-template:sync', { detail }));
                 return;
             }
             this.step = Math.max(1, Math.min(3, n));
@@ -125,6 +163,48 @@ export function formBuilder(config) {
 
         nextStep() { this.goToStep(this.step + 1); },
         prevStep() { this.goToStep(this.step - 1); },
+
+        /**
+         * Snapshot the builder's fields into a non-persistent draft. Returns the
+         * editor's { configUrl, importUrl } on success, or false on failure. The
+         * draft never touches the database — it lives in the file cache until
+         * the form is saved (then folded into the real template).
+         */
+        async syncDraft() {
+            if (!this.draftSyncUrl) return false;
+            this.draftSyncing = true;
+            this.draftError = '';
+            try {
+                const res = await fetch(this.draftSyncUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': this.csrf,
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({
+                        draft_id: this.draftId,
+                        form_id: this.formId,
+                        name: this.name,
+                        fields: this.fields.map(({ _keyLocked, ...field }) => field),
+                    }),
+                });
+                const json = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    this.draftError = json.message || 'Could not prepare the printed template.';
+                    this.error = this.draftError;
+                    return false;
+                }
+                this.draftId = json.draftId;
+                return { configUrl: json.configUrl, importUrl: json.importUrl };
+            } catch (e) {
+                this.draftError = 'Could not prepare the printed template.';
+                this.error = this.draftError;
+                return false;
+            } finally {
+                this.draftSyncing = false;
+            }
+        },
 
         field(key) {
             return this.fields.find((f) => f.field_key === key) || null;
@@ -134,16 +214,65 @@ export function formBuilder(config) {
             return (this.catalog[type] && this.catalog[type].label) || type;
         },
 
+        // --- row identity & selection ---
+        /** Short, collision-unlikely client-only id for a row. */
+        newId() {
+            return `r_${Math.random().toString(36).slice(2, 9)}`;
+        },
+        rowById(id) {
+            return this.rows.find((r) => r._id === id) || null;
+        },
+        /** Select a row (and clear any field selection) to edit its settings. */
+        selectRow(row) {
+            this.selectedRow = row._id;
+            this.selectedKey = null;
+        },
+        /** Select a field (and clear any row selection) to edit its settings. */
+        selectKey(key) {
+            this.selectedKey = key;
+            this.selectedRow = null;
+        },
+
+        /**
+         * One-time migration for forms saved before header/static-text became
+         * row properties: hoist the first heading field's label into row.header
+         * and the first static-text field's content into row.static_text, then
+         * drop those fields from the row and the model. Extra presentational
+         * fields in the same row are dropped too (rare — each was historically
+         * added in its own full-width row).
+         */
+        migrateLegacyLayoutFields() {
+            const dropped = new Set();
+            this.rows.forEach((row) => {
+                row.columns.forEach((col) => {
+                    col.fields = col.fields.filter((key) => {
+                        const f = this.field(key);
+                        if (!f) return true;
+                        if (f.field_type === 'heading') {
+                            if (!row.header) row.header = f.field_label || '';
+                            dropped.add(key);
+                            return false;
+                        }
+                        if (f.field_type === 'static-text') {
+                            if (!row.static_text) {
+                                row.static_text = (f.field_options && f.field_options.content) || f.field_label || '';
+                            }
+                            dropped.add(key);
+                            return false;
+                        }
+                        return true;
+                    });
+                });
+            });
+            if (dropped.size) {
+                this.fields = this.fields.filter((f) => !dropped.has(f.field_key));
+            }
+        },
+
         // --- palette sections ---
         get fieldPalette() {
             return Object.fromEntries(
                 Object.entries(this.catalog).filter(([, meta]) => meta.group !== 'layout' && meta.group !== 'special'),
-            );
-        },
-
-        get layoutPalette() {
-            return Object.fromEntries(
-                Object.entries(this.catalog).filter(([, meta]) => meta.group === 'layout'),
             );
         },
 
@@ -158,11 +287,11 @@ export function formBuilder(config) {
         },
 
         // --- field creation ---
-        addField(type) {
+        /** Build a field object (not yet placed in a row) for `type`. */
+        makeField(type) {
             const label = this.labelFor(type);
-            const key = this.keyFromLabel(label);
-            const f = {
-                field_key: key,
+            return {
+                field_key: this.keyFromLabel(label),
                 field_label: label,
                 field_type: type,
                 is_required: false,
@@ -171,10 +300,24 @@ export function formBuilder(config) {
                 universal_key: '',
                 _keyLocked: false, // client-only: key follows the label until saved
             };
+        },
+        /** Insert a row (stamping its id) at `index`, or append when null. */
+        insertRow(row, index = null) {
+            if (!row._id) row._id = this.newId();
+            if (index === null || index >= this.rows.length) this.rows.push(row);
+            else this.rows.splice(Math.max(0, index), 0, row);
+            return row;
+        },
+        /** Add a new field in its own full-width row at `index` (append if null). */
+        addFieldAtRow(type, index = null) {
+            const f = this.makeField(type);
             this.fields.push(f);
-            // Each new field starts in its own full-width row.
-            this.rows.push({ columns: [{ span: 12, fields: [key] }] });
-            this.selectedKey = key;
+            this.insertRow({ columns: [{ span: 12, fields: [f.field_key] }] }, index);
+            this.selectKey(f.field_key);
+        },
+        /** Palette click-to-add: append a new field row at the end. */
+        addField(type) {
+            this.addFieldAtRow(type, null);
         },
 
         defaultOptions(type) {
@@ -266,15 +409,16 @@ export function formBuilder(config) {
         },
 
         removeField(key) {
+            // Note which row held the field so we can prune it if it empties.
+            const host = this.rows.find((r) => r.columns.some((c) => c.fields.includes(key)));
             this.fields = this.fields.filter((f) => f.field_key !== key);
             this.rows.forEach((row) => {
                 row.columns.forEach((col) => {
                     col.fields = col.fields.filter((k) => k !== key);
                 });
             });
-            // A row left empty is KEPT: empty rows/columns are layout the admin
-            // created ("+ Empty row", the column buttons) and drag targets they
-            // still need. "remove row" is how a row goes away.
+            // Removing the last field of a row removes the row itself.
+            if (host) this.pruneRowIfFieldless(host);
             // Conditions pointing at the removed field would dangle — drop them.
             this.fields.forEach((f) => {
                 if (f.field_options && f.field_options.visible_when && f.field_options.visible_when.field === key) {
@@ -282,6 +426,21 @@ export function formBuilder(config) {
                 }
             });
             if (this.selectedKey === key) this.selectedKey = null;
+        },
+
+        /**
+         * Remove `row` when it no longer holds any field. Triggered only when a
+         * field leaves a row (drag-out or delete): the row (and any header/static
+         * text it carried) goes away with its last field. A row that never held a
+         * field — e.g. a header-only section divider — is never passed here, so it
+         * survives until explicitly removed.
+         */
+        pruneRowIfFieldless(row) {
+            if (!row || row.columns.some((c) => c.fields.length > 0)) return;
+            const i = this.rows.indexOf(row);
+            if (i === -1) return;
+            if (this.selectedRow === row._id) this.selectedRow = null;
+            this.rows.splice(i, 1);
         },
 
         // --- conditional visibility ---
@@ -342,24 +501,13 @@ export function formBuilder(config) {
             row.columns.forEach((c) => { c.span = span; });
         },
 
-        addRow() {
-            this.rows.push({ columns: [{ span: 12, fields: [] }] });
-        },
-
         removeRow(rowIndex) {
             const row = this.rows[rowIndex];
+            if (!row) return;
             const keys = row.columns.flatMap((c) => c.fields);
             this.fields = this.fields.filter((f) => !keys.includes(f.field_key));
+            if (this.selectedRow === row._id) this.selectedRow = null;
             this.rows.splice(rowIndex, 1);
-        },
-
-        // --- row reordering (buttons only — rows are never draggable) ---
-        /** Move a whole row up (dir=-1) or down (dir=+1), clamped to bounds. */
-        moveRow(rowIndex, dir) {
-            const target = rowIndex + dir;
-            if (target < 0 || target >= this.rows.length) return;
-            const [moved] = this.rows.splice(rowIndex, 1);
-            this.rows.splice(target, 0, moved);
         },
 
         // --- field reordering (SortableJS drag) ---
@@ -375,15 +523,71 @@ export function formBuilder(config) {
         wireColumn(el) {
             if (el._sortable) return;
             el._sortable = Sortable.create(el, {
-                group: 'builder-fields',
+                // Accepts field cards (own group, for reordering/moving) and new
+                // fields dragged from the palette ('builder-new') dropped straight
+                // into a populated column; onAdd creates the field there.
+                group: { name: 'builder-fields', put: ['builder-fields', 'builder-new'] },
                 animation: 150,
                 draggable: '[data-field-card]',
                 // The ✕ button must stay clickable, not start a drag.
                 filter: '[data-no-drag]',
                 preventOnFilter: false,
                 ghostClass: 'opacity-40',
+                // Native HTML5 DnD brings the browser's own page-level
+                // autoscroll along for the ride, fighting the canvas's own
+                // scroll. forceFallback swaps to Sortable's mouse-simulated
+                // drag (no native DnD), so only the scroll config below runs.
+                forceFallback: true,
+                scroll: true,
+                scrollSensitivity: 120,
+                scrollSpeed: 25,
+                bubbleScroll: false,
+                scrollFn: (dx, dy, evt, touchEvt, target) => this.redirectAutoScroll(el, dx, dy, target),
+                onStart: () => this.ignoreGhost(),
                 onEnd: (evt) => this.onFieldDrop(evt),
+                onAdd: (evt) => this.onColumnAdd(evt),
             });
+        },
+
+        /**
+         * forceFallback drags by cloning the dragged element into a floating
+         * "ghost" that follows the pointer (Sortable.ghost) — a raw DOM clone,
+         * carrying over Alpine directive attributes (x-for, x-text, :class…)
+         * as inert text, not live bindings. Alpine's mutation observer still
+         * notices it landing in the document and tries to evaluate those
+         * attributes against the clone, which has none of the loop scope
+         * (row, key, col…) they depend on — hence "row is not defined" etc.
+         * Tagging the ghost x-ignore, synchronously in onStart (before
+         * Alpine's observer gets its microtask turn), keeps Alpine off it.
+         */
+        ignoreGhost() {
+            if (Sortable.ghost) Sortable.ghost.setAttribute('x-ignore', '');
+        },
+
+        /**
+         * SortableJS resolves its autoscroll target from whatever DOM element
+         * is literally under the pointer, not from the dragged item's own
+         * container — so once the pointer strays outside the canvas panel
+         * (near the true top/bottom of the browser window), nothing
+         * scrollable sits between that point and <body>, and it falls back
+         * to scrolling the whole page (bubbleScroll:false only stops it
+         * chaining *past* a found target — it doesn't stop this fallback).
+         *
+         * The canvas panel (data-canvas-scroll) is the only surface meant to
+         * scroll during a drag on desktop, where it's independently
+         * `overflow-y-auto` (see editor.blade.php). So: whenever Sortable
+         * would have scrolled the page, redirect that scroll into the canvas
+         * instead. On mobile the canvas isn't bounded (no `lg:overflow-y-
+         * auto`), so its scrollHeight never exceeds its clientHeight and this
+         * defers to the default (page scroll), which is the only option there.
+         */
+        redirectAutoScroll(el, dx, dy, target) {
+            if (target !== document.scrollingElement && target !== document.documentElement) return 'continue';
+            const canvas = el.closest('[data-canvas-scroll]');
+            if (!canvas || canvas.scrollHeight <= canvas.clientHeight) return 'continue';
+            canvas.scrollTop += dy;
+            canvas.scrollLeft += dx;
+            return 'stop'; // any non-'continue' value suppresses the default scrollBy(target, …)
         },
 
         /**
@@ -394,6 +598,10 @@ export function formBuilder(config) {
          */
         onFieldDrop(evt) {
             const { item, from, to, oldIndex, newIndex } = evt;
+
+            // Dropped onto the canvas (outside any column) → onCanvasAdd turns it
+            // into a new row. Leave the DOM/model to that handler and bail here.
+            if (to.hasAttribute && to.hasAttribute('data-rows-root')) return;
 
             // Revert Sortable's DOM mutation (see above). Index against the
             // field cards only — a column's element children also include
@@ -408,7 +616,8 @@ export function formBuilder(config) {
             const toCol = parseInt(to.dataset.col, 10);
             if ([fromRow, fromCol, toRow, toCol, oldIndex, newIndex].some(Number.isNaN)) return;
 
-            const source = this.rows[fromRow]?.columns[fromCol]?.fields;
+            const sourceRow = this.rows[fromRow];
+            const source = sourceRow?.columns[fromCol]?.fields;
             const target = this.rows[toRow]?.columns[toCol]?.fields;
             if (!source || !target) return;
             if (source === target && oldIndex === newIndex) return;
@@ -416,7 +625,189 @@ export function formBuilder(config) {
             const [moved] = source.splice(oldIndex, 1);
             if (moved === undefined) return;
             target.splice(newIndex, 0, moved);
-            // A row emptied by the drag is KEPT — see removeField().
+            // Moving the last field out of a row removes that row (and any
+            // header/static text it carried) — see pruneRowIfFieldless().
+            if (fromRow !== toRow) this.pruneRowIfFieldless(sourceRow);
+        },
+
+        // --- row reordering (SortableJS drag) ---
+        /**
+         * Attach SortableJS to the row list once (the container itself only
+         * ever renders once, so there's no per-row re-wiring the way
+         * wireColumn() has to handle new columns).
+         *
+         * A distinct `group` from wireColumn()'s 'builder-fields' means a row
+         * can never be shown as droppable into a column, and a field card can
+         * never be shown as droppable into the row list — SortableJS only
+         * allows drags across instances that share a group name. `handle`
+         * further restricts drag-start to the row's own ⠿ icon, so the
+         * column-count buttons, "remove row", and nested field cards never
+         * accidentally start a row drag.
+         */
+        wireRows(el) {
+            if (el._sortable) return;
+            el._sortable = Sortable.create(el, {
+                // Accepts row reorders (own group), new fields from the palette
+                // ('builder-new'), and field cards dragged out of a column
+                // ('builder-fields'); onAdd turns either drop into a new row at
+                // the drop position (SortableJS shows the placeholder gap so the
+                // admin sees where it will land).
+                group: { name: 'builder-rows', put: ['builder-new', 'builder-fields'] },
+                animation: 150,
+                handle: '[data-row-handle]',
+                draggable: '[data-row-item]',
+                ghostClass: 'opacity-40',
+                // See wireColumn()'s forceFallback/ignoreGhost notes — same
+                // reasoning applies here, and rows have even more nested
+                // Alpine scope (columns, fields) for the clone to trip over.
+                forceFallback: true,
+                scroll: true,
+                scrollSensitivity: 120,
+                scrollSpeed: 25,
+                bubbleScroll: false,
+                // See wireColumn()'s redirectAutoScroll note — same fix applies here.
+                scrollFn: (dx, dy, evt, touchEvt, target) => this.redirectAutoScroll(el, dx, dy, target),
+                onStart: () => this.ignoreGhost(),
+                onEnd: (evt) => this.onRowDrop(evt),
+                onAdd: (evt) => this.onCanvasAdd(evt),
+            });
+        },
+
+        /**
+         * Attach SortableJS to a palette section so its buttons can be dragged
+         * onto the canvas. Items are clones (pull:'clone', put:false) and the
+         * palette itself never reorders (sort:false) — the drag only produces a
+         * new field/row via the rows list's onAdd (onPaletteDrop).
+         */
+        wirePalette(el) {
+            if (el._sortable) return;
+            el._sortable = Sortable.create(el, {
+                group: { name: 'builder-new', pull: 'clone', put: false },
+                sort: false,
+                draggable: '[data-palette-item]',
+                ghostClass: 'opacity-40',
+                forceFallback: true,
+                onStart: () => this.ignoreGhost(),
+                // pull:'clone' drags the *original* button into the canvas (it's
+                // evt.item in the drop handlers, which removeChild it) and leaves
+                // a raw clone behind. This container is owned by Alpine's x-for,
+                // which — since the catalog never changes — never re-renders to
+                // heal that, so a used field type would vanish from the palette.
+                // Mirror the row/field drag pattern: revert Sortable's mutation
+                // so Alpine's DOM stays canonical — drop the clone, put the
+                // original button back in its slot.
+                onEnd: (evt) => this.restorePalette(evt),
+            });
+        },
+
+        /**
+         * Undo SortableJS's DOM changes to the palette after a drag: remove the
+         * clone Sortable inserted and re-seat the original button at its slot,
+         * so every field type stays draggable no matter how often it's used.
+         */
+        restorePalette(evt) {
+            const { item, from, oldIndex, clone } = evt;
+            if (clone && clone.parentNode) clone.parentNode.removeChild(clone);
+            const items = () => from.querySelectorAll(':scope > [data-palette-item]');
+            const inPlace = item.parentNode === from && items()[oldIndex] === item;
+            if (inPlace) return;
+            if (item.parentNode) item.parentNode.removeChild(item);
+            from.insertBefore(item, items()[oldIndex] || null);
+        },
+
+        /**
+         * Something was dropped onto the canvas (the rows list) from outside a
+         * column — either a palette item (new field) or a field card dragged out
+         * of a column. Undo Sortable's DOM insertion (Alpine's x-for owns this
+         * DOM), work out where it landed among the real row wrappers, then place
+         * it on its own new row there. Row reorders never reach here (same list).
+         */
+        onCanvasAdd(evt) {
+            const { item, to } = evt;
+            // Count real row wrappers preceding the dropped node → insert index.
+            let index = 0;
+            let node = item.previousElementSibling;
+            while (node) {
+                if (node.matches && node.matches('[data-row-item]')) index += 1;
+                node = node.previousElementSibling;
+            }
+
+            // A field card dragged out of a column → move it onto a new row.
+            if (item.matches('[data-field-card]')) {
+                const key = item.dataset.fieldKey;
+                to.removeChild(item);
+                if (key) this.moveFieldToNewRow(key, index);
+                return;
+            }
+
+            // A palette item → create a new field of that type on a new row.
+            const type = item.dataset.fieldType;
+            to.removeChild(item);
+            if (type) this.addFieldAtRow(type, index);
+        },
+
+        /**
+         * A palette item was dropped straight into a populated column. Field-card
+         * moves between columns are owned by onFieldDrop, so ignore those here.
+         */
+        onColumnAdd(evt) {
+            const { item, to } = evt;
+            if (!item.matches('[data-palette-item]')) return;
+            const type = item.dataset.fieldType;
+            // Index among the column's existing field cards, before the clone.
+            let index = 0;
+            let node = item.previousElementSibling;
+            while (node) {
+                if (node.matches && node.matches('[data-field-card]')) index += 1;
+                node = node.previousElementSibling;
+            }
+            to.removeChild(item);
+            const rowIndex = parseInt(to.dataset.row, 10);
+            const colIndex = parseInt(to.dataset.col, 10);
+            if (Number.isNaN(rowIndex) || Number.isNaN(colIndex) || !type) return;
+            this.addFieldToColumn(type, rowIndex, colIndex, index);
+        },
+
+        /** Add a new field of `type` into an existing column at `index`. */
+        addFieldToColumn(type, rowIndex, colIndex, index = null) {
+            const col = this.rows[rowIndex]?.columns[colIndex];
+            if (!col) return;
+            const f = this.makeField(type);
+            this.fields.push(f);
+            const at = index === null ? col.fields.length : Math.max(0, Math.min(index, col.fields.length));
+            col.fields.splice(at, 0, f.field_key);
+            this.selectKey(f.field_key);
+        },
+
+        /** Move an existing field out of its column onto its own new row at `index`. */
+        moveFieldToNewRow(key, index) {
+            const sourceRow = this.rows.find((r) => r.columns.some((c) => c.fields.includes(key)));
+            if (!sourceRow) return;
+            sourceRow.columns.forEach((c) => { c.fields = c.fields.filter((k) => k !== key); });
+            this.insertRow({ columns: [{ span: 12, fields: [key] }] }, index);
+            // Moving the last field out of the source row removes it.
+            this.pruneRowIfFieldless(sourceRow);
+            this.selectKey(key);
+        },
+
+        /**
+         * Apply a completed row drag to the model — mirrors onFieldDrop:
+         * revert Sortable's DOM mutation first (Alpine's x-for owns this
+         * DOM), then reorder `this.rows` and let Alpine re-render from it.
+         */
+        onRowDrop(evt) {
+            const { item, from, oldIndex, newIndex } = evt;
+            if (oldIndex === newIndex) return;
+
+            // Index against row wrappers only — the container also holds
+            // Alpine's <template> anchors, so raw `children` would misplace it.
+            from.removeChild(item);
+            const rowNodes = from.querySelectorAll(':scope > [data-row-item]');
+            from.insertBefore(item, rowNodes[oldIndex] || null);
+
+            const [moved] = this.rows.splice(oldIndex, 1);
+            if (moved === undefined) return;
+            this.rows.splice(newIndex, 0, moved);
         },
 
         // --- option editing (choice fields) ---
@@ -434,6 +825,36 @@ export function formBuilder(config) {
             // Checkbox intentionally excluded: it is a single checkmark, not a
             // multi-option group, so the builder offers no option editor for it.
             return ['select', 'radio'].includes(type);
+        },
+
+        /**
+         * Predefined choices to offer for a visibility condition's comparison
+         * value, driven by the controlling field `f` — mirrors the score-tally
+         * editor's select-vs-text pattern. Returns:
+         *   • select/radio with options, or a legacy option-group checkbox → its
+         *     own {value,label} options;
+         *   • a single checkbox (no options; submits "1" checked / "" unchecked)
+         *     → Checked / Unchecked;
+         *   • otherwise (non-optioned, or a select drawing from a dynamic source)
+         *     → null, so the picker falls back to a free-text input.
+         * @returns {Array<{value:string,label:string}>|null}
+         */
+        conditionValueChoices(f) {
+            if (!f) return null;
+            const opts = (f.field_options || {}).options || [];
+            if (['select', 'radio'].includes(f.field_type)) {
+                // A select drawing from a registered source has no static choices.
+                if (f.field_type === 'select' && (f.field_options || {}).source) return null;
+                return opts.length ? opts : null;
+            }
+            if (f.field_type === 'checkbox') {
+                if (opts.length) return opts; // legacy option-group checkbox
+                return [
+                    { value: '1', label: 'Checked' },
+                    { value: '', label: 'Unchecked' },
+                ];
+            }
+            return null;
         },
 
         // --- dynamic option sources (registered DB-backed entries) ---
@@ -681,6 +1102,8 @@ export function formBuilder(config) {
                 fields: this.fields.map(({ _keyLocked, ...field }) => field),
                 rows: this.rows,
                 pdf_template: this.pdf_template,
+                // Fold any Step-2 draft template into the saved form (server-side).
+                draft_id: this.draftId,
             };
             try {
                 const res = await fetch(this.isEdit ? this.updateUrl : this.storeUrl, {

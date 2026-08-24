@@ -70,7 +70,18 @@
     <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         <div class="space-y-5">
             @foreach ($rows as $row)
-                <div class="grid grid-cols-12 gap-4">
+                @php
+                    $rowHeader = trim((string) ($row['header'] ?? ''));
+                    $rowText = trim((string) ($row['static_text'] ?? ''));
+                @endphp
+                <div class="space-y-3">
+                    @if ($rowHeader !== '')
+                        <h3 class="mb-1 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90">{{ $rowHeader }}</h3>
+                    @endif
+                    @if ($rowText !== '')
+                        <p class="whitespace-pre-line text-sm text-gray-600 dark:text-gray-400">{{ $rowText }}</p>
+                    @endif
+                    <div class="grid grid-cols-12 gap-4">
                     @foreach (($row['columns'] ?? []) as $col)
                         @php $span = max(1, min(12, (int) ($col['span'] ?? 12))); @endphp
                         <div class="col-span-12 {{ $spanClasses[$span] }} space-y-4">
@@ -87,6 +98,7 @@
                             @endforeach
                         </div>
                     @endforeach
+                    </div>
                 </div>
             @endforeach
         </div>

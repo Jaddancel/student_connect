@@ -129,6 +129,50 @@ it('stores a form with layout and fields', function () {
     expect($form->is_active)->toBeTrue();
 });
 
+it('persists row header/static text and prunes fully-empty rows', function () {
+    $admin = makeUser(2);
+
+    $payload = [
+        'name' => 'Row Props Form',
+        'route_name' => 'row-props-form',
+        'fields' => [
+            ['field_key' => 'a', 'field_label' => 'A', 'field_type' => 'text', 'is_required' => false, 'field_options' => []],
+        ],
+        'rows' => [
+            // A field row carrying a header + static text.
+            ['header' => 'Contact details', 'static_text' => "Line one\nLine two", 'columns' => [['span' => 12, 'fields' => ['a']]]],
+            // A header-only "section divider" row (no fields) — must survive.
+            ['header' => 'Standalone section', 'columns' => [['span' => 12, 'fields' => []]]],
+            // A fully-empty row (no fields, no header/text) — must be dropped.
+            ['columns' => [['span' => 12, 'fields' => []]]],
+        ],
+        'pdf_template' => ['html' => '', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ];
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), $payload)->assertOk();
+
+    $rows = Form::where('route_name', 'row-props-form')->first()->layout['rows'];
+
+    // The empty row is gone; the field row and the header-only divider remain.
+    expect($rows)->toHaveCount(2);
+    expect($rows[0]['header'])->toBe('Contact details');
+    expect($rows[0]['static_text'])->toBe("Line one\nLine two");
+    expect($rows[0]['columns'][0]['fields'])->toBe(['a']);
+    expect($rows[1]['header'])->toBe('Standalone section');
+    // Absent static text isn't stored as an empty string.
+    expect($rows[1])->not->toHaveKey('static_text');
+});
+
+it('drops "Section" and "Static text" from the builder palette', function () {
+    $palette = \App\Forms\FieldType::paletteCatalog();
+
+    expect($palette)->not->toHaveKey(\App\Forms\FieldType::HEADING);
+    expect($palette)->not->toHaveKey(\App\Forms\FieldType::STATIC_TEXT);
+    // Still valid for rendering/validation of existing forms.
+    expect(\App\Forms\FieldType::all())->toContain(\App\Forms\FieldType::HEADING);
+    expect(\App\Forms\FieldType::all())->toContain(\App\Forms\FieldType::STATIC_TEXT);
+});
+
 it('saves a template-less form as unpublished until the template exists', function () {
     $admin = makeUser(2);
 

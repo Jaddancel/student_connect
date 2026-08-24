@@ -65,7 +65,7 @@
         @include('components.form.builder-form', [
             'form' => $form,
             'fields' => $fields,
-            'prefill' => $prefill,
+            'prefill' => $prefill ?? [],
             'conditions' => $conditions ?? [],
             'advisers' => $advisers ?? [],
             'special' => $special ?? [],

@@ -9,6 +9,7 @@ use App\Models\Template as FormTemplate;
 use App\Services\DocxTemplateService;
 use App\Services\FormPrintTemplateService;
 use App\Services\OnlyOfficeService;
+use App\Support\FieldTokenSource;
 use App\Support\UniversalField;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -251,7 +252,23 @@ class FormPrintTemplateController extends Controller
         // ?theme-type&lang query can't corrupt it.
         $pluginUrl = 'plugin/'.$this->issue($template, self::PURPOSE_PLUGIN, minutes: 60 * 12);
 
-        return response()->json([
+        return response()->json($this->pluginConfigBody($pluginUrl))->withHeaders([
+            // The editor runs on the Document Server's origin but fetches this
+            // config.json from the app's origin. Without this the browser blocks
+            // the cross-origin read and the plugin silently never registers.
+            'Access-Control-Allow-Origin' => $onlyOffice->publicUrl() ?: '*',
+        ]);
+    }
+
+    /**
+     * The plugin's config.json body, given the (baseUrl-relative) URL of the
+     * plugin page. Shared by the persisted and draft config endpoints.
+     *
+     * @return array<string, mixed>
+     */
+    private function pluginConfigBody(string $pluginUrl): array
+    {
+        return [
             'name' => 'Field tokens',
             'guid' => self::PLUGIN_GUID,
             'version' => '1.1.0',
@@ -273,12 +290,7 @@ class FormPrintTemplateController extends Controller
                 'buttons' => [],
                 'size' => [320, 600],
             ]],
-        ])->withHeaders([
-            // The editor runs on the Document Server's origin but fetches this
-            // config.json from the app's origin. Without this the browser blocks
-            // the cross-origin read and the plugin silently never registers.
-            'Access-Control-Allow-Origin' => $onlyOffice->publicUrl() ?: '*',
-        ]);
+        ];
     }
 
     /**
@@ -392,7 +404,7 @@ class FormPrintTemplateController extends Controller
         $this->authorizeToken($request, $form, self::PURPOSE_PLUGIN, $token);
 
         $response = response()->view('onlyoffice.token-palette', [
-            'tokens' => $this->tokensFor($form),
+            'tokens' => $this->tokensFor($form->fields()->orderBy('field_order')->orderBy('id')->get()),
             // The plugin SDK is served by the Document Server, and this page
             // runs in the browser, so it needs the public URL.
             'sdkBase' => $onlyOffice->publicUrl(),
@@ -425,9 +437,14 @@ class FormPrintTemplateController extends Controller
      * carries a field-type `icon` and a category `group` so the in-editor
      * palette can render icons + grouped sections like the form builder does.
      *
+     * Takes any iterable of field-shaped items (persisted {@see \App\Models\Field}
+     * or draft {@see FieldTokenSource}), reading only field_key/field_label/
+     * field_type/field_options off each.
+     *
+     * @param  iterable<int, object{field_key: string, field_label: string, field_type: string, field_options: array}>  $fields
      * @return array<int, array{key: string, label: string, icon: string, group: string}>
      */
-    private function tokensFor(Form $form): array
+    private function tokensFor(iterable $fields): array
     {
         $catalog = FieldType::catalog();
 
@@ -435,7 +452,7 @@ class FormPrintTemplateController extends Controller
         // render them Basic → Choice → Media → … in a stable order.
         $fieldsByGroup = [];
 
-        foreach ($form->fields()->orderBy('field_order')->orderBy('id')->get() as $field) {
+        foreach ($fields as $field) {
             $key = (string) ($field->field_key ?? '');
 
             // Headings and static text hold no submitted value, so a token for
@@ -508,6 +525,328 @@ class FormPrintTemplateController extends Controller
         }
 
         return $tokens;
+    }
+
+    // ── Non-persistent Step-2 drafts ────────────────────────────────────────
+    //
+    // These mirror the persisted endpoints above but key on a server-minted
+    // draftId held in the file cache instead of a Template row, so the editor
+    // (and its field-token palette) can open before the form is ever saved.
+    // {@see FormPrintTemplateService} owns the draft lifecycle; the draft is
+    // folded into the real template on save (adoptDraft). The session-auth
+    // endpoints (syncDraft/draftConfig/draftImport) are the browser's own
+    // requests; the token-auth ones (draftDocument/draftCallback/draftPlugin*)
+    // serve the Document Server and the plugin iframe, exactly like the
+    // persisted /onlyoffice/{form}/* group.
+
+    /**
+     * Snapshot the builder's current fields into a draft on entering Step 2.
+     * Session-authenticated (admin). Returns the draft's id and the URLs the
+     * editor component boots against. Creates the draft on first call, updates
+     * it (preserving the document version) on re-entry.
+     */
+    public function syncDraft(Request $request, FormPrintTemplateService $templates): JsonResponse
+    {
+        $validated = $request->validate([
+            'draft_id' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9\-]+$/'],
+            'form_id' => ['nullable', 'integer'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'fields' => ['present', 'array'],
+            'fields.*.field_key' => ['required', 'string', 'max:255'],
+            'fields.*.field_label' => ['nullable', 'string', 'max:255'],
+            'fields.*.field_type' => ['required', 'string', 'max:64'],
+            'fields.*.field_options' => ['nullable', 'array'],
+        ]);
+
+        $draftId = $validated['draft_id'] ?? (string) Str::uuid();
+
+        // Preserve an existing draft's version so its document key stays stable
+        // across re-syncs — only a real callback save bumps it. New drafts start
+        // at 1.
+        $existing = $templates->readDraft($draftId);
+        $version = $existing !== null ? (int) $existing['version'] : 1;
+
+        $name = trim((string) ($validated['name'] ?? '')) !== ''
+            ? trim((string) $validated['name'])
+            : 'Printed template';
+
+        $fields = array_map(static fn (array $f): array => [
+            'field_key' => (string) ($f['field_key'] ?? ''),
+            'field_label' => (string) ($f['field_label'] ?? ($f['field_key'] ?? '')),
+            'field_type' => (string) ($f['field_type'] ?? ''),
+            'field_options' => (array) ($f['field_options'] ?? []),
+        ], $validated['fields']);
+
+        $templates->writeDraft(
+            $draftId,
+            isset($validated['form_id']) ? (int) $validated['form_id'] : null,
+            $name,
+            $fields,
+            $version,
+            (int) $request->user()->getKey(),
+        );
+        $templates->ensureDraftDocx($draftId, $name);
+
+        return response()->json([
+            'draftId' => $draftId,
+            'configUrl' => route('admin.form-builder.draft.config', $draftId),
+            'importUrl' => route('admin.form-builder.draft.import', $draftId),
+        ]);
+    }
+
+    /**
+     * Editor config for a draft. Session-authenticated (admin). Mirrors
+     * {@see config()} but issues `did`-scoped tokens against the draft routes.
+     */
+    public function draftConfig(
+        Request $request,
+        string $draftId,
+        OnlyOfficeService $onlyOffice,
+        FormPrintTemplateService $templates,
+    ): JsonResponse {
+        if (! $onlyOffice->enabled()) {
+            return response()->json([
+                'enabled' => false,
+                'message' => 'The document editor is not configured. Set ONLYOFFICE_PUBLIC_URL and '
+                    .'an ONLYOFFICE_JWT_SECRET of at least 32 characters (HS256 needs a 256-bit key).',
+            ], 503);
+        }
+
+        $draft = $templates->readDraft($draftId);
+        abort_if($draft === null, 404);
+
+        $templates->ensureDraftDocx($draftId, (string) $draft['name']);
+        $version = (int) $draft['version'];
+
+        // Document Server-reachable URLs (its own container hostname).
+        $serverBase = $onlyOffice->appUrl();
+        $documentUrl = $serverBase.'/onlyoffice/draft/'.$draftId.'/document?token='
+            .$this->issueDraft($draftId, self::PURPOSE_DOCUMENT);
+        $callbackUrl = $serverBase.'/onlyoffice/draft/'.$draftId.'/callback?token='
+            .$this->issueDraft($draftId, self::PURPOSE_CALLBACK, minutes: 60 * 12);
+
+        $config = $onlyOffice->editorConfigForDraft(
+            $draftId,
+            $version,
+            (string) $draft['name'],
+            $request->user(),
+            $documentUrl,
+            $callbackUrl,
+        );
+
+        // Browser-reachable plugin config (app origin).
+        $pluginToken = $this->issueDraft($draftId, self::PURPOSE_PLUGIN, minutes: 60 * 12);
+        $config['editorConfig']['plugins'] = [
+            'autostart' => [self::PLUGIN_GUID],
+            'pluginsData' => [
+                rtrim((string) config('app.url'), '/').'/onlyoffice/draft/'.$draftId.'/config.json?token='.$pluginToken,
+            ],
+        ];
+
+        unset($config['token']);
+        $config['token'] = $onlyOffice->sign($config);
+
+        return response()->json([
+            'enabled' => true,
+            'apiScript' => $onlyOffice->apiScriptUrl(),
+            'config' => $config,
+            'draftId' => $draftId,
+            'version' => $version,
+        ]);
+    }
+
+    /**
+     * Replace a draft's document with an uploaded .docx. Session-authenticated.
+     */
+    public function draftImport(Request $request, string $draftId, FormPrintTemplateService $templates): JsonResponse
+    {
+        $request->validate([
+            'docx' => ['required', 'file', 'max:20480'],
+        ]);
+
+        abort_if($templates->readDraft($draftId) === null, 404);
+
+        $file = $request->file('docx');
+
+        if (! $this->isDocx($file)) {
+            throw ValidationException::withMessages([
+                'docx' => 'Please upload a valid Word (.docx) file.',
+            ]);
+        }
+
+        $templates->storeDraftRevision($draftId, (string) File::get($file->getRealPath()));
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Serve a draft's .docx bytes to the Document Server. Token-authenticated.
+     */
+    public function draftDocument(Request $request, string $draftId, FormPrintTemplateService $templates)
+    {
+        $this->authorizeDraftToken($request, $draftId, self::PURPOSE_DOCUMENT);
+
+        $bytes = $templates->readDraftDocx($draftId);
+        abort_if($bytes === null, 404);
+
+        // The draft document lives in cache, not on disk, so this returns bytes
+        // rather than a file path.
+        return response($bytes, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ]);
+    }
+
+    /**
+     * Receive draft save notifications from the Document Server. Mirrors
+     * {@see callback()} but persists into the draft cache.
+     */
+    public function draftCallback(
+        Request $request,
+        string $draftId,
+        FormPrintTemplateService $templates,
+        OnlyOfficeService $onlyOffice,
+    ): JsonResponse {
+        $this->authorizeDraftToken($request, $draftId, self::PURPOSE_CALLBACK);
+
+        $body = (array) $request->json()->all();
+
+        $claims = $onlyOffice->verify($body['token'] ?? $request->header('Authorization'));
+        if ($claims !== null) {
+            $body = (array) ($claims['payload'] ?? $claims);
+        } elseif ((string) config('onlyoffice.jwt_secret', '') !== '') {
+            Log::warning('OnlyOffice draft callback rejected: body signature missing or invalid.', [
+                'draft_id' => $draftId,
+            ]);
+
+            return response()->json(['error' => 1], 403);
+        }
+
+        $status = (int) ($body['status'] ?? 0);
+
+        if (in_array($status, [2, 6], true)) {
+            $downloadUrl = (string) ($body['url'] ?? '');
+
+            if ($downloadUrl === '') {
+                Log::warning('OnlyOffice draft callback had a save status but no document URL.', [
+                    'draft_id' => $draftId,
+                    'status' => $status,
+                ]);
+
+                return response()->json(['error' => 1]);
+            }
+
+            try {
+                $contents = $this->fetchEditedDocument($downloadUrl);
+                $templates->storeDraftRevision($draftId, $contents);
+            } catch (\Throwable $throwable) {
+                report($throwable);
+
+                return response()->json(['error' => 1]);
+            }
+        }
+
+        return response()->json(['error' => 0]);
+    }
+
+    /**
+     * A draft's plugin config.json (consumed by the editor). Token-authenticated.
+     */
+    public function draftPluginConfig(Request $request, string $draftId, OnlyOfficeService $onlyOffice): JsonResponse
+    {
+        $this->authorizeDraftToken($request, $draftId, self::PURPOSE_PLUGIN);
+
+        $pluginUrl = 'plugin/'.$this->issueDraft($draftId, self::PURPOSE_PLUGIN, minutes: 60 * 12);
+
+        return response()->json($this->pluginConfigBody($pluginUrl))->withHeaders([
+            'Access-Control-Allow-Origin' => $onlyOffice->publicUrl() ?: '*',
+        ]);
+    }
+
+    /**
+     * The plugin SDK's own handshake config for a draft (fetched from inside the
+     * plugin iframe, tokenless). Mirrors {@see pluginHandshake()}.
+     */
+    public function draftPluginHandshake(Request $request, string $draftId, OnlyOfficeService $onlyOffice): JsonResponse
+    {
+        return response()->json([
+            'name' => 'Field tokens',
+            'guid' => self::PLUGIN_GUID,
+        ])->withHeaders([
+            'Access-Control-Allow-Origin' => $onlyOffice->publicUrl() ?: '*',
+        ]);
+    }
+
+    /**
+     * A draft's plugin UI, with the draft's tokens baked in. Token-authenticated.
+     * Mirrors {@see plugin()}; replicates the same header mutations because
+     * SecurityHeaders is stripped from the draft route group too.
+     */
+    public function draftPlugin(
+        Request $request,
+        string $draftId,
+        string $token,
+        OnlyOfficeService $onlyOffice,
+        FormPrintTemplateService $templates,
+    ) {
+        $this->authorizeDraftToken($request, $draftId, self::PURPOSE_PLUGIN, $token);
+
+        $draft = $templates->readDraft($draftId);
+        abort_if($draft === null, 404);
+
+        $response = response()->view('onlyoffice.token-palette', [
+            'tokens' => $this->tokensFor(FieldTokenSource::fromDraft((array) $draft['fields'])),
+            'sdkBase' => $onlyOffice->publicUrl(),
+            // Namespaced so the palette's localStorage never collides with a
+            // real form's (int) id.
+            'formId' => 'draft-'.$draftId,
+        ]);
+
+        $response->headers->remove('X-Frame-Options');
+        $response->headers->set(
+            'Content-Security-Policy',
+            "frame-ancestors 'self' ".($onlyOffice->publicUrl() ?: "'self'"),
+        );
+        $response->headers->set('Access-Control-Allow-Origin', $onlyOffice->publicUrl() ?: '*');
+
+        return $response;
+    }
+
+    /**
+     * Mint a short-lived token scoped to one draft and one purpose. Mirrors
+     * {@see issue()} but carries the draftId in a `did` claim instead of `tid`.
+     */
+    private function issueDraft(string $draftId, string $purpose, ?int $minutes = null): string
+    {
+        $minutes ??= (int) config('onlyoffice.download_ttl_minutes', 30);
+
+        return app(OnlyOfficeService::class)->sign([
+            'did' => $draftId,
+            'purpose' => $purpose,
+            'iat' => now()->getTimestamp(),
+            'exp' => now()->addMinutes(max($minutes, 1))->getTimestamp(),
+        ]);
+    }
+
+    /**
+     * Validate a draft token, returning the draft it names. Mirrors
+     * {@see authorizeToken()}: asserts purpose and that the token's `did`
+     * matches this route's draftId (a token for draft A can't reach draft B).
+     *
+     * @return array{form_id: ?int, name: string, fields: array<int, array<string, mixed>>, version: int, created_by: ?int, updated_at: int}
+     */
+    private function authorizeDraftToken(Request $request, string $draftId, string $purpose, ?string $token = null): array
+    {
+        $raw = $token ?? (string) $request->query('token', '');
+        $claims = app(OnlyOfficeService::class)->verify($raw);
+
+        abort_if($claims === null, 403, 'Invalid or expired editor token.');
+        abort_unless(($claims['purpose'] ?? null) === $purpose, 403, 'Token is not valid for this action.');
+        abort_unless((string) ($claims['did'] ?? '') === $draftId, 403);
+
+        $draft = app(FormPrintTemplateService::class)->readDraft($draftId);
+        abort_if($draft === null, 404);
+
+        return $draft;
     }
 
     /**

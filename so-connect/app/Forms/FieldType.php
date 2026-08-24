@@ -177,15 +177,22 @@ final class FieldType
 
     /**
      * The catalog the builder palette offers for NEW fields. `age` is retired
-     * from the palette (Number/Date cover it) but stays in catalog()/all() so
-     * existing forms keep validating and rendering. Special types are only
-     * included when the form's kit unlocks them (see {@see FieldKit}).
+     * from the palette (Number/Date cover it), and the layout presentationals
+     * (`heading`/`static-text`) are retired too — they're now row properties
+     * (a row's header + static text), edited in the builder's Row settings. All
+     * three stay in catalog()/all() so existing forms keep validating and
+     * rendering. Special types are only included when the form's kit unlocks
+     * them (see {@see FieldKit}).
      *
      * @return array<string, array{label:string, icon:string, group:string}>
      */
     public static function paletteCatalog(?string $kit = null): array
     {
-        $catalog = array_diff_key(self::catalog(), [self::AGE => true]);
+        $catalog = array_diff_key(self::catalog(), [
+            self::AGE => true,
+            self::HEADING => true,
+            self::STATIC_TEXT => true,
+        ]);
         $kitTypes = array_flip(FieldKit::types($kit));
 
         return array_filter(

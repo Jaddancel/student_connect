@@ -9,6 +9,7 @@ use App\Helpers\MenuHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
 use App\Models\Form\FormDescription;
+use App\Services\FormPrintTemplateService;
 use App\Support\UniversalField;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -233,6 +234,9 @@ class FormBuilderController extends Controller
             return $form;
         });
 
+        // Fold any Step-2 draft template into the now-persisted form.
+        $this->adoptPrintedTemplateDraft($form, $data['draft_id'], $request->user()?->getKey());
+
         \App\Services\ActionLogger::log(
             \App\Services\ActionLogger::CATEGORY_FORM_BUILDER,
             'created',
@@ -271,6 +275,9 @@ class FormBuilderController extends Controller
             $this->syncFields($form, $data['fields']);
             $this->syncRequestType($form, $request->user()?->getKey());
         });
+
+        // Fold any Step-2 draft template into the form (overwrites its .docx).
+        $this->adoptPrintedTemplateDraft($form, $data['draft_id'], $request->user()?->getKey());
 
         \App\Services\ActionLogger::log(
             \App\Services\ActionLogger::CATEGORY_FORM_BUILDER,
@@ -411,6 +418,9 @@ class FormBuilderController extends Controller
             'fields.*.field_options.expected_people.*.org_role' => ['nullable', 'string', 'max:255'],
             'fields.*.universal_key' => ['nullable', 'string', Rule::in(UniversalField::keys())],
             'rows' => ['present', 'array'],
+            // A row's header + static text render at the top of that row.
+            'rows.*.header' => ['nullable', 'string', 'max:255'],
+            'rows.*.static_text' => ['nullable', 'string', 'max:5000'],
             'pdf_template' => ['nullable', 'array'],
             'pdf_template.html' => ['nullable', 'string'],
             'pdf_template.page' => ['nullable', 'array'],
@@ -421,6 +431,10 @@ class FormBuilderController extends Controller
             'pdf_template.font.size' => ['nullable', 'string', 'max:8'],
             'pdf_template.header' => ['nullable', 'array'],
             'pdf_template.footer' => ['nullable', 'array'],
+            // Non-persistent Step-2 printed-template draft to fold into the real
+            // template after save (see adoptDraft). Optional — a form saved
+            // without opening Step 2 has none.
+            'draft_id' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9\-]+$/'],
         ], [
             'route_name.regex' => 'The route name may only contain lowercase letters, numbers and hyphens.',
             'fields.*.field_key.regex' => 'Field keys may only contain letters, numbers and underscores.',
@@ -451,9 +465,31 @@ class FormBuilderController extends Controller
             'is_active' => true,
             'is_published' => $this->templateHasContent($pdfTemplate['html']),
             'fields' => $validated['fields'],
-            'rows' => $this->cleanRows($validated['rows'] ?? [], $keys),
+            // Validating rows.*.header/static_text makes $validated['rows'] hold
+            // only those sub-keys (dropping columns), so sanitize the raw input;
+            // the validation above still enforces the header/static-text limits.
+            'rows' => $this->cleanRows($request->input('rows', []), $keys),
             'pdf_template' => $pdfTemplate,
+            'draft_id' => ($validated['draft_id'] ?? '') !== '' ? $validated['draft_id'] : null,
         ];
+    }
+
+    /**
+     * Fold a Step-2 printed-template draft into the form's real template after
+     * save, then clear the draft. Wrapped so a template-adoption failure never
+     * fails the save itself — the seeded blank template already stands in.
+     */
+    private function adoptPrintedTemplateDraft(Form $form, ?string $draftId, ?int $userId): void
+    {
+        if ($draftId === null) {
+            return;
+        }
+
+        try {
+            app(FormPrintTemplateService::class)->adoptDraft($form, $draftId, $userId);
+        } catch (\Throwable $throwable) {
+            report($throwable);
+        }
     }
 
     /**
@@ -808,6 +844,7 @@ class FormBuilderController extends Controller
                 continue;
             }
             $columns = [];
+            $hasField = false;
             foreach (($row['columns'] ?? []) as $col) {
                 if (! is_array($col)) {
                     continue;
@@ -816,14 +853,31 @@ class FormBuilderController extends Controller
                     array_map('strval', (array) ($col['fields'] ?? [])),
                     fn ($k) => isset($validKeys[$k]),
                 ));
+                $hasField = $hasField || ! empty($fieldKeys);
                 $columns[] = [
                     'span' => max(1, min(12, (int) ($col['span'] ?? 12))),
                     'fields' => $fieldKeys,
                 ];
             }
-            if (! empty($columns)) {
-                $clean[] = ['columns' => $columns];
+
+            $header = trim((string) ($row['header'] ?? ''));
+            $staticText = trim((string) ($row['static_text'] ?? ''));
+
+            // Keep a row only when it carries something: a field, a header, or
+            // static text. Fully-empty rows (e.g. drag-emptied) are dropped; a
+            // header-only "section divider" row survives.
+            if (! $hasField && $header === '' && $staticText === '') {
+                continue;
             }
+
+            $entry = ['columns' => $columns];
+            if ($header !== '') {
+                $entry['header'] = mb_substr($header, 0, 255);
+            }
+            if ($staticText !== '') {
+                $entry['static_text'] = mb_substr($staticText, 0, 5000);
+            }
+            $clean[] = $entry;
         }
 
         return $clean;

@@ -35,6 +35,9 @@
             updateUrl: '{{ $form ? route('admin.form-builder.update', $form) : '' }}',
             uploadUrl: '{{ route('admin.form-builder.upload-asset') }}',
             signatorySearchUrl: '{{ route('admin.form-builder.signatory-search') }}',
+            draftSyncUrl: '{{ route('admin.form-builder.draft.sync') }}',
+            formId: {{ $form?->getKey() ?? 'null' }},
+            printEnabled: {{ app(\App\Services\OnlyOfficeService::class)->enabled() ? 'true' : 'false' }},
             csrf: '{{ csrf_token() }}',
         })"
         @keydown.window.ctrl.s.prevent="save()"
@@ -71,20 +74,13 @@
             {{-- LEFT: palette + header designer (floats as the canvas scrolls) --}}
             <div class="col-span-12 space-y-5 lg:col-span-3">
                 <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
-                    <h3 class="mb-3 text-sm font-semibold text-gray-800 dark:text-white/90">Field palette</h3>
-                    <div class="grid grid-cols-2 gap-2">
+                    <h3 class="mb-1 text-sm font-semibold text-gray-800 dark:text-white/90">Field palette</h3>
+                    <p class="mb-3 text-[11px] text-gray-400">Click to add, or drag onto the canvas to place a new row.</p>
+                    <div class="grid grid-cols-2 gap-2" x-init="wirePalette($el)">
                         <template x-for="(meta, type) in fieldPalette" :key="type">
                             <button type="button" @click="addField(type)"
-                                class="rounded-lg border border-gray-200 px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:text-gray-300"
-                                x-text="meta.label"></button>
-                        </template>
-                    </div>
-                    {{-- Layout elements: presentation only, no submitted value --}}
-                    <h3 class="mb-2 mt-4 text-sm font-semibold text-gray-800 dark:text-white/90">Layout</h3>
-                    <div class="grid grid-cols-2 gap-2">
-                        <template x-for="(meta, type) in layoutPalette" :key="type">
-                            <button type="button" @click="addField(type)"
-                                class="rounded-lg border border-dashed border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-500 transition hover:border-brand-400 hover:bg-brand-50 dark:border-gray-700 dark:text-gray-400"
+                                data-palette-item :data-field-type="type"
+                                class="cursor-grab rounded-lg border border-gray-200 px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:border-brand-400 hover:bg-brand-50 active:cursor-grabbing dark:border-gray-700 dark:text-gray-300"
                                 x-text="meta.label"></button>
                         </template>
                     </div>
@@ -95,53 +91,53 @@
                             <h3 class="mb-2 mt-4 text-sm font-semibold text-brand-600 dark:text-brand-400">
                                 {{ $kit ? \App\Forms\FieldKit::label($kit) : 'Special fields' }}
                             </h3>
-                            <div class="grid grid-cols-2 gap-2">
+                            <div class="grid grid-cols-2 gap-2" x-init="wirePalette($el)">
                                 <template x-for="(meta, type) in specialPalette" :key="type">
                                     <button type="button" @click="addField(type)"
-                                        class="rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-2 text-left text-xs font-medium text-brand-700 transition hover:border-brand-400 hover:bg-brand-50 dark:border-brand-500/30 dark:bg-brand-500/5 dark:text-brand-300"
+                                        data-palette-item :data-field-type="type"
+                                        class="cursor-grab rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-2 text-left text-xs font-medium text-brand-700 transition hover:border-brand-400 hover:bg-brand-50 active:cursor-grabbing dark:border-brand-500/30 dark:bg-brand-500/5 dark:text-brand-300"
                                         x-text="meta.label"></button>
                                 </template>
                             </div>
                         </div>
                     </template>
-
-                    <button type="button" @click="addRow()"
-                        class="mt-3 w-full rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs font-medium text-gray-500 transition hover:border-brand-400 hover:text-brand-600 dark:border-gray-700">
-                        + Empty row
-                    </button>
                 </div>
             </div>
 
             {{-- CENTER: canvas --}}
             <div class="col-span-12 lg:col-span-6">
-                <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] min-h-[400px]">
-                    <template x-if="rows.length === 0">
-                        <div class="py-16 text-center text-sm text-gray-400">Add fields from the palette to start building.</div>
-                    </template>
-
-                    <div class="space-y-4">
-                        <template x-for="(row, rowIndex) in rows" :key="rowIndex">
-                            <div class="rounded-xl border border-dashed border-gray-300 p-3 dark:border-gray-700">
+                <div data-canvas-scroll class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] min-h-[400px] lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
+                    {{-- min-height keeps this a valid drop target even with no rows yet;
+                         data-rows-root lets onFieldDrop tell a "drop onto the canvas"
+                         (→ new row, handled by onCanvasAdd) from a drop into a column. --}}
+                    <div data-rows-root class="min-h-[120px] space-y-4" x-init="wireRows($el)">
+                        <template x-if="rows.length === 0">
+                            <div class="py-16 text-center text-sm text-gray-400">Drag a field from the palette here (or click one) to start building.</div>
+                        </template>
+                        <template x-for="(row, rowIndex) in rows" :key="row._id">
+                            <div data-row-item @click="selectRow(row)"
+                                class="cursor-pointer rounded-xl border border-dashed p-3"
+                                :class="selectedRow === row._id ? 'border-brand-500 ring-1 ring-brand-300' : 'border-gray-300 dark:border-gray-700'">
                                 <div class="mb-2 flex items-center justify-between">
                                     <div class="flex items-center gap-2 text-xs text-gray-400">
-                                        {{-- ▲▼ reorder this row --}}
-                                        <span class="flex items-center">
-                                            <button type="button" @click="moveRow(rowIndex, -1)" :disabled="rowIndex === 0"
-                                                class="px-1 leading-none text-gray-400 hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30"
-                                                title="Move row up">▲</button>
-                                            <button type="button" @click="moveRow(rowIndex, 1)" :disabled="rowIndex === rows.length - 1"
-                                                class="px-1 leading-none text-gray-400 hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-30"
-                                                title="Move row down">▼</button>
-                                        </span>
+                                        <span data-row-handle class="cursor-grab px-1 leading-none text-gray-300 active:cursor-grabbing" title="Drag to reorder row">⠿</span>
                                         <span>Columns:</span>
                                         <template x-for="n in 3" :key="n">
-                                            <button type="button" @click="setColumnCount(rowIndex, n)"
+                                            <button type="button" @click.stop="setColumnCount(rowIndex, n)"
                                                 class="rounded px-1.5 py-0.5"
                                                 :class="row.columns.length === n ? 'bg-brand-500 text-white' : 'border border-gray-300 text-gray-500'"
                                                 x-text="n"></button>
                                         </template>
                                     </div>
-                                    <button type="button" @click="removeRow(rowIndex)" class="text-xs text-error-500">remove row</button>
+                                    <button type="button" @click.stop="removeRow(rowIndex)" class="text-xs text-error-500">remove row</button>
+                                </div>
+                                {{-- Row header / static text preview (mirrors the rendered form) --}}
+                                <div x-show="(row.header || '').trim() || (row.static_text || '').trim()" class="mb-2 space-y-1">
+                                    <h3 x-show="(row.header || '').trim()"
+                                        class="mb-1 border-l-[3px] border-palette-lime pl-3 text-base font-semibold text-gray-800 dark:text-white/90"
+                                        x-text="row.header"></h3>
+                                    <p x-show="(row.static_text || '').trim()"
+                                        class="whitespace-pre-line text-sm text-gray-600 dark:text-gray-400" x-text="row.static_text"></p>
                                 </div>
                                 <div class="grid grid-cols-1 gap-3"
                                     :class="{'sm:grid-cols-2': row.columns.length===2,'sm:grid-cols-3': row.columns.length===3}">
@@ -152,8 +148,8 @@
                                             x-init="wireColumn($el)"
                                             :data-row="rowIndex" :data-col="colIndex">
                                             <template x-for="(key, fi) in col.fields" :key="key">
-                                                <div @click="selectedKey = key"
-                                                    data-field-card
+                                                <div @click.stop="selectKey(key)"
+                                                    data-field-card :data-field-key="key"
                                                     class="mb-2 cursor-grab rounded-lg border bg-white px-3 py-2 active:cursor-grabbing dark:bg-gray-900"
                                                     :class="selectedKey === key ? 'border-brand-500 ring-1 ring-brand-300' : 'border-gray-200 dark:border-gray-700'">
                                                     <div class="flex items-center justify-between gap-2">
@@ -198,10 +194,33 @@
             {{-- RIGHT: field config panel (floats as the canvas scrolls) --}}
             <div class="col-span-12 lg:col-span-3">
                 <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
-                    <h3 class="mb-3 text-sm font-semibold text-gray-800 dark:text-white/90">Field settings</h3>
-                    <template x-if="!selectedKey">
-                        <p class="text-xs text-gray-400">Select a field on the canvas to configure it.</p>
+                    <h3 class="mb-3 text-sm font-semibold text-gray-800 dark:text-white/90" x-text="selectedRow && !selectedKey ? 'Row settings' : 'Field settings'"></h3>
+                    <template x-if="!selectedKey && !(selectedRow && rowById(selectedRow))">
+                        <p class="text-xs text-gray-400">Select a field to configure it, or click a row to edit its header and static text.</p>
                     </template>
+
+                    {{-- Row settings: header + static text live on the row, shown at
+                         the top of that row on the rendered form. --}}
+                    <template x-if="selectedRow && rowById(selectedRow) && !selectedKey">
+                        <div class="space-y-3" x-data="{ get row() { return rowById(selectedRow); } }">
+                            <div>
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Header</label>
+                                <input type="text" x-model="row.header" placeholder="Section title (optional)"
+                                    class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Static text</label>
+                                <textarea x-model="row.static_text" rows="4" placeholder="Explanatory text shown above this row (optional)"
+                                    class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:text-white/90"></textarea>
+                            </div>
+                            <p class="text-[11px] text-gray-400">Both are optional and render at the top of this row.</p>
+                            <button type="button" @click="removeRow(rows.indexOf(row))"
+                                class="w-full rounded-lg border border-error-200 px-3 py-2 text-xs font-medium text-error-500 transition hover:bg-error-50 dark:border-error-500/30">
+                                Remove row
+                            </button>
+                        </div>
+                    </template>
+
                     <template x-if="selectedKey && field(selectedKey)">
                         <div class="space-y-3" x-data="{ get f() { return field(selectedKey); } }">
                             <div>
@@ -213,11 +232,6 @@
                                 <select @change="changeFieldType(f, $event.target.value)" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
                                     <optgroup label="Fields">
                                         <template x-for="(meta, type) in fieldPalette" :key="type">
-                                            <option :value="type" :selected="type === f.field_type" x-text="meta.label"></option>
-                                        </template>
-                                    </optgroup>
-                                    <optgroup label="Layout">
-                                        <template x-for="(meta, type) in layoutPalette" :key="type">
                                             <option :value="type" :selected="type === f.field_type" x-text="meta.label"></option>
                                         </template>
                                     </optgroup>
@@ -524,16 +538,25 @@
                                         </select>
                                         <template x-if="needsConditionValue(f)">
                                             <div>
-                                                <template x-if="conditionController(f) && isOptioned(conditionController(f).field_type)">
+                                                {{-- A dropdown of the controlling field's predefined choices
+                                                     (select/radio options, or Checked/Unchecked for a single
+                                                     checkbox); falls back to free text for non-optioned or
+                                                     dynamic-source controllers. See conditionValueChoices(). --}}
+                                                <template x-if="conditionValueChoices(conditionController(f))">
                                                     <select x-model="f.field_options.visible_when.value"
                                                         class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                                                        <option value="">— choose an option —</option>
-                                                        <template x-for="opt in ((conditionController(f).field_options || {}).options || [])" :key="opt.value">
+                                                        {{-- Suppress the "unset" placeholder when a choice already
+                                                             carries an empty value (checkbox → Unchecked), so it
+                                                             isn't confused with "not chosen". --}}
+                                                        <template x-if="!conditionValueChoices(conditionController(f)).some((o) => o.value === '')">
+                                                            <option value="">— choose an option —</option>
+                                                        </template>
+                                                        <template x-for="opt in conditionValueChoices(conditionController(f))" :key="opt.value">
                                                             <option :value="opt.value" x-text="opt.label"></option>
                                                         </template>
                                                     </select>
                                                 </template>
-                                                <template x-if="!conditionController(f) || !isOptioned(conditionController(f).field_type)">
+                                                <template x-if="!conditionValueChoices(conditionController(f))">
                                                     <input type="text" x-model="f.field_options.visible_when.value" placeholder="Comparison value"
                                                         class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
                                                 </template>
@@ -595,10 +618,13 @@
         </div>
 
         {{-- ===================== STEP 2: PRINTED PDF TEMPLATE ===================== --}}
+        {{-- The editor boots off a draft synced on entering this step (see
+             form-builder.js goToStep/syncDraft), so its URLs arrive via the
+             'printed-template:sync' event rather than baked in here — this lets
+             brand-new, unsaved forms open the editor too. --}}
         <div x-show="step === 2" x-cloak>
             <x-form-builder.onlyoffice-template
-                :configUrl="$form ? route('admin.form-builder.printed-template.config', $form) : null"
-                :importUrl="$form ? route('admin.form-builder.printed-template.import', $form) : null" />
+                :printEnabled="app(\App\Services\OnlyOfficeService::class)->enabled()" />
         </div>
 
         {{-- ========================= STEP 3: META DETAILS ========================= --}}

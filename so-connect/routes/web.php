@@ -537,6 +537,22 @@ Route::middleware(['auth', 'admin'])->group(function () {
         [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'import'])
         ->name('admin.form-builder.printed-template.import');
 
+    // Non-persistent Step-2 drafts: let the printed-template editor open (and
+    // its field-token palette reflect just-added fields) before the form is
+    // saved. The draft lives only in the file cache — no DB writes until save.
+    // Session-authenticated (admin), like the /printed-template/* routes above.
+    Route::post('/admin/form-builder/draft/sync',
+        [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'syncDraft'])
+        ->name('admin.form-builder.draft.sync');
+    Route::get('/admin/form-builder/draft/{draftId}/printed-template/config',
+        [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'draftConfig'])
+        ->where('draftId', '[A-Za-z0-9\-]+')
+        ->name('admin.form-builder.draft.config');
+    Route::post('/admin/form-builder/draft/{draftId}/printed-template/import',
+        [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'draftImport'])
+        ->where('draftId', '[A-Za-z0-9\-]+')
+        ->name('admin.form-builder.draft.import');
+
     // The upload / verify / activate pages are gone: printed templates are now
     // authored in the form builder's Step 2 editor and created automatically
     // per form, so there is nothing left to upload or hand-map.
@@ -1124,6 +1140,37 @@ Route::post('/assistant/chat', [\App\Http\Controllers\AssistantController::class
 // The web group's session/CSRF/hardening middleware is stripped: CSRF would
 // reject the server's POST, and SecurityHeaders' SAMEORIGIN + frame-ancestors
 // would stop the Document Server framing the palette.
+// Draft counterpart of the group below: same stateless HS256 auth and the same
+// stripped middleware, but keyed on a file-cache draftId (a `did` claim) rather
+// than a Template row, so the editor can open before the form is saved. Declared
+// first so the literal "draft/" prefix is matched ahead of the {form} wildcard.
+Route::prefix('onlyoffice/draft/{draftId}')
+    ->where(['draftId' => '[A-Za-z0-9\-]+'])
+    ->withoutMiddleware([
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        \App\Http\Middleware\SecurityHeaders::class,
+        \App\Http\Middleware\EnsurePasswordChanged::class,
+        \App\Http\Middleware\EnsureOrganizationAccredited::class,
+        \App\Http\Middleware\PreventBackHistory::class,
+    ])
+    ->group(function () {
+        Route::get('/document', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'draftDocument'])
+            ->name('onlyoffice.draft.document');
+        Route::post('/callback', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'draftCallback'])
+            ->name('onlyoffice.draft.callback');
+        Route::get('/config.json', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'draftPluginConfig'])
+            ->name('onlyoffice.draft.plugin-config');
+        Route::get('/{icon}', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'pluginIcon'])
+            ->where('icon', 'icon(@2x)?\.png')
+            ->name('onlyoffice.draft.plugin-icon');
+        // Declared before the {token} catch-all so "config.json" isn't swallowed.
+        Route::get('/plugin/config.json', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'draftPluginHandshake'])
+            ->name('onlyoffice.draft.plugin-handshake');
+        Route::get('/plugin/{token}', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'draftPlugin'])
+            ->where('token', '[^/]+')
+            ->name('onlyoffice.draft.plugin');
+    });
+
 Route::prefix('onlyoffice/{form}')
     ->withoutMiddleware([
         \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,

@@ -1,4 +1,4 @@
-@props(['configUrl' => null, 'importUrl' => null])
+@props(['printEnabled' => false])
 
 {{--
     Wizard Step 2 — the printed template, edited in OnlyOffice.
@@ -12,24 +12,28 @@
     rather than in this page: Community Edition has no Automation API, so the
     host page cannot insert content into the open document.
 
-    A form that has not been saved yet has no id, and therefore no document to
-    open — the wizard shows the notice below instead.
+    The editor boots off a *draft* synced when the wizard enters this step (see
+    form-builder.js goToStep/syncDraft): the parent dispatches a
+    'printed-template:sync' event carrying this draft's config/import URLs, which
+    onSync() below picks up to (re)boot the editor. Because the draft is
+    non-persistent (file cache, no DB), this works for brand-new unsaved forms
+    too — there is no longer a "save the form first" gate.
 --}}
 <div class="grid grid-cols-12 gap-5">
     <div class="col-span-12">
-        @if ($configUrl === null)
+        @if (! $printEnabled)
             <div class="rounded-2xl border border-dashed border-gray-300 bg-palette-surface p-10 text-center dark:border-gray-700 dark:bg-white/[0.03]">
-                <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Save the form first</h3>
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Printed-template editor unavailable</h3>
                 <p class="mx-auto mt-2 max-w-md text-xs text-gray-500 dark:text-gray-400">
-                    The printed template is a Word document attached to this form, so the form
-                    needs to exist before it can be edited. Finish Step 3 and save — then reopen
-                    the form to design its printed output.
+                    The document editor is not configured. Set <code>ONLYOFFICE_PUBLIC_URL</code> and an
+                    <code>ONLYOFFICE_JWT_SECRET</code> of at least 32 characters, then reopen this form to
+                    design its printed output. Your form's fields still save normally without it.
                 </p>
             </div>
         @else
             <div x-data="{
-                    configUrl: '{{ $configUrl }}',
-                    importUrl: '{{ $importUrl }}',
+                    configUrl: '',
+                    importUrl: '',
                     csrf: '{{ csrf_token() }}',
                     editor: null,
                     mounted: false,
@@ -43,8 +47,21 @@
                     // and up (≥768px) get the editor.
                     isMobile: window.matchMedia('(max-width: 767px)').matches,
 
+                    // The draft was (re)synced by the parent; (re)boot against its
+                    // URLs. A fresh sync means new tokens and possibly a bumped
+                    // document — tear any live editor down first so it reloads.
+                    onSync(detail) {
+                        this.configUrl = (detail && detail.configUrl) || '';
+                        this.importUrl = (detail && detail.importUrl) || '';
+                        if (!this.configUrl) return;
+                        if (this.mounted) this.teardown();
+                        this.error = '';
+                        this.saved = true;
+                        this.start();
+                    },
+
                     start() {
-                        if (this.mounted || this.isMobile) return;
+                        if (this.mounted || this.isMobile || !this.configUrl) return;
                         this.mounted = true;
                         this.loading = true;
                         this.boot().catch((e) => { this.error = e.message || String(e); })
@@ -160,16 +177,19 @@
                         // default (mini rail below 1280px) on the way out.
                         $store.sidebar.isExpanded = value === 2 ? false : window.innerWidth >= 1280;
                     };
-                    $watch('step', (value) => { syncNav(value); if (value === 2) start(); });
-                    if (step === 2) { syncNav(2); start(); }
+                    $watch('step', (value) => syncNav(value));
+                    if (step === 2) syncNav(2);
                     // Crossing the phone/tablet boundary swaps the editor for the
-                    // notice (and back) without leaving a stale editor behind.
+                    // notice (and back) without leaving a stale editor behind. The
+                    // editor only re-boots if a draft has already been synced
+                    // (configUrl set) and we're on Step 2.
                     window.matchMedia('(max-width: 767px)').addEventListener('change', (e) => {
                         isMobile = e.matches;
                         if (isMobile) teardown();
-                        else if (step === 2) start();
+                        else if (step === 2 && configUrl) start();
                     });
                 "
+                @printed-template:sync.window="onSync($event.detail)"
                 class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03]">
 
                 <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
@@ -183,22 +203,24 @@
                         <p class="mt-1 text-xs text-red-600 dark:text-red-400" x-show="importError" x-cloak x-text="importError"></p>
                     </div>
                     <div class="flex shrink-0 items-center gap-3" x-show="!isMobile" x-cloak>
-                        @if ($importUrl !== null)
-                            <input type="file" x-ref="docxInput" accept=".docx"
-                                   class="hidden" @change="importDocx($event)">
-                            <button type="button"
-                                    @click="$refs.docxInput.click()"
-                                    :disabled="!saved || loading || importing || !mounted"
-                                    class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-brand-400 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
-                                    title="Replace this template with an uploaded Word document">
-                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                    <polyline points="17 8 12 3 7 8"></polyline>
-                                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                                </svg>
-                                <span x-text="importing ? 'Uploading…' : 'Upload .docx'"></span>
-                            </button>
-                        @endif
+                        <template x-if="importUrl">
+                            <span class="flex items-center gap-3">
+                                <input type="file" x-ref="docxInput" accept=".docx"
+                                       class="hidden" @change="importDocx($event)">
+                                <button type="button"
+                                        @click="$refs.docxInput.click()"
+                                        :disabled="!saved || loading || importing || !mounted"
+                                        class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-brand-400 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
+                                        title="Replace this template with an uploaded Word document">
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="17 8 12 3 7 8"></polyline>
+                                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                                    </svg>
+                                    <span x-text="importing ? 'Uploading…' : 'Upload .docx'"></span>
+                                </button>
+                            </span>
+                        </template>
                         <span class="text-xs" x-show="!loading && !error"
                               :class="saved ? 'text-gray-400' : 'text-amber-600'"
                               x-text="saved ? 'All changes saved' : 'Saving…'"></span>
