@@ -35,6 +35,20 @@
                     <p class="mt-1 text-gray-800 dark:text-white/90">{{ $kind }}</p>
                 </div>
             </div>
+
+            @if ($newOrganizationEmailStatuses !== [])
+                <div class="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
+                    @foreach ($newOrganizationEmailStatuses as $role => $emailStatus)
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">New {{ ucfirst($role) }} Email</p>
+                        <p class="mt-1 text-sm text-gray-800 dark:text-white/90">{{ $emailStatus['email'] }}</p>
+                        @if ($emailStatus['registered'])
+                            <p class="mt-1 text-sm">The user is <a href="{{ route('admin.form-requests.index', $form) }}" class="font-medium text-brand-500 underline">registered</a> in the system.</p>
+                        @else
+                            <p class="mt-1 text-sm text-warning-600 dark:text-warning-400">This email is not yet registered. An invitation will be sent upon approval.</p>
+                        @endif
+                    @endforeach
+                </div>
+            @endif
         </div>
 
         {{-- Submitted answers, labelled by the form's own fields --}}

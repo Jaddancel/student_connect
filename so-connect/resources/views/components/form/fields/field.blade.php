@@ -169,8 +169,20 @@
                 @break
 
             @case(FieldType::EMAIL)
+            @case(FieldType::NEW_OFFICER_EMAIL)
+            @case(FieldType::NEW_PRESIDENT_EMAIL)
                 <input type="email" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder ?: 'name@example.com' }}"
+                    @if (in_array($type, [FieldType::NEW_OFFICER_EMAIL, FieldType::NEW_PRESIDENT_EMAIL], true))
+                        x-data="{ status: null, check() { if (! this.$el.value) { this.status = null; return; } fetch(@js(route('email-availability.check')) + '?email=' + encodeURIComponent(this.$el.value)).then(r => r.json()).then(d => this.status = d.registered ? 'registered' : 'available').catch(() => this.status = null); } }"
+                        @blur="check()"
+                    @endif
                     class="{{ $inputClass }}" />
+                @if (in_array($type, [FieldType::NEW_OFFICER_EMAIL, FieldType::NEW_PRESIDENT_EMAIL], true))
+                    <div class="mt-1 text-xs">
+                        <template x-if="status === 'registered'"><p class="text-brand-600 dark:text-brand-400">This email is already registered.</p></template>
+                        <template x-if="status === 'available'"><p class="text-success-600 dark:text-success-500">This email is available.</p></template>
+                    </div>
+                @endif
                 @break
 
             @case(FieldType::IMAGE)

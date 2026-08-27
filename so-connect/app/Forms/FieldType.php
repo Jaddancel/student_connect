@@ -50,6 +50,19 @@ final class FieldType
     public const ACTIVITY_TABLE = 'activity-table';
 
     /**
+     * An email field that, in the context of registering a new organization,
+     * reports whether the address already belongs to a registered user and,
+     * if not, is eligible to receive an invitation after approval.
+     */
+    public const NEW_OFFICER_EMAIL = 'new-officer-email';
+
+    /**
+     * An email field used by New Organization Registration to identify the
+     * proposed organization president and potential invitation recipient.
+     */
+    public const NEW_PRESIDENT_EMAIL = 'new-president-email';
+
+    /**
      * The officer positions the sign-up position picker offers by default
      * (a field's own `options` config overrides them).
      */
@@ -131,9 +144,11 @@ final class FieldType
             self::TABLE_INPUT     => ['label' => 'Table',               'icon' => 'select',    'group' => 'special'],
             self::COMPUTED        => ['label' => 'Computed value',      'icon' => 'number',    'group' => 'special'],
             self::MULTI_IMAGE     => ['label' => 'Photo set',           'icon' => 'image',     'group' => 'special'],
-            self::EVENT_SELECT    => ['label' => 'Event picker',        'icon' => 'select',    'group' => 'special'],
-            self::WORKPLAN_SELECT => ['label' => 'Workplan picker',     'icon' => 'select',    'group' => 'special'],
-            self::ACTIVITY_TABLE  => ['label' => 'Activity Table',      'icon' => 'table',     'group' => 'special'],
+            self::EVENT_SELECT      => ['label' => 'Event picker',         'icon' => 'select',    'group' => 'special'],
+            self::WORKPLAN_SELECT   => ['label' => 'Workplan picker',      'icon' => 'select',    'group' => 'special'],
+            self::ACTIVITY_TABLE    => ['label' => 'Activity Table',       'icon' => 'table',     'group' => 'special'],
+            self::NEW_OFFICER_EMAIL => ['label' => 'New Officer Email Field', 'icon' => 'email',     'group' => 'special'],
+            self::NEW_PRESIDENT_EMAIL => ['label' => 'New President Email Field', 'icon' => 'email', 'group' => 'special'],
         ];
     }
 
@@ -303,6 +318,8 @@ final class FieldType
                 break;
 
             case self::EMAIL:
+            case self::NEW_OFFICER_EMAIL:
+            case self::NEW_PRESIDENT_EMAIL:
                 $rules[] = 'string';
                 $rules[] = 'email';
                 $rules[] = 'max:255';

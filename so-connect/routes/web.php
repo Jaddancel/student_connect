@@ -100,6 +100,15 @@ Route::get('/invitation/verify', [InvitationController::class, 'verify'])
     ->middleware('guest')
     ->name('invitation.verify');
 
+// New organization registration invitation redemption
+Route::get('/organization-invitation/redeem', [\App\Http\Controllers\OrganizationInvitationController::class, 'redeem'])
+    ->middleware('guest')
+    ->name('organization-invitation.redeem');
+
+// Public email availability check used by the New Officer Email field.
+Route::get('/email-availability/check', [\App\Http\Controllers\EmailAvailabilityController::class, 'check'])
+    ->name('email-availability.check');
+
 // First-login password wizard (Flow 3 — admin accounts)
 Route::get('/change-password', [PasswordChangeController::class, 'show'])
     ->middleware('auth')

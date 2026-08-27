@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Forms\Handlers\NewOrganizationRegistrationHandler;
 use App\Forms\SystemFunction;
 use App\Helpers\FormTemplateHelper;
 use App\Http\Controllers\Controller;
@@ -28,8 +29,12 @@ use Illuminate\Validation\Rule;
  */
 class FormRequestController extends Controller
 {
-    /** Request kinds a form page can originate (membership, doc-gen). */
-    private const ACTION_TYPES = [1, FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION];
+    /** Request kinds a form page can originate (membership, doc-gen, new org). */
+    private const ACTION_TYPES = [
+        1,
+        FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION,
+        \App\Forms\Handlers\NewOrganizationRegistrationHandler::ACTION_TYPE,
+    ];
 
     public function index(Form $form)
     {
@@ -62,7 +67,11 @@ class FormRequestController extends Controller
                 'requester_name' => $requesterNames[$r->user] ?? 'Unknown',
                 'org_name' => $orgNames[$orgId] ?? 'Unknown Organization',
                 'submission_id' => (int) ($payload['submission_id'] ?? ($payload['form_submission_id'] ?? 0)),
-                'kind' => (int) $r->action_type === 1 ? 'Membership' : 'Document',
+                'kind' => match ((int) $r->action_type) {
+                    1 => 'Membership',
+                    NewOrganizationRegistrationHandler::ACTION_TYPE => 'New Organization',
+                    default => 'Document',
+                },
             ];
         });
 
@@ -87,6 +96,23 @@ class FormRequestController extends Controller
         $orgNames = $orgId > 0 ? $this->organizationNames([$orgId]) : [];
         $requesterNames = $actionRequest->user ? $this->requesterNames([(int) $actionRequest->user]) : [];
 
+        $newOrganizationEmailStatuses = [];
+        if ((string) $form->system_function === SystemFunction::NEW_ORGANIZATION_REGISTRATION && $submission) {
+            $handler = app(NewOrganizationRegistrationHandler::class);
+            $submissionPayload = (array) ($submission->payload ?? []);
+            foreach ([
+                'president' => $handler->resolvePresidentEmail($form, $submissionPayload),
+                'officer' => $handler->resolveOfficerEmail($form, $submissionPayload),
+            ] as $role => $email) {
+                if ($email !== null && $email !== '') {
+                    $newOrganizationEmailStatuses[$role] = [
+                        'email' => $email,
+                        'registered' => $handler->isRegisteredEmail($email),
+                    ];
+                }
+            }
+        }
+
         return view('pages.admin.form-requests.show', [
             'title' => $form->name.' Requests',
             'form' => $form,
@@ -97,7 +123,8 @@ class FormRequestController extends Controller
             'approval' => Approval::query()->where('request', $requestId)->first(),
             'orgName' => $orgNames[$orgId] ?? 'Unknown Organization',
             'requesterName' => $requesterNames[$actionRequest->user] ?? 'Unknown',
-            'kind' => (int) $actionRequest->action_type === 1 ? 'Membership' : 'Document',
+            'kind' => (int) $actionRequest->action_type === 1 ? 'Membership' : ((int) $actionRequest->action_type === NewOrganizationRegistrationHandler::ACTION_TYPE ? 'New Organization' : 'Document'),
+            'newOrganizationEmailStatuses' => $newOrganizationEmailStatuses,
         ]);
     }
 

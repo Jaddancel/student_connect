@@ -278,7 +278,7 @@ export function formBuilder(config) {
 
         get specialPalette() {
             return Object.fromEntries(
-                Object.entries(this.catalog).filter(([, meta]) => meta.group === 'special'),
+                Object.entries(this.catalog).filter(([type, meta]) => meta.group === 'special' && this.isPaletteTypeAvailable(type)),
             );
         },
 
@@ -286,20 +286,42 @@ export function formBuilder(config) {
             return Object.keys(this.specialPalette).length > 0;
         },
 
+        /** Keep each role-defining email field unique until it is removed. */
+        isPaletteTypeAvailable(type) {
+            return !['new-president-email', 'new-officer-email'].includes(type)
+                || !this.fields.some((field) => field.field_type === type);
+        },
+
         // --- field creation ---
         /** Build a field object (not yet placed in a row) for `type`. */
         makeField(type) {
             const label = this.labelFor(type);
+            const fixedKey = this.fixedFieldKey(type);
             return {
-                field_key: this.keyFromLabel(label),
+                field_key: fixedKey || this.keyFromLabel(label),
                 field_label: label,
                 field_type: type,
                 is_required: false,
                 placeholder_hint: '',
                 field_options: this.defaultOptions(type),
                 universal_key: '',
-                _keyLocked: false, // client-only: key follows the label until saved
+                // Kit-required email controls retain their contract key even if
+                // an admin adjusts the field label for display.
+                _keyLocked: Boolean(fixedKey),
             };
+        },
+
+        /** The field-kit keys required for role-defining email controls. */
+        fixedFieldKey(type) {
+            if (type === 'new-officer-email') {
+                return this.kit === 'sign_up' ? 'email'
+                    : this.kit === 'new_organization_registration' ? 'officer_email'
+                        : null;
+            }
+
+            return type === 'new-president-email' && this.kit === 'new_organization_registration'
+                ? 'president_email'
+                : null;
         },
         /** Insert a row (stamping its id) at `index`, or append when null. */
         insertRow(row, index = null) {
@@ -708,6 +730,10 @@ export function formBuilder(config) {
         restorePalette(evt) {
             const { item, from, oldIndex, clone } = evt;
             if (clone && clone.parentNode) clone.parentNode.removeChild(clone);
+            if (!this.isPaletteTypeAvailable(item.dataset.fieldType)) {
+                if (item.parentNode) item.parentNode.removeChild(item);
+                return;
+            }
             const items = () => from.querySelectorAll(':scope > [data-palette-item]');
             const inPlace = item.parentNode === from && items()[oldIndex] === item;
             if (inPlace) return;

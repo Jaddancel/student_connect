@@ -35,6 +35,7 @@ class RequestType extends Model
     public const SYSTEM_KEY_FORM_UPLOAD = 'form_upload';
     public const SYSTEM_KEY_PROFILE_MATCH = 'profile_match';
     public const SYSTEM_KEY_EVENT_PLAN = 'event_plan';
+    public const SYSTEM_KEY_NEW_ORGANIZATION_REGISTRATION = 'new_organization_registration';
 
     protected $table = 'request_types';
 

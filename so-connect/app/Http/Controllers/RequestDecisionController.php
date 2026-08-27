@@ -454,11 +454,16 @@ class RequestDecisionController extends Controller
 
             $organizationId = (int) ($payload['organization_id'] ?? 0);
             if ($organizationId > 0) {
+                $role = in_array((string) ($payload['intended_role'] ?? ''), ['president', 'officer', 'member'], true)
+                    ? (string) $payload['intended_role']
+                    : 'officer';
+
                 DB::table('organization_officers')->updateOrInsert(
                     ['user' => (int) $applicant->getKey(), 'organization' => $organizationId],
                     [
                         'approval' => (int) $approval->approval_id,
-                        'role' => 'officer',
+                        'role' => $role,
+                        'position' => $payload['intended_position'] ?? $payload['position'] ?? 'other',
                         'yearterm' => null,
                         'member_since' => now(),
                         'registered_at' => now(),
@@ -499,11 +504,16 @@ class RequestDecisionController extends Controller
 
             $organizationId = (int) ($payload['organization_id'] ?? 0);
             if ($organizationId > 0) {
+                $role = in_array((string) ($payload['intended_role'] ?? ''), ['president', 'officer', 'member'], true)
+                    ? (string) $payload['intended_role']
+                    : 'officer';
+
                 DB::table('organization_officers')->insert([
                     'user' => (int) $newUser->user_id,
                     'approval' => (int) $approval->approval_id,
                     'organization' => $organizationId,
-                    'role' => 'officer',
+                    'role' => $role,
+                    'position' => $payload['intended_position'] ?? $payload['position'] ?? 'other',
                     'yearterm' => null,
                     'member_since' => now(),
                     'registered_at' => now(),

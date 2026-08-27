@@ -2,14 +2,22 @@
 
 namespace App\Services;
 
+use App\Forms\Handlers\NewOrganizationRegistrationHandler;
 use App\Helpers\FormTemplateHelper;
+use App\Mail\NewOrganizationInvitationMail;
 use App\Models\Approval;
 use App\Models\Event;
 use App\Models\Event\EventDetail;
 use App\Models\EventPlan;
+use App\Models\Organization;
+use App\Models\Organization\OrganizationDetail;
+use App\Models\OrganizationInvitation;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class RequestApprovalService
 {
@@ -135,6 +143,10 @@ class RequestApprovalService
             if ($eventPlanId > 0) {
                 EventPlan::query()->where('event_plan_id', $eventPlanId)->update(['status' => 'approved']);
             }
+        }
+
+        if ($this->isNewOrganizationRequest($actionType, $systemKey)) {
+            $this->createOrganizationFromRequest($actionRequest, $approval);
         }
 
         return $approval;
@@ -394,5 +406,128 @@ class RequestApprovalService
     {
         return $actionType === FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION
             || $systemKey === RequestType::SYSTEM_KEY_FORM_GENERATION;
+    }
+
+    private function isNewOrganizationRequest(int $actionType, string $systemKey): bool
+    {
+        return $actionType === NewOrganizationRegistrationHandler::ACTION_TYPE
+            || $systemKey === RequestType::SYSTEM_KEY_NEW_ORGANIZATION_REGISTRATION;
+    }
+
+    /**
+    * Create the organization from an approved new-organization request and
+    * either attach existing leaders or issue their invitations.
+     */
+    private function createOrganizationFromRequest(ActionRequest $actionRequest, Approval $approval): void
+    {
+        $payload = (array) ($actionRequest->payload ?? []);
+
+        $handler = app(NewOrganizationRegistrationHandler::class);
+        $form = $actionRequest->form;
+        $presidentEmail = $form !== null
+            ? $handler->resolvePresidentEmail($form, $payload)
+            : (is_string($payload['president_email'] ?? null) ? strtolower(trim($payload['president_email'])) : null);
+        $officerEmail = $form !== null
+            ? $handler->resolveOfficerEmail($form, $payload)
+            : (is_string($payload['officer_email'] ?? null) ? strtolower(trim($payload['officer_email'])) : null);
+
+        if ($presidentEmail === null || $presidentEmail === '' || $officerEmail === null || $officerEmail === '') {
+            return;
+        }
+
+        $name = trim((string) ($this->payloadOrganizationValue($payload, $form, 'organization_name')));
+        $initials = trim((string) ($this->payloadOrganizationValue($payload, $form, 'organization_initials')));
+        $description = trim((string) ($this->payloadOrganizationValue($payload, $form, 'organization_description')));
+        $type = (int) ($this->payloadOrganizationValue($payload, $form, 'organization_type') ?? 1);
+
+        if ($name === '' || $initials === '') {
+            return;
+        }
+
+        $existingOrg = OrganizationDetail::query()->where('name', $name)->first();
+        if ($existingOrg !== null) {
+            return;
+        }
+
+        DB::transaction(function () use ($actionRequest, $approval, $presidentEmail, $officerEmail, $name, $initials, $description, $type) {
+            $detail = OrganizationDetail::query()->create([
+                'name' => $name,
+                'initials' => $initials,
+                'detail_text' => $description !== '' ? $description : $name,
+            ]);
+
+            $organization = Organization::query()->create([
+                'detail' => (int) $detail->getKey(),
+                'organization_type' => $type,
+                'accreditation_status' => \App\Services\AccreditationService::STATUS_ACTIVE ?? 'active',
+            ]);
+
+            $organizationId = (int) $organization->getKey();
+
+            foreach ([
+                ['email' => $presidentEmail, 'role' => 'president', 'position' => null],
+                ['email' => $officerEmail, 'role' => 'officer', 'position' => 'other'],
+            ] as $leader) {
+                $leaderUser = User::query()->where('user_email', $leader['email'])->first();
+
+                if ($leaderUser !== null && in_array((int) $leaderUser->user_type, [User::TYPE_SUPERADMIN, User::TYPE_ADMIN, User::TYPE_OFFICER], true)) {
+                    DB::table('organization_officers')->updateOrInsert(
+                        ['user' => (int) $leaderUser->getKey(), 'organization' => $organizationId],
+                        [
+                            'approval' => (int) $approval->getKey(),
+                            'role' => $leader['role'],
+                            'position' => $leader['position'],
+                            'yearterm' => null,
+                            'member_since' => now(),
+                            'registered_at' => now(),
+                            'reassigned_at' => now(),
+                        ]
+                    );
+
+                    continue;
+                }
+
+                $rawToken = Str::random(64);
+                OrganizationInvitation::query()->create([
+                    'email' => $leader['email'],
+                    'token_hash' => hash('sha256', $rawToken),
+                    'organization_id' => $organizationId,
+                    'request_id' => (int) $actionRequest->getKey(),
+                    'role' => $leader['role'],
+                    'position' => $leader['position'],
+                    'expires_at' => now()->addDays(7),
+                ]);
+
+                try {
+                    Mail::to($leader['email'])->send(new NewOrganizationInvitationMail(
+                        recipientEmail: $leader['email'],
+                        organizationName: $name,
+                        role: $leader['role'],
+                        activationUrl: route('organization-invitation.redeem', ['token' => $rawToken]),
+                    ));
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('New organization invitation email failed: '.$e->getMessage());
+                }
+            }
+        });
+    }
+
+    /**
+     * Resolve an organization detail value from the payload, falling back to
+     * a field whose universal_key matches the well-known key.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function payloadOrganizationValue(array $payload, ?\App\Models\Form $form, string $key): mixed
+    {
+        if ($form !== null) {
+            foreach ($form->fields as $field) {
+                if (($field->universal_key === $key || $field->field_key === $key) && array_key_exists($field->field_key, $payload)) {
+                    return $payload[$field->field_key];
+                }
+            }
+        }
+
+        return $payload[$key] ?? null;
     }
 }
