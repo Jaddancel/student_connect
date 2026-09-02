@@ -334,10 +334,15 @@ export function formBuilder(config) {
             return Object.keys(this.specialPalette).length > 0;
         },
 
-        /** Keep each role-defining email field unique until it is removed. */
+        /** Only the proposed president is unique on the organization form. */
         isPaletteTypeAvailable(type) {
+            if (type === "new-president-email") {
+                return !this.fields.some((field) => field.field_type === type);
+            }
+
             return (
-                !["new-president-email", "new-officer-email"].includes(type) ||
+                type !== "new-officer-email" ||
+                this.kit !== "sign_up" ||
                 !this.fields.some((field) => field.field_type === type)
             );
         },
@@ -367,7 +372,7 @@ export function formBuilder(config) {
                 return this.kit === "sign_up"
                     ? "email"
                     : this.kit === "new_organization_registration"
-                      ? "officer_email"
+                      ? this.keyFromLabel("officer_email")
                       : null;
             }
 

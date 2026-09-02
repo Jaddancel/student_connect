@@ -279,6 +279,16 @@ it('creates the organization and issues an invitation for an unregistered founde
     $admin = newOrgMakeAdmin();
     $presidentEmail = 'invited@example.com';
     $officerEmail = 'officer@example.com';
+    $secondOfficerEmail = 'officer-two@example.com';
+
+    FormDescription::query()->create([
+        'form_id' => $form->getKey(),
+        'field_key' => 'officer_email_2',
+        'field_label' => 'New Officer Email Field',
+        'field_type' => FieldType::NEW_OFFICER_EMAIL,
+        'is_required' => false,
+        'field_order' => 7,
+    ]);
 
     $this->post(route('forms.render.submit', $form->route_name), [
         'organization_name' => 'Invited Org',
@@ -287,6 +297,7 @@ it('creates the organization and issues an invitation for an unregistered founde
         'organization_type' => '1',
         'president_email' => $presidentEmail,
         'officer_email' => $officerEmail,
+        'officer_email_2' => $secondOfficerEmail,
     ]);
 
     $request = ActionRequest::query()->where('form_id', $form->getKey())->first();
@@ -319,6 +330,15 @@ it('creates the organization and issues an invitation for an unregistered founde
     expect($officerInvitation)->not->toBeNull();
     expect($officerInvitation->role)->toBe('officer');
     expect($officerInvitation->position)->toBe('other');
+
+    $secondOfficerInvitation = OrganizationInvitation::query()
+        ->where('organization_id', $org->organization_id)
+        ->where('email', $secondOfficerEmail)
+        ->first();
+
+    expect($secondOfficerInvitation)->not->toBeNull();
+    expect($secondOfficerInvitation->role)->toBe('officer');
+    expect($secondOfficerInvitation->position)->toBe('other');
 
     $this->assertDatabaseMissing('organization_officers', [
         'organization' => $org->organization_id,

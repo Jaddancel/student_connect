@@ -341,6 +341,7 @@
     <!-- Embedded Login Section -->
     <section id="auth" style="
         min-height: 100vh;
+        padding: 0;
         position: relative;
         overflow: hidden;
         display: flex;

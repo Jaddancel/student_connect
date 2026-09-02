@@ -427,11 +427,11 @@ class RequestApprovalService
         $presidentEmail = $form !== null
             ? $handler->resolvePresidentEmail($form, $payload)
             : (is_string($payload['president_email'] ?? null) ? strtolower(trim($payload['president_email'])) : null);
-        $officerEmail = $form !== null
-            ? $handler->resolveOfficerEmail($form, $payload)
-            : (is_string($payload['officer_email'] ?? null) ? strtolower(trim($payload['officer_email'])) : null);
+        $officerEmails = $form !== null
+            ? $handler->resolveOfficerEmails($form, $payload)
+            : array_values(array_filter(array_map('strval', (array) ($payload['officer_emails'] ?? [$payload['officer_email'] ?? null]))));
 
-        if ($presidentEmail === null || $presidentEmail === '' || $officerEmail === null || $officerEmail === '') {
+        if ($presidentEmail === null || $presidentEmail === '' || $officerEmails === []) {
             return;
         }
 
@@ -449,7 +449,7 @@ class RequestApprovalService
             return;
         }
 
-        DB::transaction(function () use ($actionRequest, $approval, $presidentEmail, $officerEmail, $name, $initials, $description, $type) {
+        DB::transaction(function () use ($actionRequest, $approval, $presidentEmail, $officerEmails, $name, $initials, $description, $type) {
             $detail = OrganizationDetail::query()->create([
                 'name' => $name,
                 'initials' => $initials,
@@ -464,10 +464,14 @@ class RequestApprovalService
 
             $organizationId = (int) $organization->getKey();
 
-            foreach ([
+            $leaders = [
                 ['email' => $presidentEmail, 'role' => 'president', 'position' => null],
-                ['email' => $officerEmail, 'role' => 'officer', 'position' => 'other'],
-            ] as $leader) {
+            ];
+            foreach ($officerEmails as $officerEmail) {
+                $leaders[] = ['email' => $officerEmail, 'role' => 'officer', 'position' => 'other'];
+            }
+
+            foreach ($leaders as $leader) {
                 $leaderUser = User::query()->where('user_email', $leader['email'])->first();
 
                 if ($leaderUser !== null && in_array((int) $leaderUser->user_type, [User::TYPE_SUPERADMIN, User::TYPE_ADMIN, User::TYPE_OFFICER], true)) {

@@ -100,10 +100,12 @@ class FormRequestController extends Controller
         if ((string) $form->system_function === SystemFunction::NEW_ORGANIZATION_REGISTRATION && $submission) {
             $handler = app(NewOrganizationRegistrationHandler::class);
             $submissionPayload = (array) ($submission->payload ?? []);
-            foreach ([
-                'president' => $handler->resolvePresidentEmail($form, $submissionPayload),
-                'officer' => $handler->resolveOfficerEmail($form, $submissionPayload),
-            ] as $role => $email) {
+            $emails = ['president' => $handler->resolvePresidentEmail($form, $submissionPayload)];
+            foreach ($handler->resolveOfficerEmails($form, $submissionPayload) as $index => $email) {
+                $emails['officer '.($index + 1)] = $email;
+            }
+
+            foreach ($emails as $role => $email) {
                 if ($email !== null && $email !== '') {
                     $newOrganizationEmailStatuses[$role] = [
                         'email' => $email,

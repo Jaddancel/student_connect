@@ -50,17 +50,23 @@ class NewOrganizationRegistrationHandler implements SystemFunctionHandler
             ]);
         }
 
-        $officerEmail = $this->resolveOfficerEmail($form, $payload);
-        if ($officerEmail === null || $officerEmail === '') {
+        $officerEmails = $this->resolveOfficerEmails($form, $payload);
+        if ($officerEmails === []) {
             throw ValidationException::withMessages([
                 'form' => 'This form is bound to the "'.\App\Forms\SystemFunction::label((string) $form->system_function)
                     .'" function but is missing a required "'.FieldType::label(FieldType::NEW_OFFICER_EMAIL).'" field.',
             ]);
         }
 
-        if ($presidentEmail === $officerEmail) {
+        if (in_array($presidentEmail, $officerEmails, true)) {
             throw ValidationException::withMessages([
                 'officer_email' => 'The new officer email must be different from the new president email.',
+            ]);
+        }
+
+        if (count($officerEmails) !== count(array_unique($officerEmails))) {
+            throw ValidationException::withMessages([
+                'officer_email' => 'Each new officer email must be different.',
             ]);
         }
 
@@ -89,10 +95,14 @@ class NewOrganizationRegistrationHandler implements SystemFunctionHandler
             ->where('form_id', (int) $form->getKey())
             ->where('action_type', self::ACTION_TYPE)
             ->whereNotIn('request_id', Approval::query()->select('request')->whereNotNull('request'))
-            ->where(function ($query) use ($presidentEmail, $officerEmail, $normalized) {
+            ->where(function ($query) use ($presidentEmail, $officerEmails, $normalized) {
                 $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload, '$.president_email')) = ?", [$presidentEmail])
-                    ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload, '$.officer_email')) = ?", [$officerEmail])
                     ->orWhereRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.organization_name'))) = ?", [$normalized['name']]);
+
+                foreach ($officerEmails as $officerEmail) {
+                    $query->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload, '$.officer_email')) = ?", [$officerEmail])
+                        ->orWhereRaw("JSON_CONTAINS(JSON_EXTRACT(payload, '$.officer_emails'), JSON_QUOTE(?))", [$officerEmail]);
+                }
             })
             ->exists();
 
@@ -106,7 +116,7 @@ class NewOrganizationRegistrationHandler implements SystemFunctionHandler
     public function handle(Form $form, FormSubmission $submission, array $payload, Request $request): RedirectResponse
     {
         $presidentEmail = strtolower((string) $this->resolvePresidentEmail($form, $payload));
-        $officerEmail = strtolower((string) $this->resolveOfficerEmail($form, $payload));
+        $officerEmails = $this->resolveOfficerEmails($form, $payload);
 
         $requestTypeId = $form->request_type_id
             ? (int) $form->request_type_id
@@ -127,8 +137,15 @@ class NewOrganizationRegistrationHandler implements SystemFunctionHandler
             'payload' => array_merge($payload, [
                 'president_email' => $presidentEmail,
                 'president_is_registered' => $this->isRegisteredEmail($presidentEmail),
-                'officer_email' => $officerEmail,
-                'officer_is_registered' => $this->isRegisteredEmail($officerEmail),
+                // Keep the original scalar fields for existing request pages,
+                // while retaining every duplicate officer field for approval.
+                'officer_email' => $officerEmails[0],
+                'officer_is_registered' => $this->isRegisteredEmail($officerEmails[0]),
+                'officer_emails' => $officerEmails,
+                'officer_registration_statuses' => array_map(
+                    fn (string $email) => $this->isRegisteredEmail($email),
+                    $officerEmails,
+                ),
                 'form_submission_id' => (int) $submission->getKey(),
             ]),
             'user' => $request->user()?->getKey(),
@@ -150,7 +167,38 @@ class NewOrganizationRegistrationHandler implements SystemFunctionHandler
     /** Find the submitted officer email by looking for its special field type. */
     public function resolveOfficerEmail(Form $form, array $payload): ?string
     {
-        return $this->resolveEmailForType($form, $payload, FieldType::NEW_OFFICER_EMAIL, 'officer_email');
+        return $this->resolveOfficerEmails($form, $payload)[0] ?? null;
+    }
+
+    /**
+     * Find every submitted officer email. Duplicate officer controls are
+     * supported only by the New Organization Registration form.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<int,string>
+     */
+    public function resolveOfficerEmails(Form $form, array $payload): array
+    {
+        $emails = [];
+        foreach ($form->fields as $field) {
+            if ($field->field_type !== FieldType::NEW_OFFICER_EMAIL || ! array_key_exists($field->field_key, $payload)) {
+                continue;
+            }
+
+            $value = $payload[$field->field_key];
+            if (is_string($value) && trim($value) !== '') {
+                $emails[] = strtolower(trim($value));
+            }
+        }
+
+        if ($emails !== []) {
+            return $emails;
+        }
+
+        return array_values(array_filter(
+            array_map('strval', (array) ($payload['officer_emails'] ?? [$this->payloadValue($form, $payload, 'officer_email')])),
+            fn (string $email) => $email !== '',
+        ));
     }
 
     /**
