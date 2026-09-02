@@ -21,6 +21,9 @@ final class SpecialFieldLabel
     {
         return match ($type) {
             FieldType::ORG_SELECT => self::organizationName($value),
+            FieldType::ORGANIZATION_TYPE_SELECT => is_numeric($value)
+                ? \App\Enums\OrganizationType::label((int) $value)
+                : (string) $value,
             FieldType::EVENT_SELECT => self::eventPlanTitle($value),
             FieldType::WORKPLAN_EVENTS => implode(', ', array_filter(array_map(
                 fn ($id) => self::eventPlanTitle($id),

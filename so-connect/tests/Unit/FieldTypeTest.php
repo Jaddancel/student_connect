@@ -1,6 +1,8 @@
 <?php
 
 use App\Forms\FieldType;
+use App\Forms\FieldKit;
+use App\Forms\SystemFunction;
 
 it('validates time and datetime fields against their input formats', function () {
     expect(FieldType::validationRules(FieldType::TIME, true))->toBe(['required', 'date_format:H:i'])
@@ -50,6 +52,21 @@ it('offers the search field in the palette', function () {
     expect(FieldType::paletteCatalog())->toHaveKey(FieldType::SEARCH)
         ->and(FieldType::isValid(FieldType::SEARCH))->toBeTrue()
         ->and(FieldType::catalog()[FieldType::SEARCH]['group'])->toBe('choice');
+});
+
+it('includes president and officer email fields in the organization registration kit', function () {
+    expect(FieldType::catalog()[FieldType::NEW_PRESIDENT_EMAIL]['label'])->toBe('New President Email Field')
+        ->and(FieldType::validationRules(FieldType::NEW_PRESIDENT_EMAIL, true))
+        ->toBe(['required', 'string', 'email', 'max:255'])
+        ->and(FieldType::paletteCatalog(SystemFunction::NEW_ORGANIZATION_REGISTRATION))
+        ->toHaveKey(FieldType::NEW_PRESIDENT_EMAIL)
+        ->toHaveKey(FieldType::NEW_OFFICER_EMAIL)
+        ->and(FieldKit::required(SystemFunction::NEW_ORGANIZATION_REGISTRATION))
+        ->toBe([
+            'president_email' => FieldType::NEW_PRESIDENT_EMAIL,
+            'officer_email' => FieldType::NEW_OFFICER_EMAIL,
+            'organization_type' => FieldType::ORGANIZATION_TYPE_SELECT,
+        ]);
 });
 
 it('validates a sourced select/search against the scoped source values', function () {

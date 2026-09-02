@@ -33,10 +33,11 @@ class FormRenderController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
-        // The Sign Up form is a public page (like the old signup wizard);
+        // The Sign Up and New Organization Registration forms are public pages;
         // every other form is gated to organization officers.
         abort_unless(
-            $form->system_function === SystemFunction::SIGN_UP || Form::isAccessibleBy($request->user()),
+            in_array((string) $form->system_function, [SystemFunction::SIGN_UP, SystemFunction::NEW_ORGANIZATION_REGISTRATION], true)
+            || Form::isAccessibleBy($request->user()),
             403,
             'Form pages are available to organization officers only.',
         );
@@ -47,10 +48,12 @@ class FormRenderController extends Controller
         $hidden = $context['hidden'];
 
         // The public sign-up form pre-fills from the landing-page Google popup's
-        // query params (google_id/first_name/last_name/email); google_id rides
-        // along as a hidden input the SignUp approval reads.
+        // query params (google_id/first_name/last_name/email) or from an
+        // encrypted organization invitation payload; google_id rides along as a
+        // hidden input the SignUp approval reads.
         if ($form->system_function === SystemFunction::SIGN_UP) {
             [$prefill, $hidden] = $this->signupQueryPrefill($request, $fields, $prefill);
+            [$prefill, $hidden] = $this->signupInvitationPrefill($request, $fields, $prefill, $hidden);
             $prefill = $this->signupRetryPrefill($request, $fields, $prefill);
             $this->relaxPasswordForRetry($request, $fields);
         }
@@ -74,6 +77,56 @@ class FormRenderController extends Controller
             'hidden' => $hidden,
             'recentSubmissions' => $this->recentSubmissions($request, $form),
         ]));
+    }
+
+    /**
+     * Merge a signed/encrypted organization invitation payload into the sign-up
+     * form's prefill. The email and organization are locked: they are shown
+     * read-only where possible and carried as hidden inputs the handler uses
+     * to enforce the invitation contract.
+     *
+     * @param  \Illuminate\Support\Collection<int,\App\Models\Form\FormDescription>  $fields
+     * @param  array<string,mixed>  $prefill
+     * @param  array<string,string>  $hidden
+     * @return array{0:array<string,mixed>,1:array<string,string>}
+     */
+    private function signupInvitationPrefill(Request $request, $fields, array $prefill, array $hidden): array
+    {
+        $token = (string) $request->query('prefill', '');
+        if ($token === '') {
+            return [$prefill, $hidden];
+        }
+
+        $rawToken = base64_decode($token, true);
+        if ($rawToken === false) {
+            return [$prefill, $hidden];
+        }
+
+        try {
+            $decrypted = json_decode(\Illuminate\Support\Facades\Crypt::decryptString($rawToken), true);
+        } catch (\Throwable) {
+            return [$prefill, $hidden];
+        }
+
+        if (! is_array($decrypted) || ! isset($decrypted['email'], $decrypted['organization_id'])) {
+            return [$prefill, $hidden];
+        }
+
+        $email = strtolower(trim((string) $decrypted['email']));
+        $organizationId = (int) $decrypted['organization_id'];
+
+        foreach ($fields as $field) {
+            if ($field->universal_key === 'email' || $field->field_key === 'email') {
+                $prefill[$field->field_key] = $email;
+            }
+            if ($field->field_type === FieldType::ORG_SELECT && $field->field_key === 'organization_id') {
+                $prefill[$field->field_key] = $organizationId;
+            }
+        }
+
+        $hidden['invitation_prefill'] = $token;
+
+        return [$prefill, $hidden];
     }
 
     /**
@@ -276,10 +329,11 @@ class FormRenderController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
-        // The Sign Up form is a public page (like the old signup wizard);
+        // The Sign Up and New Organization Registration forms are public pages;
         // every other form is gated to organization officers.
         abort_unless(
-            $form->system_function === SystemFunction::SIGN_UP || Form::isAccessibleBy($request->user()),
+            in_array((string) $form->system_function, [SystemFunction::SIGN_UP, SystemFunction::NEW_ORGANIZATION_REGISTRATION], true)
+            || Form::isAccessibleBy($request->user()),
             403,
             'Form pages are available to organization officers only.',
         );

@@ -1,4 +1,4 @@
-import Sortable from 'sortablejs';
+import Sortable from "sortablejs";
 
 /**
  * Alpine component backing the WYSIWYG form-builder editor.
@@ -20,7 +20,7 @@ export function formBuilder(config) {
         // [{ key, label, type, type_label }]. Empty unless this is the workplan form.
         eventFieldChoices: config.eventFieldChoices || [],
         // The form's field kit (e.g. 'sign_up'), used to gate kit-only autofills.
-        kit: config.kit || '',
+        kit: config.kit || "",
         storeUrl: config.storeUrl,
         updateUrl: config.updateUrl,
         uploadUrl: config.uploadUrl,
@@ -32,31 +32,34 @@ export function formBuilder(config) {
         // reflects unsaved fields; printEnabled gates it on OnlyOffice being
         // configured. draftId is server-minted on first sync and echoed back on
         // save so the draft can be folded into the real template.
-        draftSyncUrl: config.draftSyncUrl || '',
+        draftSyncUrl: config.draftSyncUrl || "",
         formId: config.formId || null,
         printEnabled: !!config.printEnabled,
         draftId: null,
         draftSyncing: false,
-        draftError: '',
+        draftError: "",
 
         // --- model ---
-        name: config.data.name || '',
-        description_text: config.data.description_text || '',
-        route_name: config.data.route_name || '',
-        system_function: config.data.system_function || '',
+        name: config.data.name || "",
+        description_text: config.data.description_text || "",
+        route_name: config.data.route_name || "",
+        system_function: config.data.system_function || "",
         // Sidebar icon key (see MenuHelper::iconNames); '' falls back to the
         // default forms glyph.
-        icon: config.data.icon || '',
+        icon: config.data.icon || "",
         fields: config.data.fields || [],
         rows: config.data.rows || [],
         // The letterhead (header) and footer belong to the printed document, so
         // they live under pdf_template alongside the rich-text body and page setup.
         pdf_template: Object.assign(
             {
-                html: '',
-                page: { size: 'a4', orientation: 'portrait' },
-                font: { family: "'Times New Roman', Times, serif", size: '12px' },
-                header: { align: 'center' },
+                html: "",
+                page: { size: "a4", orientation: "portrait" },
+                font: {
+                    family: "'Times New Roman', Times, serif",
+                    size: "12px",
+                },
+                header: { align: "center" },
                 footer: {},
             },
             config.data.pdf_template || {},
@@ -70,27 +73,37 @@ export function formBuilder(config) {
         selectedRow: null,
         routeTouched: false,
         saving: false,
-        message: '',
-        error: '',
+        message: "",
+        error: "",
 
         // --- signature expected-signer picker ---
         // Mirrors App\Forms\FieldType::POSITION_OPTIONS.
-        expectedPositionChoices: ['President', 'Treasurer', 'Auditor', 'Secretary', 'Others'],
-        signatoryQuery: '',
+        expectedPositionChoices: [
+            "President",
+            "Treasurer",
+            "Auditor",
+            "Secretary",
+            "Others",
+        ],
+        signatoryQuery: "",
         signatoryResults: [],
 
         init() {
             // Keys of already-saved fields are frozen: syncFields() upserts by
             // (form_id, field_key), so renaming one would prune the row and
             // orphan its submissions and scoring variables.
-            this.fields.forEach((f) => { f._keyLocked = true; });
+            this.fields.forEach((f) => {
+                f._keyLocked = true;
+            });
 
             // Legacy forms stored "Section"/"Static text" as fields inside a
             // column; they're now row properties. Hoist them onto their row and
             // drop the fields so the builder works with a single, clean model.
             this.migrateLegacyLayoutFields();
             // Every row needs a stable id for selection (see selectedRow).
-            this.rows.forEach((row) => { if (!row._id) row._id = this.newId(); });
+            this.rows.forEach((row) => {
+                if (!row._id) row._id = this.newId();
+            });
 
             if (!this.isEdit) {
                 // The real name is entered in Step 3, but name (and its derived
@@ -106,41 +119,53 @@ export function formBuilder(config) {
                 }
 
                 // Auto-slug the route name from the title while creating.
-                this.$watch('name', (v) => {
+                this.$watch("name", (v) => {
                     if (!this.routeTouched) this.route_name = this.slug(v);
                 });
             }
         },
 
         slug(v) {
-            return (v || '').toString().toLowerCase().trim()
-                .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+            return (v || "")
+                .toString()
+                .toLowerCase()
+                .trim()
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/^-+|-+$/g, "");
         },
 
         /** "new_event" → "New Event" for a friendly temporary form name. */
         titleCase(key) {
-            return (key || '').toString().replace(/[_-]+/g, ' ').trim()
+            return (key || "")
+                .toString()
+                .replace(/[_-]+/g, " ")
+                .trim()
                 .replace(/\b\w/g, (c) => c.toUpperCase());
         },
 
         /** Local "YYYY-MM-DD HH:MM:SS" tag, unique enough for a temp name/route. */
         timestampTag() {
             const d = new Date();
-            const p = (n) => String(n).padStart(2, '0');
-            return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
-                + ` ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+            const p = (n) => String(n).padStart(2, "0");
+            return (
+                `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` +
+                ` ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+            );
         },
 
         // --- wizard navigation ---
         get hasTemplate() {
-            return (this.pdf_template.html || '').replace(/<[^>]*>/g, '').trim().length > 0
-                || /data-field=/.test(this.pdf_template.html || '');
+            return (
+                (this.pdf_template.html || "").replace(/<[^>]*>/g, "").trim()
+                    .length > 0 ||
+                /data-field=/.test(this.pdf_template.html || "")
+            );
         },
 
         async goToStep(n) {
-            this.error = '';
+            this.error = "";
             if (n === 2 && this.fields.length === 0) {
-                this.error = 'Add at least one field in Step 1 first.';
+                this.error = "Add at least one field in Step 1 first.";
                 return;
             }
             // Entering Step 2: snapshot the current fields into a draft so the
@@ -155,14 +180,20 @@ export function formBuilder(config) {
                 this.step = 2;
                 // Boot (or reboot) the editor only after the step is shown, so
                 // OnlyOffice never initialises into a hidden, zero-size surface.
-                window.dispatchEvent(new CustomEvent('printed-template:sync', { detail }));
+                window.dispatchEvent(
+                    new CustomEvent("printed-template:sync", { detail }),
+                );
                 return;
             }
             this.step = Math.max(1, Math.min(3, n));
         },
 
-        nextStep() { this.goToStep(this.step + 1); },
-        prevStep() { this.goToStep(this.step - 1); },
+        nextStep() {
+            this.goToStep(this.step + 1);
+        },
+        prevStep() {
+            this.goToStep(this.step - 1);
+        },
 
         /**
          * Snapshot the builder's fields into a non-persistent draft. Returns the
@@ -173,32 +204,36 @@ export function formBuilder(config) {
         async syncDraft() {
             if (!this.draftSyncUrl) return false;
             this.draftSyncing = true;
-            this.draftError = '';
+            this.draftError = "";
             try {
                 const res = await fetch(this.draftSyncUrl, {
-                    method: 'POST',
+                    method: "POST",
                     headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': this.csrf,
-                        Accept: 'application/json',
+                        "Content-Type": "application/json",
+                        "X-CSRF-TOKEN": this.csrf,
+                        Accept: "application/json",
                     },
                     body: JSON.stringify({
                         draft_id: this.draftId,
                         form_id: this.formId,
                         name: this.name,
-                        fields: this.fields.map(({ _keyLocked, ...field }) => field),
+                        fields: this.fields.map(
+                            ({ _keyLocked, ...field }) => field,
+                        ),
                     }),
                 });
                 const json = await res.json().catch(() => ({}));
                 if (!res.ok) {
-                    this.draftError = json.message || 'Could not prepare the printed template.';
+                    this.draftError =
+                        json.message ||
+                        "Could not prepare the printed template.";
                     this.error = this.draftError;
                     return false;
                 }
                 this.draftId = json.draftId;
                 return { configUrl: json.configUrl, importUrl: json.importUrl };
             } catch (e) {
-                this.draftError = 'Could not prepare the printed template.';
+                this.draftError = "Could not prepare the printed template.";
                 this.error = this.draftError;
                 return false;
             } finally {
@@ -248,14 +283,18 @@ export function formBuilder(config) {
                     col.fields = col.fields.filter((key) => {
                         const f = this.field(key);
                         if (!f) return true;
-                        if (f.field_type === 'heading') {
-                            if (!row.header) row.header = f.field_label || '';
+                        if (f.field_type === "heading") {
+                            if (!row.header) row.header = f.field_label || "";
                             dropped.add(key);
                             return false;
                         }
-                        if (f.field_type === 'static-text') {
+                        if (f.field_type === "static-text") {
                             if (!row.static_text) {
-                                row.static_text = (f.field_options && f.field_options.content) || f.field_label || '';
+                                row.static_text =
+                                    (f.field_options &&
+                                        f.field_options.content) ||
+                                    f.field_label ||
+                                    "";
                             }
                             dropped.add(key);
                             return false;
@@ -265,20 +304,29 @@ export function formBuilder(config) {
                 });
             });
             if (dropped.size) {
-                this.fields = this.fields.filter((f) => !dropped.has(f.field_key));
+                this.fields = this.fields.filter(
+                    (f) => !dropped.has(f.field_key),
+                );
             }
         },
 
         // --- palette sections ---
         get fieldPalette() {
             return Object.fromEntries(
-                Object.entries(this.catalog).filter(([, meta]) => meta.group !== 'layout' && meta.group !== 'special'),
+                Object.entries(this.catalog).filter(
+                    ([, meta]) =>
+                        meta.group !== "layout" && meta.group !== "special",
+                ),
             );
         },
 
         get specialPalette() {
             return Object.fromEntries(
-                Object.entries(this.catalog).filter(([, meta]) => meta.group === 'special'),
+                Object.entries(this.catalog).filter(
+                    ([type, meta]) =>
+                        meta.group === "special" &&
+                        this.isPaletteTypeAvailable(type),
+                ),
             );
         },
 
@@ -286,25 +334,58 @@ export function formBuilder(config) {
             return Object.keys(this.specialPalette).length > 0;
         },
 
+        /** Only the proposed president is unique on the organization form. */
+        isPaletteTypeAvailable(type) {
+            if (type === "new-president-email") {
+                return !this.fields.some((field) => field.field_type === type);
+            }
+
+            return (
+                type !== "new-officer-email" ||
+                this.kit !== "sign_up" ||
+                !this.fields.some((field) => field.field_type === type)
+            );
+        },
+
         // --- field creation ---
         /** Build a field object (not yet placed in a row) for `type`. */
         makeField(type) {
             const label = this.labelFor(type);
+            const fixedKey = this.fixedFieldKey(type);
             return {
-                field_key: this.keyFromLabel(label),
+                field_key: fixedKey || this.keyFromLabel(label),
                 field_label: label,
                 field_type: type,
                 is_required: false,
-                placeholder_hint: '',
+                placeholder_hint: "",
                 field_options: this.defaultOptions(type),
-                universal_key: '',
-                _keyLocked: false, // client-only: key follows the label until saved
+                universal_key: "",
+                // Kit-required email controls retain their contract key even if
+                // an admin adjusts the field label for display.
+                _keyLocked: Boolean(fixedKey),
             };
+        },
+
+        /** The field-kit keys required for role-defining email controls. */
+        fixedFieldKey(type) {
+            if (type === "new-officer-email") {
+                return this.kit === "sign_up"
+                    ? "email"
+                    : this.kit === "new_organization_registration"
+                      ? this.keyFromLabel("officer_email")
+                      : null;
+            }
+
+            return type === "new-president-email" &&
+                this.kit === "new_organization_registration"
+                ? "president_email"
+                : null;
         },
         /** Insert a row (stamping its id) at `index`, or append when null. */
         insertRow(row, index = null) {
             if (!row._id) row._id = this.newId();
-            if (index === null || index >= this.rows.length) this.rows.push(row);
+            if (index === null || index >= this.rows.length)
+                this.rows.push(row);
             else this.rows.splice(Math.max(0, index), 0, row);
             return row;
         },
@@ -312,7 +393,10 @@ export function formBuilder(config) {
         addFieldAtRow(type, index = null) {
             const f = this.makeField(type);
             this.fields.push(f);
-            this.insertRow({ columns: [{ span: 12, fields: [f.field_key] }] }, index);
+            this.insertRow(
+                { columns: [{ span: 12, fields: [f.field_key] }] },
+                index,
+            );
             this.selectKey(f.field_key);
         },
         /** Palette click-to-add: append a new field row at the end. */
@@ -322,24 +406,31 @@ export function formBuilder(config) {
 
         defaultOptions(type) {
             // A checkbox is a single yes/no checkmark — it carries no option list.
-            if (['select', 'radio'].includes(type)) {
-                return { options: [{ value: 'option_1', label: 'Option 1' }] };
+            if (["select", "radio"].includes(type)) {
+                return { options: [{ value: "option_1", label: "Option 1" }] };
             }
             // The search field is always sourced — default it to the first
             // registered source so it renders something out of the box.
-            if (type === 'search') {
-                return { source: (this.optionSources[0] || {}).key || '' };
+            if (type === "search") {
+                return { source: (this.optionSources[0] || {}).key || "" };
             }
-            if (type === 'age') return { min: 0, max: 150, step: 1 };
-            if (type === 'static-text') return { content: 'Static text…' };
-            if (type === 'password') return { min: 8 };
-            if (type === 'multi-image') return { max_files: 5 };
-            if (type === 'computed') return { formula: 'sum', args: [] };
-            if (type === 'activity-table') return { columns: [] };
-            if (type === 'table-input') {
+            if (type === "age") return { min: 0, max: 150, step: 1 };
+            if (type === "static-text") return { content: "Static text…" };
+            if (type === "password") return { min: 8 };
+            if (type === "multi-image") return { max_files: 5 };
+            if (type === "computed") return { formula: "sum", args: [] };
+            if (type === "activity-table") return { columns: [] };
+            if (type === "table-input") {
                 return {
-                    columns: [{ key: 'column_1', label: 'Column 1', type: 'text', required: false }],
-                    row_total: { key: '', label: 'Total', multiply: [] },
+                    columns: [
+                        {
+                            key: "column_1",
+                            label: "Column 1",
+                            type: "text",
+                            required: false,
+                        },
+                    ],
+                    row_total: { key: "", label: "Total", multiply: [] },
                 };
             }
             return {};
@@ -359,8 +450,8 @@ export function formBuilder(config) {
             if (keepVisible) f.field_options.visible_when = keepVisible;
             // Value-less layout types (heading/static-text) can't autofill or be
             // required, so drop mappings that would now be meaningless.
-            if (['heading', 'static-text'].includes(newType)) {
-                f.universal_key = '';
+            if (["heading", "static-text"].includes(newType)) {
+                f.universal_key = "";
                 f.is_required = false;
             }
         },
@@ -370,11 +461,17 @@ export function formBuilder(config) {
          * `event_title`), unique within this form (`_2`, `_3`… on collision).
          */
         keyFromLabel(label, excludeKey = null) {
-            const base = (label || '').toString().toLowerCase().trim()
-                .replace(/[^a-z0-9]+/g, '_')
-                .replace(/^_+|_+$/g, '') || 'field';
+            const base =
+                (label || "")
+                    .toString()
+                    .toLowerCase()
+                    .trim()
+                    .replace(/[^a-z0-9]+/g, "_")
+                    .replace(/^_+|_+$/g, "") || "field";
             const taken = new Set(
-                this.fields.filter((f) => f.field_key !== excludeKey).map((f) => f.field_key),
+                this.fields
+                    .filter((f) => f.field_key !== excludeKey)
+                    .map((f) => f.field_key),
             );
             if (!taken.has(base)) return base;
             let i = 2;
@@ -396,12 +493,17 @@ export function formBuilder(config) {
             f.field_key = newKey;
             this.rows.forEach((row) => {
                 row.columns.forEach((col) => {
-                    col.fields = col.fields.map((k) => (k === oldKey ? newKey : k));
+                    col.fields = col.fields.map((k) =>
+                        k === oldKey ? newKey : k,
+                    );
                 });
             });
             this.fields.forEach((other) => {
-                if (other.field_options && other.field_options.visible_when
-                    && other.field_options.visible_when.field === oldKey) {
+                if (
+                    other.field_options &&
+                    other.field_options.visible_when &&
+                    other.field_options.visible_when.field === oldKey
+                ) {
                     other.field_options.visible_when.field = newKey;
                 }
             });
@@ -410,7 +512,9 @@ export function formBuilder(config) {
 
         removeField(key) {
             // Note which row held the field so we can prune it if it empties.
-            const host = this.rows.find((r) => r.columns.some((c) => c.fields.includes(key)));
+            const host = this.rows.find((r) =>
+                r.columns.some((c) => c.fields.includes(key)),
+            );
             this.fields = this.fields.filter((f) => f.field_key !== key);
             this.rows.forEach((row) => {
                 row.columns.forEach((col) => {
@@ -421,7 +525,11 @@ export function formBuilder(config) {
             if (host) this.pruneRowIfFieldless(host);
             // Conditions pointing at the removed field would dangle — drop them.
             this.fields.forEach((f) => {
-                if (f.field_options && f.field_options.visible_when && f.field_options.visible_when.field === key) {
+                if (
+                    f.field_options &&
+                    f.field_options.visible_when &&
+                    f.field_options.visible_when.field === key
+                ) {
                     delete f.field_options.visible_when;
                 }
             });
@@ -445,9 +553,13 @@ export function formBuilder(config) {
 
         // --- conditional visibility ---
         setVisibilityMode(f, mode) {
-            if (mode === 'conditional') {
+            if (mode === "conditional") {
                 if (!f.field_options.visible_when) {
-                    f.field_options.visible_when = { field: '', op: 'equals', value: '' };
+                    f.field_options.visible_when = {
+                        field: "",
+                        op: "equals",
+                        value: "",
+                    };
                 }
             } else if (f.field_options.visible_when) {
                 delete f.field_options.visible_when;
@@ -455,9 +567,13 @@ export function formBuilder(config) {
         },
         /** Keys of the fields sharing a row with the given field (self excluded). */
         rowSiblingKeys(fieldKey) {
-            const row = this.rows.find((r) => r.columns.some((c) => c.fields.includes(fieldKey)));
+            const row = this.rows.find((r) =>
+                r.columns.some((c) => c.fields.includes(fieldKey)),
+            );
             if (!row) return [];
-            return row.columns.flatMap((c) => c.fields).filter((k) => k !== fieldKey);
+            return row.columns
+                .flatMap((c) => c.fields)
+                .filter((k) => k !== fieldKey);
         },
         /**
          * Fields that may control a condition: they must sit in the same row as
@@ -466,16 +582,28 @@ export function formBuilder(config) {
          */
         conditionSources(exceptKey) {
             const siblings = new Set(this.rowSiblingKeys(exceptKey));
-            return this.fields.filter((f) => siblings.has(f.field_key)
-                && !['heading', 'static-text', 'image', 'file', 'signature'].includes(f.field_type));
+            return this.fields.filter(
+                (f) =>
+                    siblings.has(f.field_key) &&
+                    ![
+                        "heading",
+                        "static-text",
+                        "image",
+                        "file",
+                        "signature",
+                    ].includes(f.field_type),
+            );
         },
         conditionController(f) {
-            const key = f.field_options.visible_when && f.field_options.visible_when.field;
+            const key =
+                f.field_options.visible_when &&
+                f.field_options.visible_when.field;
             return key ? this.field(key) : null;
         },
         needsConditionValue(f) {
-            const op = f.field_options.visible_when && f.field_options.visible_when.op;
-            return !!op && !['filled', 'empty'].includes(op);
+            const op =
+                f.field_options.visible_when && f.field_options.visible_when.op;
+            return !!op && !["filled", "empty"].includes(op);
         },
 
         // --- row / column controls ---
@@ -491,21 +619,28 @@ export function formBuilder(config) {
             const span = Math.floor(12 / count);
 
             if (count > row.columns.length) {
-                while (row.columns.length < count) row.columns.push({ span, fields: [] });
+                while (row.columns.length < count)
+                    row.columns.push({ span, fields: [] });
             } else {
-                const dropped = row.columns.slice(count).flatMap((c) => c.fields);
+                const dropped = row.columns
+                    .slice(count)
+                    .flatMap((c) => c.fields);
                 row.columns = row.columns.slice(0, count);
                 row.columns[count - 1].fields.push(...dropped);
             }
 
-            row.columns.forEach((c) => { c.span = span; });
+            row.columns.forEach((c) => {
+                c.span = span;
+            });
         },
 
         removeRow(rowIndex) {
             const row = this.rows[rowIndex];
             if (!row) return;
             const keys = row.columns.flatMap((c) => c.fields);
-            this.fields = this.fields.filter((f) => !keys.includes(f.field_key));
+            this.fields = this.fields.filter(
+                (f) => !keys.includes(f.field_key),
+            );
             if (this.selectedRow === row._id) this.selectedRow = null;
             this.rows.splice(rowIndex, 1);
         },
@@ -526,13 +661,16 @@ export function formBuilder(config) {
                 // Accepts field cards (own group, for reordering/moving) and new
                 // fields dragged from the palette ('builder-new') dropped straight
                 // into a populated column; onAdd creates the field there.
-                group: { name: 'builder-fields', put: ['builder-fields', 'builder-new'] },
+                group: {
+                    name: "builder-fields",
+                    put: ["builder-fields", "builder-new"],
+                },
                 animation: 150,
-                draggable: '[data-field-card]',
+                draggable: "[data-field-card]",
                 // The ✕ button must stay clickable, not start a drag.
-                filter: '[data-no-drag]',
+                filter: "[data-no-drag]",
                 preventOnFilter: false,
-                ghostClass: 'opacity-40',
+                ghostClass: "opacity-40",
                 // Native HTML5 DnD brings the browser's own page-level
                 // autoscroll along for the ride, fighting the canvas's own
                 // scroll. forceFallback swaps to Sortable's mouse-simulated
@@ -542,7 +680,8 @@ export function formBuilder(config) {
                 scrollSensitivity: 120,
                 scrollSpeed: 25,
                 bubbleScroll: false,
-                scrollFn: (dx, dy, evt, touchEvt, target) => this.redirectAutoScroll(el, dx, dy, target),
+                scrollFn: (dx, dy, evt, touchEvt, target) =>
+                    this.redirectAutoScroll(el, dx, dy, target),
                 onStart: () => this.ignoreGhost(),
                 onEnd: (evt) => this.onFieldDrop(evt),
                 onAdd: (evt) => this.onColumnAdd(evt),
@@ -561,7 +700,7 @@ export function formBuilder(config) {
          * Alpine's observer gets its microtask turn), keeps Alpine off it.
          */
         ignoreGhost() {
-            if (Sortable.ghost) Sortable.ghost.setAttribute('x-ignore', '');
+            if (Sortable.ghost) Sortable.ghost.setAttribute("x-ignore", "");
         },
 
         /**
@@ -582,12 +721,17 @@ export function formBuilder(config) {
          * defers to the default (page scroll), which is the only option there.
          */
         redirectAutoScroll(el, dx, dy, target) {
-            if (target !== document.scrollingElement && target !== document.documentElement) return 'continue';
-            const canvas = el.closest('[data-canvas-scroll]');
-            if (!canvas || canvas.scrollHeight <= canvas.clientHeight) return 'continue';
+            if (
+                target !== document.scrollingElement &&
+                target !== document.documentElement
+            )
+                return "continue";
+            const canvas = el.closest("[data-canvas-scroll]");
+            if (!canvas || canvas.scrollHeight <= canvas.clientHeight)
+                return "continue";
             canvas.scrollTop += dy;
             canvas.scrollLeft += dx;
-            return 'stop'; // any non-'continue' value suppresses the default scrollBy(target, …)
+            return "stop"; // any non-'continue' value suppresses the default scrollBy(target, …)
         },
 
         /**
@@ -601,20 +745,25 @@ export function formBuilder(config) {
 
             // Dropped onto the canvas (outside any column) → onCanvasAdd turns it
             // into a new row. Leave the DOM/model to that handler and bail here.
-            if (to.hasAttribute && to.hasAttribute('data-rows-root')) return;
+            if (to.hasAttribute && to.hasAttribute("data-rows-root")) return;
 
             // Revert Sortable's DOM mutation (see above). Index against the
             // field cards only — a column's element children also include
             // Alpine's <template> anchors, so raw `children` would misplace it.
             to.removeChild(item);
-            const cards = from.querySelectorAll(':scope > [data-field-card]');
+            const cards = from.querySelectorAll(":scope > [data-field-card]");
             from.insertBefore(item, cards[oldIndex] || null);
 
             const fromRow = parseInt(from.dataset.row, 10);
             const fromCol = parseInt(from.dataset.col, 10);
             const toRow = parseInt(to.dataset.row, 10);
             const toCol = parseInt(to.dataset.col, 10);
-            if ([fromRow, fromCol, toRow, toCol, oldIndex, newIndex].some(Number.isNaN)) return;
+            if (
+                [fromRow, fromCol, toRow, toCol, oldIndex, newIndex].some(
+                    Number.isNaN,
+                )
+            )
+                return;
 
             const sourceRow = this.rows[fromRow];
             const source = sourceRow?.columns[fromCol]?.fields;
@@ -652,11 +801,14 @@ export function formBuilder(config) {
                 // ('builder-fields'); onAdd turns either drop into a new row at
                 // the drop position (SortableJS shows the placeholder gap so the
                 // admin sees where it will land).
-                group: { name: 'builder-rows', put: ['builder-new', 'builder-fields'] },
+                group: {
+                    name: "builder-rows",
+                    put: ["builder-new", "builder-fields"],
+                },
                 animation: 150,
-                handle: '[data-row-handle]',
-                draggable: '[data-row-item]',
-                ghostClass: 'opacity-40',
+                handle: "[data-row-handle]",
+                draggable: "[data-row-item]",
+                ghostClass: "opacity-40",
                 // See wireColumn()'s forceFallback/ignoreGhost notes — same
                 // reasoning applies here, and rows have even more nested
                 // Alpine scope (columns, fields) for the clone to trip over.
@@ -666,7 +818,8 @@ export function formBuilder(config) {
                 scrollSpeed: 25,
                 bubbleScroll: false,
                 // See wireColumn()'s redirectAutoScroll note — same fix applies here.
-                scrollFn: (dx, dy, evt, touchEvt, target) => this.redirectAutoScroll(el, dx, dy, target),
+                scrollFn: (dx, dy, evt, touchEvt, target) =>
+                    this.redirectAutoScroll(el, dx, dy, target),
                 onStart: () => this.ignoreGhost(),
                 onEnd: (evt) => this.onRowDrop(evt),
                 onAdd: (evt) => this.onCanvasAdd(evt),
@@ -682,10 +835,10 @@ export function formBuilder(config) {
         wirePalette(el) {
             if (el._sortable) return;
             el._sortable = Sortable.create(el, {
-                group: { name: 'builder-new', pull: 'clone', put: false },
+                group: { name: "builder-new", pull: "clone", put: false },
                 sort: false,
-                draggable: '[data-palette-item]',
-                ghostClass: 'opacity-40',
+                draggable: "[data-palette-item]",
+                ghostClass: "opacity-40",
                 forceFallback: true,
                 onStart: () => this.ignoreGhost(),
                 // pull:'clone' drags the *original* button into the canvas (it's
@@ -708,8 +861,14 @@ export function formBuilder(config) {
         restorePalette(evt) {
             const { item, from, oldIndex, clone } = evt;
             if (clone && clone.parentNode) clone.parentNode.removeChild(clone);
-            const items = () => from.querySelectorAll(':scope > [data-palette-item]');
-            const inPlace = item.parentNode === from && items()[oldIndex] === item;
+            if (!this.isPaletteTypeAvailable(item.dataset.fieldType)) {
+                if (item.parentNode) item.parentNode.removeChild(item);
+                return;
+            }
+            const items = () =>
+                from.querySelectorAll(":scope > [data-palette-item]");
+            const inPlace =
+                item.parentNode === from && items()[oldIndex] === item;
             if (inPlace) return;
             if (item.parentNode) item.parentNode.removeChild(item);
             from.insertBefore(item, items()[oldIndex] || null);
@@ -728,12 +887,12 @@ export function formBuilder(config) {
             let index = 0;
             let node = item.previousElementSibling;
             while (node) {
-                if (node.matches && node.matches('[data-row-item]')) index += 1;
+                if (node.matches && node.matches("[data-row-item]")) index += 1;
                 node = node.previousElementSibling;
             }
 
             // A field card dragged out of a column → move it onto a new row.
-            if (item.matches('[data-field-card]')) {
+            if (item.matches("[data-field-card]")) {
                 const key = item.dataset.fieldKey;
                 to.removeChild(item);
                 if (key) this.moveFieldToNewRow(key, index);
@@ -752,19 +911,21 @@ export function formBuilder(config) {
          */
         onColumnAdd(evt) {
             const { item, to } = evt;
-            if (!item.matches('[data-palette-item]')) return;
+            if (!item.matches("[data-palette-item]")) return;
             const type = item.dataset.fieldType;
             // Index among the column's existing field cards, before the clone.
             let index = 0;
             let node = item.previousElementSibling;
             while (node) {
-                if (node.matches && node.matches('[data-field-card]')) index += 1;
+                if (node.matches && node.matches("[data-field-card]"))
+                    index += 1;
                 node = node.previousElementSibling;
             }
             to.removeChild(item);
             const rowIndex = parseInt(to.dataset.row, 10);
             const colIndex = parseInt(to.dataset.col, 10);
-            if (Number.isNaN(rowIndex) || Number.isNaN(colIndex) || !type) return;
+            if (Number.isNaN(rowIndex) || Number.isNaN(colIndex) || !type)
+                return;
             this.addFieldToColumn(type, rowIndex, colIndex, index);
         },
 
@@ -774,16 +935,23 @@ export function formBuilder(config) {
             if (!col) return;
             const f = this.makeField(type);
             this.fields.push(f);
-            const at = index === null ? col.fields.length : Math.max(0, Math.min(index, col.fields.length));
+            const at =
+                index === null
+                    ? col.fields.length
+                    : Math.max(0, Math.min(index, col.fields.length));
             col.fields.splice(at, 0, f.field_key);
             this.selectKey(f.field_key);
         },
 
         /** Move an existing field out of its column onto its own new row at `index`. */
         moveFieldToNewRow(key, index) {
-            const sourceRow = this.rows.find((r) => r.columns.some((c) => c.fields.includes(key)));
+            const sourceRow = this.rows.find((r) =>
+                r.columns.some((c) => c.fields.includes(key)),
+            );
             if (!sourceRow) return;
-            sourceRow.columns.forEach((c) => { c.fields = c.fields.filter((k) => k !== key); });
+            sourceRow.columns.forEach((c) => {
+                c.fields = c.fields.filter((k) => k !== key);
+            });
             this.insertRow({ columns: [{ span: 12, fields: [key] }] }, index);
             // Moving the last field out of the source row removes it.
             this.pruneRowIfFieldless(sourceRow);
@@ -802,7 +970,7 @@ export function formBuilder(config) {
             // Index against row wrappers only — the container also holds
             // Alpine's <template> anchors, so raw `children` would misplace it.
             from.removeChild(item);
-            const rowNodes = from.querySelectorAll(':scope > [data-row-item]');
+            const rowNodes = from.querySelectorAll(":scope > [data-row-item]");
             from.insertBefore(item, rowNodes[oldIndex] || null);
 
             const [moved] = this.rows.splice(oldIndex, 1);
@@ -815,7 +983,10 @@ export function formBuilder(config) {
             const f = this.field(key);
             if (!f.field_options.options) f.field_options.options = [];
             const n = f.field_options.options.length + 1;
-            f.field_options.options.push({ value: `option_${n}`, label: `Option ${n}` });
+            f.field_options.options.push({
+                value: `option_${n}`,
+                label: `Option ${n}`,
+            });
         },
         removeOption(key, i) {
             const f = this.field(key);
@@ -824,7 +995,7 @@ export function formBuilder(config) {
         isOptioned(type) {
             // Checkbox intentionally excluded: it is a single checkmark, not a
             // multi-option group, so the builder offers no option editor for it.
-            return ['select', 'radio'].includes(type);
+            return ["select", "radio"].includes(type);
         },
 
         /**
@@ -842,16 +1013,17 @@ export function formBuilder(config) {
         conditionValueChoices(f) {
             if (!f) return null;
             const opts = (f.field_options || {}).options || [];
-            if (['select', 'radio'].includes(f.field_type)) {
+            if (["select", "radio"].includes(f.field_type)) {
                 // A select drawing from a registered source has no static choices.
-                if (f.field_type === 'select' && (f.field_options || {}).source) return null;
+                if (f.field_type === "select" && (f.field_options || {}).source)
+                    return null;
                 return opts.length ? opts : null;
             }
-            if (f.field_type === 'checkbox') {
+            if (f.field_type === "checkbox") {
                 if (opts.length) return opts; // legacy option-group checkbox
                 return [
-                    { value: '1', label: 'Checked' },
-                    { value: '', label: 'Unchecked' },
+                    { value: "1", label: "Checked" },
+                    { value: "", label: "Unchecked" },
                 ];
             }
             return null;
@@ -860,23 +1032,24 @@ export function formBuilder(config) {
         // --- dynamic option sources (registered DB-backed entries) ---
         /** Field types that can draw their choices from an OptionSource. */
         supportsSource(type) {
-            return ['select', 'search'].includes(type);
+            return ["select", "search"].includes(type);
         },
         /**
          * Switch a select between hand-typed options and a registered source.
          * The search field is always sourced, so it never calls this.
          */
         setOptionMode(f, mode) {
-            if (mode === 'source') {
+            if (mode === "source") {
                 if (!f.field_options.source) {
-                    f.field_options.source = (this.optionSources[0] || {}).key || '';
+                    f.field_options.source =
+                        (this.optionSources[0] || {}).key || "";
                 }
             } else {
                 delete f.field_options.source;
             }
         },
         supportsAutofillNow(type) {
-            return ['date', 'time', 'datetime'].includes(type);
+            return ["date", "time", "datetime"].includes(type);
         },
         /**
          * "Current value" options the Autofill dropdown offers for a field
@@ -888,15 +1061,18 @@ export function formBuilder(config) {
         systemAutofillOptions(type) {
             const byType = {
                 text: [
-                    { value: 'current_date', label: 'Current Date' },
-                    { value: 'current_school_year', label: 'Current School Year' },
-                    { value: 'current_semester', label: 'Current Semester' },
+                    { value: "current_date", label: "Current Date" },
+                    {
+                        value: "current_school_year",
+                        label: "Current School Year",
+                    },
+                    { value: "current_semester", label: "Current Semester" },
                 ],
-                date: [{ value: 'current_date', label: 'Current Date' }],
-                time: [{ value: 'current_time', label: 'Time' }],
-                datetime: [{ value: 'current_datetime', label: 'Date/Time' }],
-                number: [{ value: 'current_year', label: 'Year' }],
-                age: [{ value: 'current_year', label: 'Year' }],
+                date: [{ value: "current_date", label: "Current Date" }],
+                time: [{ value: "current_time", label: "Time" }],
+                datetime: [{ value: "current_datetime", label: "Date/Time" }],
+                number: [{ value: "current_year", label: "Year" }],
+                age: [{ value: "current_year", label: "Year" }],
             };
             return byType[type] || [];
         },
@@ -907,21 +1083,37 @@ export function formBuilder(config) {
          * fields (age/number/text).
          */
         derivedAutofillOptions(type) {
-            if (this.kit !== 'sign_up') return [];
-            if (!['age', 'number', 'text'].includes(type)) return [];
-            return [{ value: 'age_from_birthday', label: 'Age - Computed from Birthday' }];
+            if (this.kit !== "sign_up") return [];
+            if (!["age", "number", "text"].includes(type)) return [];
+            return [
+                {
+                    value: "age_from_birthday",
+                    label: "Age - Computed from Birthday",
+                },
+            ];
         },
 
         // --- table-input column editing ---
         slugColumn(label) {
-            return (label || '').toString().toLowerCase().trim()
-                .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'column';
+            return (
+                (label || "")
+                    .toString()
+                    .toLowerCase()
+                    .trim()
+                    .replace(/[^a-z0-9]+/g, "_")
+                    .replace(/^_+|_+$/g, "") || "column"
+            );
         },
         addColumn(key) {
             const f = this.field(key);
             if (!f.field_options.columns) f.field_options.columns = [];
             const n = f.field_options.columns.length + 1;
-            f.field_options.columns.push({ key: `column_${n}`, label: `Column ${n}`, type: 'text', required: false });
+            f.field_options.columns.push({
+                key: `column_${n}`,
+                label: `Column ${n}`,
+                type: "text",
+                required: false,
+            });
         },
         removeColumn(key, i) {
             const f = this.field(key);
@@ -934,7 +1126,9 @@ export function formBuilder(config) {
         // --- activity-table columns (chosen from the New Events form's fields) ---
         /** Whether the field already includes a column for this New Events field. */
         activityColumnChecked(f, choice) {
-            return (f.field_options.columns || []).some((c) => c.key === choice.key);
+            return (f.field_options.columns || []).some(
+                (c) => c.key === choice.key,
+            );
         },
         /**
          * Toggle a New Events field in/out of the activity table's columns. Newly
@@ -943,9 +1137,15 @@ export function formBuilder(config) {
          */
         toggleActivityColumn(f, choice) {
             if (!f.field_options.columns) f.field_options.columns = [];
-            const i = f.field_options.columns.findIndex((c) => c.key === choice.key);
+            const i = f.field_options.columns.findIndex(
+                (c) => c.key === choice.key,
+            );
             if (i === -1) {
-                f.field_options.columns.push({ key: choice.key, label: choice.label, type: choice.type });
+                f.field_options.columns.push({
+                    key: choice.key,
+                    label: choice.label,
+                    type: choice.type,
+                });
             } else {
                 f.field_options.columns.splice(i, 1);
             }
@@ -953,7 +1153,9 @@ export function formBuilder(config) {
         /** Stored columns whose source field is no longer on the New Events form. */
         staleActivityColumns(f) {
             const live = new Set(this.eventFieldChoices.map((c) => c.key));
-            return (f.field_options.columns || []).filter((c) => !live.has(c.key));
+            return (f.field_options.columns || []).filter(
+                (c) => !live.has(c.key),
+            );
         },
         /**
          * A column's type label: the live New Events field's label when the field
@@ -969,7 +1171,7 @@ export function formBuilder(config) {
         addArg(key) {
             const f = this.field(key);
             if (!f.field_options.args) f.field_options.args = [];
-            f.field_options.args.push('');
+            f.field_options.args.push("");
         },
         removeArg(key, i) {
             const f = this.field(key);
@@ -980,35 +1182,45 @@ export function formBuilder(config) {
             const out = [];
             this.fields.forEach((f) => {
                 if (f.field_key === exceptKey) return;
-                if (['number', 'age', 'computed'].includes(f.field_type)) {
+                if (["number", "age", "computed"].includes(f.field_type)) {
                     out.push({ value: f.field_key, label: f.field_label });
                 }
-                if (f.field_type === 'table-input') {
+                if (f.field_type === "table-input") {
                     const rt = (f.field_options || {}).row_total || {};
-                    if (rt.key) out.push({ value: `${f.field_key}.${rt.key}`, label: `${f.field_label} → ${rt.label || rt.key}` });
+                    if (rt.key)
+                        out.push({
+                            value: `${f.field_key}.${rt.key}`,
+                            label: `${f.field_label} → ${rt.label || rt.key}`,
+                        });
                     ((f.field_options || {}).columns || []).forEach((c) => {
-                        if (c.type === 'number') out.push({ value: `${f.field_key}.${c.key}`, label: `${f.field_label} → ${c.label}` });
+                        if (c.type === "number")
+                            out.push({
+                                value: `${f.field_key}.${c.key}`,
+                                label: `${f.field_label} → ${c.label}`,
+                            });
                     });
                 }
             });
             return out;
         },
         isNumeric(type) {
-            return ['number', 'age'].includes(type);
+            return ["number", "age"].includes(type);
         },
         isFileLike(type) {
-            return ['image', 'file'].includes(type);
+            return ["image", "file"].includes(type);
         },
 
         // --- upload accept (checkboxes over the server's hard allowlist) ---
         acceptChoices(type) {
-            return type === 'file' ? ['jpeg', 'png', 'heic', 'pdf'] : ['jpeg', 'png', 'heic'];
+            return type === "file"
+                ? ["jpeg", "png", "heic", "pdf"]
+                : ["jpeg", "png", "heic"];
         },
         acceptList(f) {
-            return String(f.field_options.accept || '')
-                .split(',')
-                .map((e) => e.trim().replace(/^\./, '').toLowerCase())
-                .map((e) => (e === 'jpg' ? 'jpeg' : e))
+            return String(f.field_options.accept || "")
+                .split(",")
+                .map((e) => e.trim().replace(/^\./, "").toLowerCase())
+                .map((e) => (e === "jpg" ? "jpeg" : e))
                 .filter(Boolean);
         },
         // An empty accept means "everything the allowlist permits".
@@ -1020,9 +1232,12 @@ export function formBuilder(config) {
             const choices = this.acceptChoices(f.field_type);
             let list = this.acceptList(f);
             if (!list.length) list = [...choices];
-            list = list.includes(ext) ? list.filter((e) => e !== ext) : [...list, ext];
+            list = list.includes(ext)
+                ? list.filter((e) => e !== ext)
+                : [...list, ext];
             list = choices.filter((e) => list.includes(e));
-            f.field_options.accept = list.length === choices.length ? '' : list.join(',');
+            f.field_options.accept =
+                list.length === choices.length ? "" : list.join(",");
         },
 
         // --- signature expected-signer picker ---
@@ -1036,7 +1251,8 @@ export function formBuilder(config) {
             return (f.field_options.expected_positions || []).includes(pos);
         },
         toggleExpectedPosition(f, pos) {
-            if (!f.field_options.expected_positions) f.field_options.expected_positions = [];
+            if (!f.field_options.expected_positions)
+                f.field_options.expected_positions = [];
             const list = f.field_options.expected_positions;
             const i = list.indexOf(pos);
             if (i === -1) list.push(pos);
@@ -1047,10 +1263,18 @@ export function formBuilder(config) {
             const q = this.signatoryQuery.trim();
             if (!this.signatorySearchUrl) return;
             try {
-                const url = new URL(this.signatorySearchUrl, window.location.origin);
-                url.searchParams.set('q', q);
-                const res = await fetch(url, { headers: { Accept: 'application/json' } });
-                if (!res.ok) { this.signatoryResults = []; return; }
+                const url = new URL(
+                    this.signatorySearchUrl,
+                    window.location.origin,
+                );
+                url.searchParams.set("q", q);
+                const res = await fetch(url, {
+                    headers: { Accept: "application/json" },
+                });
+                if (!res.ok) {
+                    this.signatoryResults = [];
+                    return;
+                }
                 const json = await res.json();
                 this.signatoryResults = json.data || [];
             } catch (e) {
@@ -1058,38 +1282,49 @@ export function formBuilder(config) {
             }
         },
         addExpectedPerson(f, person) {
-            if (!f.field_options.expected_profiles) f.field_options.expected_profiles = [];
-            if (!f.field_options.expected_people) f.field_options.expected_people = [];
+            if (!f.field_options.expected_profiles)
+                f.field_options.expected_profiles = [];
+            if (!f.field_options.expected_people)
+                f.field_options.expected_people = [];
             const id = Number(person.profile_id);
             if (!f.field_options.expected_profiles.includes(id)) {
                 f.field_options.expected_profiles.push(id);
                 // Companion display list (name + role) so chips render without a lookup.
-                f.field_options.expected_people.push({ id, name: person.name, org_role: person.org_role || null });
+                f.field_options.expected_people.push({
+                    id,
+                    name: person.name,
+                    org_role: person.org_role || null,
+                });
             }
-            this.signatoryQuery = '';
+            this.signatoryQuery = "";
             this.signatoryResults = [];
             this.syncCompareMode(f);
         },
         removeExpectedPerson(f, id) {
             id = Number(id);
-            f.field_options.expected_profiles = (f.field_options.expected_profiles || []).filter((x) => Number(x) !== id);
-            f.field_options.expected_people = (f.field_options.expected_people || []).filter((p) => Number(p.id) !== id);
+            f.field_options.expected_profiles = (
+                f.field_options.expected_profiles || []
+            ).filter((x) => Number(x) !== id);
+            f.field_options.expected_people = (
+                f.field_options.expected_people || []
+            ).filter((p) => Number(p.id) !== id);
             this.syncCompareMode(f);
         },
         // An expected signer implies Compare mode by default; the admin can still
         // uncheck it. Once they've explicitly chosen a mode, we don't override it.
         syncCompareMode(f) {
             if (this.hasExpectedSigner(f)) {
-                if (f.field_options.match_mode !== 'normal') f.field_options.match_mode = 'compare';
-            } else if (f.field_options.match_mode === 'compare') {
-                f.field_options.match_mode = 'normal';
+                if (f.field_options.match_mode !== "normal")
+                    f.field_options.match_mode = "compare";
+            } else if (f.field_options.match_mode === "compare") {
+                f.field_options.match_mode = "normal";
             }
         },
 
         // --- persistence ---
         async save() {
-            this.message = '';
-            this.error = '';
+            this.message = "";
+            this.error = "";
 
             this.saving = true;
             // Saving publishes — active/published/sidebar are server-decided.
@@ -1106,30 +1341,38 @@ export function formBuilder(config) {
                 draft_id: this.draftId,
             };
             try {
-                const res = await fetch(this.isEdit ? this.updateUrl : this.storeUrl, {
-                    method: this.isEdit ? 'PUT' : 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': this.csrf,
-                        Accept: 'application/json',
+                const res = await fetch(
+                    this.isEdit ? this.updateUrl : this.storeUrl,
+                    {
+                        method: this.isEdit ? "PUT" : "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRF-TOKEN": this.csrf,
+                            Accept: "application/json",
+                        },
+                        body: JSON.stringify(payload),
                     },
-                    body: JSON.stringify(payload),
-                });
+                );
                 const json = await res.json();
                 if (res.ok) {
-                    this.message = json.message || 'Saved.';
+                    this.message = json.message || "Saved.";
                     // Every field is now persisted — its key is frozen for good.
-                    this.fields.forEach((f) => { f._keyLocked = true; });
+                    this.fields.forEach((f) => {
+                        f._keyLocked = true;
+                    });
                     // On both create and edit, return to the Forms list where the
                     // flashed "saved" toast is shown.
                     if (json.redirect) {
                         window.location = json.redirect;
                     }
                 } else {
-                    this.error = json.message || this.firstError(json.errors) || 'Could not save.';
+                    this.error =
+                        json.message ||
+                        this.firstError(json.errors) ||
+                        "Could not save.";
                 }
             } catch (e) {
-                this.error = 'Could not save.';
+                this.error = "Could not save.";
             } finally {
                 this.saving = false;
             }

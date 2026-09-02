@@ -54,6 +54,9 @@
                     <li class="nav-item">
                         <a class="nav-link" href="#activity">Recent Activities</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ route('forms.render', 'new-organization-registration') }}">Register Organization</a>
+                    </li>
                     {{-- Login + theme toggle share one nav-item so the toggle stays
                          beside the button instead of dropping to its own row when
                          the navbar collapses. --}}
@@ -338,6 +341,7 @@
     <!-- Embedded Login Section -->
     <section id="auth" style="
         min-height: 100vh;
+        padding: 0;
         position: relative;
         overflow: hidden;
         display: flex;

@@ -39,7 +39,7 @@ function guestSignupForm(): Form
         ['field_key' => 'organization_id', 'field_label' => 'Organization', 'field_type' => 'org-select'],
         ['field_key' => 'first_name', 'field_label' => 'First name', 'field_type' => 'text', 'universal_key' => 'first_name'],
         ['field_key' => 'last_name', 'field_label' => 'Last name', 'field_type' => 'text', 'universal_key' => 'last_name'],
-        ['field_key' => 'email', 'field_label' => 'Email', 'field_type' => 'email'],
+        ['field_key' => 'email', 'field_label' => 'Email', 'field_type' => 'new-officer-email'],
         ['field_key' => 'position', 'field_label' => 'Position', 'field_type' => 'text'],
         ['field_key' => 'contact_number', 'field_label' => 'Contact number', 'field_type' => 'text'],
         ['field_key' => 'password', 'field_label' => 'Password', 'field_type' => 'password'],

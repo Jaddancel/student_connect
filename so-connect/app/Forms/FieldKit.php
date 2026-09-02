@@ -30,14 +30,29 @@ final class FieldKit
                     FieldType::ORG_SELECT,
                     FieldType::POSITION_SELECT,
                     FieldType::PASSWORD,
+                    FieldType::NEW_OFFICER_EMAIL,
                 ],
                 'required' => [
-                    'email' => FieldType::EMAIL,
+                    'email' => FieldType::NEW_OFFICER_EMAIL,
                     'first_name' => FieldType::TEXT,
                     'last_name' => FieldType::TEXT,
                     'organization_id' => FieldType::ORG_SELECT,
                     'position' => FieldType::POSITION_SELECT,
                     'password' => FieldType::PASSWORD,
+                ],
+            ],
+
+            SystemFunction::NEW_ORGANIZATION_REGISTRATION => [
+                'label' => 'New Organization Registration fields',
+                'types' => [
+                    FieldType::NEW_PRESIDENT_EMAIL,
+                    FieldType::NEW_OFFICER_EMAIL,
+                    FieldType::ORGANIZATION_TYPE_SELECT,
+                ],
+                'required' => [
+                    'president_email' => FieldType::NEW_PRESIDENT_EMAIL,
+                    'officer_email' => FieldType::NEW_OFFICER_EMAIL,
+                    'organization_type' => FieldType::ORGANIZATION_TYPE_SELECT,
                 ],
             ],
             SystemFunction::NEW_EVENT => [

@@ -4,6 +4,7 @@ namespace App\Forms;
 
 use App\Forms\Handlers\MembershipRegistrationHandler;
 use App\Forms\Handlers\NewEventHandler;
+use App\Forms\Handlers\NewOrganizationRegistrationHandler;
 use App\Forms\Handlers\NewWorkplanHandler;
 use App\Forms\Handlers\OrgAccreditationHandler;
 use App\Forms\Handlers\SignUpHandler;
@@ -37,6 +38,8 @@ final class SystemFunction
 
     public const ORG_ACCREDITATION = 'org_accreditation';
 
+    public const NEW_ORGANIZATION_REGISTRATION = 'new_organization_registration';
+
     /**
      * @return array<string, array{label:string, description:string, handler:class-string<SystemFunctionHandler>}>
      */
@@ -67,6 +70,11 @@ final class SystemFunction
                 'label' => 'Organization Accreditation',
                 'description' => 'Submissions request organization accreditation; an admin approval generates the document and marks the org accredited for the cycle.',
                 'handler' => OrgAccreditationHandler::class,
+            ],
+            self::NEW_ORGANIZATION_REGISTRATION => [
+                'label' => 'New Organization Registration',
+                'description' => 'Submissions register a new organization; an admin approval creates the organization and invites the submitted founder email to become its president.',
+                'handler' => Handlers\NewOrganizationRegistrationHandler::class,
             ],
         ];
     }

@@ -459,11 +459,10 @@ class FormBuilderController extends Controller
             'route_name' => $validated['route_name'],
             'icon' => ($validated['icon'] ?? '') !== '' ? $validated['icon'] : null,
             'system_function' => ($validated['system_function'] ?? '') !== '' ? $validated['system_function'] : null,
-            // Saving publishes: there is no draft state. A form without a
-            // printed template stays unpublished (it can't accept submissions
-            // yet) and goes live automatically once the template is added.
+            // Saving publishes: there is no draft/unpublished state — every
+            // form goes live immediately on save/create.
             'is_active' => true,
-            'is_published' => $this->templateHasContent($pdfTemplate['html']),
+            'is_published' => true,
             'fields' => $validated['fields'],
             // Validating rows.*.header/static_text makes $validated['rows'] hold
             // only those sub-keys (dropping columns), so sanitize the raw input;
@@ -571,6 +570,7 @@ class FormBuilderController extends Controller
             SystemFunction::SIGN_UP,
             SystemFunction::NEW_EVENT,
             SystemFunction::NEW_WORKPLAN,
+            SystemFunction::NEW_ORGANIZATION_REGISTRATION,
         ], true);
 
         if ($excepted) {
@@ -758,16 +758,6 @@ class FormBuilderController extends Controller
         return array_filter([
             'image' => $footer['image'] ?? null,
         ], fn ($v) => $v !== null && $v !== '');
-    }
-
-    private function templateHasContent(string $html): bool
-    {
-        // Content = any visible text or at least one field token.
-        if (str_contains($html, 'data-field=')) {
-            return true;
-        }
-
-        return trim(strip_tags($html)) !== '';
     }
 
     /**

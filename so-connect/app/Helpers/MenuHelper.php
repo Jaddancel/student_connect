@@ -33,6 +33,7 @@ class MenuHelper
                     'items' => [
                         ['icon' => 'authentication', 'name' => 'Sign In', 'path' => '/signin'],
                         ['icon' => 'authentication', 'name' => 'Sign Up', 'path' => '/signup'],
+                        ['icon' => 'forms', 'name' => 'Register Organization', 'path' => '/forms/new-organization-registration'],
                     ],
                 ],
             ];

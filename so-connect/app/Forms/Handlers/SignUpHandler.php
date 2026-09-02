@@ -5,6 +5,7 @@ namespace App\Forms\Handlers;
 use App\Mail\AccountRequestReceivedMail;
 use App\Models\Form;
 use App\Models\FormSubmission;
+use App\Models\OrganizationInvitation;
 use App\Models\Profile;
 use App\Models\Request as ActionRequest;
 use App\Models\User;
@@ -12,6 +13,7 @@ use App\Support\OfficerProfileData;
 use App\Support\SignupRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -42,10 +44,32 @@ class SignUpHandler implements SystemFunctionHandler
 
     public function validatePayload(Form $form, array $payload, Request $request): void
     {
-        $values = $this->requirePayloadKeys($form, $payload, ['email', 'first_name', 'last_name']);
+        $values = $this->requirePayloadKeys($form, $payload, ['first_name', 'last_name']);
+        $email = $this->resolveOfficerEmail($form, $payload);
+        if ($email === null || $email === '') {
+            throw ValidationException::withMessages([
+                'form' => 'This form is bound to the "'.\App\Forms\SystemFunction::label((string) $form->system_function)
+                    .'" function but is missing a required "'.\App\Forms\FieldType::label(\App\Forms\FieldType::NEW_OFFICER_EMAIL).'" field.',
+            ]);
+        }
 
-        $email = (string) $values['email'];
         $applicant = self::pendingApplicant($request);
+
+        $invitation = $this->invitationContext($request, $form, $payload);
+        if ($invitation !== null) {
+            if ($email !== $invitation['email']) {
+                throw ValidationException::withMessages([
+                    'form' => 'The email address must match the organization invitation.',
+                ]);
+            }
+
+            $submittedOrgId = (int) ($this->payloadValue($form, $payload, 'organization_id') ?? 0);
+            if ($submittedOrgId !== (int) $invitation['organization_id']) {
+                throw ValidationException::withMessages([
+                    'form' => 'The organization must match the organization invitation.',
+                ]);
+            }
+        }
 
         // Re-applying keeps the account: only a DIFFERENT account owning the
         // address is a conflict.
@@ -72,7 +96,7 @@ class SignUpHandler implements SystemFunctionHandler
     public function handle(Form $form, FormSubmission $submission, array $payload, Request $request): RedirectResponse
     {
         $organizationId = (int) ($this->payloadValue($form, $payload, 'organization_id') ?? 0);
-        $email = (string) $this->payloadValue($form, $payload, 'email');
+        $email = (string) $this->resolveOfficerEmail($form, $payload);
 
         $requestPayload = array_merge($payload, [
             'first_name' => (string) $this->payloadValue($form, $payload, 'first_name'),
@@ -97,19 +121,33 @@ class SignUpHandler implements SystemFunctionHandler
 
         $applicant = self::pendingApplicant($request);
         $isRetry = $applicant !== null;
+        $invitation = $this->invitationContext($request, $form, $payload);
 
-        [$applicant, $rawToken] = DB::transaction(function () use ($applicant, $requestPayload, $email, $password, $organizationId, $form, $submission) {
+        [$applicant, $rawToken] = DB::transaction(function () use ($applicant, $requestPayload, $email, $password, $organizationId, $form, $submission, $invitation) {
             $applicant = $this->storeApplicant($applicant, $requestPayload, $email, $password);
 
             $submission->update(['submitted_by' => (int) $applicant->getKey()]);
+
+            $requestExtras = [
+                'pending_user_id' => (int) $applicant->getKey(),
+            ];
+
+            if ($invitation !== null) {
+                $requestExtras['invitation_id'] = $invitation['invitation_id'];
+                $requestExtras['intended_role'] = $invitation['role'];
+                $requestExtras['intended_position'] = $invitation['position'];
+
+                OrganizationInvitation::query()
+                    ->whereKey($invitation['invitation_id'])
+                    ->whereNull('redeemed_at')
+                    ->update(['redeemed_at' => now()]);
+            }
 
             ActionRequest::query()->create([
                 'action' => "0|{$organizationId}|new_officer",
                 'action_type' => 11,
                 'form_id' => (int) $form->getKey(),
-                'payload' => array_merge($requestPayload, [
-                    'pending_user_id' => (int) $applicant->getKey(),
-                ]),
+                'payload' => array_merge($requestPayload, $requestExtras),
                 'user' => (int) $applicant->getKey(),
                 'requested_at' => now(),
             ]);
@@ -132,6 +170,77 @@ class SignUpHandler implements SystemFunctionHandler
             ->with('success', $isRetry
                 ? 'Your sign-up was resubmitted — an admin will review it again.'
                 : 'Sign-up submitted.');
+    }
+
+    /**
+     * The replacement sign-up email field is identified by type, so account
+     * creation cannot accidentally read a generic email field on the form.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function resolveOfficerEmail(Form $form, array $payload): ?string
+    {
+        foreach ($form->fields as $field) {
+            if ($field->field_type !== \App\Forms\FieldType::NEW_OFFICER_EMAIL
+                || ! array_key_exists($field->field_key, $payload)) {
+                continue;
+            }
+
+            $value = $payload[$field->field_key];
+
+            return is_string($value) ? strtolower(trim($value)) : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Decode and validate an encrypted organization invitation payload carried
+     * as a hidden input. Returns the invitation data only when it is unexpired,
+     * unredeemed, and matches the submitted organization/email.
+     *
+     * @return array{invitation_id:int,email:string,organization_id:int,role:string,position:?string}|null
+     */
+    private function invitationContext(Request $request, Form $form, array $payload): ?array
+    {
+        $token = (string) ($payload['invitation_prefill'] ?? $request->input('invitation_prefill', ''));
+        if ($token === '') {
+            return null;
+        }
+
+        $rawToken = base64_decode($token, true);
+        if ($rawToken === false) {
+            return null;
+        }
+
+        try {
+            $decrypted = json_decode(Crypt::decryptString($rawToken), true);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (! is_array($decrypted) || ! isset($decrypted['email'], $decrypted['organization_id'], $decrypted['invitation_id'], $decrypted['token'])) {
+            return null;
+        }
+
+        $invitation = OrganizationInvitation::query()
+            ->whereKey((int) $decrypted['invitation_id'])
+            ->where('token_hash', hash('sha256', (string) $decrypted['token']))
+            ->whereNull('redeemed_at')
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if ($invitation === null) {
+            return null;
+        }
+
+        return [
+            'invitation_id' => (int) $invitation->getKey(),
+            'email' => strtolower((string) $decrypted['email']),
+            'organization_id' => (int) $decrypted['organization_id'],
+            'role' => (string) ($decrypted['role'] ?? 'officer'),
+            'position' => $decrypted['position'] ?? null,
+        ];
     }
 
     /**

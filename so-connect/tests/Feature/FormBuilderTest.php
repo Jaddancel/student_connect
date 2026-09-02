@@ -173,7 +173,7 @@ it('drops "Section" and "Static text" from the builder palette', function () {
     expect(\App\Forms\FieldType::all())->toContain(\App\Forms\FieldType::STATIC_TEXT);
 });
 
-it('saves a template-less form as unpublished until the template exists', function () {
+it('publishes a form on save even without a printed template', function () {
     $admin = makeUser(2);
 
     $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
@@ -187,9 +187,9 @@ it('saves a template-less form as unpublished until the template exists', functi
 
     $form = Form::where('route_name', 'no-template')->first();
     expect($form)->not->toBeNull();
-    expect($form->is_published)->toBeFalse();
+    expect($form->is_published)->toBeTrue();
 
-    // Adding the printed template publishes on the next save.
+    // Stays published after a follow-up save that adds the printed template.
     $this->actingAs($admin)->putJson(route('admin.form-builder.update', $form), [
         'name' => 'No Template', 'route_name' => 'no-template',
         'fields' => [
@@ -204,6 +204,7 @@ it('saves a template-less form as unpublished until the template exists', functi
 
     expect($form->fresh()->is_published)->toBeTrue();
 });
+
 
 it('rejects duplicate field keys', function () {
     $admin = makeUser(2);
@@ -673,7 +674,7 @@ it('saves the age-from-birthday autofill on the sign-up form', function () {
     $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
         'name' => 'Sign Up', 'route_name' => 'sign-up-age', 'system_function' => 'sign_up',
         'fields' => [
-            ['field_key' => 'email', 'field_label' => 'Email', 'field_type' => 'email'],
+            ['field_key' => 'email', 'field_label' => 'E-mail', 'field_type' => 'new-officer-email'],
             ['field_key' => 'first_name', 'field_label' => 'First', 'field_type' => 'text'],
             ['field_key' => 'last_name', 'field_label' => 'Last', 'field_type' => 'text'],
             ['field_key' => 'organization_id', 'field_label' => 'Org', 'field_type' => 'org-select'],

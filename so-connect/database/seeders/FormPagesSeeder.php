@@ -27,6 +27,7 @@ class FormPagesSeeder extends Seeder
     public function run(): void
     {
         $this->seedDirectory();
+        $this->seedNewOrganizationRegistration();
         $this->seedNewEvent();
         $this->seedJointStatement();
         $this->seedProjectRequest();
@@ -130,7 +131,7 @@ class FormPagesSeeder extends Seeder
             $this->f('first_name', 'First Name', FieldType::TEXT, ['required' => true, 'universal_key' => 'first_name']),
             $this->f('middle_name', 'Middle Name', FieldType::TEXT, ['universal_key' => 'middle_name']),
             $this->f('last_name', 'Last Name', FieldType::TEXT, ['required' => true, 'universal_key' => 'last_name']),
-            $this->f('email', 'Email', FieldType::EMAIL, ['required' => true]),
+            $this->f('email', 'E-mail', FieldType::NEW_OFFICER_EMAIL, ['required' => true]),
             $this->f('contact_number', 'Contact Number', FieldType::TEXT),
             $this->f('age', 'Age', FieldType::NUMBER),
             $this->f('sex', 'Sex', FieldType::SELECT, ['options' => ['options' => [
@@ -171,6 +172,51 @@ class FormPagesSeeder extends Seeder
             'fields' => $fields,
             'pdf' => [
                 'title' => 'Directory of Student Officers',
+                'subtitle' => 'Student Organization Registration',
+                'html' => $html,
+            ],
+        ]);
+    }
+
+    // ---------------------------------------------------- New Organization Registration
+
+    /**
+     * Placeholder form for the New Organization Registration system function.
+     * The approval workflow requires the builder to add fields whose keys (or
+     * universal keys) are: organization_name, organization_initials,
+     * organization_description, and organization_type. Until those fields are
+     * present, submissions will be rejected with a configuration message.
+     */
+    private function seedNewOrganizationRegistration(): void
+    {
+        $fields = [
+            $this->heading('Organization Information'),
+            $this->f('organization_name', 'Organization Name', FieldType::TEXT, ['required' => true]),
+            $this->f('organization_initials', 'Organization Initials', FieldType::TEXT, ['required' => true]),
+            $this->f('organization_description', 'Description', FieldType::TEXTAREA, ['options' => ['rows' => 4]]),
+            $this->f('organization_type', 'Organization Type', FieldType::NUMBER, ['required' => true]),
+            $this->heading('President Contact'),
+            $this->f('president_email', 'New President Email', FieldType::NEW_PRESIDENT_EMAIL, ['required' => true]),
+            $this->heading('Officer Contact'),
+            $this->f('officer_email', 'New Officer Email', FieldType::NEW_OFFICER_EMAIL, ['required' => true]),
+        ];
+
+        $html = '<h2>New Organization Registration</h2>'
+            .$this->line('Organization Name', 'organization_name')
+            .$this->line('Initials', 'organization_initials')
+            .$this->line('Description', 'organization_description')
+            .$this->line('Type', 'organization_type')
+            .$this->line('New President Email', 'president_email')
+            .$this->line('New Officer Email', 'officer_email');
+
+        $this->buildForm([
+            'route_name' => 'new-organization-registration',
+            'name' => 'New Organization Registration',
+            'description' => 'Register a new organization in the system.',
+            'system_function' => SystemFunction::NEW_ORGANIZATION_REGISTRATION,
+            'fields' => $fields,
+            'pdf' => [
+                'title' => 'New Organization Registration',
                 'subtitle' => 'Student Organization Registration',
                 'html' => $html,
             ],
