@@ -83,7 +83,7 @@ function makeNewOrganizationForm(): Form
         ['field_key' => 'organization_name', 'field_label' => 'Organization Name', 'field_type' => FieldType::TEXT, 'is_required' => true, 'field_order' => 1],
         ['field_key' => 'organization_initials', 'field_label' => 'Initials', 'field_type' => FieldType::TEXT, 'is_required' => true, 'field_order' => 2],
         ['field_key' => 'organization_description', 'field_label' => 'Description', 'field_type' => FieldType::TEXTAREA, 'is_required' => false, 'field_order' => 3],
-        ['field_key' => 'organization_type', 'field_label' => 'Type', 'field_type' => FieldType::NUMBER, 'is_required' => true, 'field_order' => 4],
+        ['field_key' => 'organization_type', 'field_label' => 'Type', 'field_type' => FieldType::ORGANIZATION_TYPE_SELECT, 'is_required' => true, 'field_order' => 4],
         ['field_key' => 'president_email', 'field_label' => 'New President Email', 'field_type' => FieldType::NEW_PRESIDENT_EMAIL, 'is_required' => true, 'field_order' => 5],
         ['field_key' => 'officer_email', 'field_label' => 'New Officer Email', 'field_type' => FieldType::NEW_OFFICER_EMAIL, 'is_required' => true, 'field_order' => 6],
     ];

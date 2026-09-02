@@ -65,6 +65,7 @@ it('includes president and officer email fields in the organization registration
         ->toBe([
             'president_email' => FieldType::NEW_PRESIDENT_EMAIL,
             'officer_email' => FieldType::NEW_OFFICER_EMAIL,
+            'organization_type' => FieldType::ORGANIZATION_TYPE_SELECT,
         ]);
 });
 

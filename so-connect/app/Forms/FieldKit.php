@@ -44,10 +44,15 @@ final class FieldKit
 
             SystemFunction::NEW_ORGANIZATION_REGISTRATION => [
                 'label' => 'New Organization Registration fields',
-                'types' => [FieldType::NEW_PRESIDENT_EMAIL, FieldType::NEW_OFFICER_EMAIL],
+                'types' => [
+                    FieldType::NEW_PRESIDENT_EMAIL,
+                    FieldType::NEW_OFFICER_EMAIL,
+                    FieldType::ORGANIZATION_TYPE_SELECT,
+                ],
                 'required' => [
                     'president_email' => FieldType::NEW_PRESIDENT_EMAIL,
                     'officer_email' => FieldType::NEW_OFFICER_EMAIL,
+                    'organization_type' => FieldType::ORGANIZATION_TYPE_SELECT,
                 ],
             ],
             SystemFunction::NEW_EVENT => [

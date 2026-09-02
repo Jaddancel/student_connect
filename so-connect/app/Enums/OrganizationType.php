@@ -23,4 +23,22 @@ final class OrganizationType
             default => 'Other',
         };
     }
+
+    /**
+     * Every organization type as value => label, in declaration order — the
+     * option set for the "Organization Type" picker field.
+     *
+     * @return array<int,string>
+     */
+    public static function options(): array
+    {
+        return [
+            self::SOCIO_CIVIC => self::label(self::SOCIO_CIVIC),
+            self::RELIGIOUS => self::label(self::RELIGIOUS),
+            self::FRATERNITIES_SORORITIES => self::label(self::FRATERNITIES_SORORITIES),
+            self::SPECIAL_INTEREST => self::label(self::SPECIAL_INTEREST),
+            self::UNIVERSITY_SANCTIONED => self::label(self::UNIVERSITY_SANCTIONED),
+            self::STUDENT_GOVERNMENT => self::label(self::STUDENT_GOVERNMENT),
+        ];
+    }
 }

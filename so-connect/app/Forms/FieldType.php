@@ -63,6 +63,12 @@ final class FieldType
     public const NEW_PRESIDENT_EMAIL = 'new-president-email';
 
     /**
+     * A select field, offered on New Organization Registration, whose options
+     * are every organization type known to the system (see {@see \App\Enums\OrganizationType}).
+     */
+    public const ORGANIZATION_TYPE_SELECT = 'organization-type-select';
+
+    /**
      * The officer positions the sign-up position picker offers by default
      * (a field's own `options` config overrides them).
      */
@@ -149,6 +155,7 @@ final class FieldType
             self::ACTIVITY_TABLE    => ['label' => 'Activity Table',       'icon' => 'table',     'group' => 'special'],
             self::NEW_OFFICER_EMAIL => ['label' => 'New Officer Email Field', 'icon' => 'email',     'group' => 'special'],
             self::NEW_PRESIDENT_EMAIL => ['label' => 'New President Email Field', 'icon' => 'email', 'group' => 'special'],
+            self::ORGANIZATION_TYPE_SELECT => ['label' => 'Organization Type', 'icon' => 'select', 'group' => 'special'],
         ];
     }
 
@@ -408,6 +415,11 @@ final class FieldType
             case self::POSITION_SELECT:
                 $choices = self::optionValues($options) ?: self::POSITION_OPTIONS;
                 $rules[] = 'in:'.implode(',', $choices);
+                break;
+
+            case self::ORGANIZATION_TYPE_SELECT:
+                $rules[] = 'integer';
+                $rules[] = 'in:'.implode(',', array_keys(\App\Enums\OrganizationType::options()));
                 break;
 
             case self::PASSWORD:

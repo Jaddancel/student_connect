@@ -322,6 +322,15 @@
                 </select>
                 @break
 
+            @case(FieldType::ORGANIZATION_TYPE_SELECT)
+                <select id="{{ $key }}" name="{{ $key }}" class="{{ $inputClass }}">
+                    <option value="">{{ $placeholder ?: 'Select an organization type' }}</option>
+                    @foreach (\App\Enums\OrganizationType::options() as $typeValue => $typeLabel)
+                        <option value="{{ $typeValue }}" @selected((string) $old === (string) $typeValue)>{{ $typeLabel }}</option>
+                    @endforeach
+                </select>
+                @break
+
             @case(FieldType::PASSWORD)
                 <input type="password" id="{{ $key }}" name="{{ $key }}"
                     placeholder="{{ $placeholder ?: 'Choose a password' }}" autocomplete="new-password"
