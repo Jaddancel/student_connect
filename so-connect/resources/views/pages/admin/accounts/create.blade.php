@@ -200,6 +200,34 @@
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
                         @enderror
                     </div>
+
+                    {{-- Signature --}}
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Signature <span class="ml-1 text-xs font-normal text-gray-400">(draw or upload photo — optional)</span>
+                        </label>
+                        <div x-data="signatureField()" class="space-y-2">
+                            <canvas x-ref="canvas" width="500" height="160"
+                                class="w-full rounded-lg border border-gray-300 bg-white touch-none dark:border-gray-700"></canvas>
+                            <input type="hidden" name="signature" x-ref="input" />
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button type="button" @click="clear()"
+                                    class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
+                                    Clear signature
+                                </button>
+                                <label class="cursor-pointer rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
+                                    Upload photo instead
+                                    <input type="file" name="signature_file" accept="image/jpeg,image/jpg,image/png,image/heic" class="hidden"
+                                        @change="onUpload($event)" />
+                                </label>
+                            </div>
+                            <p x-cloak x-show="extractError" x-text="extractError"
+                                class="rounded-lg bg-error-50 px-3 py-2 text-xs text-error-600 dark:bg-error-500/15 dark:text-error-500"></p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500">
+                                Draw signature above or upload a photo of it on plain paper.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
 

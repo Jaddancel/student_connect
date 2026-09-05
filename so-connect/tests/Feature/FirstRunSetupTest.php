@@ -136,20 +136,87 @@ test('an unconfirmed superadmin leaves the system uninitialized', function () {
     $this->get('/setup/confirm')->assertOk()->assertSee('Check your inbox');
 });
 
-test('opening the confirmation link activates the account and signs it in', function () {
+test('opening the confirmation link activates the account, signs it in, and redirects to profile setup', function () {
     Mail::fake();
     simulateNoSuperadmin();
 
     $email = 'confirm-'.uniqid().'@example.com';
     $user  = submitSetupForm($email);
 
-    $this->get(capturedConfirmationUrl())->assertRedirect(route('dashboard'));
+    $this->get(capturedConfirmationUrl())->assertRedirect(route('profile.create'));
 
     expect($user->fresh()->email_verified_at)->not->toBeNull();
     $this->assertAuthenticatedAs($user->fresh());
 
     // The one-time token is consumed.
     expect(DB::table('invitation_tokens')->where('user_email', $email)->exists())->toBeFalse();
+});
+
+test('superadmin without profile is redirected from dashboard to profile setup and can visit dashboard after setup', function () {
+    Mail::fake();
+    simulateNoSuperadmin();
+
+    $email = 'superadmin-profile-'.uniqid().'@example.com';
+    $user = submitSetupForm($email);
+
+    $this->get(capturedConfirmationUrl())->assertRedirect(route('profile.create'));
+
+    // Trying to visit dashboard without profile redirects to profile setup
+    $this->actingAs($user)->get('/dashboard')->assertRedirect(route('profile.create'));
+
+    // Submit profile setup
+    $this->actingAs($user)->post('/profile/create', [
+        'fname' => 'Super',
+        'lname' => 'Admin',
+        'mname' => 'Root',
+    ])->assertRedirect(route('dashboard'));
+
+    $user->refresh();
+    expect($user->profile)->not()->toBeNull();
+    expect($user->profile_pending)->toBeFalse();
+
+    // Now superadmin can visit dashboard
+    $this->actingAs($user)->get('/dashboard')->assertOk();
+});
+
+test('superadmin can setup profile using an uploaded signature photo', function () {
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+    Mail::fake();
+    simulateNoSuperadmin();
+
+    $email = 'superadmin-sig-'.uniqid().'@example.com';
+    $user = submitSetupForm($email);
+
+    $this->get(capturedConfirmationUrl())->assertRedirect(route('profile.create'));
+
+    // Create a 100x100 white image with a dark stroke for realistic ink extraction
+    $im = imagecreatetruecolor(100, 100);
+    $white = imagecolorallocate($im, 255, 255, 255);
+    $black = imagecolorallocate($im, 0, 0, 0);
+    imagefill($im, 0, 0, $white);
+    imagesetthickness($im, 3);
+    imageline($im, 10, 50, 90, 50, $black);
+    imageline($im, 50, 10, 50, 90, $black);
+    ob_start();
+    imagepng($im);
+    $pngData = ob_get_clean();
+    imagedestroy($im);
+
+    $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('signature.png', $pngData);
+
+    $this->actingAs($user)->post('/profile/create', [
+        'fname' => 'Super',
+        'lname' => 'Admin',
+        'signature_file' => $file,
+    ])->assertRedirect(route('dashboard'));
+
+    $user->refresh();
+    expect($user->profile)->not()->toBeNull();
+
+    $profile = \App\Models\Profile::find($user->profile);
+    expect($profile->signature_path)->not()->toBeNull();
+    Storage::disk('public')->assertExists($profile->signature_path);
 });
 
 test('an invalid or expired confirmation link is rejected', function () {

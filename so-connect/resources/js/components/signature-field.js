@@ -1,4 +1,5 @@
 import SignaturePad from 'signature_pad';
+import { extractSignatureInk } from './signature-ink';
 
 /**
  * Alpine component for a signature-capture PAD (used by the profile Signature
@@ -16,6 +17,7 @@ export function signatureField(config = {}) {
         verifyUrl: options.verifyUrl || null,
         verifyState: 'idle', // idle|checking|recognized|not_recognized|no_signatures|unavailable
         matchedName: '',
+        extractError: '',
         _debounce: null,
         _fromScan: false,
 
@@ -39,6 +41,7 @@ export function signatureField(config = {}) {
         clear() {
             this.pad.clear();
             this.$refs.input.value = '';
+            this.extractError = '';
             this.verifyState = 'idle';
             this.matchedName = '';
             this._fromScan = false;
@@ -47,7 +50,7 @@ export function signatureField(config = {}) {
 
         fromDataUrl(dataUrl) {
             if (!dataUrl || !this.pad) return;
-            if (!this.pad.isEmpty() || this.$refs.input.value) return;
+            this.pad.clear();
             const canvas = this.$refs.canvas;
             const ratio = Math.max(window.devicePixelRatio || 1, 1);
             this.pad.fromDataURL(dataUrl, {
@@ -62,6 +65,31 @@ export function signatureField(config = {}) {
 
         clearFromScan() {
             if (this._fromScan) this.clear();
+        },
+
+        async onUpload(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            this.extractError = '';
+            try {
+                const rawDataUrl = await this.readAsDataUrl(file);
+                const extractedDataUrl = await extractSignatureInk(rawDataUrl);
+                this.fromDataUrl(extractedDataUrl);
+                event.target.value = '';
+            } catch (e) {
+                this.extractError = "We couldn't find a signature in that photo. "
+                    + 'Use a well-lit shot of the signature on plain paper, with nothing else in frame.';
+                event.target.value = '';
+            }
+        },
+
+        readAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
         },
 
         scheduleVerify(dataUrl) {

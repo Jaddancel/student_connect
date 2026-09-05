@@ -44,7 +44,7 @@
             @endif
 
             {{-- Form card --}}
-            <form method="post" action="{{ route('profile.store') }}"
+            <form method="post" action="{{ route('profile.store') }}" enctype="multipart/form-data"
                 class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                 @csrf
 
@@ -271,12 +271,21 @@
                         <canvas x-ref="canvas" width="500" height="160"
                             class="w-full rounded-lg border border-gray-300 bg-white touch-none dark:border-gray-700"></canvas>
                         <input type="hidden" name="signature" x-ref="input" />
-                        <button type="button" @click="clear()"
-                            class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
-                            Clear signature
-                        </button>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button type="button" @click="clear()"
+                                class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
+                                Clear signature
+                            </button>
+                            <label class="cursor-pointer rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
+                                Upload photo instead
+                                <input type="file" name="signature_file" accept="image/jpeg,image/jpg,image/png,image/heic" class="hidden"
+                                    @change="onUpload($event)" />
+                            </label>
+                        </div>
+                        <p x-cloak x-show="extractError" x-text="extractError"
+                            class="rounded-lg bg-error-50 px-3 py-2 text-xs text-error-600 dark:bg-error-500/15 dark:text-error-500"></p>
                         <p class="text-xs text-gray-400 dark:text-gray-500">
-                            Saved to your profile once approved; it pre-fills signature fields on forms.
+                            Draw your signature above or upload a photo of it on plain paper. Saved to your profile once setup is complete.
                         </p>
                     </div>
                 </div>
@@ -291,7 +300,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                         </svg>
-                        Submit Profile Request
+                        Create Profile
                     </button>
                     <p class="mt-3 text-center text-xs text-gray-400 dark:text-gray-500">
                         Your request will be reviewed by a superadmin before your profile is activated.

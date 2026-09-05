@@ -184,8 +184,8 @@ class SystemSetupController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('dashboard')
-            ->with('status', 'Email confirmed. Welcome to StudentConnect!');
+        return redirect()->route('profile.create')
+            ->with('status', 'Email confirmed. Please setup your profile to continue.');
     }
 
     /**

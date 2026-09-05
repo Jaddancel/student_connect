@@ -7,6 +7,7 @@ use App\Mail\AdminInvitationMail;
 use App\Models\Profile;
 use App\Models\Profile\profileAddress;
 use App\Models\User;
+use App\Support\SignatureImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -44,6 +45,8 @@ class AdminAccountCreationController extends Controller
             'faculty_advisers'      => ['nullable', 'array'],
             'faculty_advisers.*'    => ['nullable', 'string', 'max:255'],
             'photo'                 => ['nullable', 'file', 'mimes:jpeg,png', 'max:2048'],
+            'signature'             => ['nullable', 'string'],
+            'signature_file'        => ['nullable', 'file', 'mimes:jpeg,jpg,png,heic', 'max:5120'],
             // Optional Google link captured by the "Sign in with Google" popup.
             'google_id'             => ['nullable', 'string', 'max:255', 'unique:users,google_id'],
         ]);
@@ -58,7 +61,12 @@ class AdminAccountCreationController extends Controller
             );
         }
 
-        DB::transaction(function () use ($validated, $photoPath) {
+        $uploadedSig = $request->hasFile('signature_file') && $request->file('signature_file')->isValid();
+        $sigPath = $uploadedSig
+            ? SignatureImage::store(file_get_contents($request->file('signature_file')->getRealPath()), 'signatures/profiles')
+            : SignatureImage::storeDataUrl($validated['signature'] ?? null, 'signatures/profiles');
+
+        DB::transaction(function () use ($validated, $photoPath, $sigPath) {
             $addr = profileAddress::create([
                 'country'  => 'Philippines',
                 'province' => '',
@@ -72,18 +80,23 @@ class AdminAccountCreationController extends Controller
                 'last_name'      => $validated['last_name'],
                 'contact_number' => $validated['contact_number'],
                 'age'            => $validated['age'] ?? null,
-                'sex'            => $validated['sex'] ?? '',
-                'religion'       => $validated['religious_affiliation'] ?? '',
-                'nationality'    => $validated['nationality'] ?? '',
+                'sex'            => ! empty($validated['sex']) ? $validated['sex'] : null,
+                'religion'       => $validated['religious_affiliation'] ?? null,
+                'nationality'    => $validated['nationality'] ?? null,
                 'birthday'       => $validated['birthday'] ?? null,
-                'birthplace'     => $validated['birthplace'] ?? '',
+                'birthplace'     => $validated['birthplace'] ?? null,
                 'course_year'    => trim(($validated['course'] ?? '').' '.($validated['year_level'] ?? '')),
                 'course'         => $validated['course'] ?? '',
                 'year_section'   => $validated['year_level'] ?? '',
                 'occupation'     => 'Administrator',
                 'address'        => (int) $addr->profile_address_id,
                 'photo'          => $photoPath ?? '',
+                'signature_path' => $sigPath,
             ]);
+
+            if ($profile->signature_path) {
+                app(\App\Services\SignatureReferenceService::class)->syncFromProfile($profile->fresh());
+            }
 
             User::create([
                 'user_email'            => $validated['email'],
