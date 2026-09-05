@@ -28,14 +28,14 @@
         {{-- Activities awaiting the decision that admits them to the workplan --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
             <div class="mb-4 flex items-center justify-between">
-                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Awaiting Workplan Approval</h3>
+                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Awaiting Admin Approval</h3>
                 <span class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-400">
                     {{ $grouped['in_workplan']->count() }}
                 </span>
             </div>
 
             @if ($grouped['in_workplan']->isEmpty())
-                <p class="text-sm text-gray-500 dark:text-gray-400">No activities are awaiting approval into the workplan.</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">No activities are awaiting admin approval.</p>
             @else
                 <div class="space-y-1">
                     @foreach ($grouped['in_workplan'] as $plan)
@@ -62,10 +62,10 @@
         </div>
         @endif
 
-        {{-- Approved Plans --}}
+        {{-- Approved Events --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
             <div class="mb-4 flex items-center justify-between">
-                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Approved Plans</h3>
+                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Approved Events</h3>
                 <span class="inline-flex items-center rounded-full bg-success-50 px-2.5 py-0.5 text-xs font-medium text-success-700 dark:bg-success-500/15 dark:text-success-400">
                     {{ $grouped['approved']->count() }}
                 </span>
@@ -88,11 +88,11 @@
             @endif
         </div>
 
-        {{-- Rejected Plans --}}
+        {{-- Rejected Events --}}
         @if ($grouped['rejected']->isNotEmpty())
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
             <div class="mb-4 flex items-center justify-between">
-                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Rejected Plans</h3>
+                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Rejected Events</h3>
                 <span class="inline-flex items-center rounded-full bg-error-50 px-2.5 py-0.5 text-xs font-medium text-error-700 dark:bg-error-500/15 dark:text-error-400">
                     {{ $grouped['rejected']->count() }}
                 </span>
@@ -105,11 +105,11 @@
         </div>
         @endif
 
-        {{-- Junked Plans --}}
+        {{-- Junked Events --}}
         @if ($grouped['junked']->isNotEmpty())
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
             <div class="mb-4 flex items-center justify-between">
-                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Junked Plans</h3>
+                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Junked Events</h3>
                 <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-400">
                     {{ $grouped['junked']->count() }}
                 </span>

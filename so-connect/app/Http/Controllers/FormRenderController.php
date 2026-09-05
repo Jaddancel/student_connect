@@ -606,12 +606,13 @@ class FormRenderController extends Controller
             $handler->validatePayload($form, $payload, $request);
         }
 
-        // Bound forms keep the form's own org scoping (previous behavior);
-        // a plain form's submission belongs to the submitter's organization —
-        // the approval-time org check and the scoring joins both key on it.
-        $submissionOrgId = $handler
-            ? $form->organization_id
-            : ($organization?->getKey() ?? $form->organization_id);
+        // A New Event form may be global, with the officer selecting the
+        // organization in its payload. Its submission must carry that same
+        // organization as the activity request the handler creates; otherwise
+        // approval-time document generation rejects the pair as mismatched.
+        $submissionOrgId = $form->system_function === SystemFunction::NEW_EVENT
+            ? (int) ($payload['organization_id'] ?? 0)
+            : ($handler ? $form->organization_id : ($organization?->getKey() ?? $form->organization_id));
 
         $submission = FormSubmission::query()->create([
             'form_id' => (int) $form->getKey(),

@@ -6,6 +6,7 @@ use App\Models\EventPlan;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Services\DocumentGenerationService;
+use App\Services\WorkplanService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -82,12 +83,14 @@ class NewEventHandler implements SystemFunctionHandler
             'resources_needed' => $this->payloadValue($form, $payload, 'resources_needed'),
         ];
 
-        // Same shape the direct activity request creates: a pending parent
-        // plan (the tally/scoring anchor) plus a pending child carrying the
-        // schedule, tied to the document-generation request the admin decides.
-        // The parent stays pending until that decision — approval is what
-        // admits the activity to the org's workplan, rejection kills it.
-        $parentPlan = EventPlan::query()->create(array_merge($sharedPlanFields, ['status' => 'pending']));
+        $hasApprovedWorkplan = app(WorkplanService::class)
+            ->hasApprovedWorkplanForDate($organizationId, $targetDate);
+
+        // Without an approved workplan for this date, retain a parent plan so
+        // the approved activity is available to the next workplan form.
+        $parentPlan = $hasApprovedWorkplan
+            ? null
+            : EventPlan::query()->create(array_merge($sharedPlanFields, ['status' => 'pending']));
 
         $actionRequest = app(DocumentGenerationService::class)->createDocumentGenerationRequest(
             $organizationId,
@@ -108,14 +111,14 @@ class NewEventHandler implements SystemFunctionHandler
             'event_start_time' => ($startTime === null || $startTime === '') ? null : $targetDate.' '.(string) $startTime,
             'event_end_time' => ($endTime === null || $endTime === '') ? null : $targetDate.' '.(string) $endTime,
             'status' => 'pending',
-            'parent_plan_id' => (int) $parentPlan->getKey(),
+            'parent_plan_id' => $parentPlan?->getKey(),
             'request_id' => (int) $actionRequest->getKey(),
         ]));
 
         $actionRequest->update([
             'payload' => array_merge((array) ($actionRequest->payload ?? []), [
                 'event_plan_id' => (int) $childPlan->getKey(),
-                'parent_plan_id' => (int) $parentPlan->getKey(),
+                'parent_plan_id' => $parentPlan?->getKey(),
             ]),
         ]);
 

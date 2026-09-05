@@ -28,7 +28,7 @@
 
     {{-- The field value: the captured/uploaded waiver image (data URL). --}}
     <input type="hidden" id="{{ $key }}" name="{{ $key }}" x-model="imageData" value="{{ $old }}" />
-    <input type="file" x-ref="upload" accept="image/jpeg,image/png" class="hidden" @change="onUpload($event)" />
+    <input type="file" x-ref="upload" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="hidden" @change="onUpload($event)" />
 
     <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03]">
         <h3 class="mb-1 text-base font-semibold text-gray-800 dark:text-white/90">Scan the signed waiver</h3>

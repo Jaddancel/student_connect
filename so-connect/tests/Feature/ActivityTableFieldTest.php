@@ -1,6 +1,8 @@
 <?php
 
 use App\Forms\ActivityTableData;
+use App\Forms\Handlers\NewEventHandler;
+use App\Models\Approval;
 use App\Models\EventPlan;
 use App\Models\Form;
 use App\Models\Form\FormDescription;
@@ -10,7 +12,9 @@ use App\Models\Semester;
 use App\Models\User;
 use App\Models\Workplan;
 use App\Services\DocumentGenerationService;
+use App\Services\WorkplanService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -53,8 +57,13 @@ function atNewEventForm(): Form
     $form = Form::query()->create([
         'name' => 'New Event', 'route_name' => 'new-event-'.\Illuminate\Support\Str::random(6),
         'system_function' => 'new_event', 'is_active' => true,
+        'pdf_template' => [
+            'html' => '<p><span data-field="title">Event title</span></p>',
+            'page' => ['size' => 'a4', 'orientation' => 'portrait'],
+        ],
     ]);
     foreach ([
+        ['field_key' => 'organization_id', 'field_type' => 'text', 'field_label' => 'Organization'],
         ['field_key' => 'title', 'field_type' => 'text', 'field_label' => 'Activity Title'],
         ['field_key' => 'target_date', 'field_type' => 'date', 'field_label' => 'Target Date'],
         ['field_key' => 'event_location', 'field_type' => 'text', 'field_label' => 'Location'],
@@ -279,4 +288,150 @@ it('resolves the same set directly through ActivityTableData', function () {
         'title' => 'Acquaintance Party',
         'event_end_time' => '3:00 PM',
     ]]);
+});
+
+it('recognizes only admin-approved workplans for the event date', function () {
+    [$officer, $orgId] = atOfficer();
+    $semester = atActiveSemester();
+    $workplan = atWorkplan($orgId, $semester);
+    $workplan->update(['status' => 'finalized']);
+
+    $form = Form::query()->create([
+        'name' => 'Workplan',
+        'route_name' => 'workplan-'.\Illuminate\Support\Str::random(6),
+        'system_function' => 'new_workplan',
+        'is_active' => true,
+    ]);
+    $submission = FormSubmission::query()->create([
+        'form_id' => (int) $form->getKey(),
+        'organization_id' => $orgId,
+        'submitted_by' => (int) $officer->getKey(),
+        'submitted_at' => now(),
+        'payload' => ['semester_id' => (int) $semester->getKey()],
+    ]);
+    $request = app(DocumentGenerationService::class)->createDocumentGenerationRequest(
+        $orgId,
+        (int) $submission->getKey(),
+        (int) $form->getKey(),
+        (int) $officer->getKey(),
+    );
+    Approval::query()->create([
+        'request' => (int) $request->getKey(),
+        'approved_at' => now(),
+        'is_rejected' => false,
+    ]);
+
+    $service = app(WorkplanService::class);
+    expect($service->hasApprovedWorkplanForDate($orgId, $semester->starts_at->toDateString()))->toBeTrue()
+        ->and($service->hasApprovedWorkplanForDate($orgId, $semester->starts_at->copy()->subDay()->toDateString()))->toBeFalse();
+
+    $newEventForm = atNewEventForm();
+    $newEventRequest = new HttpRequest();
+    $newEventRequest->setUserResolver(fn () => $officer);
+    $approvedWorkplanSubmission = FormSubmission::query()->create([
+        'form_id' => (int) $newEventForm->getKey(),
+        'organization_id' => $orgId,
+        'submitted_by' => (int) $officer->getKey(),
+        'submitted_at' => now(),
+        'payload' => [],
+    ]);
+
+    (new NewEventHandler())->handle($newEventForm, $approvedWorkplanSubmission, [
+        'organization_id' => $orgId,
+        'title' => 'Approved Workplan Event',
+        'target_date' => $semester->starts_at->toDateString(),
+    ], $newEventRequest);
+
+    expect(EventPlan::query()->where('title', 'Approved Workplan Event')->sole()->parent_plan_id)->toBeNull();
+
+    Approval::query()->where('request', $request->getKey())->update(['is_rejected' => true]);
+
+    expect($service->hasApprovedWorkplanForDate($orgId, $semester->starts_at->toDateString()))->toBeFalse();
+
+    $unapprovedWorkplanSubmission = FormSubmission::query()->create([
+        'form_id' => (int) $newEventForm->getKey(),
+        'organization_id' => $orgId,
+        'submitted_by' => (int) $officer->getKey(),
+        'submitted_at' => now(),
+        'payload' => [],
+    ]);
+
+    (new NewEventHandler())->handle($newEventForm, $unapprovedWorkplanSubmission, [
+        'organization_id' => $orgId,
+        'title' => 'Unapproved Workplan Event',
+        'target_date' => $semester->starts_at->toDateString(),
+    ], $newEventRequest);
+
+    $unapprovedWorkplanPlans = EventPlan::query()
+        ->where('title', 'Unapproved Workplan Event')
+        ->get();
+    $parentPlan = $unapprovedWorkplanPlans->whereNull('parent_plan_id')->sole();
+    $requestPlan = $unapprovedWorkplanPlans->whereNotNull('parent_plan_id')->sole();
+
+    expect($unapprovedWorkplanPlans)->toHaveCount(2)
+        ->and($requestPlan->parent_plan_id)->toBe((int) $parentPlan->getKey());
+});
+
+it('creates an admin activity request when an officer submits on an approved workplan date', function () {
+    [$officer, $orgId] = atOfficer();
+    $semester = atActiveSemester();
+    $workplan = atWorkplan($orgId, $semester);
+    $workplan->update(['status' => 'finalized']);
+
+    $workplanForm = Form::query()->create([
+        'name' => 'Workplan',
+        'route_name' => 'workplan-'.\Illuminate\Support\Str::random(6),
+        'system_function' => 'new_workplan',
+        'is_active' => true,
+    ]);
+    $workplanSubmission = FormSubmission::query()->create([
+        'form_id' => (int) $workplanForm->getKey(),
+        'organization_id' => $orgId,
+        'submitted_by' => (int) $officer->getKey(),
+        'submitted_at' => now(),
+        'payload' => ['semester_id' => (int) $semester->getKey()],
+    ]);
+    $workplanRequest = app(DocumentGenerationService::class)->createDocumentGenerationRequest(
+        $orgId,
+        (int) $workplanSubmission->getKey(),
+        (int) $workplanForm->getKey(),
+        (int) $officer->getKey(),
+    );
+    Approval::query()->create([
+        'request' => (int) $workplanRequest->getKey(),
+        'approved_at' => now(),
+        'is_rejected' => false,
+    ]);
+
+    $eventForm = atNewEventForm();
+    $this->actingAs($officer)
+        ->post(route('forms.render.submit', $eventForm->route_name), [
+            'organization_id' => (string) $orgId,
+            'title' => 'Approved Workplan Activity Request',
+            'target_date' => $semester->starts_at->toDateString(),
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('forms.render', $eventForm->route_name));
+
+    $activityRequest = \App\Models\Request::query()
+        ->where('form_id', (int) $eventForm->getKey())
+        ->sole();
+    $submission = FormSubmission::query()
+        ->findOrFail((int) $activityRequest->payload['submission_id']);
+    $eventPlan = EventPlan::query()
+        ->where('request_id', (int) $activityRequest->getKey())
+        ->sole();
+
+    expect($activityRequest->organization_id)->toBe($orgId)
+        ->and($activityRequest->requested_by)->toBe((int) $officer->getKey())
+        ->and((int) $activityRequest->action_type)->toBe(\App\Helpers\FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION)
+        ->and($submission->organization_id)->toBe($orgId)
+        ->and($activityRequest->payload['event_plan_id'])->toBe((int) $eventPlan->getKey())
+        ->and($activityRequest->payload['parent_plan_id'])->toBeNull()
+        ->and($eventPlan->parent_plan_id)->toBeNull();
+
+    $this->actingAs(recordsUser(2))
+        ->get(route('admin.activity-requests.index'))
+        ->assertOk()
+        ->assertSee('Approved Workplan Activity Request');
 });
