@@ -83,6 +83,11 @@
                     setField('last_name', data.last_name);
                     setField('email', data.email);
                     setField('google_id', data.google_id);
+                    // Only present when the applicant has these set AND consented
+                    // to share them on the Google OAuth screen — see GoogleLinkController.
+                    setField('sex', data.sex);
+                    setField('birthday', data.birthday);
+                    setField('present_address', data.present_address);
 
                     var name = [data.first_name, data.last_name].filter(Boolean).join(' ');
                     setStatus('Linked to Google' + (data.email ? ' (' + data.email + ')' : name ? ' (' + name + ')' : '') + '.', false);

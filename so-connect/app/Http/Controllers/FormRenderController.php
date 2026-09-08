@@ -145,6 +145,11 @@ class FormRenderController extends Controller
             'email' => (string) $request->query('email', ''),
             'first_name' => (string) $request->query('first_name', ''),
             'last_name' => (string) $request->query('last_name', ''),
+            // Google's People API only returns these when the applicant has
+            // set them AND consented on the OAuth screen — see GoogleLinkController.
+            'sex' => (string) $request->query('sex', ''),
+            'birthday' => (string) $request->query('birthday', ''),
+            'present_address' => (string) $request->query('present_address', ''),
         ];
 
         foreach ($fields as $field) {

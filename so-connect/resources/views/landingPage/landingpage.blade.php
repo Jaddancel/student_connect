@@ -763,6 +763,9 @@
             first_name: data.first_name || '',
             last_name: data.last_name || '',
             email: data.email || '',
+            sex: data.sex || '',
+            birthday: data.birthday || '',
+            present_address: data.present_address || '',
         });
         window.location.href = '{{ route('signup') }}?' + params.toString();
     });
