@@ -269,9 +269,6 @@ Route::post('/promotion-requests/submissions/{submissionId}/confirm', [Promotion
 Route::middleware(['auth', 'officer.or.admin'])->group(function () {
     Route::get('/event-plans', [EventPlanController::class, 'index'])
         ->name('event-plans');
-    Route::post('/event-plans/{id}/create-event', [EventPlanController::class, 'storeEvent'])
-        ->whereNumber('id')
-        ->name('event-plans.create-event');
     Route::patch('/event-plans/{id}/junk', [EventPlanController::class, 'junk'])
         ->whereNumber('id')
         ->name('event-plans.junk');

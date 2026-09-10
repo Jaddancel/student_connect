@@ -225,11 +225,24 @@ class WorkplanRequestController extends Controller
                 ->update(['approval_id' => (int) $approval->approval_id]);
         }
 
-        // The workplan decision deliberately does not touch event-plan
-        // statuses. An activity is admitted to the workplan by the approval of
-        // its own event request (see Admin\ActivityRequestController::decide),
-        // so bulk-approving the pending plans in range here would wave through
-        // activities whose request is still undecided or was rejected.
+        if ($validated['decision'] === 'approve') {
+            $orgId = (int) ($payload['organization_id'] ?? $actionRequest->organization_id ?? 0);
+            $semesterId = (int) ($payload['semester_id'] ?? 0);
+
+            $workplan = $semesterId > 0
+                ? Workplan::query()
+                    ->where('organization_id', $orgId)
+                    ->where('semester_id', $semesterId)
+                    ->first()
+                : Workplan::query()
+                    ->where('organization_id', $orgId)
+                    ->orderByDesc('semester_id')
+                    ->first();
+
+            if ($workplan) {
+                app(WorkplanService::class)->convertApprovedPlansToCalendarEvents($workplan);
+            }
+        }
 
         $message = $validated['decision'] === 'approve'
             ? 'Workplan approved and document generated.'

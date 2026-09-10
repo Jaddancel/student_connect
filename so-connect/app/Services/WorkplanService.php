@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Event;
+use App\Models\Event\EventDetail;
 use App\Models\EventPlan;
 use App\Models\Approval;
 use App\Models\FormSubmission;
@@ -137,5 +139,48 @@ class WorkplanService
             ->whereIn('semester_id', $expiredSemesterIds)
             ->whereIn('status', ['active', 'finalized'])
             ->update(['status' => 'archived']);
+    }
+
+    /**
+     * Convert approved, workplan-backed event plans into calendar events when a
+     * workplan request is accepted. Only plans still not linked to a calendar
+     * event are processed, and the return count is the number of new events.
+     */
+    public function convertApprovedPlansToCalendarEvents(Workplan $workplan): int
+    {
+        $plans = $this->getApprovedPlansForWorkplan($workplan)
+            ->filter(fn (EventPlan $plan) => $plan->event_id === null)
+            ->values();
+
+        if ($plans->isEmpty()) {
+            return 0;
+        }
+
+        $created = 0;
+
+        foreach ($plans as $plan) {
+            $eventDetail = EventDetail::query()->create([
+                'name' => (string) ($plan->title ?? ''),
+                'location' => (string) ($plan->event_location ?? ''),
+                'desc_text' => (string) ($plan->purpose_of_activity ?? ''),
+                'start_time' => $plan->event_start_time ?: Carbon::parse($plan->target_date)->setTime(9, 0, 0),
+                'end_time' => $plan->event_end_time ?: Carbon::parse($plan->target_date)->setTime(17, 0, 0),
+            ]);
+
+            $event = Event::query()->create([
+                'organization' => (int) $workplan->organization_id,
+                'creator' => (int) ($plan->created_by ?? $workplan->finalized_by ?? 0),
+                'event_detail' => (int) $eventDetail->getKey(),
+            ]);
+
+            $plan->update([
+                'event_id' => (int) $event->getKey(),
+                'status' => 'approved',
+            ]);
+
+            $created++;
+        }
+
+        return $created;
     }
 }

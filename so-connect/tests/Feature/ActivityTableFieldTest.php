@@ -3,6 +3,7 @@
 use App\Forms\ActivityTableData;
 use App\Forms\Handlers\NewEventHandler;
 use App\Models\Approval;
+use App\Models\Event;
 use App\Models\EventPlan;
 use App\Models\Form;
 use App\Models\Form\FormDescription;
@@ -148,6 +149,35 @@ function atWorkplan(int $orgId, Semester $semester): Workplan
         'organization_id' => $orgId, 'semester_id' => (int) $semester->getKey(), 'status' => 'active',
     ]);
 }
+
+it('creates calendar events automatically for approved activities when a workplan is accepted', function () {
+    [$officer, $orgId] = atOfficer();
+    $semester = atActiveSemester();
+    $workplan = atWorkplan($orgId, $semester);
+    $newEventForm = atNewEventForm();
+    $targetDate = atApprovedActivity($orgId, (int) $officer->getKey(), $newEventForm);
+
+    $approvedPlan = EventPlan::query()
+        ->where('organization_id', $orgId)
+        ->whereNull('parent_plan_id')
+        ->where('status', 'approved')
+        ->sole();
+
+    $approvedPlan->update([
+        'event_location' => 'Main Hall',
+        'event_start_time' => $targetDate.' 09:00:00',
+        'event_end_time' => $targetDate.' 11:00:00',
+    ]);
+
+    expect(Event::query()->count())->toBe(0);
+
+    $created = app(WorkplanService::class)->convertApprovedPlansToCalendarEvents($workplan);
+
+    expect($created)->toBe(1)
+        ->and($approvedPlan->fresh()->event_id)->not->toBeNull()
+        ->and(Event::query()->where('organization', $orgId)->count())->toBe(1)
+        ->and(Event::query()->latest('event_id')->first()->detailOfEvent->name)->toBe($approvedPlan->title);
+});
 
 it('snapshots the approved activities on submit, ignoring client input', function () {
     [$officer, $orgId] = atOfficer();
