@@ -116,9 +116,8 @@
                         <p class="text-xs font-medium text-gray-400">Prepared By</p>
                         <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['name'] ?? '—' }}</p>
                         @if (!empty($p['signature']))
-                            <img src="{{ asset('storage/'.$p['signature']) }}" alt="Signature"
-                                 class="mt-2 h-16 cursor-zoom-in object-contain rounded border border-gray-200 dark:border-gray-700"
-                                 @click="$store.lightbox.show('{{ asset('storage/'.$p['signature']) }}', 'Signature')" />
+                            <x-admin.zoomable-image :src="asset('storage/'.$p['signature'])" alt="Signature"
+                                 class="mt-2 h-16 object-contain rounded border border-gray-200 dark:border-gray-700" />
                         @endif
                     </div>
                     @if (!empty($p['adviserName']))
@@ -153,9 +152,8 @@
                     <div class="px-6 py-5">
                         <div class="flex flex-wrap gap-4">
                             @foreach ($photoList as $photoPath)
-                                <img src="{{ asset('storage/'.$photoPath) }}" alt="Activity Photo {{ $loop->iteration }}"
-                                     class="max-h-64 cursor-zoom-in rounded-xl border border-gray-200 object-contain dark:border-gray-700"
-                                     @click="$store.lightbox.show('{{ asset('storage/'.$photoPath) }}', 'Activity Photo')" />
+                                <x-admin.zoomable-image :src="asset('storage/'.$photoPath)" :alt="'Activity Photo '.$loop->iteration" label="Activity Photo"
+                                     class="max-h-64 rounded-xl border border-gray-200 object-contain dark:border-gray-700" />
                             @endforeach
                         </div>
                     </div>

@@ -140,7 +140,7 @@
                             <p class="text-xs font-medium text-gray-400">{{ $sig['label'] }}</p>
                             <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p[$sig['name_key']] ?? '—' }}</p>
                             @if (!empty($p[$sig['sig_key']]))
-                                <img src="{{ asset('storage/'.$p[$sig['sig_key']]) }}" alt="{{ $sig['label'] }} Signature" class="mt-2 h-16 object-contain rounded border border-gray-200 dark:border-gray-700" />
+                                <x-admin.zoomable-image :src="asset('storage/'.$p[$sig['sig_key']])" :alt="$sig['label'].' Signature'" class="mt-2 h-16 object-contain rounded border border-gray-200 dark:border-gray-700" />
                             @endif
                         </div>
                     @endforeach

@@ -122,7 +122,7 @@
                         <div class="sm:col-span-2">
                             <p class="text-xs font-medium text-gray-400">Signature</p>
                             <div class="mt-2 inline-block rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40">
-                                <img src="{{ asset('storage/' . $p['presidentSignature']) }}" alt="President Signature"
+                                <x-admin.zoomable-image :src="asset('storage/' . $p['presidentSignature'])" alt="President Signature"
                                     class="h-20 max-w-xs object-contain" />
                             </div>
                         </div>

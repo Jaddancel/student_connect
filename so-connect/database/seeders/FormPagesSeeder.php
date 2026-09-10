@@ -232,10 +232,9 @@ class FormPagesSeeder extends Seeder
      * an approved parent plan + a pending child plan tied to a document request
      * the admin decides in the Activity Requests queue.
      *
-     * The field keys mirror NewEventHandler::REQUIRED_KEYS plus the two
-     * optional keys it reads (purpose_of_activity, resources_needed). While no
-     * form is bound to new_event, the calendar's "Create Event" action is
-     * disabled (see calendar-area.blade.php / SystemFunction::form()).
+     * The field catalog mirrors the event-plan page's "Submit Event Creation
+     * Request" form. The system-function handler still owns the event-request
+     * lifecycle, while this definition owns the fields shown by the builder.
      */
     private function seedNewEvent(): void
     {
@@ -249,7 +248,39 @@ class FormPagesSeeder extends Seeder
             $this->f('event_end_time', 'End', FieldType::TIME),
             $this->heading('Activity Details'),
             $this->f('purpose_of_activity', 'Purpose of Activity', FieldType::TEXTAREA, ['options' => ['rows' => 4]]),
-            $this->f('resources_needed', 'Resources Needed', FieldType::TEXTAREA, ['options' => ['rows' => 3]]),
+            $this->f('university_facilities', 'University Facilities / Equipment to be Used', FieldType::TEXT_LIST, [
+                'placeholder' => 'e.g. Projector, Sound System, Chairs',
+            ]),
+            $this->heading('President & Advisers'),
+            $this->f('president_name', 'President Name', FieldType::TEXT, ['required' => true]),
+            $this->f('president_contact', 'President Contact Number', FieldType::TEXT, ['required' => true]),
+            $this->f('faculty_advisers', 'Faculty Advisers', FieldType::TEXT_LIST, [
+                'required' => true,
+                'placeholder' => 'Adviser full name',
+            ]),
+            $this->heading('Event Type'),
+            $this->f('activity_types', 'Activity Type (select all that apply)', FieldType::CHECKBOX, [
+                'required' => true,
+                'options' => ['Seminar', 'Clean Up Drive', 'Donation', 'Conference', 'Workshop', 'others'],
+            ]),
+            $this->f('activity_type_other', 'Other Activity Type', FieldType::TEXT),
+            $this->f('area_scope', 'Area Scope', FieldType::SELECT, [
+                'required' => true,
+                'options' => ['none', 'Local', 'Provincial', 'Regional', 'National', 'International', 'others'],
+            ]),
+            $this->f('area_scope_other', 'Other Area Scope', FieldType::TEXT),
+            $this->f('sponsor', 'Sponsor', FieldType::SELECT, [
+                'required' => true,
+                'options' => ['none', 'N/A', 'SSC', 'Admin', 'others'],
+            ]),
+            $this->f('sponsor_other', 'Other Sponsor', FieldType::TEXT),
+            $this->f('extension_services', 'Extension Services', FieldType::RADIO, [
+                'required' => true,
+                'options' => [
+                    ['value' => 'yes', 'label' => 'Yes'],
+                    ['value' => 'no', 'label' => 'No'],
+                ],
+            ]),
             $this->heading('Waiver'),
             $this->f('waiver', 'Signed Waiver', FieldType::WAIVER_SCAN, [
                 'placeholder' => 'Scan or upload the signed activity waiver.',
@@ -264,7 +295,17 @@ class FormPagesSeeder extends Seeder
             .$this->line('Start', 'event_start_time')
             .$this->line('End', 'event_end_time')
             .'<p><strong>Purpose of Activity:</strong></p><p><span data-field="purpose_of_activity"></span></p>'
-            .'<p><strong>Resources Needed:</strong></p><p><span data-field="resources_needed"></span></p>';
+            .'<p><strong>Facilities / Equipment:</strong></p><p><span data-field="university_facilities"></span></p>'
+            .$this->line('President', 'president_name')
+            .$this->line('President Contact', 'president_contact')
+            .'<p><strong>Faculty Advisers:</strong></p><p><span data-field="faculty_advisers"></span></p>'
+            .$this->line('Activity Type', 'activity_types')
+            .$this->line('Other Activity Type', 'activity_type_other')
+            .$this->line('Area Scope', 'area_scope')
+            .$this->line('Other Area Scope', 'area_scope_other')
+            .$this->line('Sponsor', 'sponsor')
+            .$this->line('Other Sponsor', 'sponsor_other')
+            .$this->line('Extension Services', 'extension_services');
 
         $this->buildForm([
             'route_name' => 'new-event',

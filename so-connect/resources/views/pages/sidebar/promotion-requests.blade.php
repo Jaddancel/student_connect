@@ -161,7 +161,9 @@
                             {{-- Photo + identity --}}
                             <div class="flex items-start gap-4">
                                 <template x-if="current.review_payload.photo_url">
-                                    <img :src="current.review_payload.photo_url" alt="Photo" class="h-24 w-20 shrink-0 rounded-lg object-cover border border-gray-200 dark:border-gray-700" />
+                                    <img :src="current.review_payload.photo_url" alt="Photo"
+                                         @click="$store.lightbox.show(current.review_payload.photo_url, 'Photo')"
+                                         class="h-24 w-20 shrink-0 cursor-zoom-in rounded-lg object-cover border border-gray-200 dark:border-gray-700" />
                                 </template>
                                 <template x-if="!current.review_payload.photo_url">
                                     <div class="flex h-24 w-20 shrink-0 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 text-xs text-gray-400 dark:border-gray-700 dark:bg-gray-800">No photo</div>

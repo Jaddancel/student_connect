@@ -149,9 +149,8 @@
                         <p class="text-xs font-medium text-gray-400">President</p>
                         <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['nameOfPresident'] ?? '—' }}</p>
                         @if (!empty($p['signaturePresident']))
-                            <img src="{{ asset('storage/'.$p['signaturePresident']) }}" alt="President Signature"
-                                 class="mt-2 h-16 cursor-zoom-in object-contain rounded border border-gray-200 dark:border-gray-700"
-                                 @click="$store.lightbox.show('{{ asset('storage/'.$p['signaturePresident']) }}', 'President Signature')" />
+                            <x-admin.zoomable-image :src="asset('storage/'.$p['signaturePresident'])" alt="President Signature"
+                                 class="mt-2 h-16 object-contain rounded border border-gray-200 dark:border-gray-700" />
                         @endif
                     </div>
                 </div>

@@ -56,14 +56,14 @@
                         <div @class(['sm:col-span-2' => in_array($type, [FieldType::TEXTAREA, FieldType::TABLE_INPUT, FieldType::MULTI_IMAGE, FieldType::WAIVER_SCAN], true)])>
                             <p class="text-xs font-medium text-gray-400">{{ $field->field_label }}</p>
                             @if ($isImagePath || $isDataUri)
-                                <img src="{{ $isDataUri ? $value : asset('storage/'.$value) }}" alt="{{ $field->field_label }}"
+                                <x-admin.zoomable-image :src="$isDataUri ? $value : asset('storage/'.$value)" :alt="$field->field_label"
                                      class="mt-2 max-h-40 rounded-lg border border-gray-200 object-contain dark:border-gray-700" />
                             @elseif ($isFilePath)
                                 <a href="{{ asset('storage/'.$value) }}" target="_blank" class="mt-1 inline-block text-brand-500 hover:underline">Open file</a>
                             @elseif ($type === FieldType::MULTI_IMAGE && is_array($value))
                                 <div class="mt-2 flex flex-wrap gap-2">
                                     @forelse ($value as $photo)
-                                        <img src="{{ asset('storage/'.$photo) }}" alt="Photo" class="h-24 w-24 rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
+                                        <x-admin.zoomable-image :src="asset('storage/'.$photo)" alt="Photo" class="h-24 w-24 rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
                                     @empty
                                         <span class="text-gray-800 dark:text-white/90">—</span>
                                     @endforelse

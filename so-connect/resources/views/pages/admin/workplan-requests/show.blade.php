@@ -144,7 +144,7 @@
                         <p class="text-xs font-medium text-gray-400">Prepared By</p>
                         <p class="mt-1 text-gray-800 dark:text-white/90">{{ $p['name'] ?? '—' }}</p>
                         @if (!empty($p['signature']))
-                            <img src="{{ asset('storage/'.$p['signature']) }}" alt="Signature" class="mt-2 h-16 object-contain rounded border border-gray-200 dark:border-gray-700" />
+                            <x-admin.zoomable-image :src="asset('storage/'.$p['signature'])" alt="Signature" class="mt-2 h-16 object-contain rounded border border-gray-200 dark:border-gray-700" />
                         @endif
                     </div>
                     @if (!empty($p['advisername']))

@@ -109,9 +109,8 @@
                     {{-- Photo --}}
                     <div class="shrink-0">
                         @if (!empty($p['photo_url']))
-                            <img src="{{ $p['photo_url'] }}" alt="Photo"
-                                 class="h-32 w-28 cursor-zoom-in rounded-xl border border-gray-200 object-cover dark:border-gray-700"
-                                 @click="$store.lightbox.show('{{ $p['photo_url'] }}', 'Officer Photo')" />
+                            <x-admin.zoomable-image :src="$p['photo_url']" alt="Photo" label="Officer Photo"
+                                 class="h-32 w-28 rounded-xl border border-gray-200 object-cover dark:border-gray-700" />
                         @else
                             <div class="flex h-32 w-28 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 text-xs text-gray-400 dark:border-gray-700 dark:bg-gray-800">No photo</div>
                         @endif
@@ -154,17 +153,15 @@
                             @if (!empty($p['id_photo_front_url']))
                                 <div>
                                     <p class="mb-1.5 text-xs font-medium text-gray-400">Front of ID</p>
-                                    <img src="{{ $p['id_photo_front_url'] }}" alt="Front of ID"
-                                         class="h-24 w-36 cursor-zoom-in rounded-lg border border-gray-200 object-cover dark:border-gray-700"
-                                         @click="$store.lightbox.show('{{ $p['id_photo_front_url'] }}', 'Front of ID')" />
+                                    <x-admin.zoomable-image :src="$p['id_photo_front_url']" alt="Front of ID"
+                                         class="h-24 w-36 rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
                                 </div>
                             @endif
                             @if (!empty($p['id_photo_back_url']))
                                 <div>
                                     <p class="mb-1.5 text-xs font-medium text-gray-400">Back of ID</p>
-                                    <img src="{{ $p['id_photo_back_url'] }}" alt="Back of ID"
-                                         class="h-24 w-36 cursor-zoom-in rounded-lg border border-gray-200 object-cover dark:border-gray-700"
-                                         @click="$store.lightbox.show('{{ $p['id_photo_back_url'] }}', 'Back of ID')" />
+                                    <x-admin.zoomable-image :src="$p['id_photo_back_url']" alt="Back of ID"
+                                         class="h-24 w-36 rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
                                 </div>
                             @endif
                         </div>
