@@ -69,6 +69,13 @@ it('includes president and officer email fields in the organization registration
         ]);
 });
 
+    it('offers computed fields in the organization accreditation builder palette', function () {
+        expect(FieldType::paletteCatalog(SystemFunction::ORG_ACCREDITATION))
+        ->toHaveKey(FieldType::COMPUTED)
+        ->toHaveKey(FieldType::ORG_SELECT)
+        ->toHaveKey(FieldType::WORKPLAN_SELECT);
+    });
+
 it('validates a sourced select/search against the scoped source values', function () {
     $opts = ['source' => 'organizations', 'source_values' => ['1', '2', '3']];
 

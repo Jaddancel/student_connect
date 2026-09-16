@@ -34,6 +34,19 @@ it('renders a deleted field token as an empty placeholder, not an error', functi
     expect($out)->not->toContain('data-field');
 });
 
+it('renders a checked checkmark field as a ticked checkbox image', function () {
+    $fields = new Collection([
+        new FormDescription(['field_key' => 'confirmed', 'field_label' => 'Confirmed', 'field_type' => 'checkbox']),
+    ]);
+
+    $out = (new PdfTemplateRenderer())->render('<p><span data-field="confirmed">Confirmed</span></p>', ['confirmed' => 1], $fields);
+
+    preg_match('/src="data:image\/svg\+xml;base64,([^"]+)"/', $out, $matches);
+
+    expect($out)->toContain('token-checkbox is-checked')
+        ->and(base64_decode($matches[1] ?? '', true))->toContain('<path d="M2.2 5.2');
+});
+
 it('renders a data-universal token from the submitter profile', function () {
     $fields = new Collection([]); // universal tokens need no form field
     $profile = new Profile(['first_name' => 'Juan', 'student_id' => '21-1234-567']);

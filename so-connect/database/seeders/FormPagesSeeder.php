@@ -195,6 +195,13 @@ class FormPagesSeeder extends Seeder
             $this->f('organization_initials', 'Organization Initials', FieldType::TEXT, ['required' => true]),
             $this->f('organization_description', 'Description', FieldType::TEXTAREA, ['options' => ['rows' => 4]]),
             $this->f('organization_type', 'Organization Type', FieldType::NUMBER, ['required' => true]),
+            $this->heading('Membership'),
+            $this->f('freshman', 'No. of Freshman Members', FieldType::NUMBER),
+            $this->f('sophomore', 'No. of Sophomore Members', FieldType::NUMBER),
+            $this->f('junior', 'No. of Junior Members', FieldType::NUMBER),
+            $this->f('total', 'Total Members', FieldType::COMPUTED, ['options' => [
+                'formula' => 'sum', 'args' => ['freshman', 'sophomore', 'junior'],
+            ]]),
             $this->heading('President Contact'),
             $this->f('president_email', 'New President Email', FieldType::NEW_PRESIDENT_EMAIL, ['required' => true]),
             $this->heading('Officer Contact'),
@@ -206,6 +213,10 @@ class FormPagesSeeder extends Seeder
             .$this->line('Initials', 'organization_initials')
             .$this->line('Description', 'organization_description')
             .$this->line('Type', 'organization_type')
+            .'<p><strong>Members - Freshman:</strong> <span data-field="freshman"></span>'
+            .' <strong>Sophomore:</strong> <span data-field="sophomore"></span>'
+            .' <strong>Junior:</strong> <span data-field="junior"></span>'
+            .' <strong>Total:</strong> <span data-field="total"></span></p>'
             .$this->line('New President Email', 'president_email')
             .$this->line('New Officer Email', 'officer_email');
 
@@ -240,7 +251,7 @@ class FormPagesSeeder extends Seeder
     {
         $fields = [
             $this->heading('Event Details'),
-            $this->f('organization_id', 'Organization', FieldType::ORG_SELECT, ['required' => true]),
+            $this->f('organization_id', 'Organization', FieldType::ORG_SELECT),
             $this->f('title', 'Activity / Title', FieldType::TEXT),
             $this->f('target_date', 'Target Date', FieldType::DATE),
             $this->f('event_location', 'Event Location', FieldType::TEXT),

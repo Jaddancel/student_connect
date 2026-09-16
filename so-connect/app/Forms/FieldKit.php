@@ -48,6 +48,7 @@ final class FieldKit
                     FieldType::NEW_PRESIDENT_EMAIL,
                     FieldType::NEW_OFFICER_EMAIL,
                     FieldType::ORGANIZATION_TYPE_SELECT,
+                    FieldType::COMPUTED,
                 ],
                 'required' => [
                     'president_email' => FieldType::NEW_PRESIDENT_EMAIL,
@@ -82,6 +83,17 @@ final class FieldKit
             SystemFunction::MEMBERSHIP_REGISTRATION => [
                 'label' => 'Membership fields',
                 'types' => [FieldType::ORG_SELECT],
+                'required' => [
+                    'organization_id' => FieldType::ORG_SELECT,
+                ],
+            ],
+            SystemFunction::ORG_ACCREDITATION => [
+                'label' => 'Organization Accreditation fields',
+                'types' => [
+                    FieldType::ORG_SELECT,
+                    FieldType::COMPUTED,
+                    FieldType::WORKPLAN_SELECT,
+                ],
                 'required' => [
                     'organization_id' => FieldType::ORG_SELECT,
                 ],
