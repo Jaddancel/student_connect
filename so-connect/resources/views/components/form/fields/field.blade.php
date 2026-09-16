@@ -162,6 +162,7 @@
             @case(FieldType::NUMBER)
             @case(FieldType::AGE)
                 <input type="number" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder }}"
+                    @if (! empty($opts['calculate_from'])) data-calculate-from="{{ $opts['calculate_from'] }}" @endif
                     @isset($opts['min']) min="{{ $opts['min'] }}" @endisset
                     @isset($opts['max']) max="{{ $opts['max'] }}" @endisset
                     step="{{ $opts['step'] ?? ($type === FieldType::AGE ? '1' : 'any') }}"

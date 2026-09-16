@@ -374,6 +374,8 @@ class FormBuilderController extends Controller
             'fields.*.field_options.accept' => ['nullable', 'string', 'max:255'],
             // Date/time autofill-with-now toggle.
             'fields.*.field_options.autofill_now' => ['nullable', 'boolean'],
+            // Same-row date-derived number calculations (e.g. birthday -> age).
+            'fields.*.field_options.calculate_from' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_]+$/'],
             // Special kit-scoped option keys: table columns + totals, computed
             // formulas, photo-set limits and media mirroring, event autofill.
             // Shared by table-input and activity-table columns. The key/type are

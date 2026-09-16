@@ -298,6 +298,21 @@
                                 </p>
                             </div>
 
+                            <div x-show="['number', 'age'].includes(f.field_type)" x-cloak class="space-y-2">
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Calculate from</label>
+                                <select x-model="f.field_options.calculate_from" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
+                                    <option value="">— none —</option>
+                                    <template x-if="calculateFromOptions(f).length">
+                                        <optgroup label="Calculate from">
+                                            <template x-for="opt in calculateFromOptions(f)" :key="opt.value">
+                                                <option :value="opt.value" x-text="opt.label"></option>
+                                            </template>
+                                        </optgroup>
+                                    </template>
+                                </select>
+                                <p class="text-[10px] text-gray-400">Choose a date field in the same row to fill this number with the number of full years from today.</p>
+                            </div>
+
                             {{-- signature: expected signer(s) + Compare mode --}}
                             <div x-show="f.field_type === 'signature'" x-cloak class="space-y-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
                                 <p class="text-xs font-medium text-gray-600 dark:text-gray-300">Expected signer</p>

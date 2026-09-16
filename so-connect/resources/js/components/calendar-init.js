@@ -17,8 +17,7 @@ export function calendarInit() {
         calendarWrapper.dataset.workplanStatuses || "{}",
     );
     const todayStr =
-        calendarWrapper.dataset.today ||
-        new Date().toISOString().slice(0, 10);
+        calendarWrapper.dataset.today || new Date().toISOString().slice(0, 10);
 
     // ─── Semester detection helpers ──────────────────────────────────────────────
 
@@ -384,6 +383,12 @@ export function calendarInit() {
         drawerBackdrop.addEventListener("click", closeEventPlanDrawer);
     }
 
+    // A rejected/invalid submission redirects back here with flashed errors;
+    // the drawer starts closed, so it must reopen itself to surface them —
+    // otherwise the alert renders invisibly behind a closed drawer.
+    if (eventPlanDrawer?.dataset.hasErrors === "1") {
+        openEventPlanDrawer(currentPlanDate);
+    }
 }
 
 export default calendarInit;

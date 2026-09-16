@@ -438,9 +438,12 @@ final class FieldType
                 break;
 
             case self::WAIVER_SCAN:
-                // The captured waiver image as a base64 data-URL string
-                // (stored + server re-validated at submit).
-                $rules[] = 'string';
+                // One or more captured waiver images (base64 data-URLs), each
+                // stored + server re-validated at submit — see nestedValidationRules().
+                $rules[] = 'array';
+                if ($required) {
+                    $rules[] = 'min:1';
+                }
                 break;
 
             case self::EVENT_SELECT:
@@ -504,6 +507,9 @@ final class FieldType
         switch ($type) {
             case self::TEXT_LIST:
                 return ['*' => ['nullable', 'string', 'max:500']];
+
+            case self::WAIVER_SCAN:
+                return ['*' => ['nullable', 'string']];
 
             case self::WORKPLAN_EVENTS:
                 return ['*' => ['integer', 'exists:event_plans,event_plan_id']];

@@ -134,9 +134,13 @@
     </div>
 
     {{-- Event Plan Drawer — embeds the builder form bound to the new_event
-         system function. Shown only when a published form is bound. --}}
+         system function. Shown only when a published form is bound. A failed
+         submission redirects back here with flashed errors/old input; unlike
+         the standalone /forms/{routeName} page, the drawer starts closed, so
+         it must auto-open (see data-has-errors below) and surface the errors
+         itself instead of relying on pages.form.render's alert block. --}}
     @if ($resolvedCanRequestEvent && $newEventRender)
-        <div id="eventPlanDrawer"
+        <div id="eventPlanDrawer" data-has-errors="{{ $errors->any() ? '1' : '0' }}"
             class="fixed inset-0 z-99999 pointer-events-none opacity-0 transition-opacity duration-300">
             <button type="button" data-event-plan-drawer-backdrop
                 class="absolute inset-0 bg-gray-400/50 backdrop-blur-[24px]"></button>
@@ -160,6 +164,20 @@
                 </div>
 
                 <div class="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+                    @if (session('success'))
+                        <div class="mb-5 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm font-medium text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400">
+                            {{ session('success') }}
+                        </div>
+                    @endif
+
+                    @if ($errors->any())
+                        <div class="mb-5 rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
+                            @foreach ($errors->all() as $error)
+                                <p>{{ $error }}</p>
+                            @endforeach
+                        </div>
+                    @endif
+
                     @include('components.form.builder-form', array_merge($newEventRender, [
                         'preview' => false,
                         'submitLabel' => 'Submit event request',

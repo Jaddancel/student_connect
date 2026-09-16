@@ -706,6 +706,30 @@ it('rejects the age-from-birthday autofill on a non-signup form', function () {
     expect(Form::where('route_name', 'plain-age')->exists())->toBeFalse();
 });
 
+it('stores a calculate-from date mapping on a row-bound number field', function () {
+    $admin = makeUser(2);
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
+        'name' => 'Date Age', 'route_name' => 'date-age',
+        'fields' => [
+            ['field_key' => 'birthday', 'field_label' => 'Birthday', 'field_type' => 'date'],
+            ['field_key' => 'age', 'field_label' => 'Age', 'field_type' => 'number', 'field_options' => ['calculate_from' => 'birthday']],
+        ],
+        'rows' => [
+            ['columns' => [
+                ['span' => 6, 'fields' => ['birthday']],
+                ['span' => 6, 'fields' => ['age']],
+            ]],
+        ],
+        'pdf_template' => ['html' => '<p>x</p>', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ])->assertOk();
+
+    $form = Form::where('route_name', 'date-age')->first();
+    expect($form->fields()->where('field_key', 'age')->first()->field_options)->toMatchArray([
+        'calculate_from' => 'birthday',
+    ]);
+});
+
 it('round-trips the multi-column layout shape', function () {
     $admin = makeUser(2);
 

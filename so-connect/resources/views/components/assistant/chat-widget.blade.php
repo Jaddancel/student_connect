@@ -12,7 +12,7 @@
     <button
         class="relative flex items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full hover:text-dark-900 h-11 w-11 hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
         @click="toggleOpen()" type="button" aria-label="AI assistant">
-        {!! \App\Helpers\MenuHelper::getIconSvg('chat') !!}
+        {!! \App\Helpers\MenuHelper::getIconSvg('ai-assistant') !!}
     </button>
 
     <div x-show="open" x-cloak
@@ -89,6 +89,13 @@
                                 <a :href="link.path"
                                     class="inline-flex items-center rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-600 hover:bg-brand-100 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20"
                                     x-text="link.name"></a>
+                            </template>
+                        </div>
+                        <div x-show="(message.suggestions || []).length > 0" class="flex flex-wrap gap-1.5">
+                            <template x-for="suggestion in (message.suggestions || [])" :key="suggestion">
+                                <button type="button" @click="askSuggestion(suggestion)"
+                                    class="rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-left text-xs font-medium text-brand-600 hover:bg-brand-100 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20"
+                                    x-text="suggestion"></button>
                             </template>
                         </div>
                     </div>

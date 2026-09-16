@@ -68,6 +68,16 @@
                                         <span class="text-gray-800 dark:text-white/90">—</span>
                                     @endforelse
                                 </div>
+                            @elseif ($type === FieldType::WAIVER_SCAN && is_array($value))
+                                {{-- One or more scanned waivers, each stored as a path or (unresubmitted) data URI. --}}
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    @forelse ($value as $waiver)
+                                        @continue(! is_string($waiver) || $waiver === '')
+                                        <x-admin.zoomable-image :src="str_starts_with($waiver, 'data:image') ? $waiver : asset('storage/'.$waiver)" alt="Scanned waiver" class="h-24 w-24 rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
+                                    @empty
+                                        <span class="text-gray-800 dark:text-white/90">—</span>
+                                    @endforelse
+                                </div>
                             @elseif ($type === FieldType::TABLE_INPUT && count($tableCols))
                                 <div class="mt-1 overflow-x-auto">
                                     <table class="w-full border-collapse text-xs">

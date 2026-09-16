@@ -35,8 +35,14 @@ class WaiverReviewController extends Controller
             $verdict = 'unvalidated';
             if ($validation !== []) {
                 $first = reset($validation);
-                $valid = $first['valid'] ?? null;
-                $verdict = $valid === true ? 'valid' : ($valid === false ? 'needs_review' : 'unvalidated');
+                // New submissions store a list of per-item validations per
+                // field (one waiver can be many); legacy ones stored a single
+                // validation object directly for the field.
+                $items = array_is_list($first) ? $first : [$first];
+                $verdicts = array_column($items, 'valid');
+                $verdict = in_array(false, $verdicts, true)
+                    ? 'needs_review'
+                    : (in_array(true, $verdicts, true) ? 'valid' : 'unvalidated');
             }
 
             return [

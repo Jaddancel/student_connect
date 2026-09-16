@@ -197,7 +197,7 @@ final class PdfTemplateRenderer
         $type = (string) $field->field_type;
         $options = (array) ($field->field_options ?? []);
 
-        if (in_array($type, [FieldType::MULTI_IMAGE], true)) {
+        if (in_array($type, [FieldType::MULTI_IMAGE, FieldType::WAIVER_SCAN], true)) {
             $uris = SubmissionPresenter::imageDataUris($payload, $key, $disk);
             $nodes = [];
             foreach ($uris as $uri) {

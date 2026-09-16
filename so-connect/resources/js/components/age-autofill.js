@@ -1,16 +1,8 @@
 /**
- * Live "Age - Computed from Birthday" autofill for the Sign Up form.
- *
- * A field mapped to the `age_from_birthday` universal key derives its value
- * from the form's own birthday date field (universal key `birthday`). At
- * sign-up there is no profile yet, so the age is computed client-side as the
- * birthday changes and authoritatively recomputed server-side at submit
- * (see FormRenderController::submit).
- *
- * Both markers sit on the field wrapper (see components/form/fields/field.blade),
- * so this drills into the wrapper for the actual control — the same contract the
- * ID-scan wizard uses. No Alpine coupling: a single delegated listener on the
- * document handles every input/change.
+ * Live age recalculation helpers used by both the generic form builder and the
+ * sign-up profile flow. A number/age field may be configured to calculate from a
+ * sibling date field in the same row; the sign-up universal birthday shortcut is
+ * still supported for the dedicated `age_from_birthday` autofill.
  */
 export function registerAgeAutofill() {
     document.addEventListener('input', onSourceEvent);
@@ -21,18 +13,34 @@ function onSourceEvent(event) {
     const target = event.target;
     if (!target || typeof target.closest !== 'function') return;
 
+    // Dedicated sign-up autofill: birthday -> age_from_birthday.
     const birthdayWrap = target.closest('[data-universal-key="birthday"]');
-    if (!birthdayWrap) return;
+    if (birthdayWrap) {
+        const source = controlWithin(birthdayWrap);
+        if (!source) return;
 
-    const source = controlWithin(birthdayWrap);
-    if (!source) return;
+        const age = computeAge(source.value);
+        document.querySelectorAll('[data-universal-key="age_from_birthday"]').forEach((wrap) => {
+            const control = controlWithin(wrap);
+            if (!control) return;
+            control.value = age === null ? '' : String(age);
+            control.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+    }
 
-    const age = computeAge(source.value);
-    document.querySelectorAll('[data-universal-key="age_from_birthday"]').forEach((wrap) => {
-        const control = controlWithin(wrap);
+    // Generic same-row calculation: number/age inputs can target a sibling date field.
+    const sourceName = target.name;
+    if (!sourceName) return;
+
+    document.querySelectorAll('[data-calculate-from]').forEach((targetEl) => {
+        const source = targetEl.dataset.calculateFrom;
+        if (!source || source !== sourceName) return;
+
+        const control = controlWithin(targetEl);
         if (!control) return;
+
+        const age = computeAge(target.value);
         control.value = age === null ? '' : String(age);
-        // Keep form-conditions.js value tracking in sync.
         control.dispatchEvent(new Event('input', { bubbles: true }));
     });
 }

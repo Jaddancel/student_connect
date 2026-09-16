@@ -22,6 +22,20 @@ class WaiverSubmissionService
     ) {}
 
     /**
+     * Process every waiver submitted for a (now multi-valued) WAIVER_SCAN
+     * field, checked one by one — each item is stored + re-validated
+     * independently, so the caller can reject the whole submission the
+     * moment a single item comes back invalid.
+     *
+     * @param  array<int,?string>  $values
+     * @return array<int,array{path: ?string, validation: ?array<string,mixed>}>
+     */
+    public function processMany(array $values, FormDescription $field): array
+    {
+        return array_map(fn (?string $value) => $this->process($value, $field), $values);
+    }
+
+    /**
      * @return array{path: ?string, validation: ?array<string,mixed>}
      */
     public function process(?string $value, FormDescription $field): array

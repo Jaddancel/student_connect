@@ -16,6 +16,7 @@ use App\Support\OrganizationField;
 use App\Support\SignatureImage;
 use App\Support\SignupRequests;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Generic renderer for WYSIWYG builder forms. One controller serves every form
@@ -406,6 +407,10 @@ class FormRenderController extends Controller
 
         $payload = [];
         $waiverValidations = [];
+        // Messages for waiver items an authoritative re-scan rejected; a single
+        // rejected item invalidates the whole submission (fail-closed), unlike
+        // a scanner outage/unvalidated item which is advisory-only.
+        $waiverRejections = [];
         $signatureVerifications = [];
         $capturedSignatures = [];
         // Officer org ids for the Activity Table snapshot (mirrors
@@ -501,12 +506,25 @@ class FormRenderController extends Controller
             }
 
             if ($type === FieldType::WAIVER_SCAN) {
-                // Store the scanned waiver + authoritatively re-validate it
-                // server-side (best-effort; never blocks the submission).
-                $result = app(\App\Services\WaiverSubmissionService::class)->process($validated[$key] ?? null, $field);
-                $payload[$key] = $result['path'];
-                if ($result['validation'] !== null) {
-                    $waiverValidations[$key] = $result['validation'];
+                // Each submitted waiver is stored + authoritatively re-validated
+                // one by one; a single item the re-scan rejects invalidates the
+                // whole submission (fail-closed), never blocking on a merely
+                // unvalidated/scanner-unavailable item.
+                $items = array_values(array_filter(
+                    (array) ($validated[$key] ?? []),
+                    fn ($v) => $v !== null && $v !== '',
+                ));
+                $results = app(\App\Services\WaiverSubmissionService::class)->processMany($items, $field);
+                $payload[$key] = array_column($results, 'path');
+
+                $validations = array_values(array_filter(array_column($results, 'validation'), fn ($v) => $v !== null));
+                if ($validations !== []) {
+                    $waiverValidations[$key] = $validations;
+                }
+                foreach ($validations as $i => $validation) {
+                    if (($validation['valid'] ?? null) === false) {
+                        $waiverRejections[] = ($field->field_label ?: 'Waiver').' #'.($i + 1).' failed validation and must be corrected.';
+                    }
                 }
                 continue;
             }
@@ -557,6 +575,11 @@ class FormRenderController extends Controller
             }
 
             $payload[$key] = $validated[$key] ?? null;
+        }
+
+        // A single rejected waiver item invalidates the whole submission.
+        if ($waiverRejections !== []) {
+            throw ValidationException::withMessages(['waiver' => $waiverRejections]);
         }
 
         // Stash the authoritative waiver re-validation results for the review UI.

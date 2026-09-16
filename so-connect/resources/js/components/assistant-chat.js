@@ -41,8 +41,39 @@ export function assistantChat(config) {
         toggleOpen() {
             this.open = !this.open;
             if (this.open) {
+                this.ensureWelcome();
                 this.$nextTick(() => this.scrollToBottom());
             }
+        },
+
+        ensureWelcome() {
+            if (this.messages.length > 0) return;
+
+            this.messages.push({
+                role: 'assistant',
+                content: 'Hi! I can help you with the page you are viewing.',
+                suggestions: this.suggestionsForCurrentPage(),
+            });
+            this.persist();
+        },
+
+        suggestionsForCurrentPage() {
+            const page = this.currentPath
+                .replace(/^\/+|\/+$/g, '')
+                .replace(/[-_]+/g, ' ')
+                .replace(/\//g, ' ')
+                .replace(/\b\w/g, (letter) => letter.toUpperCase()) || 'this page';
+
+            return [
+                `How do I use ${page}?`,
+                `What should I do next in ${page}?`,
+                `What can I do from ${page}?`,
+            ];
+        },
+
+        askSuggestion(suggestion) {
+            this.draft = suggestion;
+            this.send();
         },
 
         clear() {

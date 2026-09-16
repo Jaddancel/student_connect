@@ -1,28 +1,29 @@
-import './bootstrap';
-import './dashboard';
-import Alpine from 'alpinejs';
-import Collapse from '@alpinejs/collapse';
-import ApexCharts from 'apexcharts';
-import { formBuilder } from './components/form-builder';
-import { signatureField } from './components/signature-field';
-import { signatureImageField } from './components/signature-image-field';
-import { idTemplateEditor } from './components/id-template-editor';
-import { idScanWizard } from './components/id-scan-wizard';
-import { waiverScanField } from './components/waiver-scan-field';
-import { waiverTemplateEditor } from './components/waiver-template-editor';
-import { tallyEditor } from './components/tally-editor';
-import { formConditions } from './components/form-conditions';
-import { searchSelectField } from './components/search-select-field';
-import { assistantChat } from './components/assistant-chat';
-import { registerAgeAutofill } from './components/age-autofill';
+import "./bootstrap";
+import "./dashboard";
+import Alpine from "alpinejs";
+import Collapse from "@alpinejs/collapse";
+import ApexCharts from "apexcharts";
+import { formBuilder } from "./components/form-builder";
+import { signatureField } from "./components/signature-field";
+import { signatureImageField } from "./components/signature-image-field";
+import { idTemplateEditor } from "./components/id-template-editor";
+import { idScanWizard } from "./components/id-scan-wizard";
+import {
+    waiverScanField,
+    waiverScanItem,
+} from "./components/waiver-scan-field";
+import { waiverTemplateEditor } from "./components/waiver-template-editor";
+import { tallyEditor } from "./components/tally-editor";
+import { formConditions } from "./components/form-conditions";
+import { searchSelectField } from "./components/search-select-field";
+import { assistantChat } from "./components/assistant-chat";
+import { registerAgeAutofill } from "./components/age-autofill";
 
 // flatpickr
-import flatpickr from 'flatpickr';
-import 'flatpickr/dist/flatpickr.min.css';
+import flatpickr from "flatpickr";
+import "flatpickr/dist/flatpickr.min.css";
 // FullCalendar
-import { Calendar } from '@fullcalendar/core';
-
-
+import { Calendar } from "@fullcalendar/core";
 
 window.Alpine = Alpine;
 window.ApexCharts = ApexCharts;
@@ -30,17 +31,18 @@ window.flatpickr = flatpickr;
 window.FullCalendar = Calendar;
 
 Alpine.plugin(Collapse);
-Alpine.data('formBuilder', formBuilder);
-Alpine.data('signatureField', signatureField);
-Alpine.data('signatureImageField', signatureImageField);
-Alpine.data('idTemplateEditor', idTemplateEditor);
-Alpine.data('idScanWizard', idScanWizard);
-Alpine.data('waiverScanField', waiverScanField);
-Alpine.data('waiverTemplateEditor', waiverTemplateEditor);
-Alpine.data('tallyEditor', tallyEditor);
-Alpine.data('formConditions', formConditions);
-Alpine.data('searchSelectField', searchSelectField);
-Alpine.data('assistantChat', assistantChat);
+Alpine.data("formBuilder", formBuilder);
+Alpine.data("signatureField", signatureField);
+Alpine.data("signatureImageField", signatureImageField);
+Alpine.data("idTemplateEditor", idTemplateEditor);
+Alpine.data("idScanWizard", idScanWizard);
+Alpine.data("waiverScanField", waiverScanField);
+Alpine.data("waiverScanItem", waiverScanItem);
+Alpine.data("waiverTemplateEditor", waiverTemplateEditor);
+Alpine.data("tallyEditor", tallyEditor);
+Alpine.data("formConditions", formConditions);
+Alpine.data("searchSelectField", searchSelectField);
+Alpine.data("assistantChat", assistantChat);
 Alpine.start();
 
 // Live age-from-birthday autofill (Sign Up form); delegated at the document level.
@@ -54,34 +56,48 @@ registerAgeAutofill();
 //     }
 // }))
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
     // Map imports
-    if (document.querySelector('#mapOne')) {
-        import('./components/map').then(module => module.initMap());
+    if (document.querySelector("#mapOne")) {
+        import("./components/map").then((module) => module.initMap());
     }
 
     // Chart imports
-    if (document.querySelector('#chartOne')) {
-        import('./components/chart/chart-1').then(module => module.initChartOne());
+    if (document.querySelector("#chartOne")) {
+        import("./components/chart/chart-1").then((module) =>
+            module.initChartOne(),
+        );
     }
-    if (document.querySelector('#chartTwo')) {
-        import('./components/chart/chart-2').then(module => module.initChartTwo());
+    if (document.querySelector("#chartTwo")) {
+        import("./components/chart/chart-2").then((module) =>
+            module.initChartTwo(),
+        );
     }
-    if (document.querySelector('#chartThree')) {
-        import('./components/chart/chart-3').then(module => module.initChartThree());
+    if (document.querySelector("#chartThree")) {
+        import("./components/chart/chart-3").then((module) =>
+            module.initChartThree(),
+        );
     }
-    if (document.querySelector('#chartSix')) {
-        import('./components/chart/chart-6').then(module => module.initChartSix());
+    if (document.querySelector("#chartSix")) {
+        import("./components/chart/chart-6").then((module) =>
+            module.initChartSix(),
+        );
     }
-    if (document.querySelector('#chartEight')) {
-        import('./components/chart/chart-8').then(module => module.initChartEight());
+    if (document.querySelector("#chartEight")) {
+        import("./components/chart/chart-8").then((module) =>
+            module.initChartEight(),
+        );
     }
-    if (document.querySelector('#chartThirteen')) {
-        import('./components/chart/chart-13').then(module => module.initChartThirteen());
+    if (document.querySelector("#chartThirteen")) {
+        import("./components/chart/chart-13").then((module) =>
+            module.initChartThirteen(),
+        );
     }
 
     // Calendar init
-    if (document.querySelector('#calendar')) {
-        import('./components/calendar-init').then(module => module.calendarInit());
+    if (document.querySelector("#calendar")) {
+        import("./components/calendar-init").then((module) =>
+            module.calendarInit(),
+        );
     }
 });

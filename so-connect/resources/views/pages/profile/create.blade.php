@@ -169,6 +169,7 @@
                                 id="age"
                                 name="age"
                                 x-model="age"
+                                data-calculate-from="birthday"
                                 min="1"
                                 max="120"
                                 placeholder="—"

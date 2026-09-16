@@ -1092,6 +1092,20 @@ export function formBuilder(config) {
                 },
             ];
         },
+        calculateFromOptions(f) {
+            if (!f || !["number", "age"].includes(f.field_type)) return [];
+            const siblings = new Set(this.rowSiblingKeys(f.field_key));
+            return this.fields
+                .filter(
+                    (field) =>
+                        siblings.has(field.field_key) &&
+                        ["date", "datetime"].includes(field.field_type),
+                )
+                .map((field) => ({
+                    value: field.field_key,
+                    label: field.field_label || field.field_key,
+                }));
+        },
 
         // --- table-input column editing ---
         slugColumn(label) {
