@@ -108,13 +108,21 @@
                     <div class="flex flex-wrap items-start gap-4">
                         <template x-if="frontPreview">
                             <figure class="shrink-0">
-                                <img :src="frontPreview" alt="Front of ID" class="h-24 w-40 rounded-lg object-cover" />
+                                <button type="button" @click="$store.lightbox.show(frontPreview, 'Front of ID')"
+                                    class="block cursor-zoom-in rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                                    title="Click to view full size">
+                                    <img :src="frontPreview" alt="Front of ID" class="h-24 w-40 rounded-lg object-cover" />
+                                </button>
                                 <figcaption class="mt-1 text-center text-[11px] text-gray-400">Front</figcaption>
                             </figure>
                         </template>
                         <template x-if="backPreview">
                             <figure class="shrink-0">
-                                <img :src="backPreview" alt="Back of ID" class="h-24 w-40 rounded-lg object-cover" />
+                                <button type="button" @click="$store.lightbox.show(backPreview, 'Back of ID')"
+                                    class="block cursor-zoom-in rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                                    title="Click to view full size">
+                                    <img :src="backPreview" alt="Back of ID" class="h-24 w-40 rounded-lg object-cover" />
+                                </button>
                                 <figcaption class="mt-1 text-center text-[11px] text-gray-400">Back</figcaption>
                             </figure>
                         </template>

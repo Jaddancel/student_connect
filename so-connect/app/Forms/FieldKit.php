@@ -94,9 +94,7 @@ final class FieldKit
                     FieldType::COMPUTED,
                     FieldType::WORKPLAN_SELECT,
                 ],
-                'required' => [
-                    'organization_id' => FieldType::ORG_SELECT,
-                ],
+                'required' => [],
             ],
 
             // ---- Re-created legacy form kits ----

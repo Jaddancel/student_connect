@@ -78,7 +78,11 @@
             <template x-if="imageData">
                 <div class="space-y-4">
                     <div class="flex flex-wrap items-start gap-4">
-                        <img :src="imageData" alt="Scanned waiver" class="h-32 w-52 rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
+                        <button type="button" @click="$store.lightbox.show(imageData, 'Scanned waiver')"
+                            class="block cursor-zoom-in rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                            title="Click to view full size">
+                            <img :src="imageData" alt="Scanned waiver" class="h-32 w-52 rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
+                        </button>
                         <div class="min-w-0 flex-1 space-y-2">
                             <p x-show="checking" class="text-sm text-gray-500">Checking the waiver…</p>
                             <p x-show="error" x-cloak x-text="error" class="text-sm text-warning-600 dark:text-orange-400"></p>

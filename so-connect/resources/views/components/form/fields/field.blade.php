@@ -188,9 +188,25 @@
 
             @case(FieldType::IMAGE)
             @case(FieldType::FILE)
-                <input type="file" id="{{ $key }}" name="{{ $key }}"
-                    accept="{{ FieldType::uploadAcceptAttribute($type, $opts) }}"
-                    class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 dark:focus:border-brand-800 w-full rounded-lg border bg-transparent text-sm text-gray-500 file:mr-4 file:border-0 file:bg-brand-50 file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-brand-600 dark:border-gray-700 {{ $errors->has($key) ? 'border-error-500' : 'border-gray-300' }}" />
+                <div x-data="{ preview: null, previewUrl: null, updatePreview(event) {
+                        const file = event.target.files && event.target.files[0];
+                        if (this.previewUrl) URL.revokeObjectURL(this.previewUrl);
+                        this.previewUrl = file && file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+                        this.preview = this.previewUrl;
+                    } }">
+                    <input type="file" id="{{ $key }}" name="{{ $key }}"
+                        accept="{{ FieldType::uploadAcceptAttribute($type, $opts) }}"
+                        @change="updatePreview($event)"
+                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 dark:focus:border-brand-800 w-full rounded-lg border bg-transparent text-sm text-gray-500 file:mr-4 file:border-0 file:bg-brand-50 file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-brand-600 dark:border-gray-700 {{ $errors->has($key) ? 'border-error-500' : 'border-gray-300' }}" />
+                    <template x-if="preview">
+                        <button type="button" @click="$store.lightbox.show(preview, @js($field->field_label))"
+                            class="group mt-3 block cursor-zoom-in overflow-hidden rounded-lg border border-gray-200 bg-white p-1 transition hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700"
+                            title="Click to view full size">
+                            <img :src="preview" alt="{{ $field->field_label }} preview"
+                                class="h-32 w-48 object-contain transition group-hover:scale-[1.02]" />
+                        </button>
+                    </template>
+                </div>
                 <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
                     Allowed: {{ strtoupper(implode(', ', array_diff(FieldType::effectiveUploadExtensions($type, $opts), ['jpg', 'heif']))) }}
                 </p>
@@ -225,7 +241,11 @@
                     {{-- Preview of the current signature (saved, uploaded or scanned) --}}
                     <template x-if="preview">
                         <div class="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-white/[0.03]">
-                            <img :src="preview" alt="Signature" class="h-14 w-auto rounded bg-white object-contain p-1" />
+                            <button type="button" @click="$store.lightbox.show(preview, 'Signature')"
+                                class="cursor-zoom-in rounded bg-white p-1 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                                title="Click to view full size">
+                                <img :src="preview" alt="Signature" class="h-14 w-auto object-contain" />
+                            </button>
                             <p class="text-xs text-gray-500 dark:text-gray-400" x-text="usingSaved ? 'Using your saved signature.' : 'Signature ready.'"></p>
                         </div>
                     </template>
