@@ -1,4 +1,4 @@
-import { escapeHtml, renderMarkdown } from '../lib/markdown';
+import { escapeHtml, renderMarkdown } from "../lib/markdown";
 
 /**
  * ASSISTANT_CHAT widget: a floating panel that POSTs the running conversation
@@ -21,15 +21,15 @@ export function assistantChat(config) {
     return {
         endpoint: config.endpoint,
         csrf: config.csrf,
-        currentPath: config.currentPath || '',
+        currentPath: config.currentPath || "",
 
         open: false,
         sending: false,
-        draft: '',
+        draft: "",
         messages: [],
 
         init() {
-            const saved = sessionStorage.getItem('assistantChat.messages');
+            const saved = sessionStorage.getItem(this.storageKey());
             if (!saved) return;
             try {
                 this.messages = JSON.parse(saved);
@@ -47,28 +47,22 @@ export function assistantChat(config) {
         },
 
         ensureWelcome() {
-            if (this.messages.length > 0) return;
+            if (
+                this.messages.some(
+                    (message) => !message.failed && !message.initialGreeting,
+                )
+            ) {
+                return;
+            }
 
+            this.messages = [];
             this.messages.push({
-                role: 'assistant',
-                content: 'Hi! I can help you with the page you are viewing.',
-                suggestions: this.suggestionsForCurrentPage(),
+                role: "assistant",
+                content: "Hi! How can I help?",
+                initialGreeting: true,
             });
             this.persist();
-        },
-
-        suggestionsForCurrentPage() {
-            const page = this.currentPath
-                .replace(/^\/+|\/+$/g, '')
-                .replace(/[-_]+/g, ' ')
-                .replace(/\//g, ' ')
-                .replace(/\b\w/g, (letter) => letter.toUpperCase()) || 'this page';
-
-            return [
-                `How do I use ${page}?`,
-                `What should I do next in ${page}?`,
-                `What can I do from ${page}?`,
-            ];
+            this.send(true);
         },
 
         askSuggestion(suggestion) {
@@ -78,11 +72,18 @@ export function assistantChat(config) {
 
         clear() {
             this.messages = [];
-            sessionStorage.removeItem('assistantChat.messages');
+            sessionStorage.removeItem(this.storageKey());
+        },
+
+        storageKey() {
+            return `assistantChat.messages.${encodeURIComponent(this.currentPath || "/")}`;
         },
 
         persist() {
-            sessionStorage.setItem('assistantChat.messages', JSON.stringify(this.messages));
+            sessionStorage.setItem(
+                this.storageKey(),
+                JSON.stringify(this.messages),
+            );
         },
 
         scrollToBottom() {
@@ -100,42 +101,46 @@ export function assistantChat(config) {
          * degrades to the escaped text instead.
          */
         bubbleHtml(message) {
-            const content = typeof message?.content === 'string' ? message.content : '';
+            const content =
+                typeof message?.content === "string" ? message.content : "";
 
-            let html = '';
+            let html = "";
             try {
-                html = renderMarkdown(content) || '';
+                html = renderMarkdown(content) || "";
             } catch (e) {
-                html = '';
+                html = "";
             }
-            if (html !== '') return html;
+            if (html !== "") return html;
 
-            const fallback = content.trim() !== ''
-                ? content
-                : ((message?.links || []).length > 0
-                    ? 'Here’s the page for that:'
-                    : "Sorry, I couldn't put an answer together for that — try rephrasing it?");
+            const fallback =
+                content.trim() !== ""
+                    ? content
+                    : (message?.links || []).length > 0
+                      ? "Here’s the page for that:"
+                      : "Sorry, I couldn't put an answer together for that — try rephrasing it?";
 
-            return `<p>${escapeHtml(fallback).replace(/\n/g, '<br>')}</p>`;
+            return `<p>${escapeHtml(fallback).replace(/\n/g, "<br>")}</p>`;
         },
 
-        async send() {
+        async send(opening = false) {
             const content = this.draft.trim();
-            if (!content || this.sending) return;
+            if ((!content && !opening) || this.sending) return;
 
-            this.messages.push({ role: 'user', content });
-            this.draft = '';
+            if (!opening) {
+                this.messages.push({ role: "user", content });
+                this.draft = "";
+            }
             this.sending = true;
             this.persist();
             this.$nextTick(() => this.scrollToBottom());
 
             try {
                 const response = await fetch(this.endpoint, {
-                    method: 'POST',
+                    method: "POST",
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': this.csrf,
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        "X-CSRF-TOKEN": this.csrf,
                     },
                     body: JSON.stringify({
                         messages: this.messages
@@ -143,6 +148,7 @@ export function assistantChat(config) {
                             .slice(-20)
                             .map((m) => ({ role: m.role, content: m.content })),
                         current_path: this.currentPath,
+                        opening,
                     }),
                 });
                 const data = await response.json();
@@ -150,16 +156,32 @@ export function assistantChat(config) {
                 // content isn't a string has nothing to render, so a malformed
                 // response is treated as a failed turn instead of being pushed
                 // into the history and replayed to the model on the next one.
-                const reply = typeof data.reply === 'string' ? data.reply : '';
+                const reply = typeof data.reply === "string" ? data.reply : "";
                 const links = Array.isArray(data.links) ? data.links : [];
+                const suggestions = Array.isArray(data.suggestions)
+                    ? data.suggestions.filter(
+                          (suggestion) => typeof suggestion === "string",
+                      )
+                    : [];
 
-                if (data.ok && (reply !== '' || links.length > 0)) {
-                    this.messages.push({ role: 'assistant', content: reply, links });
+                if (data.ok && (reply !== "" || links.length > 0)) {
+                    this.messages.push({
+                        role: "assistant",
+                        content: reply,
+                        links,
+                        suggestions,
+                    });
+                } else if (data.ok && suggestions.length > 0) {
+                    this.messages.push({
+                        role: "assistant",
+                        content: "Here are some ways I can help:",
+                        suggestions,
+                    });
                 } else {
-                    this.pushUnavailable();
+                    this.pushUnavailable(opening);
                 }
             } catch (e) {
-                this.pushUnavailable();
+                this.pushUnavailable(opening);
             }
 
             this.sending = false;
@@ -167,11 +189,13 @@ export function assistantChat(config) {
             this.$nextTick(() => this.scrollToBottom());
         },
 
-        pushUnavailable() {
+        pushUnavailable(opening = false) {
             this.messages.push({
-                role: 'assistant',
-                content: "Sorry, I'm unavailable right now — please try again shortly.",
+                role: "assistant",
+                content:
+                    "Sorry, I'm unavailable right now — please try again shortly.",
                 failed: true,
+                opening,
             });
         },
     };

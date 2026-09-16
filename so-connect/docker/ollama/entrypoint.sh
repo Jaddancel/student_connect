@@ -21,4 +21,7 @@ else
     ollama pull "$MODEL"
 fi
 
+echo "Warming $MODEL..."
+ollama run "$MODEL" "Ready." >/dev/null
+
 wait "$SERVER_PID"

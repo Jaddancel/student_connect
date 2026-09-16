@@ -46,7 +46,7 @@ return [
 
     'llm' => [
         'url' => env('LLM_SERVICE_URL', 'http://ollama:11434'),
-        'timeout' => (int) env('LLM_TIMEOUT', 120),
+        'timeout' => (int) env('LLM_TIMEOUT', 180),
         'model' => env('LLM_MODEL', 'qwen3.5:9b-q4_K_M'),
     ],
 

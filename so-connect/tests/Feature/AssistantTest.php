@@ -96,6 +96,60 @@ it('leaves the markdown in a reply intact while stripping tokens', function () {
     expect($reply)->toContain('**Form Builder** and add fields:');
 });
 
+it('returns a page-aware opening greeting and model-authored suggestions', function () {
+    Http::fake([
+        '*/api/chat' => Http::response([
+            'message' => ['content' => 'Welcome to Form Builder. [[suggestion:How do I create a form?]] [[suggestion:How do I add a field?]] [[suggestion:How do I publish a form?]]'],
+        ], 200),
+    ]);
+
+    $admin = recordsUser(2);
+
+    $data = $this->actingAs($admin)
+        ->postJson(route('assistant.chat'), [
+            'messages' => [],
+            'current_path' => '/admin/form-builder',
+            'opening' => true,
+        ])
+        ->assertOk()
+        ->assertJson(['ok' => true])
+        ->json();
+
+    expect($data['reply'])->toBe('Welcome to Form Builder.')
+        ->and($data['suggestions'])->toBe([
+            'How do I create a form?',
+            'How do I add a field?',
+            'How do I publish a form?',
+        ]);
+});
+
+it('turns opening question bullets into suggestions when the model omits suggestion tokens', function () {
+    Http::fake([
+        '*/api/chat' => Http::response([
+            'message' => ['content' => "Welcome to Event Plans. Here are some useful next steps:\n\n- How do I create an event plan?\n- How do I update a pending event?\n- Where can I see approved events?"],
+        ], 200),
+    ]);
+
+    $admin = recordsUser(2);
+
+    $data = $this->actingAs($admin)
+        ->postJson(route('assistant.chat'), [
+            'messages' => [],
+            'current_path' => '/event-plans',
+            'opening' => true,
+        ])
+        ->assertOk()
+        ->assertJson(['ok' => true])
+        ->json();
+
+    expect($data['reply'])->toBe('Welcome to Event Plans. Here are some useful next steps:')
+        ->and($data['suggestions'])->toBe([
+            'How do I create an event plan?',
+            'How do I update a pending event?',
+            'Where can I see approved events?',
+        ]);
+});
+
 it('returns ok:false when the sidecar is down', function () {
     Http::fake(['*/api/chat' => Http::response('', 503)]);
 

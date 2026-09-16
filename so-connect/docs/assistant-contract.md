@@ -13,11 +13,12 @@ documents the OCR boundary.
 
 ```json
 {
-  "messages": [
-    { "role": "user", "content": "how do I publish a form?" },
-    { "role": "assistant", "content": "..." }
-  ],
-  "current_path": "/admin/form-builder"
+    "messages": [
+        { "role": "user", "content": "how do I publish a form?" },
+        { "role": "assistant", "content": "..." }
+    ],
+    "current_path": "/admin/form-builder",
+    "opening": false
 }
 ```
 
@@ -26,6 +27,9 @@ documents the OCR boundary.
 - `current_path` — optional string, max 2048 characters. The page the user is
   currently on; folded into the system prompt for context only, never
   validated against the route table.
+- `opening` — optional boolean. When true, the controller asks the model to
+  greet the user for `current_path` and return three relevant suggested
+  questions.
 
 ## Response
 
@@ -33,17 +37,28 @@ Always HTTP 200 — degraded states are a status sentinel, not an HTTP error,
 so the widget never has to special-case a failed `fetch()`.
 
 ```json
-{ "ok": true, "reply": "Go to Form Builder, click New Form, ...", "links": [{ "name": "Form Builder", "path": "/admin/form-builder" }] }
+{
+    "ok": true,
+    "reply": "Go to Form Builder, click New Form, ...",
+    "links": [{ "name": "Form Builder", "path": "/admin/form-builder" }],
+    "suggestions": []
+}
 ```
 
 ```json
-{ "ok": false, "reply": "", "links": [], "note": "assistant unavailable" }
+{
+    "ok": false,
+    "reply": "",
+    "links": [],
+    "suggestions": [],
+    "note": "assistant unavailable"
+}
 ```
 
 - `ok` — false for an invalid payload, no reachable pages for this user
   (shouldn't happen for an authenticated request), the Ollama sidecar being
   unreachable or erroring, or a completion with nothing to render (`empty
-  reply`).
+reply`).
 - `reply` — the model's answer as **Markdown**, with every `[[route:…]]` token
   stripped out (see below). Empty when `ok` is false, and **never empty when
   `ok` is true**: a completion that was blank or nothing but route tokens
@@ -53,9 +68,11 @@ so the widget never has to special-case a failed `fetch()`.
 - `links` — deep links extracted from the reply, in the order they appeared.
   Each is `{name, path}` — display name and a same-origin path to render as
   an `<a>` chip. Empty when `ok` is false or the reply cited no page.
+- `suggestions` — up to three model-authored questions returned only for an
+  `opening` request. The widget presents them as clickable prompt chips.
 - `note` — present only when `ok` is false: a short machine-readable reason
   (`invalid request`, `assistant unavailable`, `assistant error`, `empty
-  reply`). Not meant
+reply`). Not meant
   for verbatim display — the widget shows its own generic message instead.
 
 ## Reply formatting
@@ -86,7 +103,7 @@ The renderer is deliberately not a full CommonMark implementation:
   with no href there is nothing for a `javascript:` payload to ride in on.
 
 One coupling worth knowing about: `extractLinks()` collapses runs of spaces
-left behind by a stripped token, but only *mid-line* (`/(?<=\S) {2,}/`).
+left behind by a stripped token, but only _mid-line_ (`/(?<=\S) {2,}/`).
 Leading indentation is what nests a sub-list, so collapsing it unconditionally
 would silently flatten every nested list in a reply.
 
@@ -124,7 +141,7 @@ sidecar being down.
 
 ## Maintenance requirement
 
-The page index is *generated* from `App\Helpers\MenuHelper::getMenuGroups()`,
+The page index is _generated_ from `App\Helpers\MenuHelper::getMenuGroups()`,
 not hand-maintained. **An admin-facing page added without a sidebar entry in
 `MenuHelper` is invisible to the assistant** — it can't explain or link to a
 page it was never told about. When adding a page that should be discoverable

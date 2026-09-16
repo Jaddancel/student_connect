@@ -25,10 +25,11 @@ class AssistantController extends Controller
         // failed validation on a non-JSON-flagged request.
         try {
             $validated = $request->validate([
-                'messages' => ['required', 'array', 'max:20'],
+                'messages' => ['present', 'array', 'max:20'],
                 'messages.*.role' => ['required', 'string', 'in:user,assistant'],
                 'messages.*.content' => ['required', 'string', 'max:2000'],
                 'current_path' => ['nullable', 'string', 'max:2048'],
+                'opening' => ['nullable', 'boolean'],
             ]);
         } catch (ValidationException) {
             return $this->degraded('invalid request');
@@ -39,43 +40,55 @@ class AssistantController extends Controller
             return $this->degraded('assistant unavailable');
         }
 
-        $systemPrompt = $this->buildSystemPrompt($index, $validated['current_path'] ?? null);
+        $opening = $validated['opening'] ?? false;
+        $systemPrompt = $this->buildSystemPrompt($index, $validated['current_path'] ?? null, $opening);
         $messages = array_map(
             fn (array $m) => ['role' => $m['role'], 'content' => $m['content']],
             $validated['messages'],
         );
+        if ($opening) {
+            $messages[] = ['role' => 'user', 'content' => 'Open the chat now.'];
+        }
 
         $result = $llm->chat($messages, $systemPrompt);
         if (! $result['ok']) {
             return $this->degraded($result['note'] ?? 'assistant unavailable');
         }
 
-        [$reply, $links] = $this->extractLinks($result['reply'], $index['pages']);
+        [$reply, $suggestions] = $opening
+            ? $this->extractSuggestions($result['reply'])
+            : [$result['reply'], []];
+        [$reply, $links] = $this->extractLinks($reply, $index['pages']);
+        if ($opening) {
+            $links = [];
+        }
 
         // `ok: true` promises something to render. A completion that was empty
         // to begin with, or that was nothing but route tokens, would otherwise
         // reach the panel as a blank bubble — so it stands on its links if it
         // has any, and degrades if it doesn't.
         if ($reply === '') {
-            if ($links === []) {
+                if ($links === [] && $suggestions === []) {
                 return $this->degraded('empty reply');
             }
 
-            $reply = 'Here’s the page for that:';
+                if ($links !== []) {
+                    $reply = 'Here’s the page for that:';
+                }
         }
 
-        return response()->json(['ok' => true, 'reply' => $reply, 'links' => $links]);
+        return response()->json(['ok' => true, 'reply' => $reply, 'links' => $links, 'suggestions' => $suggestions]);
     }
 
     private function degraded(string $note): JsonResponse
     {
-        return response()->json(['ok' => false, 'reply' => '', 'links' => [], 'note' => $note]);
+        return response()->json(['ok' => false, 'reply' => '', 'links' => [], 'suggestions' => [], 'note' => $note]);
     }
 
     /**
      * @param  array{pages: array<int,array{name:string,path:string,route:?string,group:string,description:string,keywords:string}>, workflows: string}  $index
      */
-    private function buildSystemPrompt(array $index, ?string $currentPath): string
+    private function buildSystemPrompt(array $index, ?string $currentPath, bool $opening = false): string
     {
         $grouped = [];
         foreach ($index['pages'] as $page) {
@@ -98,6 +111,9 @@ class AssistantController extends Controller
         }
         $pagesSection = implode("\n", $lines);
         $currentPathLabel = $currentPath !== null && $currentPath !== '' ? $currentPath : 'unknown';
+        $openingInstructions = $opening
+            ? "\nThe chat has already greeted the user. Reply only with exactly three helpful next questions as separate [[suggestion:question]] tokens. Make each question concise, actionable, and relevant to what a user is likely trying to do on the current page. Do not use route tokens, bullet lists, or any other text.\n"
+            : '';
 
         return <<<PROMPT
         You are the in-app assistant for Student Connect, a student-organization
@@ -110,6 +126,7 @@ class AssistantController extends Controller
         Filipino to a Filipino or Taglish question.
 
         The user is currently on: {$currentPathLabel}
+        {$openingInstructions}
 
         Pages this user can reach — ONLY reference pages from this list. Never invent,
         guess, or infer a page or route name that isn't shown here.
@@ -131,6 +148,49 @@ class AssistantController extends Controller
         can click, while a link you write yourself is stripped down to its text. If
         nothing above fits the question, say so plainly instead of guessing.
         PROMPT;
+    }
+
+    /**
+     * Pulls model-authored opening prompts out of the reply so the browser can
+     * render them as clickable chips instead of exposing protocol text.
+     *
+     * @return array{0:string,1:array<int,string>}
+     */
+    private function extractSuggestions(string $reply): array
+    {
+        $suggestions = [];
+        $clean = preg_replace_callback('/\[\[suggestion:([^\]\r\n]{1,160})\]\]/', function (array $match) use (&$suggestions): string {
+            $suggestion = trim($match[1]);
+            if (str_ends_with($suggestion, '?') && count($suggestions) < 3 && ! in_array($suggestion, $suggestions, true)) {
+                $suggestions[] = $suggestion;
+            }
+
+            return '';
+        }, $reply) ?? $reply;
+
+        if ($suggestions === []) {
+            $clean = preg_replace_callback('/^\s*[-*]\s+(.+\?)\s*$/m', function (array $match) use (&$suggestions): string {
+                $suggestion = trim($match[1]);
+                if (count($suggestions) < 3 && ! in_array($suggestion, $suggestions, true)) {
+                    $suggestions[] = $suggestion;
+                }
+
+                return '';
+            }, $clean) ?? $clean;
+        }
+
+        if ($suggestions === []) {
+            $clean = preg_replace_callback('/[^?\r\n]{3,160}\?/', function (array $match) use (&$suggestions): string {
+                $suggestion = trim($match[0]);
+                if (count($suggestions) < 3 && ! in_array($suggestion, $suggestions, true)) {
+                    $suggestions[] = $suggestion;
+                }
+
+                return '';
+            }, $clean) ?? $clean;
+        }
+
+        return [trim($clean), $suggestions];
     }
 
     /**
