@@ -17,7 +17,8 @@ use Illuminate\Support\Str;
  *
  * Read-only by contract: unlike the builder's editor flow this never seeds a
  * missing template — a form whose template row or .docx is gone simply 404s,
- * matching exactly what the directory lists.
+ * matching exactly what the directory lists. Available to organization
+ * officers/presidents and to admins (who may want a blank copy to print).
  */
 class FormBlankPdfController extends Controller
 {
@@ -27,12 +28,11 @@ class FormBlankPdfController extends Controller
         FormPrintTemplateService $templates,
         DocxTemplateService $docx,
     ) {
-        // Same gate as the rendered form pages: built forms are for
-        // organization officers/presidents.
+        // Blank PDFs are for organization officers/presidents and admins.
         abort_unless(
-            Form::isAccessibleBy($request->user()),
+            Form::canViewBlankPdf($request->user()),
             403,
-            'Blank form PDFs are available to organization officers only.',
+            'Blank form PDFs are available to organization officers and admins only.',
         );
 
         $form = Form::query()

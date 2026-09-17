@@ -106,6 +106,27 @@ class Form extends Model
     }
 
     /**
+     * Whether a user may browse the `/forms` directory and open its blank
+     * printable PDFs: organization officers/presidents (the audience that fills
+     * forms) OR admins (user type 2), so an admin can pull a blank copy to
+     * print without needing an officer role. Unlike {@see isAccessibleBy()}
+     * this does NOT unlock the online form renderer/submission, which stays
+     * officer-only.
+     */
+    public static function canViewBlankPdf(?User $user): bool
+    {
+        if ($user === null) {
+            return false;
+        }
+
+        if ((int) $user->user_type === 2) {
+            return true;
+        }
+
+        return self::isAccessibleBy($user);
+    }
+
+    /**
      * Forms eligible for the `/forms` directory and its blank-PDF download:
      * unbound forms plus the membership/accreditation functions. Sign-up,
      * new-event, new-workplan and new-organization forms live in their own

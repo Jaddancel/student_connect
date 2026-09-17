@@ -123,6 +123,15 @@ it('shows an empty directory to users without an officer or president role', fun
     expect(directoryNames($response))->toBe([]);
 });
 
+it('lists forms for an admin', function () {
+    directoryForm(['name' => 'Clearance Form']);
+
+    $response = $this->actingAs(recordsUser(2))->get(route('forms.directory'));
+
+    $response->assertOk();
+    expect(directoryNames($response))->toBe(['Clearance Form']);
+});
+
 // ── Blank PDF endpoint ──────────────────────────────────────────────────────
 
 it('streams the blank PDF inline to an officer and cleans up its scratch files', function () {
@@ -179,10 +188,37 @@ it('rejects members without an officer or president role', function () {
         ->assertForbidden();
 });
 
-it('rejects admins, who author forms rather than fill them', function () {
+it('allows an admin to open a blank PDF', function () {
     $form = directoryForm();
 
+    // Mock the DOCX→PDF bridge (no LibreOffice locally) — the authorization
+    // gate is what this test exercises, not the conversion.
+    $this->mock(DocxTemplateService::class, function ($mock) {
+        $mock->shouldReceive('populate')->once()->andReturnUsing(function () {
+            $dir = storage_path('app/tmp/blank-'.bin2hex(random_bytes(4)));
+            File::ensureDirectoryExists($dir);
+            File::put($dir.'/blank.docx', 'docx-bytes');
+
+            return $dir.'/blank.docx';
+        });
+        $mock->shouldReceive('toPdf')->once()->andReturnUsing(function ($docxPath) {
+            $pdf = dirname($docxPath).'/blank.pdf';
+            File::put($pdf, '%PDF-1.4 blank');
+
+            return $pdf;
+        });
+    });
+
     $this->actingAs(recordsUser(2))
+        ->get(route('forms.blank-pdf', $form->route_name))
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf');
+});
+
+it('rejects superadmins from generating blank PDFs', function () {
+    $form = directoryForm();
+
+    $this->actingAs(recordsUser(1))
         ->get(route('forms.blank-pdf', $form->route_name))
         ->assertForbidden();
 });

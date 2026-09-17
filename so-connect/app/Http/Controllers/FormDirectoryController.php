@@ -14,11 +14,11 @@ use Illuminate\Http\Request;
  *
  * Each card opens a blank printable PDF generated from the form's active
  * Step 2 template ({@see FormBlankPdfController}), so only forms backed by a
- * usable stored template are listed. Built forms are available to organization
- * officers/presidents (user type 3) only; everyone else gets an empty
- * directory. Forms bound to the sign-up / new-event / new-workplan /
- * new-organization system functions are reached through their own dedicated
- * flows, so they are not listed here.
+ * usable stored template are listed. Available to organization
+ * officers/presidents (user type 3) and to admins (user type 2); everyone else
+ * gets an empty directory. Forms bound to the sign-up / new-event /
+ * new-workplan / new-organization system functions are reached through their
+ * own dedicated flows, so they are not listed here.
  */
 class FormDirectoryController extends Controller
 {
@@ -26,7 +26,7 @@ class FormDirectoryController extends Controller
     {
         $forms = collect();
 
-        if (Form::isAccessibleBy($request->user())) {
+        if (Form::canViewBlankPdf($request->user())) {
             $forms = Form::query()
                 ->whereNotNull('route_name')
                 ->where('is_published', true)
