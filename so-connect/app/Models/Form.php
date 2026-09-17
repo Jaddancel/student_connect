@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Forms\SystemFunction;
 use App\Models\Form\FormDescription;
 use App\Models\FormSubmission;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -101,6 +103,23 @@ class Form extends Model
         }
 
         return $user->officers()->whereIn('role', ['officer', 'president'])->exists();
+    }
+
+    /**
+     * Forms eligible for the `/forms` directory and its blank-PDF download:
+     * unbound forms plus the membership/accreditation functions. Sign-up,
+     * new-event, new-workplan and new-organization forms live in their own
+     * dedicated flows. Keep in sync with MenuHelper's "Organization Forms".
+     */
+    public function scopeDirectoryEligible(Builder $query): Builder
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('system_function')
+                ->orWhereIn('system_function', [
+                    SystemFunction::MEMBERSHIP_REGISTRATION,
+                    SystemFunction::ORG_ACCREDITATION,
+                ]);
+        });
     }
 
     public function organization(): BelongsTo

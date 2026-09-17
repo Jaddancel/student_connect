@@ -31,6 +31,7 @@ use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventPlanController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\Admin\FormBuilderController;
+use App\Http\Controllers\FormBlankPdfController;
 use App\Http\Controllers\FormDirectoryController;
 use App\Http\Controllers\FormRenderController;
 use App\Http\Controllers\IdScanController;
@@ -319,6 +320,13 @@ Route::middleware('auth')->group(function () {
 // Sign Up form is open to guests (public account request), every other form is
 // gated to organization officers (403 otherwise). Registered after the /forms
 // directory + literal /forms/* routes so those win.
+//
+// The blank printable PDF sits on a two-segment URL so it can never collide
+// with the single-segment renderer; it is registered first anyway so the
+// literal suffix always wins. FormBlankPdfController authorizes officers and
+// presidents only (403 otherwise), mirroring the gated renderer.
+Route::get('/forms/{routeName}/blank-pdf', [FormBlankPdfController::class, 'show'])
+    ->name('forms.blank-pdf');
 Route::get('/forms/{routeName}', [FormRenderController::class, 'show'])->name('forms.render');
 Route::post('/forms/{routeName}', [FormRenderController::class, 'submit'])
     ->middleware('throttle:20,1')->name('forms.render.submit');

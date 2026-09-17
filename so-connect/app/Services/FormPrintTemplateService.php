@@ -94,6 +94,23 @@ class FormPrintTemplateService
     }
 
     /**
+     * The form's latest active template *if its document is actually on disk*,
+     * null otherwise. Unlike {@see resolve()} this never seeds — read-only
+     * callers (the `/forms` directory, blank-PDF printing) must not mutate
+     * storage as a side effect of a lookup.
+     */
+    public function activeStored(Form $form): ?FormTemplate
+    {
+        $template = FormTemplate::query()
+            ->where('form_id', $form->getKey())
+            ->where('is_active', true)
+            ->latest('version')
+            ->first();
+
+        return $template !== null && $this->fileExists($template) ? $template : null;
+    }
+
+    /**
      * Create the form's first .docx, migrating the legacy HTML template if the
      * form has one.
      */

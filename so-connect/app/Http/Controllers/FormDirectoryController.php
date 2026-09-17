@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Forms\SystemFunction;
 use App\Models\Form;
+use App\Services\FormPrintTemplateService;
 use Illuminate\Http\Request;
 
 /**
@@ -12,14 +12,17 @@ use Illuminate\Http\Request;
  * browsable page. The literal `/forms` route is registered before the generic
  * `/forms/{routeName}` renderer so it always wins.
  *
- * Built forms are available to organization officers/presidents (user type 3)
- * only; everyone else gets an empty directory. Forms bound to the sign-up /
- * new-event / new-workplan system functions are reached through their own
- * dedicated flows, so they are not listed here.
+ * Each card opens a blank printable PDF generated from the form's active
+ * Step 2 template ({@see FormBlankPdfController}), so only forms backed by a
+ * usable stored template are listed. Built forms are available to organization
+ * officers/presidents (user type 3) only; everyone else gets an empty
+ * directory. Forms bound to the sign-up / new-event / new-workplan /
+ * new-organization system functions are reached through their own dedicated
+ * flows, so they are not listed here.
  */
 class FormDirectoryController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, FormPrintTemplateService $templates)
     {
         $forms = collect();
 
@@ -28,12 +31,14 @@ class FormDirectoryController extends Controller
                 ->whereNotNull('route_name')
                 ->where('is_published', true)
                 ->where('is_active', true)
-                ->where(function ($query) {
-                    $query->whereNull('system_function')
-                        ->orWhere('system_function', SystemFunction::MEMBERSHIP_REGISTRATION);
-                })
+                ->directoryEligible()
+                ->whereHas('templates', fn ($query) => $query->where('is_active', true))
                 ->orderBy('name')
-                ->get(['id', 'name', 'route_name', 'description_text']);
+                ->get(['id', 'name', 'route_name', 'description_text'])
+                // A template row whose .docx vanished from storage can't print —
+                // keep the directory in step with what the endpoint will serve.
+                ->filter(fn (Form $form) => $templates->activeStored($form) !== null)
+                ->values();
         }
 
         return view('pages.form.directory', [
@@ -41,7 +46,7 @@ class FormDirectoryController extends Controller
             'forms' => $forms->map(fn (Form $form) => [
                 'name' => $form->name,
                 'purpose' => (string) ($form->description_text ?? ''),
-                'url' => url('/forms/'.$form->route_name),
+                'url' => route('forms.blank-pdf', $form->route_name),
             ])->values(),
         ]);
     }
