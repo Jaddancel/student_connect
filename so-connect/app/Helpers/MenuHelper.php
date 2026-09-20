@@ -89,7 +89,7 @@ class MenuHelper
                 'items' => [
                     ['icon' => 'pages',    'name' => 'Posts',              'path' => '/posts'],
                     ['icon' => 'forms',    'name' => 'Form Builder',       'path' => '/admin/form-builder'],
-                    ['icon' => 'calendar', 'name' => 'Semester Management','path' => '/admin/semesters'],
+                    ['icon' => 'calendar', 'name' => 'Semester Management', 'path' => '/admin/semesters'],
                     ['icon' => 'pages',    'name' => 'Waiver Templates',   'path' => '/admin/waiver-templates'],
                 ],
             ];
@@ -166,18 +166,11 @@ class MenuHelper
                 ],
             ];
 
-            // Every published form is listed; forms bound to sign-up /
-            // new-event / new-workplan live in their own dedicated flows.
+            // Every published form is listed (see Form::scopeDirectoryEligible);
+            // each links to its online renderer page.
             $publishedForms = \App\Models\Form::whereNotNull('route_name')
                 ->where('is_published', true)
                 ->where('is_active', true)
-                ->where(function ($query) {
-                    $query->whereNull('system_function')
-                        ->orWhereIn('system_function', [
-                            \App\Forms\SystemFunction::MEMBERSHIP_REGISTRATION,
-                            \App\Forms\SystemFunction::ORG_ACCREDITATION,
-                        ]);
-                })
                 ->orderBy('name')
                 ->get(['id', 'name', 'route_name', 'icon']);
 
@@ -187,7 +180,7 @@ class MenuHelper
                     'items' => $publishedForms->map(fn ($f) => [
                         'icon' => $f->icon ?: 'forms',
                         'name' => $f->name,
-                        'path' => '/forms/' . $f->route_name,
+                        'path' => '/forms/'.$f->route_name,
                     ])->all(),
                 ];
             }
@@ -208,6 +201,7 @@ class MenuHelper
             if (! $formId) {
                 return 0;
             }
+
             return (int) DB::table('requests')
                 ->where('action_type', 3)
                 ->where('payload->form_id', $formId)
@@ -233,10 +227,10 @@ class MenuHelper
             ->all();
 
         return [
-            'activity_requests'  => $pendingByForm($activityFormId ? (int) $activityFormId : null),
-            'workplan'           => $pendingByForm($workplanFormId ? (int) $workplanFormId : null),
+            'activity_requests' => $pendingByForm($activityFormId ? (int) $activityFormId : null),
+            'workplan' => $pendingByForm($workplanFormId ? (int) $workplanFormId : null),
             'promotion_requests' => $pendingPromotions,
-            'form'               => $pendingPerForm,
+            'form' => $pendingPerForm,
         ];
     }
 

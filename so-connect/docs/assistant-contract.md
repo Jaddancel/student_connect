@@ -2,10 +2,9 @@
 
 This freezes the request/response shape between the browser widget
 (`resources/js/components/assistant-chat.js`) and `AssistantController`, and
-the contract between `AssistantController` and the Ollama sidecar via
-`App\Services\LlmClient` — so any side can be reworked independently as long
-as it honours this shape. Mirrors how `docs/ocr-template-contract.md`
-documents the OCR boundary.
+the server-side Google Gemini integration via `App\Services\GeminiClient` — so
+the provider can be reworked independently as long as it honours this shape.
+Mirrors how `docs/ocr-template-contract.md` documents the OCR boundary.
 
 ## Request
 
@@ -56,8 +55,8 @@ so the widget never has to special-case a failed `fetch()`.
 ```
 
 - `ok` — false for an invalid payload, no reachable pages for this user
-  (shouldn't happen for an authenticated request), the Ollama sidecar being
-  unreachable or erroring, or a completion with nothing to render (`empty
+  (shouldn't happen for an authenticated request), missing Gemini configuration,
+  a Gemini API error, or a completion with nothing to render (`empty
 reply`).
 - `reply` — the model's answer as **Markdown**, with every `[[route:…]]` token
   stripped out (see below). Empty when `ok` is false, and **never empty when
@@ -131,13 +130,21 @@ cite recommendations using exactly that token.
 Net effect: a hallucinated or out-of-role route name becomes plain text with
 no link — never a 404 or a 403.
 
-## Failure behaviour
+## Gemini provider behaviour
 
-`LlmClient::chat()` mirrors `OcrClient`: any timeout, non-200, or unreachable
-sidecar is caught, logged via `Log::warning`, and turned into
-`['ok' => false, 'reply' => '', 'note' => 'assistant unavailable']` — never an
-exception into the request. The rest of the dashboard is unaffected by the
-sidecar being down.
+`GeminiClient::chat()` sends the generated system prompt as Gemini's
+`systemInstruction`, maps browser `user` turns to Gemini `user` turns, and maps
+browser `assistant` turns to Gemini `model` turns. It uses the server-only
+`GEMINI_API_KEY` via an HTTP header, never in a browser response or log.
+
+A missing key, timeout, or transport error returns `assistant unavailable`; a
+non-200 or malformed successful provider response returns `assistant error`.
+Neither case throws into the request flow, so the widget retains its existing
+generic unavailable state and the rest of the dashboard remains available.
+
+The assistant does not enable Google Search grounding or return external URLs.
+Relevant webpage links are authorized Student Connect pages only, resolved from
+the per-user page index through the route-token contract above.
 
 ## Maintenance requirement
 

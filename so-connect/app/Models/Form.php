@@ -2,15 +2,12 @@
 
 namespace App\Models;
 
-use App\Forms\SystemFunction;
 use App\Models\Form\FormDescription;
-use App\Models\FormSubmission;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\RequestType;
 
 class Form extends Model
 {
@@ -18,7 +15,9 @@ class Form extends Model
     use HasFactory;
 
     public const ROLE_LEVEL_OFFICER = 'officer';
+
     public const ROLE_LEVEL_PRESIDENT = 'president';
+
     public const ROLE_LEVEL_SUPERADMIN = 'superadmin';
 
     public const SIDEBAR_GROUP_OPTIONS = [
@@ -127,20 +126,19 @@ class Form extends Model
     }
 
     /**
-     * Forms eligible for the `/forms` directory and its blank-PDF download:
-     * unbound forms plus the membership/accreditation functions. Sign-up,
-     * new-event, new-workplan and new-organization forms live in their own
-     * dedicated flows. Keep in sync with MenuHelper's "Organization Forms".
+     * Forms eligible for the `/forms` directory and its blank-PDF download.
+     *
+     * Every published, active form is eligible — including the ones bound to a
+     * system function (sign-up, new-event, new-workplan, membership,
+     * accreditation, new-organization). Listing a form here only offers its
+     * blank printable PDF; the online renderer and each function's dedicated
+     * submission flow are unaffected. Kept as a named scope so the directory,
+     * the blank-PDF endpoint, and MenuHelper's "Organization Forms" stay on
+     * one definition.
      */
     public function scopeDirectoryEligible(Builder $query): Builder
     {
-        return $query->where(function ($q) {
-            $q->whereNull('system_function')
-                ->orWhereIn('system_function', [
-                    SystemFunction::MEMBERSHIP_REGISTRATION,
-                    SystemFunction::ORG_ACCREDITATION,
-                ]);
-        });
+        return $query;
     }
 
     public function organization(): BelongsTo

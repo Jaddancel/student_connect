@@ -8,7 +8,6 @@ use App\Models\Form;
 use App\Models\Form\FormDescription;
 use App\Services\RequestTypeService;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Seeds the data-driven Form Builder pages that replaced the hardcoded form
@@ -37,8 +36,11 @@ class FormPagesSeeder extends Seeder
     }
 
     /**
-     * Create (or refresh) a form, its fields, one-field-per-row layout, printed
+     * Create (or refresh) a form, its fields, layout, printed
      * template and — for plain forms — its request type.
+     *
+     * `layout` may supply explicit builder rows (headers, multi-column spans);
+     * when omitted, a one-field-per-row layout is generated from the fields.
      *
      * @param  array<string,mixed>  $spec
      */
@@ -57,7 +59,7 @@ class FormPagesSeeder extends Seeder
                 'created_by' => null,
                 'is_active' => true,
                 'is_published' => true,
-                'layout' => ['rows' => array_map(
+                'layout' => $spec['layout'] ?? ['rows' => array_map(
                     fn ($f) => ['columns' => [['span' => 12, 'fields' => [$f['key']]]]],
                     $fields,
                 )],
@@ -249,54 +251,95 @@ class FormPagesSeeder extends Seeder
      */
     private function seedNewEvent(): void
     {
+        // Mirrors the form's current Step-1 (builder) configuration: the field
+        // catalog plus the explicit row layout (section headers and two-column
+        // rows) exactly as arranged in the builder.
         $fields = [
-            $this->heading('Event Details'),
-            $this->f('organization_id', 'Organization', FieldType::ORG_SELECT),
-            $this->f('title', 'Activity / Title', FieldType::TEXT),
-            $this->f('target_date', 'Target Date', FieldType::DATE),
+            $this->f('title', 'Activity / Title', FieldType::TEXT, ['required' => true]),
+            $this->f('target_date', 'Target Date', FieldType::DATE, ['required' => true]),
             $this->f('event_location', 'Event Location', FieldType::TEXT),
             $this->f('event_start_time', 'Start', FieldType::TIME),
             $this->f('event_end_time', 'End', FieldType::TIME),
-            $this->heading('Activity Details'),
-            $this->f('purpose_of_activity', 'Purpose of Activity', FieldType::TEXTAREA, ['options' => ['rows' => 4]]),
+            $this->f('purpose_of_activity', 'Purpose of Activity', FieldType::TEXTAREA, [
+                'required' => true,
+                'options' => ['rows' => 4],
+            ]),
             $this->f('university_facilities', 'University Facilities / Equipment to be Used', FieldType::TEXT_LIST, [
+                'required' => true,
                 'placeholder' => 'e.g. Projector, Sound System, Chairs',
             ]),
-            $this->heading('President & Advisers'),
-            $this->f('president_name', 'President Name', FieldType::TEXT, ['required' => true]),
+            $this->f('president_name', 'President Name', FieldType::TEXT, [
+                'required' => true,
+                'universal_key' => 'org_president',
+            ]),
             $this->f('president_contact', 'President Contact Number', FieldType::TEXT, ['required' => true]),
             $this->f('faculty_advisers', 'Faculty Advisers', FieldType::TEXT_LIST, [
                 'required' => true,
                 'placeholder' => 'Adviser full name',
             ]),
-            $this->heading('Event Type'),
-            $this->f('activity_types', 'Activity Type (select all that apply)', FieldType::CHECKBOX, [
-                'required' => true,
-                'options' => ['Seminar', 'Clean Up Drive', 'Donation', 'Conference', 'Workshop', 'others'],
-            ]),
-            $this->f('activity_type_other', 'Other Activity Type', FieldType::TEXT),
-            $this->f('area_scope', 'Area Scope', FieldType::SELECT, [
-                'required' => true,
-                'options' => ['none', 'Local', 'Provincial', 'Regional', 'National', 'International', 'others'],
-            ]),
+            $this->f('area_scope', 'Area Scope', FieldType::SELECT, ['required' => true]),
             $this->f('area_scope_other', 'Other Area Scope', FieldType::TEXT),
-            $this->f('sponsor', 'Sponsor', FieldType::SELECT, [
-                'required' => true,
-                'options' => ['none', 'N/A', 'SSC', 'Admin', 'others'],
-            ]),
-            $this->f('sponsor_other', 'Other Sponsor', FieldType::TEXT),
-            $this->f('extension_services', 'Extension Services', FieldType::RADIO, [
-                'required' => true,
-                'options' => [
-                    ['value' => 'yes', 'label' => 'Yes'],
-                    ['value' => 'no', 'label' => 'No'],
-                ],
-            ]),
-            $this->heading('Waiver'),
+            $this->f('sponsor', 'Sponsor', FieldType::SELECT, ['required' => true]),
+            $this->f('extension_services', 'Extension Services', FieldType::RADIO, ['required' => true]),
             $this->f('waiver', 'Signed Waiver', FieldType::WAIVER_SCAN, [
+                'required' => true,
                 'placeholder' => 'Scan or upload the signed activity waiver.',
             ]),
+            $this->f('event_type', 'Event Type', FieldType::SELECT, [
+                'required' => true,
+                'options' => ['options' => [
+                    ['label' => 'Seminar / Conference', 'value' => 'option_1'],
+                    ['label' => 'Meeting', 'value' => 'option_2'],
+                    ['label' => 'Activity', 'value' => 'option_3'],
+                ]],
+            ]),
+            $this->f('other_sponsor', 'Other Sponsor', FieldType::TEXT, [
+                'options' => ['visible_when' => ['op' => 'equals', 'field' => 'sponsor', 'value' => 'option_3']],
+            ]),
+            $this->f('organization_id', 'Organization id', FieldType::ORG_SELECT),
+            $this->f('current_semester', 'Current Semester', FieldType::TEXT, [
+                'required' => true,
+                'universal_key' => 'current_semester',
+            ]),
+            $this->f('adviser_1_name', 'Adviser 1 Name', FieldType::TEXT, ['required' => true]),
+            $this->f('adviser_1_signature', 'Adviser 1 Signature', FieldType::SIGNATURE),
+            $this->f('adviser_2_name', 'Adviser 2 Name', FieldType::TEXT, ['required' => true]),
+            $this->f('adviser_2_signature', 'Adviser 2 Signature', FieldType::SIGNATURE),
+            $this->f('current_date', 'Current Date', FieldType::DATE, [
+                'required' => true,
+                'universal_key' => 'current_date',
+                'options' => ['autofill_now' => true],
+            ]),
         ];
+
+        $layout = ['rows' => [
+            ['columns' => [
+                ['span' => 6, 'fields' => ['current_semester']],
+                ['span' => 6, 'fields' => ['current_date']],
+            ]],
+            ['header' => 'Event Details', 'columns' => [
+                ['span' => 12, 'fields' => ['organization_id', 'title', 'target_date', 'event_location', 'event_start_time', 'event_end_time']],
+            ]],
+            ['header' => 'Activity Details', 'columns' => [
+                ['span' => 12, 'fields' => ['purpose_of_activity', 'university_facilities']],
+            ]],
+            ['header' => 'President & Advisers', 'columns' => [
+                ['span' => 12, 'fields' => ['president_name', 'president_contact', 'faculty_advisers']],
+            ]],
+            ['header' => 'Event Details', 'columns' => [
+                ['span' => 12, 'fields' => ['event_type', 'area_scope', 'area_scope_other', 'extension_services']],
+            ]],
+            ['header' => 'Sponsor Details', 'columns' => [
+                ['span' => 12, 'fields' => ['sponsor', 'other_sponsor']],
+            ]],
+            ['header' => 'Waiver', 'columns' => [
+                ['span' => 12, 'fields' => ['waiver']],
+            ]],
+            ['header' => 'Adviser Details', 'columns' => [
+                ['span' => 6, 'fields' => ['adviser_1_name', 'adviser_1_signature']],
+                ['span' => 6, 'fields' => ['adviser_2_name', 'adviser_2_signature']],
+            ]],
+        ]];
 
         $html = '<h2>Event Request</h2>'
             .$this->line('Organization', 'organization_id')
@@ -310,13 +353,18 @@ class FormPagesSeeder extends Seeder
             .$this->line('President', 'president_name')
             .$this->line('President Contact', 'president_contact')
             .'<p><strong>Faculty Advisers:</strong></p><p><span data-field="faculty_advisers"></span></p>'
-            .$this->line('Activity Type', 'activity_types')
-            .$this->line('Other Activity Type', 'activity_type_other')
+            .$this->line('Event Type', 'event_type')
             .$this->line('Area Scope', 'area_scope')
             .$this->line('Other Area Scope', 'area_scope_other')
             .$this->line('Sponsor', 'sponsor')
-            .$this->line('Other Sponsor', 'sponsor_other')
-            .$this->line('Extension Services', 'extension_services');
+            .$this->line('Other Sponsor', 'other_sponsor')
+            .$this->line('Extension Services', 'extension_services')
+            .$this->line('Adviser 1', 'adviser_1_name')
+            .'<p><strong>Adviser 1 Signature:</strong></p><p><span data-field="adviser_1_signature"></span></p>'
+            .$this->line('Adviser 2', 'adviser_2_name')
+            .'<p><strong>Adviser 2 Signature:</strong></p><p><span data-field="adviser_2_signature"></span></p>'
+            .$this->line('Semester', 'current_semester')
+            .$this->line('Date', 'current_date');
 
         $this->buildForm([
             'route_name' => 'new-event',
@@ -324,6 +372,7 @@ class FormPagesSeeder extends Seeder
             'description' => 'Request a new event or activity. An admin approval schedules it on the calendar.',
             'system_function' => SystemFunction::NEW_EVENT,
             'fields' => $fields,
+            'layout' => $layout,
             'pdf' => [
                 'title' => 'Event Request',
                 'subtitle' => 'Student Organization Activity',

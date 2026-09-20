@@ -11,7 +11,7 @@
 @endphp
 
 <span {{ $attributes->merge([
-    'class' => 'inline-flex items-center justify-center rounded-full ' . $size . ' ' . $bgClass . ' ' . $textClass . ' ' . $text . ' ' . $font,
+    'class' => 'relative inline-flex aspect-square h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/80 bg-white/20 ring-1 ring-slate-200/70 shadow-sm ' . $bgClass . ' ' . $textClass . ' ' . $text . ' ' . $font . ' leading-none',
 ]) }}>
     {{ $initial }}
 </span>

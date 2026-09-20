@@ -16,9 +16,9 @@ use Illuminate\Http\Request;
  * Step 2 template ({@see FormBlankPdfController}), so only forms backed by a
  * usable stored template are listed. Available to organization
  * officers/presidents (user type 3) and to admins (user type 2); everyone else
- * gets an empty directory. Forms bound to the sign-up / new-event /
- * new-workplan / new-organization system functions are reached through their
- * own dedicated flows, so they are not listed here.
+ * gets an empty directory. Every published, active form is eligible — the
+ * system-function forms (sign-up, new-event, etc.) included — since the card
+ * only offers a blank printable PDF and never the online renderer.
  */
 class FormDirectoryController extends Controller
 {

@@ -62,7 +62,7 @@ class GoogleLinkController extends Controller
             'first_name' => (string) ($google->user['given_name'] ?? ''),
             'last_name' => (string) ($google->user['family_name'] ?? ''),
             'name' => (string) $google->getName(),
-        ], $this->fetchPersonDetails((string) $google->token)));
+        ], $this->fetchPersonDetails((string) $google->token, (array) ($google->approvedScopes ?? []))));
     }
 
     /**
@@ -71,12 +71,21 @@ class GoogleLinkController extends Controller
      * network error, no data set on the account) is swallowed — these fields
      * are a bonus pre-fill, never a reason to fail the sign-in.
      *
+     * @param  array<int,string>  $approvedScopes  Scopes Google actually granted
      * @return array{sex?:string,birthday?:string,present_address?:string}
      */
-    private function fetchPersonDetails(string $accessToken): array
+    private function fetchPersonDetails(string $accessToken, array $approvedScopes = []): array
     {
         if ($accessToken === '') {
             return [];
+        }
+
+        $missingScopes = array_diff(self::PEOPLE_SCOPES, $approvedScopes);
+        if ($missingScopes !== []) {
+            Log::info('Google sign-in: People API scopes not granted — extra prefill fields will be empty.', [
+                'missing_scopes' => array_values($missingScopes),
+                'granted_scopes' => $approvedScopes,
+            ]);
         }
 
         try {
@@ -91,6 +100,14 @@ class GoogleLinkController extends Controller
         }
 
         if (! $response->successful()) {
+            // Most common causes: People API not enabled in the Google Cloud
+            // project, or the sensitive scopes not added to the OAuth consent
+            // screen. Log it instead of silently dropping the prefill.
+            Log::info('Google People API returned an error — extra prefill fields will be empty.', [
+                'status' => $response->status(),
+                'error' => $response->json('error.message'),
+            ]);
+
             return [];
         }
 
@@ -109,6 +126,10 @@ class GoogleLinkController extends Controller
         $address = $response->json('addresses.0.formattedValue');
         if (is_string($address) && $address !== '') {
             $result['present_address'] = $address;
+        }
+
+        if ($result === []) {
+            Log::info('Google People API returned no gender/birthday/address — the account likely has none of these set.');
         }
 
         return $result;

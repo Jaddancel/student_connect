@@ -585,12 +585,39 @@ class FormPrintTemplateController extends Controller
             $version,
             (int) $request->user()->getKey(),
         );
-        $templates->ensureDraftDocx($draftId, $name);
+
+        // An existing form's draft opens on its saved template (legacy HTML is
+        // migrated on first use); only brand-new forms start blank.
+        $form = isset($validated['form_id'])
+            ? Form::query()->find((int) $validated['form_id'])
+            : null;
+        $templates->ensureDraftDocx($draftId, $name, $form, (int) $request->user()->getKey());
 
         return response()->json([
             'draftId' => $draftId,
             'configUrl' => route('admin.form-builder.draft.config', $draftId),
             'importUrl' => route('admin.form-builder.draft.import', $draftId),
+            'versionUrl' => route('admin.form-builder.draft.version', $draftId),
+        ]);
+    }
+
+    /**
+     * The draft's current version. Session-authenticated (admin). The builder
+     * polls this after tearing the editor down on save: the Document Server's
+     * final save callback bumps the version via storeDraftRevision(), which is
+     * how the page knows the draft holds the user's latest edits before the
+     * form save folds (and clears) the draft.
+     */
+    public function draftVersion(string $draftId, FormPrintTemplateService $templates): JsonResponse
+    {
+        $draft = $templates->readDraft($draftId);
+        abort_if($draft === null, 404);
+
+        return response()->json([
+            'version' => (int) $draft['version'],
+            // Set once the Document Server closes the editing session (status
+            // 2/4); the save-flush treats it as "nothing more is coming".
+            'closed' => isset($draft['closed_status']),
         ]);
     }
 
@@ -615,7 +642,12 @@ class FormPrintTemplateController extends Controller
         $draft = $templates->readDraft($draftId);
         abort_if($draft === null, 404);
 
-        $templates->ensureDraftDocx($draftId, (string) $draft['name']);
+        $templates->ensureDraftDocx(
+            $draftId,
+            (string) $draft['name'],
+            isset($draft['form_id']) ? Form::query()->find((int) $draft['form_id']) : null,
+            (int) $request->user()->getKey(),
+        );
         $version = (int) $draft['version'];
 
         // Document Server-reachable URLs (its own container hostname).
@@ -745,6 +777,15 @@ class FormPrintTemplateController extends Controller
             }
         }
 
+        // Terminal session states (2 = saved, 4 = closed without changes): mark
+        // the draft closed so the builder's save-flush poll stops even when the
+        // session produced no new revision. Status 6 (forcesave) leaves the
+        // session open, so it is excluded. Runs after storeDraftRevision, which
+        // rebuilds the draft metadata and would otherwise drop the marker.
+        if (in_array($status, [2, 4], true)) {
+            $templates->markDraftClosed($draftId, $status);
+        }
+
         return response()->json(['error' => 0]);
     }
 
@@ -854,9 +895,8 @@ class FormPrintTemplateController extends Controller
      */
     private function fetchEditedDocument(string $url): string
     {
-        // The server hands back a URL on its own hostname; inside compose that
-        // may be its container name or an internal alias, both routable.
-        $response = Http::timeout((int) config('onlyoffice.timeout', 60))->get($url);
+        $response = Http::timeout((int) config('onlyoffice.timeout', 60))
+            ->get($this->internalDownloadUrl($url));
 
         if (! $response->successful()) {
             throw new \RuntimeException('Could not download the edited document (HTTP '.$response->status().').');
@@ -869,6 +909,26 @@ class FormPrintTemplateController extends Controller
         }
 
         return $body;
+    }
+
+    /**
+     * The Document Server builds its cache download URLs on the address the
+     * *browser* used to reach it (ONLYOFFICE_PUBLIC_URL). Inside the compose
+     * network that host is unreachable from this app — `localhost` there is
+     * the app container itself — so fetch through the internal URL instead.
+     * The same nginx serves /cache/files on both addresses, and the signed
+     * query (md5/expires/shardkey) authorises the download on either.
+     */
+    private function internalDownloadUrl(string $url): string
+    {
+        $public = rtrim((string) config('onlyoffice.public_url', ''), '/');
+        $internal = rtrim((string) config('onlyoffice.internal_url', ''), '/');
+
+        if ($public === '' || $internal === '' || ! str_starts_with($url, $public.'/')) {
+            return $url;
+        }
+
+        return $internal.substr($url, strlen($public));
     }
 
     /**

@@ -605,6 +605,7 @@ class FormBuilderController extends Controller
 
             if ($controllerKey === '') {
                 unset($fields[$i]['field_options']['visible_when']);
+
                 continue;
             }
 
@@ -911,7 +912,11 @@ class FormBuilderController extends Controller
             'field_type' => $f->field_type,
             'is_required' => (bool) $f->is_required,
             'placeholder_hint' => $f->placeholder_hint,
-            'field_options' => (array) ($f->field_options ?? []),
+            // field_options is always an assoc MAP. Cast to object so an empty
+            // config serializes as `{}` instead of `[]` — on a JS array the
+            // builder's `f.field_options.options = [...]` would set a named
+            // property that JSON.stringify silently drops on save.
+            'field_options' => (object) ($f->field_options ?? []),
             'universal_key' => $f->universal_key ?? '',
         ])->values()->all();
 
@@ -1025,5 +1030,4 @@ class FormBuilderController extends Controller
 
         return $values;
     }
-
 }

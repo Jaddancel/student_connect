@@ -1,19 +1,20 @@
 <?php
 
 use App\Http\Controllers\Admin\AccomplishmentReportRequestController;
+use App\Http\Controllers\Admin\ActivityRequestController as AdminActivityRequestController;
 use App\Http\Controllers\Admin\AdminAccountCreationController;
 use App\Http\Controllers\Admin\AdminOfficerCreationController;
 use App\Http\Controllers\Admin\AdminWorkplanController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\DatabaseViewController;
-use App\Http\Controllers\Admin\IdTemplateController;
-use App\Http\Controllers\Admin\RequestRecordController;
-use App\Http\Controllers\Admin\ActivityRequestController as AdminActivityRequestController;
 use App\Http\Controllers\Admin\FinancialReportRequestController;
+use App\Http\Controllers\Admin\FormBuilderController;
+use App\Http\Controllers\Admin\IdTemplateController;
 use App\Http\Controllers\Admin\JointStatementRequestController;
 use App\Http\Controllers\Admin\OrganizationScoringController;
 use App\Http\Controllers\Admin\ProjectRequestController;
 use App\Http\Controllers\Admin\RecognitionRequestController;
+use App\Http\Controllers\Admin\RequestRecordController;
 use App\Http\Controllers\Admin\SemesterController;
 use App\Http\Controllers\Admin\WorkplanRequestController;
 use App\Http\Controllers\Auth\GoogleLinkController;
@@ -24,16 +25,15 @@ use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\Auth\Register;
 use App\Http\Controllers\Auth\SystemSetupController;
 use App\Http\Controllers\Dashboard;
-use App\Http\Controllers\GuestAccessController;
 use App\Http\Controllers\DashboardSearchController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventPlanController;
 use App\Http\Controllers\ExportController;
-use App\Http\Controllers\Admin\FormBuilderController;
 use App\Http\Controllers\FormBlankPdfController;
 use App\Http\Controllers\FormDirectoryController;
 use App\Http\Controllers\FormRenderController;
+use App\Http\Controllers\GuestAccessController;
 use App\Http\Controllers\IdScanController;
 use App\Http\Controllers\LandingPage;
 use App\Http\Controllers\OrganizationController;
@@ -44,7 +44,6 @@ use App\Http\Controllers\PromotionRequestsPageController;
 use App\Http\Controllers\RequestDecisionController;
 use App\Http\Controllers\SidebarMenuController;
 use App\Http\Controllers\SuperAdminController;
-use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkplanController;
 use App\Http\Resources\ActionRequestResource;
 use App\Http\Resources\ApprovalResource;
@@ -566,6 +565,14 @@ Route::middleware(['auth', 'admin'])->group(function () {
         [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'draftImport'])
         ->where('draftId', '[A-Za-z0-9\-]+')
         ->name('admin.form-builder.draft.import');
+    // Draft version probe: the builder polls this after tearing the editor down
+    // on save, to wait for the Document Server's final save callback (whose
+    // storeDraftRevision bumps the version) before the draft is folded into the
+    // real template — otherwise a save would adopt the stale pre-edit document.
+    Route::get('/admin/form-builder/draft/{draftId}/printed-template/version',
+        [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'draftVersion'])
+        ->where('draftId', '[A-Za-z0-9\-]+')
+        ->name('admin.form-builder.draft.version');
 
     // The upload / verify / activate pages are gone: printed templates are now
     // authored in the form builder's Step 2 editor and created automatically
@@ -601,12 +608,18 @@ Route::middleware(['auth', 'superadmin'])->group(function () {
 Route::middleware(['auth', 'superadmin'])->group(function () {
     Route::get('/superadmin/backups', [\App\Http\Controllers\Admin\BackupController::class, 'index'])
         ->name('superadmin.backups.index');
+    Route::get('/superadmin/backups/archived', [\App\Http\Controllers\Admin\BackupController::class, 'archived'])
+        ->name('superadmin.backups.archived');
     Route::post('/superadmin/backups', [\App\Http\Controllers\Admin\BackupController::class, 'store'])
         ->name('superadmin.backups.store');
     Route::get('/superadmin/backups/{filename}/download', [\App\Http\Controllers\Admin\BackupController::class, 'download'])
         ->name('superadmin.backups.download');
     Route::post('/superadmin/backups/{filename}/restore', [\App\Http\Controllers\Admin\BackupController::class, 'restore'])
         ->name('superadmin.backups.restore');
+    Route::post('/superadmin/backups/{filename}/archive', [\App\Http\Controllers\Admin\BackupController::class, 'archive'])
+        ->name('superadmin.backups.archive');
+    Route::post('/superadmin/backups/{filename}/unarchive', [\App\Http\Controllers\Admin\BackupController::class, 'unarchive'])
+        ->name('superadmin.backups.unarchive');
     Route::delete('/superadmin/backups/{filename}', [\App\Http\Controllers\Admin\BackupController::class, 'destroy'])
         ->name('superadmin.backups.destroy');
 });

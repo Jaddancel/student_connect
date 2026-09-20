@@ -24,6 +24,12 @@ class BackupService
         return (string) config('backup.backup.name', config('app.name', 'laravel-backup'));
     }
 
+    /** Subdirectory (inside the backup directory) holding archived backups. */
+    private function archiveDirectory(): string
+    {
+        return $this->directory().'/archive';
+    }
+
     private function disk()
     {
         return Storage::disk('backups');
@@ -34,7 +40,25 @@ class BackupService
      */
     public function list(): array
     {
-        $dir = $this->directory();
+        return $this->listIn($this->directory());
+    }
+
+    /**
+     * Archived backups live in a subdirectory, so list() (which is
+     * non-recursive) never mixes them into the active set.
+     *
+     * @return array<int,array{name:string, size:int, last_modified:int}>
+     */
+    public function listArchived(): array
+    {
+        return $this->listIn($this->archiveDirectory());
+    }
+
+    /**
+     * @return array<int,array{name:string, size:int, last_modified:int}>
+     */
+    private function listIn(string $dir): array
+    {
         if (! $this->disk()->exists($dir)) {
             return [];
         }
@@ -71,9 +95,9 @@ class BackupService
      * Absolute filesystem path of a stored backup, validated to the backups
      * directory (guards against traversal).
      */
-    public function path(string $filename): string
+    public function path(string $filename, bool $archived = false): string
     {
-        $relative = $this->directory().'/'.basename($filename);
+        $relative = ($archived ? $this->archiveDirectory() : $this->directory()).'/'.basename($filename);
         if (! $this->disk()->exists($relative)) {
             throw new RuntimeException('Backup not found.');
         }
@@ -81,12 +105,41 @@ class BackupService
         return $this->disk()->path($relative);
     }
 
-    public function delete(string $filename): void
+    public function delete(string $filename, bool $archived = false): void
     {
-        $relative = $this->directory().'/'.basename($filename);
+        $relative = ($archived ? $this->archiveDirectory() : $this->directory()).'/'.basename($filename);
         if ($this->disk()->exists($relative)) {
             $this->disk()->delete($relative);
         }
+    }
+
+    /**
+     * Move an active backup into the archive subdirectory.
+     */
+    public function archive(string $filename): void
+    {
+        $this->move($filename, false);
+    }
+
+    /**
+     * Move an archived backup back into the active list.
+     */
+    public function unarchive(string $filename): void
+    {
+        $this->move($filename, true);
+    }
+
+    private function move(string $filename, bool $fromArchive): void
+    {
+        $from = ($fromArchive ? $this->archiveDirectory() : $this->directory()).'/'.basename($filename);
+        $to = ($fromArchive ? $this->directory() : $this->archiveDirectory()).'/'.basename($filename);
+
+        if (! $this->disk()->exists($from)) {
+            throw new RuntimeException('Backup not found.');
+        }
+
+        $this->disk()->makeDirectory(dirname($to));
+        $this->disk()->move($from, $to);
     }
 
     /**
@@ -125,7 +178,7 @@ class BackupService
      */
     private function extractSqlDump(string $archivePath): string
     {
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         if ($zip->open($archivePath) !== true) {
             throw new RuntimeException('Could not open the backup archive.');
         }

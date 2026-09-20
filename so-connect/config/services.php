@@ -44,10 +44,11 @@ return [
         'timeout' => (int) env('OCR_TIMEOUT', 60),
     ],
 
-    'llm' => [
-        'url' => env('LLM_SERVICE_URL', 'http://ollama:11434'),
-        'timeout' => (int) env('LLM_TIMEOUT', 180),
-        'model' => env('LLM_MODEL', 'qwen3.5:9b-q4_K_M'),
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'url' => env('GEMINI_API_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+        'timeout' => (int) env('GEMINI_TIMEOUT', 30),
+        'model' => env('GEMINI_MODEL', 'gemini-3.8-flash'),
     ],
 
     // Google OAuth for the admin/officer "Sign in with Google" pre-fill. See

@@ -198,6 +198,32 @@ it('saves a new revision when the server posts a signed save callback', function
         ->and(Storage::disk('public')->get($template->docx_path))->toBe('EDITED-DOCX-BYTES');
 });
 
+it('fetches the edited document through the internal URL when the callback names the public one', function () {
+    Http::fake(['*' => Http::response('EDITED-DOCX-BYTES')]);
+
+    $form = editorForm();
+    $template = app(FormPrintTemplateService::class)->resolve($form);
+
+    // The Document Server builds cache URLs on its PUBLIC address (the one in
+    // the browser's editor config). From the app container that host is
+    // unreachable, so the controller must fetch via ONLYOFFICE_INTERNAL_URL —
+    // the signed path+query authorise the download on either address.
+    $body = app(OnlyOfficeService::class)->sign([
+        'status' => 2,
+        'url' => 'http://onlyoffice.test:8081/cache/files/data/abc/output.docx?md5=x&expires=9',
+    ]);
+
+    $this->postJson(
+        route('onlyoffice.callback', $form).'?token='.editorToken($template, 'callback'),
+        ['token' => $body],
+    )->assertOk()->assertJson(['error' => 0]);
+
+    Http::assertSent(fn ($request) => $request->url()
+        === 'http://onlyoffice/cache/files/data/abc/output.docx?md5=x&expires=9');
+
+    expect(Storage::disk('public')->get($template->refresh()->docx_path))->toBe('EDITED-DOCX-BYTES');
+});
+
 it('rejects a save callback whose body is not signed', function () {
     $form = editorForm();
     $template = app(FormPrintTemplateService::class)->resolve($form);

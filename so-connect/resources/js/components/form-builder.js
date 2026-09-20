@@ -94,6 +94,13 @@ export function formBuilder(config) {
             // orphan its submissions and scoring variables.
             this.fields.forEach((f) => {
                 f._keyLocked = true;
+                // Defence-in-depth for legacy boot data: field_options is an
+                // assoc map. If it ever arrives as a JS array (PHP's empty
+                // array serializes as `[]`), setting .options on it would be
+                // silently dropped by JSON.stringify on save.
+                if (Array.isArray(f.field_options)) {
+                    f.field_options = Object.assign({}, f.field_options);
+                }
             });
 
             // Legacy forms stored "Section"/"Static text" as fields inside a
@@ -231,7 +238,11 @@ export function formBuilder(config) {
                     return false;
                 }
                 this.draftId = json.draftId;
-                return { configUrl: json.configUrl, importUrl: json.importUrl };
+                return {
+                    configUrl: json.configUrl,
+                    importUrl: json.importUrl,
+                    versionUrl: json.versionUrl,
+                };
             } catch (e) {
                 this.draftError = "Could not prepare the printed template.";
                 this.error = this.draftError;
@@ -1341,6 +1352,20 @@ export function formBuilder(config) {
             this.error = "";
 
             this.saving = true;
+            // Flush the printed-template editor first: the Document Server only
+            // assembles pending edits when the editor closes, so saving with it
+            // still open would adopt the stale draft and discard the late
+            // callback (the draft is cleared by adoption). See the template
+            // component's flushForSave().
+            if (this.printEnabled && this.draftId) {
+                const flushed = await this.flushPrintedTemplate();
+                if (!flushed) {
+                    this.error =
+                        "The printed template is still saving. Please wait a moment and click Save again.";
+                    this.saving = false;
+                    return;
+                }
+            }
             // Saving publishes — active/published/sidebar are server-decided.
             const payload = {
                 name: this.name,
@@ -1396,6 +1421,40 @@ export function formBuilder(config) {
             if (!errors) return null;
             const k = Object.keys(errors)[0];
             return k ? errors[k][0] : null;
+        },
+
+        /**
+         * Ask the Step-2 printed-template component (onlyoffice-template) to
+         * flush pending editor changes into the draft. Resolves true once the
+         * draft holds the latest edits (or there is nothing to flush); false on
+         * timeout, in which case save() must not proceed — adopting the draft
+         * would fold the stale pre-edit document into the form's template and
+         * clear the draft before the Document Server's final save lands.
+         */
+        flushPrintedTemplate() {
+            return new Promise((resolve) => {
+                const done = (event) => {
+                    window.removeEventListener(
+                        "printed-template:flush-done",
+                        done,
+                    );
+                    clearTimeout(timer);
+                    resolve(!event.detail || event.detail.ok !== false);
+                };
+                window.addEventListener("printed-template:flush-done", done);
+                // Slightly longer than the component's own flush timeout, so an
+                // absent/unresponsive component can't hang the save forever.
+                const timer = setTimeout(() => {
+                    window.removeEventListener(
+                        "printed-template:flush-done",
+                        done,
+                    );
+                    resolve(false);
+                }, 25000);
+                window.dispatchEvent(
+                    new CustomEvent("printed-template:flush-request"),
+                );
+            });
         },
     };
 }

@@ -271,14 +271,29 @@ class FormPrintTemplateService
     }
 
     /**
-     * Ensure the draft has a document to open, synthesising a starter .docx
-     * from the draft's name the first time. Idempotent.
+     * Ensure the draft has a document to open. Idempotent.
+     *
+     * For an existing form the draft starts from the form's current template —
+     * migrating its legacy HTML on first use via {@see resolve()} — NOT from a
+     * blank document. Starting blank would mean every save replaces the saved
+     * layout with whatever the user rebuilt from scratch, which reads as "the
+     * template never keeps my changes". Only genuinely new forms (no $form)
+     * get the blank starter.
      */
-    public function ensureDraftDocx(string $draftId, string $name): void
+    public function ensureDraftDocx(string $draftId, string $name, ?Form $form = null, ?int $userId = null): void
     {
-        if ($this->readDraftDocx($draftId) === null) {
-            $this->putDraftDocx($draftId, $this->blankDocumentFor($name));
+        if ($this->readDraftDocx($draftId) !== null) {
+            return;
         }
+
+        if ($form !== null) {
+            $template = $this->resolve($form, $userId);
+            $this->putDraftDocx($draftId, (string) File::get($this->absolutePath($template)));
+
+            return;
+        }
+
+        $this->putDraftDocx($draftId, $this->blankDocumentFor($name));
     }
 
     /**
@@ -309,6 +324,24 @@ class FormPrintTemplateService
         );
 
         return $version;
+    }
+
+    /**
+     * Record that the Document Server closed the draft's editing session
+     * (status 2 = saved, 4 = closed without changes). The builder's save-flush
+     * polls the version endpoint and also resolves on this marker, so a session
+     * that ends without a new revision can't stall the form save.
+     */
+    public function markDraftClosed(string $draftId, int $status): void
+    {
+        $draft = $this->readDraft($draftId);
+
+        if ($draft === null) {
+            return;
+        }
+
+        $draft['closed_status'] = $status;
+        $this->draftCache()->put($this->draftKey($draftId), $draft, self::DRAFT_TTL);
     }
 
     public function forgetDraft(string $draftId): void

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\AssistantKnowledgeBase;
-use App\Services\LlmClient;
+use App\Services\GeminiClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -18,7 +18,7 @@ use Illuminate\Validation\ValidationException;
  */
 class AssistantController extends Controller
 {
-    public function chat(Request $request, LlmClient $llm, AssistantKnowledgeBase $kb): JsonResponse
+    public function chat(Request $request, GeminiClient $gemini, AssistantKnowledgeBase $kb): JsonResponse
     {
         // Mirrors IdScanController: this endpoint is consumed exclusively by
         // fetch(), which can't follow the redirect Laravel issues for a
@@ -50,7 +50,7 @@ class AssistantController extends Controller
             $messages[] = ['role' => 'user', 'content' => 'Open the chat now.'];
         }
 
-        $result = $llm->chat($messages, $systemPrompt);
+        $result = $gemini->chat($messages, $systemPrompt);
         if (! $result['ok']) {
             return $this->degraded($result['note'] ?? 'assistant unavailable');
         }
@@ -68,13 +68,13 @@ class AssistantController extends Controller
         // reach the panel as a blank bubble — so it stands on its links if it
         // has any, and degrades if it doesn't.
         if ($reply === '') {
-                if ($links === [] && $suggestions === []) {
+            if ($links === [] && $suggestions === []) {
                 return $this->degraded('empty reply');
             }
 
-                if ($links !== []) {
-                    $reply = 'Here’s the page for that:';
-                }
+            if ($links !== []) {
+                $reply = 'Here’s the page for that:';
+            }
         }
 
         return response()->json(['ok' => true, 'reply' => $reply, 'links' => $links, 'suggestions' => $suggestions]);

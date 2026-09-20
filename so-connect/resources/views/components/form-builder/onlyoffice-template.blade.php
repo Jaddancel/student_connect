@@ -34,6 +34,7 @@
             <div x-data="{
                     configUrl: '',
                     importUrl: '',
+                    versionUrl: '',
                     csrf: '{{ csrf_token() }}',
                     editor: null,
                     mounted: false,
@@ -42,6 +43,18 @@
                     error: '',
                     importError: '',
                     saved: true,
+                    // Latched once onDocumentStateChange reports real edits this
+                    // session. `saved` alone cannot gate the save-flush: with
+                    // autosave it flips back to true as soon as the client has
+                    // SENT its changes, long before the Document Server has
+                    // assembled them into the draft (assembly only happens when
+                    // the editor session closes) — trusting it adopts the stale
+                    // pre-edit draft and the real edits are discarded.
+                    touched: false,
+                    // The draft version the editor booted with, and the version a
+                    // save-flush is waiting to see exceeded (null = none pending).
+                    version: 0,
+                    pendingFlush: null,
                     // OnlyOffice is unusable on a phone-sized screen; Step 2 shows
                     // a notice instead and never boots the editor there. Tablets
                     // and up (≥768px) get the editor.
@@ -53,10 +66,12 @@
                     onSync(detail) {
                         this.configUrl = (detail && detail.configUrl) || '';
                         this.importUrl = (detail && detail.importUrl) || '';
+                        this.versionUrl = (detail && detail.versionUrl) || '';
                         if (!this.configUrl) return;
                         if (this.mounted) this.teardown();
                         this.error = '';
                         this.saved = true;
+                        this.touched = false;
                         this.start();
                     },
 
@@ -115,6 +130,7 @@
                             }
                             this.mounted = false;
                             this.saved = true;
+                            this.touched = false;
                             this.error = '';
                             this.start();
                         } catch (e) {
@@ -141,6 +157,8 @@
                             throw new Error('The editor script loaded but DocsAPI is missing.');
                         }
 
+                        this.version = (typeof data.version === 'number') ? data.version : this.version;
+
                         this.editor = new window.DocsAPI.DocEditor('onlyoffice-surface', Object.assign({}, data.config, {
                             width: '100%',
                             height: '100%',
@@ -153,6 +171,11 @@
                                 // server still holds unsaved changes.
                                 onDocumentStateChange: (event) => {
                                     this.saved = !(event && event.data);
+                                    // Latch dirtiness: once the Document Server
+                                    // has received edits, the draft no longer
+                                    // matches the document until the session
+                                    // closes and the final callback lands.
+                                    if (event && event.data) this.touched = true;
                                 },
                             },
                         }));
@@ -168,6 +191,70 @@
                             script.onerror = () => reject(new Error('Could not reach the document editor at ' + src));
                             document.head.appendChild(script);
                         });
+                    },
+
+                    // Save-flush, driven by the parent's save(): the Document
+                    // Server only assembles pending edits when the editor closes,
+                    // so saving with the editor open would fold the STALE draft
+                    // into the form's template (and the late final callback then
+                    // 404s against the already-cleared draft). Tear the editor
+                    // down first, then wait for the final callback to bump the
+                    // draft version before letting the form save proceed.
+                    async flushForSave() {
+                        // A previous flush already tore the editor down: give a
+                        // late final callback a short grace, then proceed —
+                        // nothing further can arrive afterwards.
+                        if (!this.editor) {
+                            if (this.pendingFlush !== null) {
+                                await this.pollVersion(this.pendingFlush, 3000);
+                                this.pendingFlush = null;
+                            }
+                            return true;
+                        }
+                        // Never edited this session — the draft already matches
+                        // the open document, so adopting it loses nothing. (`saved`
+                        // is NOT a substitute: it only tracks client→server sync
+                        // and is true again within a second of the last keystroke,
+                        // while the server assembles the document — and reports it
+                        // to the draft — only when the editor closes.)
+                        if (!this.touched) return true;
+                        if (!this.versionUrl) return false;
+
+                        const target = this.version;
+                        this.pendingFlush = target;
+                        this.teardown();
+
+                        const flushed = await this.pollVersion(target, 20000);
+                        if (flushed) this.pendingFlush = null;
+                        return flushed;
+                    },
+
+                    // Poll the draft version until it exceeds `target` (i.e. the
+                    // Document Server's final save callback stored a new
+                    // revision). Also resolves when the session closed with
+                    // nothing new to save, or when the draft is already gone —
+                    // nothing left to wait for in either case.
+                    async pollVersion(target, timeoutMs) {
+                        const deadline = Date.now() + timeoutMs;
+                        while (Date.now() < deadline) {
+                            try {
+                                const res = await fetch(this.versionUrl, {
+                                    headers: { Accept: 'application/json' },
+                                    credentials: 'same-origin',
+                                });
+                                if (res.status === 404) return true;
+                                const data = await res.json().catch(() => ({}));
+                                if (res.ok && typeof data.version === 'number' && data.version > target) {
+                                    this.version = data.version;
+                                    return true;
+                                }
+                                // The Document Server closed the session without
+                                // a new revision (e.g. every edit was undone).
+                                if (res.ok && data.closed === true) return true;
+                            } catch (e) { /* keep polling until the deadline */ }
+                            await new Promise((r) => setTimeout(r, 500));
+                        }
+                        return false;
                     },
                 }"
                 x-init="
@@ -190,6 +277,7 @@
                     });
                 "
                 @printed-template:sync.window="onSync($event.detail)"
+                @printed-template:flush-request.window="flushForSave().then((ok) => $dispatch('printed-template:flush-done', { ok }))"
                 class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03]">
 
                 <div class="mb-3 flex flex-wrap items-start justify-between gap-3">

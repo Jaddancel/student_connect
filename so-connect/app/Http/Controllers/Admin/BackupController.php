@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\ActionLogger;
 use App\Services\BackupService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -25,7 +26,16 @@ class BackupController extends Controller
         return view('pages.admin.backups.index', [
             'title' => 'Database Backups',
             'backups' => $this->backups->list(),
+            'archivedCount' => count($this->backups->listArchived()),
             'intervalHours' => (int) \App\Models\AppSetting::get('backup.interval_hours', 24),
+        ]);
+    }
+
+    public function archived(): View
+    {
+        return view('pages.admin.backups.archived', [
+            'title' => 'Archived Backups',
+            'archived' => $this->backups->listArchived(),
         ]);
     }
 
@@ -42,14 +52,40 @@ class BackupController extends Controller
         return back()->with('success', 'Backup created.');
     }
 
-    public function download(string $filename): BinaryFileResponse
+    public function download(Request $request, string $filename): BinaryFileResponse
     {
-        return Response::download($this->backups->path($filename), $filename);
+        return Response::download($this->backups->path($filename, $request->boolean('archived')), $filename);
     }
 
-    public function destroy(string $filename): RedirectResponse
+    public function archive(string $filename): RedirectResponse
     {
-        $this->backups->delete($filename);
+        try {
+            $this->backups->archive($filename);
+        } catch (\Throwable $e) {
+            return back()->withErrors(['backup' => 'Archive failed: '.$e->getMessage()]);
+        }
+
+        ActionLogger::log(ActionLogger::CATEGORY_SETTINGS, 'backup_archived', 'Archived backup '.$filename, ['file' => $filename]);
+
+        return back()->with('success', 'Backup archived.');
+    }
+
+    public function unarchive(string $filename): RedirectResponse
+    {
+        try {
+            $this->backups->unarchive($filename);
+        } catch (\Throwable $e) {
+            return back()->withErrors(['backup' => 'Unarchive failed: '.$e->getMessage()]);
+        }
+
+        ActionLogger::log(ActionLogger::CATEGORY_SETTINGS, 'backup_unarchived', 'Unarchived backup '.$filename, ['file' => $filename]);
+
+        return back()->with('success', 'Backup restored to the active list.');
+    }
+
+    public function destroy(Request $request, string $filename): RedirectResponse
+    {
+        $this->backups->delete($filename, $request->boolean('archived'));
 
         ActionLogger::log(ActionLogger::CATEGORY_SETTINGS, 'backup_deleted', 'Deleted backup '.$filename, ['file' => $filename]);
 

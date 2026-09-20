@@ -205,7 +205,6 @@ it('publishes a form on save even without a printed template', function () {
     expect($form->fresh()->is_published)->toBeTrue();
 });
 
-
 it('rejects duplicate field keys', function () {
     $admin = makeUser(2);
 
@@ -383,6 +382,196 @@ it('rejects an unknown universal_key', function () {
     ])->assertStatus(422)->assertJsonValidationErrors('fields.0.universal_key');
 
     expect(Form::where('route_name', 'bad-map')->exists())->toBeFalse();
+});
+
+it('boots empty field_options as a JSON object so options added in the editor survive save', function () {
+    // Regression: a field with NULL field_options used to boot as `[]` (a JS
+    // array); assigning `.options` to it set a named property that
+    // JSON.stringify silently dropped, so options added in Step 1 never saved.
+    $admin = makeUser(2);
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), [
+        'name' => 'Empty Options', 'route_name' => 'empty-options',
+        'fields' => [
+            ['field_key' => 'sponsor', 'field_label' => 'Sponsor', 'field_type' => 'select'],
+        ],
+        'rows' => [['columns' => [['span' => 12, 'fields' => ['sponsor']]]]],
+        'pdf_template' => ['html' => '', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ])->assertOk();
+
+    $form = Form::where('route_name', 'empty-options')->first();
+    expect($form->fields()->where('field_key', 'sponsor')->value('field_options'))->toBeNull();
+
+    $response = $this->actingAs($admin)->get(route('admin.form-builder.edit', $form))->assertOk();
+    $options = collect($response->viewData('editorData')['fields'])->firstWhere('field_key', 'sponsor')['field_options'];
+
+    // Must serialize as `{}`, not `[]`, and round-trip back as an assoc array.
+    expect(json_encode($options))->toBe('{}')
+        ->and(json_decode(json_encode($options), true))->toBe([]);
+});
+
+it('seeds the printed-template draft from the form’s existing template', function () {
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+    $admin = makeUser(2);
+
+    // A form whose template already exists (legacy HTML migrated on resolve).
+    $form = Form::query()->create([
+        'name' => 'Seeded Template',
+        'route_name' => 'seeded-template-'.\Illuminate\Support\Str::random(8),
+        'pdf_template' => ['html' => '<p>Hello <span data-field="full_name">Full name</span></p>'],
+    ]);
+
+    $sync = $this->actingAs($admin)->postJson(route('admin.form-builder.draft.sync'), [
+        'form_id' => $form->id,
+        'name' => 'Seeded Template',
+        'fields' => [
+            ['field_key' => 'full_name', 'field_label' => 'Full name', 'field_type' => 'text'],
+        ],
+    ])->assertOk();
+
+    $bytes = app(\App\Services\FormPrintTemplateService::class)->readDraftDocx($sync->json('draftId'));
+    expect($bytes)->not->toBeNull();
+
+    // The draft must open on the form's existing template, not the blank
+    // starter — otherwise re-entering Step 2 after a save shows an empty
+    // document and the next save wipes the layout.
+    $tmp = tempnam(sys_get_temp_dir(), 'draft-').'.docx';
+    file_put_contents($tmp, $bytes);
+    expect(docxText($tmp))->toContain('Hello')->toContain('{{full_name}}');
+    unlink($tmp);
+});
+
+it('starts the printed-template draft blank only for a brand-new form', function () {
+    $admin = makeUser(2);
+
+    $sync = $this->actingAs($admin)->postJson(route('admin.form-builder.draft.sync'), [
+        'name' => 'Blank Starter',
+        'fields' => [
+            ['field_key' => 'x', 'field_label' => 'X', 'field_type' => 'text'],
+        ],
+    ])->assertOk();
+
+    $bytes = app(\App\Services\FormPrintTemplateService::class)->readDraftDocx($sync->json('draftId'));
+    $tmp = tempnam(sys_get_temp_dir(), 'draft-').'.docx';
+    file_put_contents($tmp, (string) $bytes);
+    expect(docxText($tmp))->toContain('Blank Starter');
+    unlink($tmp);
+});
+
+it('exposes the printed-template draft version for the save flush', function () {
+    $admin = makeUser(2);
+
+    $sync = $this->actingAs($admin)->postJson(route('admin.form-builder.draft.sync'), [
+        'name' => 'Flush Form',
+        'fields' => [
+            ['field_key' => 'x', 'field_label' => 'X', 'field_type' => 'text'],
+        ],
+    ])->assertOk();
+
+    $draftId = $sync->json('draftId');
+
+    $this->actingAs($admin)
+        ->getJson(route('admin.form-builder.draft.version', $draftId))
+        ->assertOk()
+        ->assertJson(['version' => 1, 'closed' => false]);
+
+    $this->actingAs($admin)
+        ->getJson(route('admin.form-builder.draft.version', 'missing-draft'))
+        ->assertNotFound();
+});
+
+it('marks the draft closed when the editor session ends without changes', function () {
+    config(['onlyoffice.jwt_secret' => str_repeat('t', 40)]);
+    $admin = makeUser(2);
+
+    $sync = $this->actingAs($admin)->postJson(route('admin.form-builder.draft.sync'), [
+        'name' => 'Close Without Edits',
+        'fields' => [
+            ['field_key' => 'x', 'field_label' => 'X', 'field_type' => 'text'],
+        ],
+    ])->assertOk();
+    $draftId = $sync->json('draftId');
+
+    // Status 4 = session closed, nothing to save: no new revision, but the
+    // save-flush poll must stop waiting — this is the flag that lets it.
+    $token = app(\App\Services\OnlyOfficeService::class)->sign([
+        'did' => $draftId, 'purpose' => 'callback', 'exp' => now()->addMinutes(30)->getTimestamp(),
+    ]);
+    $body = app(\App\Services\OnlyOfficeService::class)->sign(['status' => 4]);
+
+    $this->postJson(route('onlyoffice.draft.callback', $draftId).'?token='.$token, ['token' => $body])
+        ->assertOk()->assertJson(['error' => 0]);
+
+    $this->actingAs($admin)
+        ->getJson(route('admin.form-builder.draft.version', $draftId))
+        ->assertOk()
+        ->assertJson(['version' => 1, 'closed' => true]);
+});
+
+it('stores the revision and marks the draft closed on the final save callback', function () {
+    config(['onlyoffice.jwt_secret' => str_repeat('t', 40)]);
+    \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response('EDITED-DOCX-BYTES')]);
+    $admin = makeUser(2);
+
+    $sync = $this->actingAs($admin)->postJson(route('admin.form-builder.draft.sync'), [
+        'name' => 'Final Save',
+        'fields' => [
+            ['field_key' => 'x', 'field_label' => 'X', 'field_type' => 'text'],
+        ],
+    ])->assertOk();
+    $draftId = $sync->json('draftId');
+
+    // Status 2 = ready to save: the version bump is what the save-flush polls
+    // for, and the closed marker covers the nothing-to-save twin (status 4).
+    $token = app(\App\Services\OnlyOfficeService::class)->sign([
+        'did' => $draftId, 'purpose' => 'callback', 'exp' => now()->addMinutes(30)->getTimestamp(),
+    ]);
+    $body = app(\App\Services\OnlyOfficeService::class)->sign([
+        'status' => 2, 'url' => 'http://onlyoffice/cache/files/output.docx',
+    ]);
+
+    $this->postJson(route('onlyoffice.draft.callback', $draftId).'?token='.$token, ['token' => $body])
+        ->assertOk()->assertJson(['error' => 0]);
+
+    $this->actingAs($admin)
+        ->getJson(route('admin.form-builder.draft.version', $draftId))
+        ->assertOk()
+        ->assertJson(['version' => 2, 'closed' => true]);
+
+    expect(app(\App\Services\FormPrintTemplateService::class)->readDraftDocx($draftId))
+        ->toBe('EDITED-DOCX-BYTES');
+});
+
+it('does not mark the draft closed on a forcesave callback', function () {
+    config(['onlyoffice.jwt_secret' => str_repeat('t', 40)]);
+    \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response('PARTIAL-BYTES')]);
+    $admin = makeUser(2);
+
+    $sync = $this->actingAs($admin)->postJson(route('admin.form-builder.draft.sync'), [
+        'name' => 'Forcesave',
+        'fields' => [
+            ['field_key' => 'x', 'field_label' => 'X', 'field_type' => 'text'],
+        ],
+    ])->assertOk();
+    $draftId = $sync->json('draftId');
+
+    // Status 6 = forcesave: content is stored but the session is still open,
+    // so the closed marker must stay unset (more edits may still arrive).
+    $token = app(\App\Services\OnlyOfficeService::class)->sign([
+        'did' => $draftId, 'purpose' => 'callback', 'exp' => now()->addMinutes(30)->getTimestamp(),
+    ]);
+    $body = app(\App\Services\OnlyOfficeService::class)->sign([
+        'status' => 6, 'url' => 'http://onlyoffice/cache/files/output.docx',
+    ]);
+
+    $this->postJson(route('onlyoffice.draft.callback', $draftId).'?token='.$token, ['token' => $body])
+        ->assertOk()->assertJson(['error' => 0]);
+
+    $this->actingAs($admin)
+        ->getJson(route('admin.form-builder.draft.version', $draftId))
+        ->assertOk()
+        ->assertJson(['version' => 2, 'closed' => false]);
 });
 
 it('skips validation and drops the value of a conditionally hidden field', function () {
