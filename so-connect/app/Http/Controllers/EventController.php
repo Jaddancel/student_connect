@@ -109,7 +109,7 @@ class EventController extends Controller
             'sponsor_other' => ['required_if:sponsor,others', 'nullable', 'string', 'max:255'],
             'cosponsor_count' => ['required_if:sponsor,co-sponsors', 'nullable', 'integer', Rule::when($request->input('sponsor') === 'co-sponsors', ['min:2'])],
             'related_to_organization' => ['nullable', 'boolean'],
-            'extension_services' => ['required', 'in:yes,no'],
+            'extension_services' => ['nullable', 'in:yes,no'],
         ]);
 
         $userId = (int) $user->getKey();

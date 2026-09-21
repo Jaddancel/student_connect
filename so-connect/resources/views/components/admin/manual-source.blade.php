@@ -10,7 +10,6 @@
 
     $source = is_array($payload['_manual_source'] ?? null) ? $payload['_manual_source'] : null;
     $scans = $source ? SubmissionPresenter::attachments(['_scans' => $source['scan_paths'] ?? []], '_scans', FieldType::MULTI_IMAGE) : [];
-    $partial = $source ? SubmissionPresenter::attachments(['_pdf' => $source['partial_pdf_path'] ?? ''], '_pdf', FieldType::FILE) : [];
     $warnings = (array) ($source['parse_warnings'] ?? []);
 @endphp
 
@@ -31,13 +30,6 @@
                 <div>
                     <p class="mb-1 text-xs font-medium text-gray-400">Uploaded scan</p>
                     <x-admin.attachments :items="$scans" label="Handwritten scan" />
-                </div>
-            @endif
-
-            @if ($partial !== [])
-                <div>
-                    <p class="mb-1 text-xs font-medium text-gray-400">Original printable form</p>
-                    <x-admin.attachments :items="$partial" label="Printable form" />
                 </div>
             @endif
 

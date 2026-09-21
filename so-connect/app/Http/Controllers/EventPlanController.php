@@ -205,7 +205,7 @@ class EventPlanController extends Controller
             'area_scope_other'       => ['required_if:area_scope,others', 'nullable', 'string', 'max:255'],
             'sponsor'                => ['required', 'string', 'max:100'],
             'sponsor_other'          => ['required_if:sponsor,others', 'nullable', 'string', 'max:255'],
-            'extension_services'     => ['required', 'in:yes,no'],
+            'extension_services'     => ['nullable', 'in:yes,no'],
             'event_location'         => ['required', 'string', 'max:255'],
             'event_start_time'       => ['required', 'date'],
             'event_end_time'         => ['required', 'date', 'after_or_equal:event_start_time'],
@@ -352,7 +352,7 @@ class EventPlanController extends Controller
                 'area_scope_other'       => ['required_if:area_scope,others', 'nullable', 'string', 'max:255'],
                 'sponsor'                => ['required', 'string', 'max:100'],
                 'sponsor_other'          => ['required_if:sponsor,others', 'nullable', 'string', 'max:255'],
-                'extension_services'     => ['required', 'in:yes,no'],
+                'extension_services'     => ['nullable', 'in:yes,no'],
                 'event_location'         => ['required', 'string', 'max:255'],
                 'event_start_time'       => ['required', 'date'],
                 'event_end_time'         => ['required', 'date', 'after_or_equal:event_start_time'],
@@ -465,7 +465,7 @@ class EventPlanController extends Controller
                 'sponsor_other'          => ['required_if:sponsor,others', 'nullable', 'string', 'max:255'],
                 'cosponsor_count'        => ['required_if:sponsor,co-sponsors', 'nullable', 'integer', Rule::when($request->input('sponsor') === 'co-sponsors', ['min:2'])],
                 'related_to_organization'=> ['nullable', 'boolean'],
-                'extension_services'     => ['required', 'in:yes,no'],
+                'extension_services'     => ['nullable', 'in:yes,no'],
             ]);
 
             $plan->update([

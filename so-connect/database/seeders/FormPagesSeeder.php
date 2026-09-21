@@ -280,7 +280,7 @@ class FormPagesSeeder extends Seeder
             $this->f('area_scope', 'Area Scope', FieldType::SELECT, ['required' => true]),
             $this->f('area_scope_other', 'Other Area Scope', FieldType::TEXT),
             $this->f('sponsor', 'Sponsor', FieldType::SELECT, ['required' => true]),
-            $this->f('extension_services', 'Extension Services', FieldType::RADIO, ['required' => true]),
+            $this->f('extension_services', 'Extension Services', FieldType::RADIO),
             $this->f('waiver', 'Signed Waiver', FieldType::WAIVER_SCAN, [
                 'required' => true,
                 'placeholder' => 'Scan or upload the signed activity waiver.',
