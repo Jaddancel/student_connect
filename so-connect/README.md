@@ -3,26 +3,25 @@
 **TailAdmin Laravel** is a modern, production-ready admin dashboard template powered by **Laravel 12**, **Tailwind CSS v4**, **Alpine.js**, and a clean, modular architecture. TailAdmin is one of the most popular Tailwind CSS dashboard now also available for Larvael. It’s designed for building fast, scalable admin panels, CRM dashboards, SaaS backends, and any data-driven application where clarity and performance matter.
 ![TailAdmin - Next.js Dashboard Preview](./tailadmin-laravel.png)
 
-
 ## Quick Links
 
-* [✨ Get TailAdmin Laravel](https://tailadmin.com/laravel)
-* [📄 Documentation](https://tailadmin.com/docs)
-* [⬇️ Download](https://tailadmin.com/download)
-* [🌐 Live Demo](https://laravel-demo.tailadmin.com)
+- [✨ Get TailAdmin Laravel](https://tailadmin.com/laravel)
+- [📄 Documentation](https://tailadmin.com/docs)
+- [⬇️ Download](https://tailadmin.com/download)
+- [🌐 Live Demo](https://laravel-demo.tailadmin.com)
 
 Here’s a tighter, more search-friendly version that highlights value and avoids fluff while keeping your structure intact.
 
 ## ✨ Key Features
 
-* 🚀 **Laravel 12 Core** - Built on the latest Laravel release with improved routing, security, and Blade templating
-* 🎨 **Tailwind CSS v4** - Utility-first styling for rapid, consistent UI development
-* ⚡ **Alpine.js Interactivity** - Lightweight reactivity without a heavy JavaScript framework
-* 📦 **Vite Build System** - Fast dev server, instant HMR, and optimized production builds
-* 📱 **Fully Responsive Layouts** - Smooth, mobile-first design that adapts across all screen sizes
-* 🌙 **Built-in Dark Mode** - Ready-to-use modern dark theme for better usability and aesthetics
-* 📊 **Advanced UI Components** - Charts, data tables, forms, calendars, modals, and reusable blocks for complex dashboards
-* 🎯 **Production-Ready Dashboard UI** - Clean, modern interface crafted for real apps, not placeholder demos
+- 🚀 **Laravel 12 Core** - Built on the latest Laravel release with improved routing, security, and Blade templating
+- 🎨 **Tailwind CSS v4** - Utility-first styling for rapid, consistent UI development
+- ⚡ **Alpine.js Interactivity** - Lightweight reactivity without a heavy JavaScript framework
+- 📦 **Vite Build System** - Fast dev server, instant HMR, and optimized production builds
+- 📱 **Fully Responsive Layouts** - Smooth, mobile-first design that adapts across all screen sizes
+- 🌙 **Built-in Dark Mode** - Ready-to-use modern dark theme for better usability and aesthetics
+- 📊 **Advanced UI Components** - Charts, data tables, forms, calendars, modals, and reusable blocks for complex dashboards
+- 🎯 **Production-Ready Dashboard UI** - Clean, modern interface crafted for real apps, not placeholder demos
 
 ### Other Versions
 
@@ -33,12 +32,13 @@ Here’s a tighter, more search-friendly version that highlights value and avoid
 - [Laravel Version](https://github.com/TailAdmin/tailadmin-laravel)
 
 ## 📋 Requirements
+
 To set up TailAdmin Laravel, make sure your environment includes:
 
-* **PHP 8.2+**
-* **Composer** (PHP dependency manager)
-* **Node.js 18+** and **npm** (for compiling frontend assets)
-* **Database** - Works with SQLite (default), MySQL, or PostgreSQL
+- **PHP 8.2+**
+- **Composer** (PHP dependency manager)
+- **Node.js 18+** and **npm** (for compiling frontend assets)
+- **Database** - Works with SQLite (default), MySQL, or PostgreSQL
 
 ### Tailwind CSS Laravel Dashboard
 
@@ -178,6 +178,7 @@ composer run dev
 ```
 
 This single command starts:
+
 - ✅ Laravel development server (http://localhost:8000)
 - ✅ Vite dev server for hot module reloading
 - ✅ Queue worker for background jobs
@@ -190,11 +191,13 @@ This single command starts:
 If you prefer to run services individually in separate terminal windows:
 
 **Terminal 1 - Laravel Server:**
+
 ```bash
 php artisan serve
 ```
 
 **Terminal 2 - Frontend Assets:**
+
 ```bash
 npm run dev
 ```
@@ -232,7 +235,6 @@ APP_ENV=production
 APP_DEBUG=false
 APP_URL=https://yourdomain.com
 ```
-
 
 ## 🧪 Testing
 
@@ -385,37 +387,95 @@ tailadmin-laravel/
 ### Common Issues
 
 #### "Class not found" errors
+
 ```bash
 composer dump-autoload
 ```
 
 #### Permission errors on storage/bootstrap/cache
+
 ```bash
 chmod -R 775 storage bootstrap/cache
 ```
 
 #### NPM build errors
+
 ```bash
 rm -rf node_modules package-lock.json
 npm install
 ```
 
 #### Clear all caches
+
 ```bash
 php artisan optimize:clear
 ```
 
 #### Database connection errors
+
 - Check `.env` database credentials
 - Ensure database server is running
 - Verify database exists
 
-## 🔄 Update Log
+## �️ Manual Form Filling (handwritten scans)
+
+Officers can print a partially filled request form, complete it by hand, and
+upload a scan the app reads back for review before the ordinary submission runs.
+Reading is done by a **host-native Ollama vision model**, kept separate from the
+Gemini chat assistant and the PaddleOCR ID/waiver scanner.
+
+**One-time host setup**
+
+```bash
+# On the Docker host (not inside a container):
+ollama serve                 # or run it as a service
+ollama pull qwen2.5vl:3b     # ~3B vision model, fits an 8 GB GPU
+```
+
+The Sail containers reach the daemon at `host.docker.internal:11434` (already
+mapped in `compose.yaml`). Configure it in `.env` (see `.env.example`):
+
+```dotenv
+DOCUMENT_VISION_PROVIDER=ollama
+DOCUMENT_VISION_URL=http://host.docker.internal:11434
+DOCUMENT_VISION_MODEL=qwen2.5vl:3b
+DOCUMENT_VISION_TIMEOUT=180
+DOCUMENT_VISION_CONFIDENCE_THRESHOLD=0.55
+```
+
+**Requirements**
+
+- A running **queue worker** — schema generation and scan parsing are queued
+  jobs (`php artisan queue:work`, already in the Sail supervisor).
+- **poppler-utils** in the app image (added to `docker/8.5/Dockerfile`) for PDF
+  rasterization, and the **OCR sidecar** (`docker/ocr`) for page alignment.
+
+**Behavior & privacy**
+
+- The exact printed PDF is frozen per draft; parsing only reads fields that were
+  blank at print time and never overwrites already-printed values.
+- Extracted values are always shown for review — parsing never auto-submits.
+- Passwords are never stored in a draft; sensitive/upload fields stay digital.
+- If the model or OCR sidecar is down, drafts stay resumable and online
+  submission is unaffected.
+
+Abandoned drafts (and their files) are reaped after 30 days:
+
+```bash
+php artisan manual-sessions:cleanup           # scheduled daily
+php artisan manual-sessions:cleanup --dry-run # preview
+```
+
+The wire contract lives in `docs/manual-form-parsing-contract.md`.
+
+## �🔄 Update Log
 
 ### [2026-03-15]
+
 - Fixed PHP 8.5 deprecation warning
 
 ### [2025-12-29]
+
 - Added Date Picker in Statistics Chart
 
 ## License

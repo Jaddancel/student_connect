@@ -10,7 +10,9 @@ use App\Forms\SystemFunction;
 use App\Services\OrganizationAuthorizationService;
 use App\Models\Form;
 use App\Models\FormSubmission;
+use App\Models\ManualFormSession;
 use App\Services\DocumentGenerationService;
+use App\Services\ManualForm\ManualFormSessionService;
 use App\Support\IdScanRetryCache;
 use App\Support\OrganizationField;
 use App\Support\SignatureImage;
@@ -351,6 +353,17 @@ class FormRenderController extends Controller
             abort(422, 'This form is not ready to accept submissions yet (no printed template).');
         }
 
+        // A reviewed manual-filling draft finalizes through this same endpoint,
+        // carrying its session id (and, for a public form, its resume token).
+        // An already-submitted session is refused so a double click can't file
+        // the request twice.
+        $manualSessions = app(ManualFormSessionService::class);
+        $manualSession = $manualSessions->resolveForFinalSubmit($request, $form);
+        if ($manualSession !== null && ! $manualSession->isOpen()) {
+            return redirect()->route('forms.render', $form->route_name)
+                ->with('success', 'This draft was already submitted.');
+        }
+
         $fields = $form->fields()->get();
 
         // Conditional visibility is enforced server-side against the raw
@@ -642,6 +655,12 @@ class FormRenderController extends Controller
             ? (int) ($payload['organization_id'] ?? 0)
             : ($handler ? $form->organization_id : ($organization?->getKey() ?? $form->organization_id));
 
+        // A reviewed manual draft records its provenance on the submission so an
+        // admin can see the original handwritten scan beside the digital answers.
+        if ($manualSession !== null) {
+            $payload['_manual_source'] = $manualSessions->manualSourceMeta($manualSession);
+        }
+
         $submission = FormSubmission::query()->create([
             'form_id' => (int) $form->getKey(),
             'organization_id' => $submissionOrgId,
@@ -652,6 +671,11 @@ class FormRenderController extends Controller
 
         // Kit side effects (event linking, posts-wall media mirroring).
         \App\Forms\FieldKit::afterSubmit($form, $submission, $payload);
+
+        // Close the manual draft and link it to the submission it produced.
+        if ($manualSession !== null) {
+            $manualSessions->markSubmitted($manualSession, $submission);
+        }
 
         // The scanned photo(s) are durably stored on the submission now —
         // this session's retry cache has nothing left to contribute.

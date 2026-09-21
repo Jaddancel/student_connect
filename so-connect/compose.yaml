@@ -118,6 +118,31 @@ services:
       # host page insert tokens directly is Developer-Edition-only.)
     networks:
       - sail
+  # Ollama vision model server for reading handwritten form scans. Runs the
+  # qwen2.5vl:3b model. The service name MUST be `ollama` to match
+  # DOCUMENT_VISION_URL=http://ollama:11434. Pull the model once on first run
+  # (see README); it persists in the sail-ollama volume.
+  #
+  # GPU: the `deploy` block passes an NVIDIA GPU through and REQUIRES the NVIDIA
+  # Container Toolkit on the host. Remove that block to run CPU-only (a 3B VLM
+  # is usable on CPU but noticeably slower).
+  ollama:
+    image: "ollama/ollama:latest"
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - "sail-ollama:/root/.ollama"
+    networks:
+      - sail
+    # GPU passthrough (active). Requires the NVIDIA Container Toolkit on the
+    # host; comment this block out to fall back to CPU-only.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 networks:
   sail:
     driver: bridge
@@ -127,4 +152,6 @@ volumes:
   sail-onlyoffice-data:
     driver: local
   sail-onlyoffice-log:
+    driver: local
+  sail-ollama:
     driver: local

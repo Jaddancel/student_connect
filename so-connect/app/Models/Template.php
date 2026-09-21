@@ -24,6 +24,11 @@ class Template extends Model
         'docx_path',
         'version',
         'is_active',
+        'manual_schema',
+        'manual_schema_status',
+        'manual_schema_error',
+        'manual_schema_template_version',
+        'manual_schema_generated_at',
     ];
 
     protected function casts(): array
@@ -31,6 +36,9 @@ class Template extends Model
         return [
             'is_active' => 'boolean',
             'version' => 'integer',
+            'manual_schema' => 'array',
+            'manual_schema_template_version' => 'integer',
+            'manual_schema_generated_at' => 'datetime',
         ];
     }
 

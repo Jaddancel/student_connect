@@ -716,6 +716,26 @@
                             Save this form first — its printed template is created once the form exists (Step 2).
                         </p>
                     @endif
+
+                    {{-- Manual-filling readiness of the printed template. Rebuilt
+                         on every save; a missing writable area for a required
+                         field disables manual filling for that version. --}}
+                    @php $manualStatus = ($manualSchema ?? [])['manual_schema_status'] ?? null; @endphp
+                    @if ($form && $manualStatus)
+                        @if ($manualStatus === 'ready')
+                            <p class="rounded-lg bg-success-50 px-3 py-2 text-xs font-medium text-success-600 dark:bg-success-500/10 dark:text-success-500">
+                                Manual filling is ready — officers can print, hand-fill, and scan this form.
+                            </p>
+                        @elseif ($manualStatus === 'pending')
+                            <p class="rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">
+                                Preparing manual-filling support for this form…
+                            </p>
+                        @elseif ($manualStatus === 'failed')
+                            <p class="rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600 dark:bg-error-500/10 dark:text-error-400">
+                                Manual filling is unavailable for this version{{ ($manualSchema['manual_schema_error'] ?? '') ? ': '.$manualSchema['manual_schema_error'] : '.' }} Online submission still works.
+                            </p>
+                        @endif
+                    @endif
                 </div>
             </div>
         </div>

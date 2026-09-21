@@ -32,7 +32,7 @@ import json
 import os
 import re
 
-from fastapi import FastAPI, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from PIL import Image
 
 try:  # PaddleOCR is heavy; keep import failures debuggable.
@@ -546,3 +546,188 @@ async def waiver_scan(image: UploadFile, template: str = Form(...)):
         "stamp": stamp,
         "stamp_confidence": stamp_confidence,
     }
+
+
+@app.post("/align-pages")
+async def align_pages(references: str = Form(...), pages: list[UploadFile] = File(...)):
+    """Order and deskew the uploaded scan pages against the frozen reference pages.
+
+    Contract (see docs/manual-form-parsing-contract.md, OCR side):
+
+        references — JSON: ["<base64 png>", ...] ordered frozen reference pages
+        pages      — one or more uploaded scan images (jpg/png), any order
+
+    ->  {"ok": true,
+         "pages": [{"index": <ref idx>, "matched": bool, "image": "<base64 png>|null",
+                     "score": <float>, "quality": <float>}, ...],
+         "warnings": ["..."]}
+
+    Each reference page is matched to its best scan by ORB feature inliers, then
+    the scan is perspective-warped onto the reference geometry. Missing,
+    duplicate, and low-quality pages are reported as warnings. Alignment failure
+    degrades to a plain resize rather than an error, so parsing can still run.
+    """
+    import cv2
+    import numpy as np
+
+    try:
+        ref_b64 = json.loads(references)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=422, detail="references is not valid JSON")
+    if not isinstance(ref_b64, list) or not ref_b64:
+        raise HTTPException(status_code=422, detail="references must be a non-empty list")
+    if not pages:
+        raise HTTPException(status_code=422, detail="at least one scan page is required")
+
+    ref_imgs: list = []
+    for item in ref_b64:
+        img = _decode_gray(item)
+        if img is None:
+            raise HTTPException(status_code=422, detail="a reference image could not be decoded")
+        ref_imgs.append(img)
+
+    scan_imgs: list = []
+    scan_color: list = []
+    for upload in pages:
+        raw = await upload.read()
+        gray = _decode_gray(raw)
+        color = _decode_color(raw)
+        if gray is None or color is None:
+            raise HTTPException(status_code=422, detail="a scan image could not be decoded")
+        scan_imgs.append(gray)
+        scan_color.append(color)
+
+    orb = cv2.ORB_create(2000)
+    matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+
+    ref_features = [orb.detectAndCompute(img, None) for img in ref_imgs]
+    scan_features = [orb.detectAndCompute(img, None) for img in scan_imgs]
+
+    # Score every (reference, scan) pair by number of good feature matches.
+    scores: list = []  # (score, ref_idx, scan_idx)
+    for r_idx, (_, r_des) in enumerate(ref_features):
+        for s_idx, (_, s_des) in enumerate(scan_features):
+            score = _match_score(matcher, r_des, s_des)
+            scores.append((score, r_idx, s_idx))
+    scores.sort(reverse=True)
+
+    assigned_ref: dict = {}
+    used_scans: set = set()
+    for score, r_idx, s_idx in scores:
+        if r_idx in assigned_ref or s_idx in used_scans:
+            continue
+        if score <= 0:
+            continue
+        assigned_ref[r_idx] = s_idx
+        used_scans.add(s_idx)
+
+    warnings: list = []
+    if len(scan_imgs) > len(ref_imgs):
+        warnings.append(f"received {len(scan_imgs)} scan pages for {len(ref_imgs)} reference pages")
+
+    result_pages = []
+    for r_idx in range(len(ref_imgs)):
+        s_idx = assigned_ref.get(r_idx)
+        if s_idx is None:
+            warnings.append(f"page {r_idx + 1} has no matching scan")
+            result_pages.append({"index": r_idx, "matched": False, "image": None, "score": 0.0, "quality": 0.0})
+            continue
+
+        ref_h, ref_w = ref_imgs[r_idx].shape[:2]
+        aligned, score = _warp_to_reference(
+            cv2, np, scan_color[s_idx], scan_features[s_idx], ref_features[r_idx], (ref_w, ref_h), matcher
+        )
+        quality = _sharpness(cv2, scan_imgs[s_idx])
+        if quality < 40.0:
+            warnings.append(f"page {r_idx + 1} scan looks blurry or low quality")
+
+        result_pages.append({
+            "index": r_idx,
+            "matched": True,
+            "image": _encode_png(cv2, aligned),
+            "score": round(float(score), 3),
+            "quality": round(float(quality), 2),
+        })
+
+    return {"ok": True, "pages": result_pages, "warnings": warnings}
+
+
+def _decode_gray(data):
+    """Decode base64/bytes into a grayscale OpenCV image, or None."""
+    import cv2
+    import numpy as np
+
+    raw = base64.b64decode(_strip_data_uri(data)) if isinstance(data, str) else data
+    arr = np.frombuffer(raw, dtype=np.uint8)
+    return cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
+
+
+def _decode_color(data):
+    import cv2
+    import numpy as np
+
+    raw = base64.b64decode(_strip_data_uri(data)) if isinstance(data, str) else data
+    arr = np.frombuffer(raw, dtype=np.uint8)
+    return cv2.imdecode(arr, cv2.IMREAD_COLOR)
+
+
+def _strip_data_uri(value):
+    if isinstance(value, str) and value.startswith("data:") and "," in value:
+        return value.split(",", 1)[1]
+    return value
+
+
+def _match_score(matcher, des_a, des_b) -> float:
+    if des_a is None or des_b is None or len(des_a) == 0 or len(des_b) == 0:
+        return 0.0
+    try:
+        matches = matcher.match(des_a, des_b)
+    except Exception:
+        return 0.0
+    good = [m for m in matches if m.distance < 64]
+    return float(len(good))
+
+
+def _warp_to_reference(cv2, np, scan_color, scan_feat, ref_feat, ref_size, matcher):
+    """Perspective-warp the scan onto the reference geometry. Falls back to a
+    plain resize when there are too few matches to estimate a homography."""
+    ref_w, ref_h = ref_size
+    ref_kp, ref_des = ref_feat
+    scan_kp, scan_des = scan_feat
+
+    fallback = cv2.resize(scan_color, (ref_w, ref_h))
+
+    if ref_des is None or scan_des is None or len(ref_des) < 8 or len(scan_des) < 8:
+        return fallback, 0.0
+
+    try:
+        matches = matcher.match(scan_des, ref_des)
+    except Exception:
+        return fallback, 0.0
+
+    matches = sorted(matches, key=lambda m: m.distance)[:200]
+    if len(matches) < 12:
+        return fallback, float(len(matches))
+
+    src = np.float32([scan_kp[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
+    dst = np.float32([ref_kp[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
+
+    homography, mask = cv2.findHomography(src, dst, cv2.RANSAC, 5.0)
+    if homography is None:
+        return fallback, float(len(matches))
+
+    inliers = int(mask.sum()) if mask is not None else 0
+    warped = cv2.warpPerspective(scan_color, homography, (ref_w, ref_h))
+    return warped, float(inliers)
+
+
+def _sharpness(cv2, gray) -> float:
+    """Variance of the Laplacian — a standard blur/quality proxy."""
+    return float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
+
+def _encode_png(cv2, img) -> str:
+    ok, buf = cv2.imencode(".png", img)
+    if not ok:
+        return ""
+    return "data:image/png;base64," + base64.b64encode(buf.tobytes()).decode("ascii")

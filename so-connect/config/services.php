@@ -44,6 +44,20 @@ return [
         'timeout' => (int) env('OCR_TIMEOUT', 60),
     ],
 
+    // Host-native Ollama vision model (qwen2.5vl:3b) dedicated to reading
+    // handwritten scans of printed request forms. This is separate from the
+    // Gemini chat assistant and the PaddleOCR ID/waiver scanner. The host must
+    // run `ollama serve` with the model pulled; from inside Sail the daemon is
+    // reached via host.docker.internal.
+    'document_vision' => [
+        'provider' => env('DOCUMENT_VISION_PROVIDER', 'ollama'),
+        'url' => env('DOCUMENT_VISION_URL', 'http://host.docker.internal:11434'),
+        'model' => env('DOCUMENT_VISION_MODEL', 'qwen2.5vl:3b'),
+        'timeout' => (int) env('DOCUMENT_VISION_TIMEOUT', 180),
+        'confidence_threshold' => (float) env('DOCUMENT_VISION_CONFIDENCE_THRESHOLD', 0.55),
+        'max_image_edge' => (int) env('DOCUMENT_VISION_MAX_IMAGE_EDGE', 1600),
+    ],
+
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY'),
         'url' => env('GEMINI_API_URL', 'https://generativelanguage.googleapis.com/v1beta'),

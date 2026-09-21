@@ -93,12 +93,10 @@
                         this.mounted = false;
                     },
 
-                    // Replace the open document with an uploaded .docx. Only
-                    // enabled once the editor reports 'all changes saved', so it
-                    // has no pending edits to lose. On success the revision is
-                    // bumped server-side (new document key), so tearing the
-                    // editor down and re-booting loads the uploaded content. On
-                    // failure the live editor is left untouched.
+                    // Replace the open document with an uploaded .docx. Close
+                    // the current editor and wait for its terminal callback
+                    // BEFORE storing the replacement; otherwise that callback
+                    // can arrive after the import and overwrite the new bytes.
                     async importDocx(event) {
                         const input = event.target;
                         const file = input.files && input.files[0];
@@ -109,6 +107,15 @@
                         this.importError = '';
 
                         try {
+                            if (this.editor) {
+                                const target = this.version;
+                                this.teardown();
+                                const closed = await this.pollVersion(target, 20000);
+                                if (!closed) {
+                                    throw new Error('The current template is still closing. Please try the upload again.');
+                                }
+                            }
+
                             const body = new FormData();
                             body.append('docx', file);
                             const response = await fetch(this.importUrl, {
@@ -124,17 +131,13 @@
                                     || 'Could not import this document.');
                             }
 
-                            if (this.editor && typeof this.editor.destroyEditor === 'function') {
-                                this.editor.destroyEditor();
-                                this.editor = null;
-                            }
-                            this.mounted = false;
                             this.saved = true;
                             this.touched = false;
                             this.error = '';
                             this.start();
                         } catch (e) {
                             this.importError = e.message || String(e);
+                            this.start();
                         } finally {
                             this.importing = false;
                         }

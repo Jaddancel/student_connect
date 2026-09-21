@@ -56,15 +56,26 @@ class MenuHelper
         // Profile and Settings are intentionally omitted here — they are reached
         // from the navbar profile dropdown (see components/header/user-dropdown),
         // so a duplicate sidebar "Account" group would be redundant.
+        $generalItems = [
+            ['icon' => 'dashboard', 'name' => 'Dashboard', 'path' => '/dashboard'],
+            ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
+            ['icon' => 'forms', 'name' => 'Forms', 'path' => '/forms'],
+            ['icon' => 'pages', 'name' => 'Documents', 'path' => '/documents'],
+        ];
+
+        // Officers/presidents get a Drafts entry just below Forms: their
+        // in-progress manual-filling sessions live there (admins author forms,
+        // they don't fill them, so it is type-3 only).
+        if ((int) $user->user_type === 3) {
+            array_splice($generalItems, 3, 0, [
+                ['icon' => 'task', 'name' => 'Drafts', 'path' => '/drafts'],
+            ]);
+        }
+
         $menuGroups = [
             [
                 'title' => 'General',
-                'items' => [
-                    ['icon' => 'dashboard', 'name' => 'Dashboard', 'path' => '/dashboard'],
-                    ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
-                    ['icon' => 'forms', 'name' => 'Forms', 'path' => '/forms'],
-                    ['icon' => 'pages', 'name' => 'Documents', 'path' => '/documents'],
-                ],
+                'items' => $generalItems,
             ],
         ];
 

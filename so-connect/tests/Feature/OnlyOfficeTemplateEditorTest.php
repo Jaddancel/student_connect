@@ -405,6 +405,23 @@ it('replaces the printed template with an uploaded .docx', function () {
         ->and(Storage::disk('public')->get($template->docx_path))->toBe($docxBytes);
 });
 
+it('closes the draft editor before uploading a replacement document', function () {
+    $source = file_get_contents(resource_path('views/components/form-builder/onlyoffice-template.blade.php'));
+    $methodStart = strpos($source, 'async importDocx(event)');
+    $methodEnd = strpos($source, 'async boot()', $methodStart);
+    $method = substr($source, $methodStart, $methodEnd - $methodStart);
+
+    $teardownAt = strpos($method, 'this.teardown();');
+    $waitAt = strpos($method, 'await this.pollVersion(target, 20000);');
+    $uploadAt = strpos($method, 'await fetch(this.importUrl');
+
+    // The outgoing session's final callback can write old bytes. Waiting for
+    // it before import ensures the replacement remains the newest revision.
+    expect($teardownAt)->toBeInt()
+        ->and($waitAt)->toBeGreaterThan($teardownAt)
+        ->and($uploadAt)->toBeGreaterThan($waitAt);
+});
+
 it('rejects an import that is not a real .docx', function () {
     $form = editorForm();
     $template = app(FormPrintTemplateService::class)->resolve($form);

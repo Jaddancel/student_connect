@@ -29,6 +29,11 @@ class AppServiceProvider extends ServiceProvider
         $this->callAfterResolving(FakerGenerator::class, function (FakerGenerator $faker) {
             $faker->addProvider(new FilipinoPersonProvider($faker));
         });
+
+        $this->app->bind(
+            \App\Services\DocumentVision\DocumentVisionClient::class,
+            \App\Services\DocumentVision\OllamaDocumentVisionClient::class,
+        );
     }
 
     /**

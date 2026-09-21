@@ -144,6 +144,54 @@ class OcrClient
     }
 
     /**
+     * Order and deskew a set of scanned pages against the frozen reference
+     * pages of a manual-filling session. Reference pages are ordered base64
+     * PNGs; scans are raw image bytes in upload order (the sidecar re-orders
+     * them). Returns aligned per-reference-page images plus quality/missing/
+     * duplicate warnings. Failure is graceful (`ok:false`).
+     *
+     * @param  array<int,string>  $referencePngs  ordered base64 reference pages
+     * @param  array<int,string>  $scanBytes  raw scan image bytes, any order
+     * @return array{ok:bool, pages?:array<int,array<string,mixed>>, warnings?:array<int,string>, note?:string}
+     */
+    public function alignPages(array $referencePngs, array $scanBytes): array
+    {
+        $url = rtrim((string) config('services.ocr.url'), '/').'/align-pages';
+        $timeout = (int) config('services.ocr.timeout', 60);
+
+        if ($referencePngs === [] || $scanBytes === []) {
+            return ['ok' => false, 'note' => 'no pages to align'];
+        }
+
+        try {
+            $request = Http::timeout($timeout);
+            foreach (array_values($scanBytes) as $i => $bytes) {
+                $request = $request->attach('pages['.$i.']', $bytes, 'scan-'.$i.'.png');
+            }
+
+            $response = $request->post($url, [
+                'references' => json_encode(array_values($referencePngs)),
+            ]);
+
+            if (! $response->successful()) {
+                Log::warning('Page alignment returned non-200', ['status' => $response->status()]);
+
+                return ['ok' => false, 'note' => 'aligner error'];
+            }
+
+            return [
+                'ok' => true,
+                'pages' => (array) $response->json('pages', []),
+                'warnings' => (array) $response->json('warnings', []),
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Page alignment unreachable: '.$e->getMessage());
+
+            return ['ok' => false, 'note' => 'aligner unavailable'];
+        }
+    }
+
+    /**
      * Map the sidecar's zone-name → image-crop results (signature zones) onto
      * each zone's destination `field`, mirroring mapFields().
      *
