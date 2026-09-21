@@ -54,6 +54,7 @@ return [
         'url' => env('DOCUMENT_VISION_URL', 'http://host.docker.internal:11434'),
         'model' => env('DOCUMENT_VISION_MODEL', 'qwen2.5vl:3b'),
         'timeout' => (int) env('DOCUMENT_VISION_TIMEOUT', 180),
+        'context_length' => (int) env('DOCUMENT_VISION_CONTEXT_LENGTH', 8192),
         'confidence_threshold' => (float) env('DOCUMENT_VISION_CONFIDENCE_THRESHOLD', 0.55),
         'max_image_edge' => (int) env('DOCUMENT_VISION_MAX_IMAGE_EDGE', 1600),
     ],

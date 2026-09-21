@@ -30,10 +30,12 @@ class OllamaDocumentVisionClient implements DocumentVisionClient
 
         $images = [];
         foreach ($pages as $page) {
-            foreach (['reference_image', 'scan_image'] as $imageKey) {
-                if (is_string($page[$imageKey] ?? null) && $page[$imageKey] !== '') {
-                    $images[] = $page[$imageKey];
-                }
+            // Alignment has already warped the scan onto the frozen reference
+            // geometry. Sending the reference too doubles visual tokens and
+            // can exceed the model context or timeout without adding content
+            // the handwriting extractor needs.
+            if (is_string($page['scan_image'] ?? null) && $page['scan_image'] !== '') {
+                $images[] = $this->bareBase64($page['scan_image']);
             }
         }
 
@@ -73,7 +75,7 @@ class OllamaDocumentVisionClient implements DocumentVisionClient
         $images = [];
         foreach ($pages as $page) {
             if (is_string($page['image'] ?? null) && $page['image'] !== '') {
-                $images[] = $page['image'];
+                $images[] = $this->bareBase64($page['image']);
             }
         }
 
@@ -140,7 +142,10 @@ class OllamaDocumentVisionClient implements DocumentVisionClient
                 'model' => $this->model(),
                 'stream' => false,
                 'format' => 'json',
-                'options' => ['temperature' => 0],
+                'options' => [
+                    'temperature' => 0,
+                    'num_ctx' => max(4096, (int) config('services.document_vision.context_length', 8192)),
+                ],
                 'messages' => [
                     ['role' => 'system', 'content' => $system],
                     ['role' => 'user', 'content' => $prompt, 'images' => $images],
@@ -157,7 +162,10 @@ class OllamaDocumentVisionClient implements DocumentVisionClient
         }
 
         if (! $response->successful()) {
-            Log::warning('Document vision returned non-200', ['status' => $response->status()]);
+            Log::warning('Document vision returned non-200', [
+                'status' => $response->status(),
+                'error' => $response->json('error'),
+            ]);
 
             return ['ok' => false, 'status' => 'http_error', 'error' => 'document vision error'];
         }
@@ -263,8 +271,7 @@ class OllamaDocumentVisionClient implements DocumentVisionClient
             'bounds' => $f['bounds'] ?? null,
         ], $fields);
 
-        return 'Read the handwritten answers on the scanned pages. '
-            .'The images alternate reference page then scan page, in order. '
+        return 'Read the handwritten answers on the aligned scanned pages, in order. '
             .'known_values (already printed, do not change): '.json_encode($knownValues, JSON_UNESCAPED_SLASHES).' '
             .'fields to extract: '.json_encode($spec, JSON_UNESCAPED_SLASHES).' '
             .'Respond with JSON: {"fields":{"<key>":{"value":<string|null>,"confidence":<0-1>,"page":<int>,"bounds":[x1,y1,x2,y2]}},"warnings":[...]}. '
@@ -309,5 +316,10 @@ class OllamaDocumentVisionClient implements DocumentVisionClient
         }
 
         return rtrim((string) config('services.document_vision.url', ''), '/');
+    }
+
+    private function bareBase64(string $image): string
+    {
+        return (string) preg_replace('/^data:image\/[^;]+;base64,/', '', $image);
     }
 }

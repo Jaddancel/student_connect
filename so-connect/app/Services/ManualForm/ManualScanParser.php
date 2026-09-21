@@ -5,6 +5,7 @@ namespace App\Services\ManualForm;
 use App\Models\ManualFormSession;
 use App\Services\DocumentVision\DocumentVisionClient;
 use App\Services\OcrClient;
+use App\Services\PdfRasterizer;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 
@@ -20,6 +21,7 @@ class ManualScanParser
     public function __construct(
         private readonly OcrClient $ocr,
         private readonly DocumentVisionClient $vision,
+        private readonly PdfRasterizer $rasterizer,
     ) {}
 
     public function parse(string $sessionId): void
@@ -127,19 +129,50 @@ class ManualScanParser
     }
 
     /**
-     * @return array<int,string>  raw scan image bytes in upload order
+     * @return array<int,string> raw scan image bytes in upload order
      */
     private function scanBytes(ManualFormSession $session, string $disk): array
     {
+        $storage = Storage::disk($disk);
+        $workDir = storage_path('app/tmp/manual-scan-'.$session->getKey().'-'.bin2hex(random_bytes(4)));
         $bytes = [];
-        foreach ((array) $session->scan_paths as $path) {
-            $path = (string) $path;
-            if ($path !== '' && Storage::disk($disk)->exists($path)) {
-                $bytes[] = (string) Storage::disk($disk)->get($path);
-            }
-        }
 
-        return $bytes;
+        try {
+            foreach (array_values((array) $session->scan_paths) as $index => $path) {
+                $path = (string) $path;
+                if ($path === '' || ! $storage->exists($path)) {
+                    return [];
+                }
+
+                if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) !== 'pdf') {
+                    $bytes[] = (string) $storage->get($path);
+
+                    continue;
+                }
+
+                $raster = $this->rasterizer->rasterize(
+                    $storage->path($path),
+                    $workDir.'/pdf-'.$index,
+                );
+                if (! ($raster['ok'] ?? false)) {
+                    return [];
+                }
+
+                foreach ((array) ($raster['pages'] ?? []) as $page) {
+                    $pagePath = (string) ($page['path'] ?? '');
+                    if ($pagePath === '' || ! is_file($pagePath)) {
+                        return [];
+                    }
+                    $bytes[] = (string) File::get($pagePath);
+                }
+            }
+
+            $maxPages = max(1, (int) config('services.document_vision.max_pages', 10));
+
+            return count($bytes) <= $maxPages ? $bytes : [];
+        } finally {
+            File::deleteDirectory($workDir);
+        }
     }
 
     /**

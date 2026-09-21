@@ -117,7 +117,7 @@ class OcrClient
      * sidecar's extracted text fields, signature crops, and stamp detection.
      *
      * @param  array<string,mixed>  $template  {reference:{width,height}, zones:[...]}
-     * @return array<string,mixed>  ['ok'=>bool, 'fields'=>..., 'signature'=>bool, 'stamp'=>bool, ...]
+     * @return array<string,mixed> ['ok'=>bool, 'fields'=>..., 'signature'=>bool, 'stamp'=>bool, ...]
      */
     public function scanWaiver(string $imagePng, array $template): array
     {
@@ -166,7 +166,7 @@ class OcrClient
         try {
             $request = Http::timeout($timeout);
             foreach (array_values($scanBytes) as $i => $bytes) {
-                $request = $request->attach('pages['.$i.']', $bytes, 'scan-'.$i.'.png');
+                $request = $request->attach('pages', $bytes, 'scan-'.$i.'.png');
             }
 
             $response = $request->post($url, [
@@ -174,7 +174,10 @@ class OcrClient
             ]);
 
             if (! $response->successful()) {
-                Log::warning('Page alignment returned non-200', ['status' => $response->status()]);
+                Log::warning('Page alignment returned non-200', [
+                    'status' => $response->status(),
+                    'detail' => $response->json('detail'),
+                ]);
 
                 return ['ok' => false, 'note' => 'aligner error'];
             }
@@ -356,7 +359,7 @@ class OcrClient
      * Full-word middle names are indistinguishable from compound first names on
      * a printed ID, so they intentionally stay in first_name.
      *
-     * @return array<string,string>  subset of first_name/middle_name/last_name
+     * @return array<string,string> subset of first_name/middle_name/last_name
      */
     public static function splitFullName(string $raw): array
     {
@@ -420,7 +423,7 @@ class OcrClient
      * Split a trailing generational suffix off a token list.
      *
      * @param  array<int,string>  $tokens
-     * @return array{0: array<int,string>, 1: string}  [remaining tokens, suffix ('' when none)]
+     * @return array{0: array<int,string>, 1: string} [remaining tokens, suffix ('' when none)]
      */
     private static function stripSuffix(array $tokens): array
     {

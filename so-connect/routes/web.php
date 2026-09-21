@@ -1219,6 +1219,17 @@ Route::prefix('onlyoffice/draft/{draftId}')
             ->name('onlyoffice.draft.plugin');
     });
 
+Route::get('/onlyoffice/conversion/{conversionId}/source', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'conversionSource'])
+    ->where(['conversionId' => '[A-Za-z0-9\-]+'])
+    ->withoutMiddleware([
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        \App\Http\Middleware\SecurityHeaders::class,
+        \App\Http\Middleware\EnsurePasswordChanged::class,
+        \App\Http\Middleware\EnsureOrganizationAccredited::class,
+        \App\Http\Middleware\PreventBackHistory::class,
+    ])
+    ->name('onlyoffice.conversion-source');
+
 Route::prefix('onlyoffice/{form}')
     ->withoutMiddleware([
         \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,

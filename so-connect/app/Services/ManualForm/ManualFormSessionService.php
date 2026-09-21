@@ -2,8 +2,8 @@
 
 namespace App\Services\ManualForm;
 
-use App\Forms\SystemFunction;
 use App\Jobs\GenerateManualSessionSchema;
+use App\Jobs\PrepareManualFormSession;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\ManualFormSession;
@@ -14,7 +14,6 @@ use App\Support\OrganizationField;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -86,9 +85,39 @@ class ManualFormSessionService
             'expires_at' => now()->addDays(self::RETENTION_DAYS),
         ]);
 
-        $this->freezePartialPdf($session, $form, $template, $draft['known'], $user);
+        PrepareManualFormSession::dispatch((string) $session->getKey());
 
         return ['session' => $session, 'token' => $rawToken];
+    }
+
+    /**
+     * Prepare a queued session outside the web request. OnlyOffice fetches the
+     * populated DOCX back through Laravel, so running this in the separate
+     * queue worker avoids deadlocking Sail's single web process.
+     */
+    public function prepare(string $sessionId): void
+    {
+        $session = ManualFormSession::query()->find($sessionId);
+        if ($session === null
+            || $session->status !== ManualFormSession::STATUS_PREPARING
+            || $session->partial_pdf_path !== null) {
+            return;
+        }
+
+        $form = $session->form;
+        if ($form === null) {
+            $this->failSession($session, 'This form is no longer available.');
+
+            return;
+        }
+
+        $this->freezePartialPdf(
+            $session,
+            $form,
+            $session->template,
+            (array) $session->known_fields,
+            $session->owner,
+        );
     }
 
     /**
@@ -167,6 +196,7 @@ class ManualFormSessionService
             'parse_error' => $reason,
         ])->save();
     }
+
     /**
      * Resolve the manual session a final submission is completing, if any, and
      * authorize it against the current request. Returns null when the form is

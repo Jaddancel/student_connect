@@ -1,13 +1,24 @@
 <?php
 
+use App\Jobs\ParseManualFormScan;
+use App\Jobs\PrepareManualFormSession;
 use App\Models\Form;
 use App\Models\Form\FormDescription;
 use App\Models\FormSubmission;
 use App\Models\ManualFormSession;
 use App\Models\User;
+use App\Services\DocumentVision\DocumentVisionClient;
+use App\Services\DocumentVision\DocumentVisionResultNormalizer;
+use App\Services\DocumentVision\OllamaDocumentVisionClient;
+use App\Services\ManualForm\ManualScanParser;
+use App\Services\OcrClient;
+use App\Services\PdfRasterizer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -51,7 +62,6 @@ function manualForm(string $fieldKey = 'purpose', string $routeName = 'facility-
     return $form;
 }
 
-/** @return ManualFormSession */
 function manualSession(Form $form, array $attrs = []): ManualFormSession
 {
     return ManualFormSession::create(array_merge([
@@ -63,6 +73,156 @@ function manualSession(Form $form, array $attrs = []): ManualFormSession
         'expires_at' => now()->addDays(30),
     ], $attrs));
 }
+
+it('sends scan pages as repeated multipart fields expected by FastAPI', function () {
+    config(['services.ocr.url' => 'http://ocr.test']);
+    Http::fake([
+        'http://ocr.test/align-pages' => Http::response([
+            'ok' => true,
+            'pages' => [],
+            'warnings' => [],
+        ]),
+    ]);
+
+    expect(app(OcrClient::class)->alignPages(['reference'], ['page-one', 'page-two'])['ok'])
+        ->toBeTrue();
+
+    Http::assertSent(function ($request) {
+        $body = $request->body();
+
+        return substr_count($body, 'name="pages"') === 2
+            && ! str_contains($body, 'name="pages[');
+    });
+});
+
+it('sends only bare-base64 aligned scans to Ollama', function () {
+    config([
+        'services.document_vision.provider' => 'ollama',
+        'services.document_vision.url' => 'http://ollama.test',
+        'services.document_vision.model' => 'vision-test',
+        'services.document_vision.context_length' => 8192,
+    ]);
+    Http::fake([
+        'http://ollama.test/api/chat' => Http::response([
+            'message' => ['content' => '{"fields":{}}'],
+        ]),
+    ]);
+
+    $client = new OllamaDocumentVisionClient(new DocumentVisionResultNormalizer);
+    $client->extract([
+        'known_values' => [],
+        'fields' => [['key' => 'purpose', 'type' => 'text', 'page' => 0]],
+        'pages' => [[
+            'index' => 0,
+            'reference_image' => 'cmVmZXJlbmNl',
+            'scan_image' => 'data:image/png;base64,c2Nhbg==',
+        ]],
+    ]);
+
+    Http::assertSent(fn ($request) => $request['options']['num_ctx'] === 8192
+        && $request['messages'][1]['images'] === ['c2Nhbg==']);
+});
+
+it('queues partial PDF preparation instead of blocking the start request', function () {
+    Queue::fake();
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+
+    $org = recordsOrganization('Queued Manual Org');
+    $officer = manualOfficer((int) $org->getKey());
+    $form = manualForm('purpose', 'queued-manual-form');
+    app(\App\Services\FormPrintTemplateService::class)->resolve($form, (int) $officer->getKey());
+
+    $response = $this->actingAs($officer)
+        ->postJson(route('manual.start', $form->route_name), []);
+
+    $response->assertOk()->assertJson([
+        'ok' => true,
+        'status' => ManualFormSession::STATUS_PREPARING,
+    ]);
+
+    $session = ManualFormSession::query()->findOrFail($response->json('session_id'));
+    expect($session->partial_pdf_path)->toBeNull();
+    Queue::assertPushed(
+        PrepareManualFormSession::class,
+        fn ($job) => $job->sessionId === (string) $session->getKey(),
+    );
+});
+
+it('fails a manual session when queued preparation exhausts its attempts', function () {
+    $form = manualForm('purpose', 'failed-manual-preparation');
+    $session = manualSession($form, ['status' => ManualFormSession::STATUS_PREPARING]);
+
+    (new PrepareManualFormSession((string) $session->getKey()))
+        ->failed(new RuntimeException('worker timeout'));
+
+    expect($session->refresh()->status)->toBe(ManualFormSession::STATUS_FAILED)
+        ->and($session->parse_error)->toContain('Could not prepare');
+});
+
+it('fails a manual session when scan parsing times out', function () {
+    $form = manualForm('purpose', 'timed-out-manual-scan');
+    $session = manualSession($form, ['status' => ManualFormSession::STATUS_PARSING]);
+
+    (new ParseManualFormScan((string) $session->getKey()))
+        ->failed(new RuntimeException('worker timeout'));
+
+    expect($session->refresh()->status)->toBe(ManualFormSession::STATUS_FAILED)
+        ->and($session->parse_error)->toContain('could not be read in time');
+});
+
+it('rasterizes an uploaded PDF before aligning manual scan pages', function () {
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+
+    $form = manualForm('purpose', 'pdf-manual-scan');
+    $session = manualSession($form, [
+        'status' => ManualFormSession::STATUS_PARSING,
+        'page_meta' => [['index' => 0, 'path' => 'manual-form/reference.png']],
+        'scan_paths' => ['manual-form/completed.pdf'],
+        'session_schema' => ['extractable_fields' => []],
+    ]);
+    Storage::disk('public')->put('manual-form/reference.png', 'reference-png');
+    Storage::disk('public')->put('manual-form/completed.pdf', '%PDF-scan');
+
+    $rasterizer = Mockery::mock(PdfRasterizer::class);
+    $rasterizer->shouldReceive('rasterize')->once()->andReturnUsing(function ($path, $outDir) {
+        File::ensureDirectoryExists($outDir);
+        File::put($outDir.'/page-1.png', 'rasterized-page');
+
+        return ['ok' => true, 'pages' => [['index' => 0, 'path' => $outDir.'/page-1.png']]];
+    });
+
+    $ocr = Mockery::mock(OcrClient::class);
+    $ocr->shouldReceive('alignPages')->once()->withArgs(
+        fn ($references, $scans) => $references === [base64_encode('reference-png')]
+            && $scans === ['rasterized-page'],
+    )->andReturn([
+        'ok' => true,
+        'pages' => [[
+            'index' => 0,
+            'matched' => true,
+            'image' => 'data:image/png;base64,'.base64_encode('aligned-page'),
+        ]],
+        'warnings' => [],
+    ]);
+
+    $vision = Mockery::mock(DocumentVisionClient::class);
+    $vision->shouldReceive('extract')->once()->andReturn([
+        'ok' => true,
+        'model' => 'test-model',
+        'values' => [],
+        'signatures' => [],
+        'unresolved' => [],
+        'confidence' => [],
+        'warnings' => [],
+    ]);
+
+    (new ManualScanParser($ocr, $vision, $rasterizer))->parse((string) $session->getKey());
+
+    expect($session->refresh()->status)->toBe(ManualFormSession::STATUS_REVIEW)
+        ->and($session->parse_error)->toBeNull();
+});
 
 it('links a reviewed manual draft to its submission and records provenance', function () {
     Storage::fake('public');

@@ -24,7 +24,7 @@ class ManualFormSessionController extends Controller
 
     /**
      * Begin a manual-filling draft for the given form. Mirrors the form-access
-     * gate of the online submit, then freezes the partial PDF.
+     * gate of the online submit, then queues the partial PDF preparation.
      */
     public function start(Request $request, string $routeName): JsonResponse
     {
