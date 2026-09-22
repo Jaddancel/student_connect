@@ -52,12 +52,9 @@ export function calendarInit() {
     );
     const openEventPlanBtn = document.getElementById("open-event-plan-btn");
 
-    // Event Plan Drawer — embeds the new_event builder form, which submits
+    // Event Plan Modal — embeds the new_event builder form, which submits
     // itself to the generic form renderer; this JS only opens/closes it.
     const eventPlanDrawer = document.getElementById("eventPlanDrawer");
-    const eventPlanDrawerPanel = eventPlanDrawer?.querySelector(
-        "[data-event-plan-drawer-panel]",
-    );
     const drawerBackdrop = eventPlanDrawer?.querySelector(
         "[data-event-plan-drawer-backdrop]",
     );
@@ -209,7 +206,7 @@ export function calendarInit() {
         document.body.style.overflow = "";
     };
 
-    // ─── Event Plan Drawer ───────────────────────────────────────────────────────
+    // ─── Event Plan Modal ────────────────────────────────────────────────────────
 
     const openEventPlanDrawer = (prefillDate) => {
         if (!eventPlanDrawer) return;
@@ -234,10 +231,6 @@ export function calendarInit() {
 
         eventPlanDrawer.classList.remove("pointer-events-none", "opacity-0");
         eventPlanDrawer.classList.add("pointer-events-auto", "opacity-100");
-        if (eventPlanDrawerPanel) {
-            eventPlanDrawerPanel.classList.remove("translate-x-full");
-            eventPlanDrawerPanel.classList.add("translate-x-0");
-        }
         document.body.style.overflow = "hidden";
     };
 
@@ -246,10 +239,6 @@ export function calendarInit() {
 
         eventPlanDrawer.classList.add("pointer-events-none", "opacity-0");
         eventPlanDrawer.classList.remove("pointer-events-auto", "opacity-100");
-        if (eventPlanDrawerPanel) {
-            eventPlanDrawerPanel.classList.add("translate-x-full");
-            eventPlanDrawerPanel.classList.remove("translate-x-0");
-        }
         document.body.style.overflow = "";
     };
 

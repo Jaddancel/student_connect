@@ -133,7 +133,7 @@
         </div>
     </div>
 
-    {{-- Event Plan Drawer — embeds the builder form bound to the new_event
+    {{-- Event Plan Modal — embeds the builder form bound to the new_event
          system function. Shown only when a published form is bound. A failed
          submission redirects back here with flashed errors/old input; unlike
          the standalone /forms/{routeName} page, the drawer starts closed, so
@@ -141,12 +141,12 @@
          itself instead of relying on pages.form.render's alert block. --}}
     @if ($resolvedCanRequestEvent && $newEventRender)
         <div id="eventPlanDrawer" data-has-errors="{{ $errors->any() ? '1' : '0' }}"
-            class="fixed inset-0 z-99999 pointer-events-none opacity-0 transition-opacity duration-300">
+            class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-4 pointer-events-none opacity-0 transition-opacity duration-300 sm:p-6">
             <button type="button" data-event-plan-drawer-backdrop
                 class="absolute inset-0 bg-gray-400/50 backdrop-blur-[24px]"></button>
 
             <div data-event-plan-drawer-panel
-                class="relative ml-auto flex h-full w-full max-w-[720px] translate-x-full transform flex-col bg-white shadow-2xl transition-transform duration-300 dark:bg-gray-900">
+                class="relative flex max-h-[90vh] w-full max-w-[720px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900">
                 <div class="flex items-start justify-between border-b border-gray-200 px-5 py-4 sm:px-6 dark:border-gray-800">
                     <div>
                         <h5 class="text-xl font-semibold text-gray-800 dark:text-white/90">{{ $newEventForm->name }}</h5>
