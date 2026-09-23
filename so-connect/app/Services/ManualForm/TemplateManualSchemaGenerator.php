@@ -32,6 +32,7 @@ class TemplateManualSchemaGenerator
         private readonly PdfRasterizer $rasterizer,
         private readonly DocumentVisionClient $vision,
         private readonly DocxTableCellLocator $cellLocator,
+        private readonly SentinelPdfLocator $sentinel,
     ) {}
 
     /**
@@ -82,14 +83,15 @@ class TemplateManualSchemaGenerator
     }
 
     /**
-     * Locate each paper field's writable area. Fields whose `{{key}}`
-     * placeholder sits inside a non-repeating table cell are measured
-     * deterministically from the template's OOXML cell geometry (position +
-     * size); the remaining free-flow fields fall back to a blank render read by
-     * the vision model. Returns [] for a field only when neither path resolves.
+     * Locate each paper field's writable area and position. The present/missing
+     * verdict comes from OOXML cell geometry (or the vision model for free-flow
+     * fields); the position (`page`/`bounds`) is taken from the accurate
+     * rendered-marker locator where available — recorded as `bounds_source:
+     * render` — because a signature crop must land on the exact rendered spot,
+     * not a coarse OOXML estimate.
      *
      * @param  array<int,array<string,mixed>>  $fields
-     * @return array<string,array{cell_path?:array<string,int>,page:?int,bounds:?array<int,float>,writable_area:string}>
+     * @return array<string,array{cell_path?:?array<string,int>,page:?int,bounds:?array<int,float>,writable_area:string,bounds_source:string}>
      */
     private function locateWritableAreas(FormTemplate $template, array $fields): array
     {
@@ -101,14 +103,125 @@ class TemplateManualSchemaGenerator
             return [];
         }
 
-        $areas = $this->locateTableCells($template, $paperFields);
+        $ooxml = $this->locateTableCells($template, $paperFields);
 
         $freeFlow = array_values(array_filter(
             $paperFields,
-            fn ($f) => ! isset($areas[$f['key']]),
+            fn ($f) => ! isset($ooxml[$f['key']]),
         ));
+        $vision = $this->locateWithVision($template, $freeFlow);
 
-        return $areas + $this->locateWithVision($template, $freeFlow);
+        $render = $this->sentinel->locate($template, array_map(
+            fn ($f) => ['key' => (string) $f['key']],
+            $paperFields,
+        ));
+        $docxPath = $this->rawDocxPath($template);
+        $fallbackBand = (float) config('manual_form.signature_capture.fallback_band', 0.06);
+
+        $out = [];
+        foreach ($paperFields as $field) {
+            $key = (string) $field['key'];
+            $base = $ooxml[$key] ?? $vision[$key] ?? [];
+
+            $entry = [
+                'cell_path' => $ooxml[$key]['cell_path'] ?? null,
+                'writable_area' => $base['writable_area'] ?? 'uncertain',
+                'page' => $base['page'] ?? null,
+                'bounds' => $base['bounds'] ?? null,
+                'bounds_source' => isset($ooxml[$key]) ? 'ooxml' : (isset($vision[$key]) ? 'vision' : 'none'),
+            ];
+
+            $anchor = $render['anchors'][$key] ?? null;
+            $isSignature = ($field['paper_support'] ?? '') === \App\Forms\FieldType::PAPER_SIGNATURE;
+
+            // An unfilled signature is bounded by its own cell rectangle (the
+            // cell "as a shape"): OOXML column width and row height, positioned
+            // by the accurate rendered marker so it lands on the sign line, not
+            // the printed name/caption in the rows below.
+            if ($isSignature) {
+                $box = $this->signatureCellBox($docxPath, $entry['cell_path'], $anchor);
+                if ($box !== null) {
+                    $entry['bounds'] = $box['bounds'];
+                    $entry['page'] = $box['page'];
+                    $entry['bounds_source'] = 'cell';
+                    $out[$key] = $entry;
+
+                    continue;
+                }
+            }
+
+            if ($anchor !== null) {
+                $page = (int) $anchor['page'];
+                $columnRange = ($docxPath !== null && $entry['cell_path'] !== null)
+                    ? $this->cellLocator->columnRange($docxPath, $entry['cell_path'])
+                    : null;
+
+                $entry['bounds'] = $isSignature
+                    ? $this->sentinel->signatureRegion($anchor, $render['pages'][$page]['words'] ?? [], $columnRange, $fallbackBand)
+                    : $this->fieldRegion($anchor, $columnRange);
+                $entry['page'] = $page;
+                $entry['bounds_source'] = 'render';
+            }
+
+            $out[$key] = $entry;
+        }
+
+        return $out;
+    }
+
+    /**
+     * The signature cell's rectangle: its OOXML column width and row height,
+     * with its top pinned to the accurate rendered marker when available (else
+     * the OOXML position). Null when the field has no locatable cell.
+     *
+     * @param  ?array<string,int>  $cellPath
+     * @param  array{page:int,bounds:array<int,float>}|null  $anchor
+     * @return array{page:int,bounds:array<int,float>}|null
+     */
+    private function signatureCellBox(?string $docxPath, ?array $cellPath, ?array $anchor): ?array
+    {
+        if ($docxPath === null || ! is_array($cellPath) || $cellPath === []) {
+            return null;
+        }
+
+        $cell = $this->cellLocator->geometryFor($docxPath, $cellPath, \App\Forms\FieldType::SIGNATURE);
+        if ($cell === null) {
+            return null;
+        }
+
+        [$x1, $y1, $x2, $y2] = $cell['bounds'];
+        $height = max(0.0, $y2 - $y1);
+
+        if ($anchor !== null) {
+            $top = max(0.0, (float) $anchor['bounds'][1] - 0.003);
+
+            return [
+                'page' => (int) $anchor['page'],
+                'bounds' => [$x1, $top, $x2, min(1.0, $top + $height)],
+            ];
+        }
+
+        return ['page' => 0, 'bounds' => [$x1, $y1, $x2, $y2]];
+    }
+
+    /**
+     * A text field's read region: the marker anchor widened to its cell column.
+     *
+     * @param  array{page:int,bounds:array<int,float>}  $anchor
+     * @param  array{0:float,1:float}|null  $columnRange
+     * @return array<int,float>
+     */
+    private function fieldRegion(array $anchor, ?array $columnRange): array
+    {
+        [$ax1, $ay1, $ax2, $ay2] = $anchor['bounds'];
+        $x1 = $columnRange[0] ?? $ax1;
+        $x2 = $columnRange[1] ?? $ax2;
+        if ($x2 <= $x1) {
+            $x1 = $ax1;
+            $x2 = $ax2;
+        }
+
+        return [$x1, $ay1, $x2, $ay2];
     }
 
     /**
@@ -218,6 +331,7 @@ class TemplateManualSchemaGenerator
                 'bounds' => $area['bounds'] ?? null,
                 'writable_area' => $area['writable_area'] ?? 'uncertain',
                 'cell_path' => $area['cell_path'] ?? null,
+                'bounds_source' => $area['bounds_source'] ?? 'none',
             ];
         }, $fields);
     }

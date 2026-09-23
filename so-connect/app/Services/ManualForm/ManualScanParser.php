@@ -125,9 +125,19 @@ class ManualScanParser
      */
     private function captureSignatures(ManualFormSession $session, array $pages, array $modelSignatures): array
     {
+        if (! (bool) config('manual_form.signature_capture.enabled', true)) {
+            return [];
+        }
+
         $fields = array_filter(
             (array) ($session->session_schema['extractable_fields'] ?? []),
-            fn ($f) => is_array($f) && ($f['type'] ?? null) === \App\Forms\FieldType::SIGNATURE,
+            // Only crop from an accurate position — the rendered marker
+            // ('render') or the deterministic signature cell box ('cell'). A
+            // coarse OOXML/vision estimate lands on the wrong cell and extracts
+            // printed text as ink.
+            fn ($f) => is_array($f)
+                && ($f['type'] ?? null) === \App\Forms\FieldType::SIGNATURE
+                && in_array($f['bounds_source'] ?? null, ['render', 'cell'], true),
         );
         if ($fields === []) {
             return [];

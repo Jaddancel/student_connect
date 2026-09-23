@@ -280,7 +280,7 @@ it('crops a detected signature from the scan and stores it for review', function
         'page_meta' => [['index' => 0, 'path' => 'manual-form/ref.png']],
         'scan_paths' => ['manual-form/scan.png'],
         'session_schema' => ['extractable_fields' => [
-            ['key' => 'adviser_sig', 'type' => 'signature', 'page' => 0, 'bounds' => [0.05, 0.1, 0.85, 0.75]],
+            ['key' => 'adviser_sig', 'type' => 'signature', 'page' => 0, 'bounds' => [0.05, 0.1, 0.85, 0.75], 'bounds_source' => 'render'],
         ]],
     ]);
     Storage::disk('public')->put('manual-form/ref.png', 'ref-bytes');
@@ -593,6 +593,8 @@ it('re-measures a table field against the frozen partial and awaits the scan whe
             'type' => 'text',
             'paper_support' => 'extract',
             'writable_area' => 'present',
+            'bounds' => [0.5, 0.1, 0.88, 0.16],
+            'bounds_source' => 'render',
             'cell_path' => ['block' => 0, 'row' => 1, 'col' => 1, 'colspan' => 1, 'rowspan' => 1],
         ]]],
         'extractable_fields' => [[

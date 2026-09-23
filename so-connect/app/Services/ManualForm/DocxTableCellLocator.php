@@ -137,6 +137,43 @@ class DocxTableCellLocator
     }
 
     /**
+     * The normalized horizontal span `[x1, x2]` of a cell's column (accurate,
+     * from the grid), used to bound a signature crop that is anchored
+     * vertically by the rendered PDF. Null when the cell can't be resolved.
+     *
+     * @param  array{block:int,row:int,col:int,colspan?:int,rowspan?:int}  $cellPath
+     * @return array{0:float,1:float}|null
+     */
+    public function columnRange(string $docxPath, array $cellPath): ?array
+    {
+        $model = $this->analyze($docxPath);
+        if ($model === null) {
+            return null;
+        }
+
+        $block = $model['blocks'][$cellPath['block']] ?? null;
+        if ($block === null || ($block['type'] ?? null) !== 'tbl') {
+            return null;
+        }
+        $row = $block['rows'][$cellPath['row']] ?? null;
+        $cell = $row['cells'][$cellPath['col']] ?? null;
+        if ($cell === null) {
+            return null;
+        }
+
+        $page = $model['page'];
+        $pageW = $page['width'] > 0 ? $page['width'] : self::DEFAULT_PAGE_W;
+
+        $xStartTwips = $page['marginLeft'] + $block['tableLeft'] + $this->columnOffset($block, $cell);
+        $cellWidth = $this->cellWidth($block, $cell);
+
+        return [
+            $this->clamp01($xStartTwips / $pageW),
+            $this->clamp01(($xStartTwips + $cellWidth) / $pageW),
+        ];
+    }
+
+    /**
      * Convenience for baseline generation: map every field to its cell and
      * compute geometry in one pass over the same document.
      *

@@ -117,12 +117,21 @@ Additionally, a locate pass records each paper field's writable area:
 Writable areas come from one of two sources:
 
 - **Table cells (deterministic).** When a field's `{{key}}` placeholder sits
-  inside a non-repeating table, its `page`/`bounds`/`writable_area` are computed
-  directly from the OOXML cell geometry (column widths from `w:tblGrid`, row
-  heights from `w:trHeight` or estimated from content). Such a field carries a
-  `cell_path` locating the encapsulating cell. No vision model is involved.
+  inside a non-repeating table, its present/missing verdict is computed from the
+  OOXML cell geometry (column widths from `w:tblGrid`, row heights from
+  `w:trHeight` or estimated from content). Such a field carries a `cell_path`
+  locating the encapsulating cell. No vision model is involved.
 - **Free-flow fields (vision).** Fields not found in a table fall back to a
   blank render read by the document-vision model; they have no `cell_path`.
+
+Each field's **position** (`page` + `bounds`) is taken from an accurate
+rendered-marker pass where available: every placeholder is replaced with a unique
+text marker, the template is rendered to PDF, and each marker's exact box is read
+with `pdftotext -bbox` (see `App\Services\ManualForm\SentinelPdfLocator`). Such a
+field records `bounds_source: render`; otherwise the coarse OOXML/vision estimate
+is used (`ooxml`/`vision`). Only `render` bounds are precise enough to crop a
+signature from — the OOXML absolute position drifts down the page and is used for
+the width-based verdict only, never for cropping.
 
 `writable_area` is `present`, `missing`, or `uncertain`. For table cells the
 verdict is driven by the **horizontal room** the cell leaves for handwriting:
@@ -310,16 +319,18 @@ validation. Signatures never appear in `values`.
 ### 4.3 Signature capture
 
 The model reports a signature only as `present` + a `bounds` box, never as an
-image. To capture the ink, `ManualScanParser` crops each signature field's
-**known schema region** (its `page`/`bounds`, i.e. the deterministic cell or
-located area) from the aligned scan — cropped whether or not the model flagged
-presence, since a small model often overlooks a handwritten mark — and runs it
-through `App\Support\SignatureImage` (server-side ink extraction). A blank region
-yields no ink and is skipped; implausible whole-page boxes are ignored. Each page
-is decoded once and only the small regions are analysed. The stored paths live in
-`parse_result.signature_images` (field key → path) and are pre-filled into the
-review form like a saved signature, so the signer's ink carries into the reviewed
-submission.
+image. An unfilled signature field is bounded by its **own cell rectangle** —
+the OOXML column width and row height of the cell holding its `{{key}}` token,
+positioned vertically by the accurate rendered marker (`bounds_source: cell`) —
+so the crop lands on the sign line, not the printed name/caption in the rows
+below. `ManualScanParser` crops that region from the aligned scan (only when
+`bounds_source` is `render` or `cell`), whether or not the model flagged
+presence, and runs it through `App\Support\SignatureImage` (server-side ink
+extraction). Fields with only a coarse OOXML/vision estimate are **not** cropped;
+they stay blank for the user to supply. A blank region yields no ink and is
+skipped. The stored paths live in `parse_result.signature_images` (field key →
+path) and are pre-filled into the review form like a saved signature. Capture can
+be disabled with `MANUAL_FORM_SIGNATURE_CAPTURE=false`.
 
 ---
 

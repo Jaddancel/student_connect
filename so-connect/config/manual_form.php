@@ -60,4 +60,25 @@ return [
         'cell_margin_twips' => 216,   // Word's default 0.15" left+right inset
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Signature capture
+    |--------------------------------------------------------------------------
+    |
+    | A hand-signed signature is cropped from the aligned scan and stored so the
+    | review can pre-fill it. Cropping the wrong region extracts printed text as
+    | "ink", so it only runs when a field's bounds came from the accurate
+    | rendered-position locator (bounds_source = "render"), never the coarse
+    | OOXML position estimate. When no accurate bounds exist the field stays
+    | blank for the user to supply.
+    |
+    */
+
+    'signature_capture' => [
+        'enabled' => env('MANUAL_FORM_SIGNATURE_CAPTURE', true),
+        // Fraction of page height to crop above a signature anchor when no text
+        // below it is found to bound the region.
+        'fallback_band' => 0.06,
+    ],
+
 ];

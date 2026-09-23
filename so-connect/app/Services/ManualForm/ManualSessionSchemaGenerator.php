@@ -39,7 +39,9 @@ class ManualSessionSchemaGenerator
         $baselineByKey = $this->baselineByKey($session);
         $extractable = (array) $session->extractable_fields;
 
-        $areas = $this->relocateAreas($session, $baselineByKey, $extractable);
+        // Re-check only the present/missing verdict against the populated
+        // partial; positions stay as the accurate baseline bounds.
+        $verdicts = $this->recomputeVerdicts($session, $baselineByKey, $extractable);
 
         $blocking = [];
         $schemaFields = [];
@@ -48,8 +50,8 @@ class ManualSessionSchemaGenerator
             if ($key === '') {
                 continue;
             }
-            $area = $areas[$key] ?? ($baselineByKey[$key] ?? []);
-            $writable = (string) ($area['writable_area'] ?? 'uncertain');
+            $baseline = $baselineByKey[$key] ?? [];
+            $writable = (string) ($verdicts[$key] ?? $baseline['writable_area'] ?? 'uncertain');
 
             if (($field['required'] ?? false) && $writable === 'missing') {
                 $blocking[] = (string) ($field['label'] ?? $key);
@@ -61,8 +63,9 @@ class ManualSessionSchemaGenerator
                 'type' => $field['type'] ?? FieldType::TEXT,
                 'paper_support' => $field['paper_support'] ?? FieldType::PAPER_EXTRACT,
                 'options' => $field['options'] ?? null,
-                'page' => $area['page'] ?? null,
-                'bounds' => $area['bounds'] ?? null,
+                'page' => $baseline['page'] ?? null,
+                'bounds' => $baseline['bounds'] ?? null,
+                'bounds_source' => $baseline['bounds_source'] ?? 'none',
             ];
         }
 
@@ -70,15 +73,15 @@ class ManualSessionSchemaGenerator
         // checked for presence at review.
         foreach ($baselineByKey as $key => $area) {
             if (($area['paper_support'] ?? null) === FieldType::PAPER_SIGNATURE) {
-                $located = $areas[$key] ?? $area;
                 $schemaFields[] = [
                     'key' => $key,
                     'label' => $area['label'] ?? $key,
                     'type' => FieldType::SIGNATURE,
                     'paper_support' => FieldType::PAPER_SIGNATURE,
                     'options' => null,
-                    'page' => $located['page'] ?? null,
-                    'bounds' => $located['bounds'] ?? null,
+                    'page' => $area['page'] ?? null,
+                    'bounds' => $area['bounds'] ?? null,
+                    'bounds_source' => $area['bounds_source'] ?? 'none',
                 ];
             }
         }
@@ -105,16 +108,16 @@ class ManualSessionSchemaGenerator
     }
 
     /**
-     * Re-measure each table-bound paper field's writable area against the frozen
-     * partial document's cell geometry. Free-flow fields are left out here and
-     * fall back to their baseline area (the caller resolves them), so no model
-     * inference runs during the interactive freeze.
+     * Re-check each table-bound field's present/missing verdict against the
+     * populated partial's cell geometry (width-driven, no model). Free-flow
+     * fields keep their baseline verdict. Positions are never recomputed here —
+     * the baseline holds the accurate rendered bounds.
      *
      * @param  array<string,array<string,mixed>>  $baselineByKey
      * @param  array<int,array<string,mixed>>  $extractable
-     * @return array<string,array{page:?int,bounds:?array<int,float>,writable_area:string}>
+     * @return array<string,string>  field key => writable_area
      */
-    private function relocateAreas(ManualFormSession $session, array $baselineByKey, array $extractable): array
+    private function recomputeVerdicts(ManualFormSession $session, array $baselineByKey, array $extractable): array
     {
         $paperKeys = [];
         foreach ($extractable as $field) {
@@ -123,28 +126,13 @@ class ManualSessionSchemaGenerator
                 $paperKeys[$key] = (string) ($field['type'] ?? FieldType::TEXT);
             }
         }
-        foreach ($baselineByKey as $key => $area) {
-            if (($area['paper_support'] ?? null) === FieldType::PAPER_SIGNATURE) {
-                $paperKeys[(string) $key] = FieldType::SIGNATURE;
-            }
-        }
 
-        return $this->relocateTableCells($session, $baselineByKey, $paperKeys);
-    }
-
-    /**
-     * @param  array<string,array<string,mixed>>  $baselineByKey
-     * @param  array<string,string>  $paperKeys  field key => type
-     * @return array<string,array{page:int,bounds:array<int,float>,writable_area:string}>
-     */
-    private function relocateTableCells(ManualFormSession $session, array $baselineByKey, array $paperKeys): array
-    {
         $docxPath = $this->partialDocxPath($session);
         if ($docxPath === null) {
             return [];
         }
 
-        $areas = [];
+        $verdicts = [];
         foreach ($paperKeys as $key => $type) {
             $cellPath = $baselineByKey[$key]['cell_path'] ?? null;
             if (! is_array($cellPath) || $cellPath === []) {
@@ -158,11 +146,11 @@ class ManualSessionSchemaGenerator
             }
 
             if ($geometry !== null) {
-                $areas[$key] = $geometry;
+                $verdicts[$key] = (string) $geometry['writable_area'];
             }
         }
 
-        return $areas;
+        return $verdicts;
     }
 
     private function partialDocxPath(ManualFormSession $session): ?string
