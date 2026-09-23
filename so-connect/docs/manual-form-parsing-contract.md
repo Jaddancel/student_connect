@@ -172,15 +172,19 @@ If a required extractable field has **no** locatable writable region in the froz
 partial PDF, session-schema generation **blocks** the session (`status: failed`)
 with a named-field warning; the user cannot enter the drop state for that draft.
 
-**Writable areas are re-measured per session, not copied from the baseline.**
-The partial document is populated with the real `known_values`, so a long digital
-entry can grow a table row and push the fields below it down (or off the page) —
-a distortion the blank template never shows. For each paper field:
+**Writable areas for table fields are re-measured per session, not copied from
+the baseline.** The partial document is populated with the real `known_values`,
+so a long digital entry can grow a table row and push the fields below it down
+(or off the page) — a distortion the blank template never shows. Because the
+freeze runs while the user waits ("Preparing your printable form…"), no model
+inference runs here:
 
 - With a baseline `cell_path` → its cell is re-measured against the session's
-  populated `.docx`, so the verdict reflects the actual printed layout.
-- Without a `cell_path` → the document-vision model re-locates it on the frozen
-  partial pages (not the blank render).
+  populated `.docx` (deterministic, fast), so the verdict reflects the actual
+  printed layout.
+- Without a `cell_path` → the field keeps the baseline area the vision model
+  located at save time (the layout of a free-flow field does not shift with a
+  table row's growth).
 
 ---
 

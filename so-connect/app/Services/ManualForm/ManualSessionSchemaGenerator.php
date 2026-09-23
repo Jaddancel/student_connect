@@ -4,22 +4,22 @@ namespace App\Services\ManualForm;
 
 use App\Forms\FieldType;
 use App\Models\ManualFormSession;
-use App\Services\DocumentVision\DocumentVisionClient;
 use Illuminate\Support\Facades\Storage;
 
 /**
  * Builds a session's parsing schema from its frozen partial PDF: the fields
  * empty at Start time, bound to freshly measured writable areas. Unlike a plain
- * copy of the template baseline, this re-locates each field against the exact
- * partial document the user will print, so a long digital-form value that grows
- * a table row (and squeezes the fields below it) is reflected here — the common
- * cause of a required field having nowhere left to write by hand.
+ * copy of the template baseline, table-bound fields are re-measured against the
+ * exact partial document the user will print, so a long digital-form value that
+ * grows a table row (and squeezes the fields below it) is reflected here — the
+ * common cause of a required field having nowhere left to write by hand.
  *
  * Fields whose baseline resolved to a table cell are re-measured deterministically
- * from that cell's geometry in the populated `.docx`; free-flow fields are
- * re-read by the vision model from the frozen partial pages. If a required
- * extractable field has no writable region, the session is blocked (a value
- * written there could never have been printed, so it can't be read back).
+ * from that cell's geometry in the populated `.docx` (fast, no model). Free-flow
+ * fields keep the baseline area the vision model located at save time — the
+ * interactive freeze must stay responsive, so no model inference runs here. If a
+ * required extractable field has no writable region, the session is blocked (a
+ * value written there could never have been printed, so it can't be read back).
  *
  * See docs/manual-form-parsing-contract.md section 3.
  */
@@ -27,7 +27,6 @@ class ManualSessionSchemaGenerator
 {
     public function __construct(
         private readonly DocxTableCellLocator $cellLocator,
-        private readonly DocumentVisionClient $vision,
     ) {}
 
     public function generate(string $sessionId): void
@@ -106,9 +105,10 @@ class ManualSessionSchemaGenerator
     }
 
     /**
-     * Re-measure each paper field's writable area against the frozen partial
-     * document: table-bound fields from the populated `.docx`'s cell geometry,
-     * free-flow fields from the rasterized partial pages via the vision model.
+     * Re-measure each table-bound paper field's writable area against the frozen
+     * partial document's cell geometry. Free-flow fields are left out here and
+     * fall back to their baseline area (the caller resolves them), so no model
+     * inference runs during the interactive freeze.
      *
      * @param  array<string,array<string,mixed>>  $baselineByKey
      * @param  array<int,array<string,mixed>>  $extractable
@@ -129,16 +129,7 @@ class ManualSessionSchemaGenerator
             }
         }
 
-        $areas = $this->relocateTableCells($session, $baselineByKey, $paperKeys);
-
-        $freeFlow = [];
-        foreach ($paperKeys as $key => $type) {
-            if (! isset($areas[$key])) {
-                $freeFlow[$key] = $type;
-            }
-        }
-
-        return $areas + $this->relocateWithVision($session, $baselineByKey, $freeFlow);
+        return $this->relocateTableCells($session, $baselineByKey, $paperKeys);
     }
 
     /**
@@ -172,61 +163,6 @@ class ManualSessionSchemaGenerator
         }
 
         return $areas;
-    }
-
-    /**
-     * @param  array<string,array<string,mixed>>  $baselineByKey
-     * @param  array<string,string>  $freeFlow  field key => type
-     * @return array<string,array{page:int,bounds:?array<int,float>,writable_area:string}>
-     */
-    private function relocateWithVision(ManualFormSession $session, array $baselineByKey, array $freeFlow): array
-    {
-        if ($freeFlow === []) {
-            return [];
-        }
-
-        $pages = $this->frozenPageImages($session);
-        if ($pages === []) {
-            return [];
-        }
-
-        $fields = [];
-        foreach ($freeFlow as $key => $type) {
-            $fields[] = [
-                'key' => $key,
-                'label' => (string) ($baselineByKey[$key]['label'] ?? $key),
-                'type' => $type,
-            ];
-        }
-
-        try {
-            $result = $this->vision->locateWritableAreas(['fields' => $fields, 'pages' => $pages]);
-        } catch (\Throwable) {
-            return [];
-        }
-
-        return ($result['ok'] ?? false) ? (array) ($result['areas'] ?? []) : [];
-    }
-
-    /**
-     * @return array<int,array{index:int,image:string}>
-     */
-    private function frozenPageImages(ManualFormSession $session): array
-    {
-        $disk = Storage::disk((string) config('documents.disk', 'public'));
-        $pages = [];
-        foreach ((array) $session->page_meta as $page) {
-            $relative = (string) ($page['path'] ?? '');
-            if ($relative === '' || ! $disk->exists($relative)) {
-                continue;
-            }
-            $pages[] = [
-                'index' => (int) ($page['index'] ?? count($pages)),
-                'image' => 'data:image/png;base64,'.base64_encode((string) $disk->get($relative)),
-            ];
-        }
-
-        return $pages;
     }
 
     private function partialDocxPath(ManualFormSession $session): ?string
