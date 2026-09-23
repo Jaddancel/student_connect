@@ -465,7 +465,7 @@ class FormRenderController extends Controller
                 // expected signer, or the submission is rejected (fail-closed).
                 $options = (array) ($field->field_options ?? []);
                 if ($path !== null && FieldType::signatureExpectsMatch($options)) {
-                    $signatureVerifications[$key] = $this->enforceSignatureMatch($path, $key, $options, $request);
+                    $signatureVerifications[$key] = $this->enforceSignatureMatch($path, $key, $options, $request, $form, $manualSession);
                 }
 
                 // A freshly drawn/uploaded signature (as opposed to a re-used
@@ -827,9 +827,13 @@ class FormRenderController extends Controller
      *
      * @throws \Illuminate\Validation\ValidationException  on any non-match
      */
-    private function enforceSignatureMatch(string $path, string $key, array $options, Request $request): array
+    private function enforceSignatureMatch(string $path, string $key, array $options, Request $request, Form $form, ?ManualFormSession $manualSession): array
     {
-        $expected = app(\App\Forms\ExpectedSignatories::class)->resolve($options, $request->user());
+        $expected = app(\App\Forms\ExpectedSignatories::class)->resolve(
+            $options,
+            $request->user(),
+            $this->expectedSignerOrganizationId($request, $form, $manualSession),
+        );
 
         [$candidates, $names] = app(\App\Services\SignatureReferenceService::class)->candidatesFrom($expected);
         if ($candidates === []) {
@@ -862,5 +866,25 @@ class FormRenderController extends Controller
             'matched' => $names[$bestId] ?? null,
             'score' => isset($result['best']['score']) ? (float) $result['best']['score'] : null,
         ];
+    }
+
+    private function expectedSignerOrganizationId(Request $request, Form $form, ?ManualFormSession $manualSession): ?int
+    {
+        $submitted = (int) $request->input('organization_id', 0);
+        if ($submitted > 0) {
+            return $submitted;
+        }
+
+        $manualOrganizationId = (int) data_get($manualSession?->draft_payload, 'organization_id', 0);
+        if ($manualOrganizationId <= 0) {
+            $manualOrganizationId = (int) data_get($manualSession?->known_fields, 'organization_id', 0);
+        }
+        if ($manualOrganizationId > 0) {
+            return $manualOrganizationId;
+        }
+
+        $formOrganizationId = (int) ($form->organization_id ?? 0);
+
+        return $formOrganizationId > 0 ? $formOrganizationId : null;
     }
 }

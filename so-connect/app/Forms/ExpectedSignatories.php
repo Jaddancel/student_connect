@@ -7,6 +7,7 @@ use App\Models\Organization;
 use App\Models\President;
 use App\Models\Profile;
 use App\Models\User;
+use App\Services\OrganizationAuthorizationService;
 use App\Services\SignatureReferenceService;
 use App\Support\OrganizationField;
 use Illuminate\Support\Collection;
@@ -34,7 +35,7 @@ class ExpectedSignatories
      * @param  array<string,mixed>  $options  the field's `field_options`
      * @return Collection<int, \App\Models\SignatureReference>
      */
-    public function resolve(array $options, ?User $user): Collection
+    public function resolve(array $options, ?User $user, ?int $organizationId = null): Collection
     {
         $expected = FieldType::signatureExpected($options);
 
@@ -49,7 +50,7 @@ class ExpectedSignatories
         }
 
         if ($expected['positions'] !== []) {
-            $organization = OrganizationField::resolveOrganization($user);
+            $organization = $this->organizationFor($user, $organizationId);
             if ($organization !== null) {
                 foreach ($expected['positions'] as $position) {
                     $profile = $this->profileForPosition($organization, $position);
@@ -68,6 +69,28 @@ class ExpectedSignatories
             ->map(fn (Profile $profile) => $this->references->syncFromProfile($profile))
             ->filter()
             ->values();
+    }
+
+    private function organizationFor(?User $user, ?int $organizationId): ?Organization
+    {
+        if ($organizationId !== null && $organizationId > 0 && $this->canUseOrganization($user, $organizationId)) {
+            return Organization::query()->find($organizationId);
+        }
+
+        return OrganizationField::resolveOrganization($user);
+    }
+
+    private function canUseOrganization(?User $user, int $organizationId): bool
+    {
+        if ($user === null || (int) $user->user_type !== 3) {
+            return true;
+        }
+
+        return in_array(
+            $organizationId,
+            OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey()),
+            true,
+        );
     }
 
     /**

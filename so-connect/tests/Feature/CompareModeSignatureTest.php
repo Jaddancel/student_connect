@@ -217,3 +217,79 @@ it('resolves an org position to that organization\'s current officer, scoped per
 
     expect(app(ExpectedSignatories::class)->resolve($options, $submitterB))->toHaveCount(0);
 });
+
+it('compares expected position signatures against the submitted organization when one is selected', function () {
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+
+    $form = Form::create([
+        'name' => 'Selected Org Compare',
+        'route_name' => 'cmp-selected-org',
+        'is_active' => true,
+        'is_published' => true,
+        'layout' => ['rows' => []],
+        'pdf_template' => ['html' => '<p>x</p>', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ]);
+
+    FormDescription::create([
+        'form_id' => (int) $form->getKey(),
+        'is_required' => true,
+        'field_order' => 1,
+        'field_key' => 'organization_id',
+        'field_label' => 'Organization',
+        'field_type' => 'org-select',
+    ]);
+    FormDescription::create([
+        'form_id' => (int) $form->getKey(),
+        'is_required' => true,
+        'field_order' => 2,
+        'field_key' => 'sig',
+        'field_label' => 'President Signature',
+        'field_type' => 'signature',
+        'field_options' => ['match_mode' => 'compare', 'expected_positions' => ['President']],
+    ]);
+
+    $orgA = cmpOrg();
+    $orgB = cmpOrg();
+
+    $presidentA = cmpProfileWithSignature('Org A', 'President');
+    $presidentAUser = User::query()->create([
+        'user_email' => 'pres-a'.Str::random(6).'@example.com',
+        'user_password' => 'password',
+        'user_type' => 3,
+        'profile' => (int) $presidentA->getKey(),
+    ]);
+    cmpOfficer($orgA, $presidentAUser, 'president');
+
+    $presidentB = cmpProfileWithSignature('Org B', 'President');
+    $presidentBUser = User::query()->create([
+        'user_email' => 'pres-b'.Str::random(6).'@example.com',
+        'user_password' => 'password',
+        'user_type' => 3,
+        'profile' => (int) $presidentB->getKey(),
+    ]);
+    cmpOfficer($orgB, $presidentBUser, 'president');
+
+    $submitter = recordsUser(3);
+    cmpOfficer($orgA, $submitter, 'officer');
+    cmpOfficer($orgB, $submitter, 'officer');
+
+    $reference = app(SignatureReferenceService::class)->syncFromProfile($presidentA);
+
+    Http::fake(['*/signature-identify' => Http::response([
+        'match' => true,
+        'best' => ['id' => (int) $reference->reference_id, 'score' => 0.96],
+    ], 200)]);
+
+    $this->actingAs($submitter)
+        ->post(route('forms.render.submit', 'cmp-selected-org'), [
+            'organization_id' => $orgA,
+            'sig' => signatureDataUrl(5),
+        ])
+        ->assertRedirect();
+
+    $submission = DB::table('form_submissions')->orderByDesc('form_submission_id')->first();
+    $payload = json_decode((string) $submission->payload, true);
+
+    expect($payload['_signature_verification']['sig']['matched'])->toBe('Org A President');
+});

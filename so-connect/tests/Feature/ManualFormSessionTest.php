@@ -13,6 +13,8 @@ use App\Services\DocumentVision\OllamaDocumentVisionClient;
 use App\Services\ManualForm\ManualScanParser;
 use App\Services\OcrClient;
 use App\Services\PdfRasterizer;
+use App\Services\SignatureReferenceService;
+use App\Support\SignatureImage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -351,6 +353,97 @@ it('links a reviewed manual draft to its submission and records provenance', fun
     $session->refresh();
     expect($session->status)->toBe(ManualFormSession::STATUS_SUBMITTED)
         ->and((int) $session->form_submission_id)->toBe((int) $submission->getKey());
+});
+
+it('uses the manual draft organization when verifying expected position signatures', function () {
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+
+    $form = manualForm('title', 'manual-president-signature');
+    FormDescription::create([
+        'form_id' => $form->id,
+        'field_key' => 'organization_id',
+        'field_label' => 'Organization',
+        'field_type' => 'org-select',
+        'is_required' => false,
+        'field_order' => 2,
+    ]);
+    FormDescription::create([
+        'form_id' => $form->id,
+        'field_key' => 'president_signature',
+        'field_label' => 'President Signature',
+        'field_type' => 'signature',
+        'is_required' => true,
+        'field_order' => 3,
+        'field_options' => ['match_mode' => 'compare', 'expected_positions' => ['President']],
+    ]);
+
+    $orgA = recordsOrganization('Manual Compare A');
+    $orgB = recordsOrganization('Manual Compare B');
+
+    $presidentA = recordsUser(3, [
+        'first_name' => 'Manual',
+        'last_name' => 'President',
+        'signature_path' => 'signatures/manual-president-a.png',
+    ]);
+    Storage::disk(SignatureImage::disk())->put('signatures/manual-president-a.png', 'expected-signature-bytes');
+    DB::table('organization_officers')->insert([
+        'role' => 'president',
+        'position' => 'President',
+        'organization' => (int) $orgA->getKey(),
+        'user' => (int) $presidentA->getKey(),
+        'yearterm' => null,
+        'member_since' => now(),
+        'registered_at' => now(),
+        'reassigned_at' => now(),
+    ]);
+
+    $presidentB = recordsUser(3, [
+        'first_name' => 'Other',
+        'last_name' => 'President',
+        'signature_path' => 'signatures/manual-president-b.png',
+    ]);
+    Storage::disk(SignatureImage::disk())->put('signatures/manual-president-b.png', 'other-signature-bytes');
+    DB::table('organization_officers')->insert([
+        'role' => 'president',
+        'position' => 'President',
+        'organization' => (int) $orgB->getKey(),
+        'user' => (int) $presidentB->getKey(),
+        'yearterm' => null,
+        'member_since' => now(),
+        'registered_at' => now(),
+        'reassigned_at' => now(),
+    ]);
+
+    $submitter = manualOfficer((int) $orgA->getKey());
+    DB::table('organization_officers')->insert([
+        'role' => 'officer',
+        'organization' => (int) $orgB->getKey(),
+        'user' => (int) $submitter->getKey(),
+        'yearterm' => null,
+        'member_since' => now(),
+        'registered_at' => now(),
+        'reassigned_at' => now(),
+    ]);
+
+    $reference = app(SignatureReferenceService::class)->syncFromProfile($presidentA->profile()->first());
+    $session = manualSession($form, [
+        'user_id' => (int) $submitter->getKey(),
+        'draft_payload' => ['organization_id' => (string) $orgA->getKey()],
+    ]);
+
+    Http::fake(['*/signature-identify' => Http::response([
+        'match' => true,
+        'best' => ['id' => (int) $reference->reference_id, 'score' => 0.97],
+    ], 200)]);
+
+    $this->actingAs($submitter)
+        ->post(route('forms.render.submit', $form->route_name), [
+            'title' => 'Manual event',
+            'president_signature' => signatureDataUrl(8),
+            'manual_session_id' => (string) $session->getKey(),
+        ])
+        ->assertSessionHasNoErrors();
 });
 
 it('refuses to submit an already-submitted draft again', function () {

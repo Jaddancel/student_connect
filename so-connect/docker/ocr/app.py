@@ -303,7 +303,58 @@ def _signature_score(probe, candidate) -> float:
                 good += 1
         orb_ratio = min(1.0, good / max(1, min(len(kp_a), len(kp_b))))
 
-    return max(0.0, min(1.0, 0.5 * ncc + 0.5 * orb_ratio))
+    base = max(0.0, min(1.0, 0.5 * ncc + 0.5 * orb_ratio))
+
+    # A genuine re-capture can be the same stroke shape at a different scale or
+    # offset after ink extraction. The base score compares centered maps only;
+    # add a bounded, OpenCV-optimized shifted/scale NCC pass so Compare mode
+    # does not reject the same signature just because the crop is tighter.
+    robust_ncc = _scale_shifted_ncc(probe, candidate)
+
+    return max(base, robust_ncc)
+
+
+def _scale_shifted_ncc(probe, candidate) -> float:
+    import cv2
+    import numpy as np
+
+    h, w = candidate.shape
+    max_shift = 50
+    padded_probe = cv2.copyMakeBorder(
+        probe,
+        max_shift, max_shift, max_shift, max_shift,
+        cv2.BORDER_CONSTANT,
+        value=0,
+    )
+
+    best = 0.0
+    for scale in (0.75, 0.85, 0.95, 1.0, 1.05, 1.15, 1.25):
+        scaled_w = max(1, int(w * scale))
+        scaled_h = max(1, int(h * scale))
+        resized = cv2.resize(
+            candidate,
+            (scaled_w, scaled_h),
+            interpolation=cv2.INTER_AREA if scale < 1 else cv2.INTER_LINEAR,
+        )
+
+        canvas = np.zeros_like(candidate)
+        if scaled_w <= w and scaled_h <= h:
+            ox = (w - scaled_w) // 2
+            oy = (h - scaled_h) // 2
+            canvas[oy:oy + scaled_h, ox:ox + scaled_w] = resized
+        else:
+            x1 = (scaled_w - w) // 2
+            y1 = (scaled_h - h) // 2
+            canvas = resized[y1:y1 + h, x1:x1 + w]
+
+        if float(canvas.std()) < 1e-6:
+            continue
+
+        result = cv2.matchTemplate(padded_probe, canvas, cv2.TM_CCOEFF_NORMED)
+        if result.size:
+            best = max(best, float(np.nanmax(result)))
+
+    return max(0.0, min(1.0, best))
 
 
 # --- SigNet (deep) scoring, optional -----------------------------------------
