@@ -8,6 +8,7 @@ use App\Services\DocxTemplateService;
 use App\Services\PdfRasterizer;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Builds and persists a template's baseline manual-filling schema: the saved
@@ -30,6 +31,7 @@ class TemplateManualSchemaGenerator
         private readonly DocxTemplateService $docx,
         private readonly PdfRasterizer $rasterizer,
         private readonly DocumentVisionClient $vision,
+        private readonly DocxTableCellLocator $cellLocator,
     ) {}
 
     /**
@@ -80,12 +82,14 @@ class TemplateManualSchemaGenerator
     }
 
     /**
-     * Render a blank copy of the template, rasterize it, and ask the vision
-     * model to locate each paper field's writable area. Returns [] on any
-     * failure so the caller records the fields without blocking.
+     * Locate each paper field's writable area. Fields whose `{{key}}`
+     * placeholder sits inside a non-repeating table cell are measured
+     * deterministically from the template's OOXML cell geometry (position +
+     * size); the remaining free-flow fields fall back to a blank render read by
+     * the vision model. Returns [] for a field only when neither path resolves.
      *
      * @param  array<int,array<string,mixed>>  $fields
-     * @return array<string,array{page:int,bounds:?array<int,float>,writable_area:string}>
+     * @return array<string,array{cell_path?:array<string,int>,page:?int,bounds:?array<int,float>,writable_area:string}>
      */
     private function locateWritableAreas(FormTemplate $template, array $fields): array
     {
@@ -93,6 +97,54 @@ class TemplateManualSchemaGenerator
             $fields,
             fn ($f) => in_array($f['paper_support'] ?? '', ['extract', 'signature'], true),
         ));
+        if ($paperFields === []) {
+            return [];
+        }
+
+        $areas = $this->locateTableCells($template, $paperFields);
+
+        $freeFlow = array_values(array_filter(
+            $paperFields,
+            fn ($f) => ! isset($areas[$f['key']]),
+        ));
+
+        return $areas + $this->locateWithVision($template, $freeFlow);
+    }
+
+    /**
+     * Deterministic OOXML table-cell geometry from the raw template `.docx`.
+     *
+     * @param  array<int,array<string,mixed>>  $paperFields
+     * @return array<string,array{cell_path:array<string,int>,page:int,bounds:array<int,float>,writable_area:string}>
+     */
+    private function locateTableCells(FormTemplate $template, array $paperFields): array
+    {
+        $docxPath = $this->rawDocxPath($template);
+        if ($docxPath === null) {
+            return [];
+        }
+
+        try {
+            return $this->cellLocator->locate($docxPath, array_map(fn ($f) => [
+                'key' => (string) $f['key'], 'type' => (string) ($f['type'] ?? 'text'),
+            ], $paperFields));
+        } catch (\Throwable $e) {
+            Log::info('Manual baseline: table-cell geometry unavailable: '.$e->getMessage());
+
+            return [];
+        }
+    }
+
+    /**
+     * Blank-render the template, rasterize it, and ask the vision model to
+     * locate each field's writable area. Returns [] on any failure so the
+     * caller records the fields without blocking.
+     *
+     * @param  array<int,array<string,mixed>>  $paperFields
+     * @return array<string,array{page:int,bounds:?array<int,float>,writable_area:string}>
+     */
+    private function locateWithVision(FormTemplate $template, array $paperFields): array
+    {
         if ($paperFields === []) {
             return [];
         }
@@ -132,6 +184,21 @@ class TemplateManualSchemaGenerator
         }
     }
 
+    private function rawDocxPath(FormTemplate $template): ?string
+    {
+        $relative = (string) ($template->docx_path ?? '');
+        if ($relative === '') {
+            return null;
+        }
+
+        $disk = (string) config('documents.disk', 'public');
+        if (! Storage::disk($disk)->exists($relative)) {
+            return null;
+        }
+
+        return Storage::disk($disk)->path($relative);
+    }
+
     /**
      * @param  array<int,array<string,mixed>>  $fields
      * @param  array<string,array{page:int,bounds:?array<int,float>,writable_area:string}>  $areas
@@ -150,6 +217,7 @@ class TemplateManualSchemaGenerator
                 'page' => $area['page'] ?? null,
                 'bounds' => $area['bounds'] ?? null,
                 'writable_area' => $area['writable_area'] ?? 'uncertain',
+                'cell_path' => $area['cell_path'] ?? null,
             ];
         }, $fields);
     }

@@ -74,6 +74,30 @@ function manualSession(Form $form, array $attrs = []): ManualFormSession
     ], $attrs));
 }
 
+/**
+ * Writes a minimal partial `.docx` (only `word/document.xml` is read) to the
+ * session's storage directory, wrapping the given table rows.
+ */
+function manualPartialDocx(string $sessionId, string $rows): void
+{
+    $document = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        .'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        .'<w:body><w:tbl><w:tblGrid><w:gridCol w:w="4680"/><w:gridCol w:w="4680"/></w:tblGrid>'
+        .$rows.'</w:tbl>'
+        .'<w:sectPr><w:pgSz w:w="12240" w:h="15840"/>'
+        .'<w:pgMar w:left="1440" w:right="1440" w:top="1440" w:bottom="1440"/></w:sectPr>'
+        .'</w:body></w:document>';
+
+    $tmp = tempnam(sys_get_temp_dir(), 'partial').'.docx';
+    $zip = new ZipArchive;
+    $zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    $zip->addFromString('word/document.xml', $document);
+    $zip->close();
+
+    Storage::disk('public')->put('manual-form/'.$sessionId.'/partial.docx', file_get_contents($tmp));
+    @unlink($tmp);
+}
+
 it('sends scan pages as repeated multipart fields expected by FastAPI', function () {
     config(['services.ocr.url' => 'http://ocr.test']);
     Http::fake([
@@ -347,4 +371,93 @@ it('reaps expired abandoned drafts but keeps submitted ones', function () {
 
     expect(ManualFormSession::find($expired->id))->toBeNull()
         ->and(ManualFormSession::find($submitted->id))->not->toBeNull();
+});
+
+it('blocks a session when a populated value pushes a required field off the printed page', function () {
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+
+    $form = manualForm('adviser2_name', 'distorted-manual-form');
+
+    $session = manualSession($form, [
+        'status' => ManualFormSession::STATUS_PREPARING,
+        'page_meta' => [],
+        'baseline_schema' => ['fields' => [[
+            'key' => 'adviser2_name',
+            'label' => 'Adviser 2 Name',
+            'type' => 'text',
+            'paper_support' => 'extract',
+            'writable_area' => 'present',
+            'cell_path' => ['block' => 0, 'row' => 1, 'col' => 1, 'colspan' => 1, 'rowspan' => 1],
+        ]]],
+        'extractable_fields' => [[
+            'key' => 'adviser2_name',
+            'label' => 'Adviser 2 Name',
+            'type' => 'text',
+            'paper_support' => 'extract',
+            'required' => true,
+        ]],
+    ]);
+
+    // A long digital value grew the first row past the printable height, so the
+    // required field's row now overflows the page and has no room to write.
+    manualPartialDocx((string) $session->getKey(),
+        '<w:tr><w:trPr><w:trHeight w:val="14000" w:hRule="exact"/></w:trPr>'
+        .'<w:tc><w:p><w:r><w:t>Adviser 1 Name:</w:t></w:r></w:p></w:tc>'
+        .'<w:tc><w:p><w:r><w:t>A very long adviser full legal name value</w:t></w:r></w:p></w:tc></w:tr>'
+        .'<w:tr><w:trPr><w:trHeight w:val="600" w:hRule="exact"/></w:trPr>'
+        .'<w:tc><w:p><w:r><w:t>Adviser 2 Name:</w:t></w:r></w:p></w:tc>'
+        .'<w:tc><w:p><w:r><w:t>{{adviser2_name}}</w:t></w:r></w:p></w:tc></w:tr>'
+    );
+
+    app(\App\Services\ManualForm\ManualSessionSchemaGenerator::class)->generate((string) $session->getKey());
+
+    $session->refresh();
+    expect($session->status)->toBe(ManualFormSession::STATUS_FAILED)
+        ->and($session->parse_error)->toContain('Adviser 2 Name');
+});
+
+it('re-measures a table field against the frozen partial and awaits the scan when it fits', function () {
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+
+    $form = manualForm('adviser2_name', 'fitting-manual-form');
+
+    $session = manualSession($form, [
+        'status' => ManualFormSession::STATUS_PREPARING,
+        'page_meta' => [],
+        'baseline_schema' => ['fields' => [[
+            'key' => 'adviser2_name',
+            'label' => 'Adviser 2 Name',
+            'type' => 'text',
+            'paper_support' => 'extract',
+            'writable_area' => 'present',
+            'cell_path' => ['block' => 0, 'row' => 1, 'col' => 1, 'colspan' => 1, 'rowspan' => 1],
+        ]]],
+        'extractable_fields' => [[
+            'key' => 'adviser2_name',
+            'label' => 'Adviser 2 Name',
+            'type' => 'text',
+            'paper_support' => 'extract',
+            'required' => true,
+        ]],
+    ]);
+
+    manualPartialDocx((string) $session->getKey(),
+        '<w:tr><w:trPr><w:trHeight w:val="600" w:hRule="exact"/></w:trPr>'
+        .'<w:tc><w:p><w:r><w:t>Adviser 1 Name:</w:t></w:r></w:p></w:tc>'
+        .'<w:tc><w:p><w:r><w:t>Short name</w:t></w:r></w:p></w:tc></w:tr>'
+        .'<w:tr><w:trPr><w:trHeight w:val="600" w:hRule="exact"/></w:trPr>'
+        .'<w:tc><w:p><w:r><w:t>Adviser 2 Name:</w:t></w:r></w:p></w:tc>'
+        .'<w:tc><w:p><w:r><w:t>{{adviser2_name}}</w:t></w:r></w:p></w:tc></w:tr>'
+    );
+
+    app(\App\Services\ManualForm\ManualSessionSchemaGenerator::class)->generate((string) $session->getKey());
+
+    $session->refresh();
+    expect($session->status)->toBe(ManualFormSession::STATUS_AWAITING_SCAN)
+        ->and($session->parse_error)->toBeNull();
+
+    $field = collect($session->session_schema['extractable_fields'])->firstWhere('key', 'adviser2_name');
+    expect($field['bounds'][0])->toBe(0.5);
 });

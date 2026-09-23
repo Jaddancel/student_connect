@@ -157,6 +157,14 @@ class ManualFormSessionService
             $pdfAbsolute = $this->docx->toPdf($docxPath);
 
             Storage::disk($disk)->put($pdfRelative, File::get($pdfAbsolute));
+            // Keep the populated .docx: session-schema generation re-measures
+            // each field's table cell against this exact document so distortions
+            // from the real digital-form values are reflected in the writable
+            // areas (not just the blank-template baseline).
+            Storage::disk($disk)->put(
+                'manual-form/'.$session->getKey().'/partial.docx',
+                File::get($docxPath),
+            );
             File::deleteDirectory(dirname($docxPath));
 
             $raster = $this->rasterizer->rasterize(

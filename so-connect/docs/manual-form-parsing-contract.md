@@ -102,20 +102,38 @@ revision.
 }
 ```
 
-Additionally, a blank-render pass locates each paper field's writable area:
+Additionally, a locate pass records each paper field's writable area:
 
 ```json
 {
     "key": "activity_title",
     "page": 0,
     "bounds": [0.12, 0.22, 0.88, 0.26],
-    "writable_area": "present"
+    "writable_area": "present",
+    "cell_path": { "block": 4, "row": 1, "col": 2, "colspan": 1, "rowspan": 1 }
 }
 ```
 
-`writable_area` is `present`, `missing`, or `uncertain`. A **required** field with
-a `missing` writable area marks manual filling **unavailable** for that template
-version (ordinary online submission stays available).
+Writable areas come from one of two sources:
+
+- **Table cells (deterministic).** When a field's `{{key}}` placeholder sits
+  inside a non-repeating table, its `page`/`bounds`/`writable_area` are computed
+  directly from the OOXML cell geometry (column widths from `w:tblGrid`, row
+  heights from `w:trHeight` or estimated from content). Such a field carries a
+  `cell_path` locating the encapsulating cell. No vision model is involved.
+- **Free-flow fields (vision).** Fields not found in a table fall back to a
+  blank render read by the document-vision model; they have no `cell_path`.
+
+`writable_area` is `present`, `missing`, or `uncertain`. For table cells the
+verdict uses a minimum-size heuristic: the blank room the cell leaves (its size
+minus any label text preceding the placeholder) is compared against per-field-type
+minimums in `config/manual_form.php`. A **required** field with a `missing`
+writable area marks manual filling **unavailable** for that template version
+(ordinary online submission stays available).
+
+**Scope:** deterministic cell geometry covers non-repeating, single-page tables.
+Repeating tables (`data-field-rows` / row cloning) and fields that spill across
+pages keep using the vision path.
 
 **Status:** the template row stores `schema_status` of `pending`, `ready`, or
 `failed` with an optional `schema_error`, and `schema_generated_at`.
@@ -153,6 +171,16 @@ pages + `known_values` (fields already filled at Start time) + the set of fields
 If a required extractable field has **no** locatable writable region in the frozen
 partial PDF, session-schema generation **blocks** the session (`status: failed`)
 with a named-field warning; the user cannot enter the drop state for that draft.
+
+**Writable areas are re-measured per session, not copied from the baseline.**
+The partial document is populated with the real `known_values`, so a long digital
+entry can grow a table row and push the fields below it down (or off the page) —
+a distortion the blank template never shows. For each paper field:
+
+- With a baseline `cell_path` → its cell is re-measured against the session's
+  populated `.docx`, so the verdict reflects the actual printed layout.
+- Without a `cell_path` → the document-vision model re-locates it on the frozen
+  partial pages (not the blank render).
 
 ---
 
