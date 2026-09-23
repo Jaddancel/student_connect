@@ -71,7 +71,7 @@
                                 <tr class="border-b border-gray-100 dark:border-gray-800">
                                     <td class="px-3 py-3 font-medium text-gray-800 dark:text-white/90">{{ $draft->form?->name ?? 'Form' }}</td>
                                     <td class="px-3 py-3"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $badge }}">{{ $label }}</span></td>
-                                    <td class="px-3 py-3 text-gray-500 dark:text-gray-400">{{ $draft->created_at?->format('M j, Y g:i A') }}</td>
+                                    <td class="px-3 py-3 text-gray-500 dark:text-gray-400">{{ $draft->created_at?->timezone('Asia/Manila')->format('M j, Y g:i A') }}</td>
                                     <td class="px-3 py-3 text-gray-500 dark:text-gray-400">{{ $draft->updated_at?->diffForHumans() }}</td>
                                     <td class="px-3 py-3">
                                         <div class="flex items-center justify-end gap-2">

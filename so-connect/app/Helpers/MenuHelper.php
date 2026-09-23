@@ -67,8 +67,13 @@ class MenuHelper
         // in-progress manual-filling sessions live there (admins author forms,
         // they don't fill them, so it is type-3 only).
         if ((int) $user->user_type === 3) {
+            $draftCount = \App\Models\ManualFormSession::query()
+                ->where('user_id', (int) $user->getKey())
+                ->whereIn('status', \App\Models\ManualFormSession::OPEN_STATUSES)
+                ->count();
+
             array_splice($generalItems, 3, 0, [
-                ['icon' => 'task', 'name' => 'Drafts', 'path' => '/drafts'],
+                ['icon' => 'task', 'name' => 'Drafts', 'path' => '/drafts', 'badge' => $draftCount],
             ]);
         }
 
