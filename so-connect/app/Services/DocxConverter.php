@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
 /**
@@ -21,6 +23,10 @@ use Symfony\Component\Process\Process;
  */
 class DocxConverter
 {
+    public const SOURCE_CACHE_PREFIX = 'onlyoffice:conversion:';
+
+    public function __construct(private readonly OnlyOfficeService $onlyOffice) {}
+
     /**
      * Convert a file to `$toFormat`, writing the result into `$outDir`.
      *
@@ -36,11 +42,106 @@ class DocxConverter
 
         $outputPath = rtrim($outDir, '/').'/'.pathinfo($inputPath, PATHINFO_FILENAME).'.'.$toFormat;
 
+        if (strtolower(pathinfo($inputPath, PATHINFO_EXTENSION)) === 'docx'
+            && strtolower($toFormat) === 'pdf'
+            && $this->convertViaOnlyOffice($inputPath, $outputPath)) {
+            return $outputPath;
+        }
+
         if ($this->convertViaSidecar($inputPath, $toFormat, $outputPath)) {
             return $outputPath;
         }
 
         return $this->convertViaBinary($inputPath, $toFormat, $outDir, $outputPath);
+    }
+
+    /**
+     * Render DOCX with the same engine used by the Step 2 editor, preserving
+     * layout that LibreOffice can interpret differently (floating shapes,
+     * anchored lines, and font metrics in particular).
+     */
+    private function convertViaOnlyOffice(string $inputPath, string $outputPath): bool
+    {
+        if (! $this->onlyOffice->enabled()
+            || $this->onlyOffice->internalUrl() === ''
+            || $this->onlyOffice->appUrl() === '') {
+            return false;
+        }
+
+        $conversionId = Str::lower(Str::random(32));
+        $cacheKey = self::SOURCE_CACHE_PREFIX.$conversionId;
+
+        try {
+            Cache::store('file')->put($cacheKey, File::get($inputPath), now()->addMinutes(5));
+
+            $sourceClaims = [
+                'cid' => $conversionId,
+                'purpose' => 'conversion-source',
+                'exp' => now()->addMinutes(5)->getTimestamp(),
+            ];
+            $sourceUrl = $this->onlyOffice->appUrl().'/onlyoffice/conversion/'.$conversionId.'/source?token='
+                .rawurlencode($this->onlyOffice->sign($sourceClaims));
+            $key = 'conv-'.$conversionId;
+            $payload = [
+                'async' => false,
+                'filetype' => 'docx',
+                'key' => $key,
+                'outputtype' => 'pdf',
+                'title' => basename($inputPath),
+                'url' => $sourceUrl,
+            ];
+            $payload['token'] = $this->onlyOffice->sign($payload);
+
+            $timeout = max((int) config('documents.converter.timeout', 120), 30);
+            $response = Http::acceptJson()
+                ->timeout($timeout)
+                ->post($this->onlyOffice->internalUrl().'/converter?shardkey='.rawurlencode($key), $payload);
+
+            $downloadUrl = $response->successful()
+                ? $this->onlyOfficeDownloadUrl((string) $response->json('fileUrl', ''))
+                : null;
+            if ($downloadUrl === null) {
+                return false;
+            }
+
+            $converted = Http::timeout($timeout)->get($downloadUrl);
+            if (! $converted->successful() || ! str_starts_with($converted->body(), '%PDF-')) {
+                return false;
+            }
+
+            File::put($outputPath, $converted->body());
+
+            return is_file($outputPath);
+        } catch (\Throwable $throwable) {
+            Log::warning('OnlyOffice conversion failed; falling back to LibreOffice.', [
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return false;
+        } finally {
+            Cache::store('file')->forget($cacheKey);
+        }
+    }
+
+    /**
+     * Accept conversion downloads only from the configured Document Server.
+     * Its response may use the browser-facing origin, so rewrite that one to
+     * Laravel's container-reachable internal origin before fetching.
+     */
+    private function onlyOfficeDownloadUrl(string $url): ?string
+    {
+        $internal = $this->onlyOffice->internalUrl();
+        $public = $this->onlyOffice->publicUrl();
+
+        if ($internal !== '' && ($url === $internal || str_starts_with($url, $internal.'/'))) {
+            return $url;
+        }
+
+        if ($public !== '' && ($url === $public || str_starts_with($url, $public.'/'))) {
+            return $internal.substr($url, strlen($public));
+        }
+
+        return null;
     }
 
     /**

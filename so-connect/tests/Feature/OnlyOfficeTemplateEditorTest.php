@@ -2,6 +2,7 @@
 
 use App\Models\Form;
 use App\Models\Template;
+use App\Services\DocxConverter;
 use App\Services\FormPrintTemplateService;
 use App\Services\OnlyOfficeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -76,6 +77,90 @@ it('changes the document key when the template changes', function () {
 
     // A stale key would leave everyone editing the previous revision.
     expect($service->documentKey($template->refresh()))->not->toBe($before);
+});
+
+it('uses OnlyOffice to render docx files to PDF with Step 2 fidelity', function () {
+    config(['documents.converter.url' => '']);
+
+    Http::fake([
+        'http://onlyoffice/converter*' => Http::response([
+            'endConvert' => true,
+            'fileType' => 'pdf',
+            'fileUrl' => 'http://onlyoffice/cache/files/rendered.pdf',
+            'percent' => 100,
+        ]),
+        'http://onlyoffice/cache/files/rendered.pdf' => Http::response('%PDF-onlyoffice'),
+    ]);
+
+    $workDir = storage_path('app/tmp/converter-test-'.\Illuminate\Support\Str::random(8));
+    \Illuminate\Support\Facades\File::ensureDirectoryExists($workDir);
+    $input = $workDir.'/template.docx';
+    \Illuminate\Support\Facades\File::put($input, 'docx-bytes');
+
+    try {
+        $output = app(DocxConverter::class)->convert($input, 'pdf', $workDir);
+
+        expect($output)->not->toBeNull()
+            ->and(\Illuminate\Support\Facades\File::get($output))->toBe('%PDF-onlyoffice');
+
+        Http::assertSent(fn ($request) => str_starts_with($request->url(), 'http://onlyoffice/converter')
+            && $request['filetype'] === 'docx'
+            && $request['outputtype'] === 'pdf'
+            && is_string($request['token'] ?? null));
+    } finally {
+        \Illuminate\Support\Facades\File::deleteDirectory($workDir);
+    }
+});
+
+it('protects temporary OnlyOffice conversion sources with a scoped token', function () {
+    $conversionId = 'conversion-source-test';
+    \Illuminate\Support\Facades\Cache::store('file')->put(
+        DocxConverter::SOURCE_CACHE_PREFIX.$conversionId,
+        'private-docx-bytes',
+        now()->addMinute(),
+    );
+
+    try {
+        $this->get(route('onlyoffice.conversion-source', $conversionId))->assertForbidden();
+
+        $token = app(OnlyOfficeService::class)->sign([
+            'cid' => $conversionId,
+            'purpose' => 'conversion-source',
+            'exp' => now()->addMinute()->getTimestamp(),
+        ]);
+
+        $this->get(route('onlyoffice.conversion-source', $conversionId).'?token='.$token)
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+            ->assertSee('private-docx-bytes', false);
+    } finally {
+        \Illuminate\Support\Facades\Cache::store('file')->forget(
+            DocxConverter::SOURCE_CACHE_PREFIX.$conversionId,
+        );
+    }
+});
+
+it('falls back to the document sidecar when OnlyOffice conversion fails', function () {
+    config(['documents.converter.url' => 'http://docxconvert:3000']);
+
+    Http::fake([
+        'http://onlyoffice/converter*' => Http::response([], 500),
+        'http://docxconvert:3000/convert' => Http::response('%PDF-libreoffice'),
+    ]);
+
+    $workDir = storage_path('app/tmp/converter-fallback-'.\Illuminate\Support\Str::random(8));
+    \Illuminate\Support\Facades\File::ensureDirectoryExists($workDir);
+    $input = $workDir.'/template.docx';
+    \Illuminate\Support\Facades\File::put($input, 'docx-bytes');
+
+    try {
+        $output = app(DocxConverter::class)->convert($input, 'pdf', $workDir);
+
+        expect($output)->not->toBeNull()
+            ->and(\Illuminate\Support\Facades\File::get($output))->toBe('%PDF-libreoffice');
+    } finally {
+        \Illuminate\Support\Facades\File::deleteDirectory($workDir);
+    }
 });
 
 it('migrates a legacy rich-text template into the .docx on first resolve', function () {
@@ -403,6 +488,23 @@ it('replaces the printed template with an uploaded .docx', function () {
     // A new revision (fresh document key) carrying the uploaded bytes.
     expect($template->version)->toBe($versionBefore + 1)
         ->and(Storage::disk('public')->get($template->docx_path))->toBe($docxBytes);
+});
+
+it('closes the draft editor before uploading a replacement document', function () {
+    $source = file_get_contents(resource_path('views/components/form-builder/onlyoffice-template.blade.php'));
+    $methodStart = strpos($source, 'async importDocx(event)');
+    $methodEnd = strpos($source, 'async boot()', $methodStart);
+    $method = substr($source, $methodStart, $methodEnd - $methodStart);
+
+    $teardownAt = strpos($method, 'this.teardown();');
+    $waitAt = strpos($method, 'await this.pollVersion(target, 20000);');
+    $uploadAt = strpos($method, 'await fetch(this.importUrl');
+
+    // The outgoing session's final callback can write old bytes. Waiting for
+    // it before import ensures the replacement remains the newest revision.
+    expect($teardownAt)->toBeInt()
+        ->and($waitAt)->toBeGreaterThan($teardownAt)
+        ->and($uploadAt)->toBeGreaterThan($waitAt);
 });
 
 it('rejects an import that is not a real .docx', function () {

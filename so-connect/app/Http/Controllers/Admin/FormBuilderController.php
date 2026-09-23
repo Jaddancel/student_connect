@@ -158,6 +158,9 @@ class FormBuilderController extends Controller
             // A form's system-function binding is immutable after creation.
             'lockedFunction' => $form->system_function ?: null,
             'iconChoices' => $this->iconChoices(),
+            // Manual-filling readiness of the form's active printed template.
+            'manualSchema' => optional(app(FormPrintTemplateService::class)->activeStored($form))
+                ->only(['manual_schema_status', 'manual_schema_error']),
         ]);
     }
 
@@ -236,6 +239,7 @@ class FormBuilderController extends Controller
 
         // Fold any Step-2 draft template into the now-persisted form.
         $this->adoptPrintedTemplateDraft($form, $data['draft_id'], $request->user()?->getKey());
+        $this->dispatchManualSchema($form);
 
         \App\Services\ActionLogger::log(
             \App\Services\ActionLogger::CATEGORY_FORM_BUILDER,
@@ -278,6 +282,7 @@ class FormBuilderController extends Controller
 
         // Fold any Step-2 draft template into the form (overwrites its .docx).
         $this->adoptPrintedTemplateDraft($form, $data['draft_id'], $request->user()?->getKey());
+        $this->dispatchManualSchema($form);
 
         \App\Services\ActionLogger::log(
             \App\Services\ActionLogger::CATEGORY_FORM_BUILDER,
@@ -488,6 +493,35 @@ class FormBuilderController extends Controller
 
         try {
             app(FormPrintTemplateService::class)->adoptDraft($form, $draftId, $userId);
+        } catch (\Throwable $throwable) {
+            report($throwable);
+        }
+    }
+
+    /**
+     * Queue baseline manual-filling schema generation for the form's active
+     * template, mapped to its current version. Runs after the Step 2 draft is
+     * adopted so it reflects the final printed layout. Marks the template
+     * pending immediately so the builder can show progress. Never fails the
+     * save.
+     */
+    private function dispatchManualSchema(Form $form): void
+    {
+        try {
+            $template = app(FormPrintTemplateService::class)->activeStored($form);
+            if ($template === null) {
+                return;
+            }
+
+            $template->forceFill([
+                'manual_schema_status' => 'pending',
+                'manual_schema_error' => null,
+            ])->save();
+
+            \App\Jobs\GenerateTemplateManualSchema::dispatch(
+                (int) $template->getKey(),
+                (int) $template->version,
+            );
         } catch (\Throwable $throwable) {
             report($throwable);
         }

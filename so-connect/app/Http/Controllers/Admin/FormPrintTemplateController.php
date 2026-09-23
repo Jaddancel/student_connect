@@ -6,6 +6,7 @@ use App\Forms\FieldType;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
 use App\Models\Template as FormTemplate;
+use App\Services\DocxConverter;
 use App\Services\DocxTemplateService;
 use App\Services\FormPrintTemplateService;
 use App\Services\OnlyOfficeService;
@@ -41,6 +42,33 @@ class FormPrintTemplateController extends Controller
     private const PURPOSE_CALLBACK = 'callback';
 
     private const PURPOSE_PLUGIN = 'plugin';
+
+    /**
+     * Serve a short-lived populated DOCX to the Document Server's conversion
+     * API. The random cache key and scoped JWT keep scratch documents private.
+     */
+    public function conversionSource(
+        Request $request,
+        string $conversionId,
+        OnlyOfficeService $onlyOffice,
+    ) {
+        $claims = $onlyOffice->verify($request->query('token'));
+        abort_unless(
+            is_array($claims)
+                && ($claims['purpose'] ?? null) === 'conversion-source'
+                && hash_equals($conversionId, (string) ($claims['cid'] ?? '')),
+            403,
+        );
+
+        $contents = \Illuminate\Support\Facades\Cache::store('file')
+            ->get(DocxConverter::SOURCE_CACHE_PREFIX.$conversionId);
+        abort_unless(is_string($contents) && $contents !== '', 404);
+
+        return response($contents, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
 
     /** Field types that carry no submitted value and so make no useful token. */
     private const NON_PRINTABLE_FIELD_TYPES = ['heading', 'static-text'];

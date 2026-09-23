@@ -74,6 +74,17 @@ final class FieldType
      */
     public const POSITION_OPTIONS = ['President', 'Treasurer', 'Auditor', 'Secretary', 'Others'];
 
+    // ---- Manual-filling paper support (see docs/manual-form-parsing-contract.md) ----
+
+    /** A text-like value the document-vision model can read from handwriting. */
+    public const PAPER_EXTRACT = 'extract';
+
+    /** Reported by presence + bounding box only, never as text. */
+    public const PAPER_SIGNATURE = 'signature';
+
+    /** Excluded from manual parsing; must be supplied on the digital form. */
+    public const PAPER_DIGITAL_ONLY = 'digital_only';
+
     /**
      * Hard upload allowlists — uploads are limited to JPEG/PNG/HEIC (+ PDF for
      * generic files) no matter what a field's `accept` config says.
@@ -722,5 +733,51 @@ final class FieldType
             ->filter(fn ($p) => $p['value'] !== '')
             ->values()
             ->all();
+    }
+
+    /**
+     * Classify a field's manual-filling paper support: whether a scanned,
+     * handwritten value can be extracted for it, whether it is a signature
+     * (presence/bbox only), or whether it must stay on the digital form.
+     *
+     * Optioned fields are only extractable when their options are static and
+     * hand-typed — a sourced/relationship-backed select has no fixed paper set
+     * to match against. See docs/manual-form-parsing-contract.md.
+     *
+     * @param  array<string,mixed>  $options  the field's `field_options`
+     */
+    public static function paperSupport(string $type, array $options = []): string
+    {
+        if ($type === self::SIGNATURE) {
+            return self::PAPER_SIGNATURE;
+        }
+
+        if (in_array($type, [
+            self::TEXT, self::TEXTAREA, self::NUMBER, self::AGE, self::EMAIL,
+            self::NEW_OFFICER_EMAIL, self::NEW_PRESIDENT_EMAIL,
+            self::DATE, self::TIME, self::DATETIME, self::TEXT_LIST, self::TABLE_INPUT,
+        ], true)) {
+            return self::PAPER_EXTRACT;
+        }
+
+        if (in_array($type, [self::SELECT, self::RADIO, self::CHECKBOX], true)) {
+            if (OptionSource::forField($options) === null && self::optionValues($options) !== []) {
+                return self::PAPER_EXTRACT;
+            }
+
+            return self::PAPER_DIGITAL_ONLY;
+        }
+
+        return self::PAPER_DIGITAL_ONLY;
+    }
+
+    /**
+     * Whether a handwritten value for this field can be read from a scan.
+     *
+     * @param  array<string,mixed>  $options  the field's `field_options`
+     */
+    public static function isPaperExtractable(string $type, array $options = []): bool
+    {
+        return self::paperSupport($type, $options) === self::PAPER_EXTRACT;
     }
 }

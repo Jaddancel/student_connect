@@ -161,6 +161,8 @@
             </div>
         @endif
 
+        <x-admin.manual-source :payload="$submissionPayload" />
+
         {{-- Decision Panel --}}
         @if ($approval)
             <div class="rounded-2xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-800 dark:bg-white/[0.03]">

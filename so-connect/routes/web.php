@@ -33,6 +33,7 @@ use App\Http\Controllers\ExportController;
 use App\Http\Controllers\FormBlankPdfController;
 use App\Http\Controllers\FormDirectoryController;
 use App\Http\Controllers\FormRenderController;
+use App\Http\Controllers\ManualFormSessionController;
 use App\Http\Controllers\GuestAccessController;
 use App\Http\Controllers\IdScanController;
 use App\Http\Controllers\LandingPage;
@@ -329,6 +330,26 @@ Route::get('/forms/{routeName}/blank-pdf', [FormBlankPdfController::class, 'show
 Route::get('/forms/{routeName}', [FormRenderController::class, 'show'])->name('forms.render');
 Route::post('/forms/{routeName}', [FormRenderController::class, 'submit'])
     ->middleware('throttle:20,1')->name('forms.render.submit');
+
+// Manual-filling sessions ("drafts"): start freezes the exact partial PDF, then
+// the completed scan is uploaded and parsed. These live outside the auth group
+// because a public form (Sign Up / New Organization) is fillable by guests;
+// every action authorizes per session (owner, or a public resume token).
+Route::post('/forms/{routeName}/manual/start', [ManualFormSessionController::class, 'start'])
+    ->middleware('throttle:10,1')->name('manual.start');
+Route::get('/manual/{session}', [ManualFormSessionController::class, 'show'])->name('manual.show');
+Route::get('/manual/{session}/status', [ManualFormSessionController::class, 'status'])->name('manual.status');
+Route::get('/manual/{session}/partial.pdf', [ManualFormSessionController::class, 'download'])->name('manual.download');
+Route::post('/manual/{session}/scan', [ManualFormSessionController::class, 'upload'])
+    ->middleware('throttle:20,1')->name('manual.upload');
+Route::post('/manual/{session}/retry', [ManualFormSessionController::class, 'retry'])
+    ->middleware('throttle:20,1')->name('manual.retry');
+Route::delete('/manual/{session}', [ManualFormSessionController::class, 'destroy'])->name('manual.destroy');
+
+// The Drafts page is officer-only (type 3): a filtered list of the signed-in
+// user's own open manual drafts. Public guests resume via their private link.
+Route::get('/drafts', [ManualFormSessionController::class, 'drafts'])
+    ->middleware('auth')->name('manual.drafts');
 
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/posts', [PostController::class, 'index'])->name('posts.index');
@@ -1197,6 +1218,17 @@ Route::prefix('onlyoffice/draft/{draftId}')
             ->where('token', '[^/]+')
             ->name('onlyoffice.draft.plugin');
     });
+
+Route::get('/onlyoffice/conversion/{conversionId}/source', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'conversionSource'])
+    ->where(['conversionId' => '[A-Za-z0-9\-]+'])
+    ->withoutMiddleware([
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        \App\Http\Middleware\SecurityHeaders::class,
+        \App\Http\Middleware\EnsurePasswordChanged::class,
+        \App\Http\Middleware\EnsureOrganizationAccredited::class,
+        \App\Http\Middleware\PreventBackHistory::class,
+    ])
+    ->name('onlyoffice.conversion-source');
 
 Route::prefix('onlyoffice/{form}')
     ->withoutMiddleware([

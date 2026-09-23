@@ -75,6 +75,15 @@ it('lets an admin open the builder pages', function () {
     $this->actingAs($admin)->get(route('admin.form-builder.create'))->assertOk();
 });
 
+it('does not require extension services on the new event form', function () {
+    app(\Database\Seeders\FormPagesSeeder::class)->run();
+
+    $form = Form::where('route_name', 'new-event')->firstOrFail();
+    $field = $form->fields()->where('field_key', 'extension_services')->firstOrFail();
+
+    expect((bool) $field->is_required)->toBeFalse();
+});
+
 it('blocks non-admins from the builder', function () {
     $member = makeUser(3);
 

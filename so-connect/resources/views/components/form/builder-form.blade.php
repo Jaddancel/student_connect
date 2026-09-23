@@ -105,10 +105,21 @@
     </div>
 
     <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-        <div class="flex justify-end gap-3">
+        <div class="flex flex-wrap items-center justify-end gap-3">
             @if ($preview)
                 <span class="text-sm text-gray-400">Submission is disabled in preview.</span>
             @else
+                @if (($manualEnabled ?? true) && ($form->route_name ?? ''))
+                    <div x-data="manualFormStart({ startUrl: '{{ route('manual.start', $form->route_name) }}', csrf: '{{ csrf_token() }}' })"
+                        class="mr-auto flex items-center gap-2">
+                        <button type="button" @click="start()" :disabled="starting"
+                            class="rounded-lg border border-brand-300 px-4 py-2.5 text-sm font-medium text-brand-600 transition hover:bg-brand-50 disabled:opacity-60 dark:border-brand-500/40 dark:text-brand-300 dark:hover:bg-brand-500/10">
+                            <span x-show="!starting">Start Manual Filling</span>
+                            <span x-show="starting" x-cloak>Preparing…</span>
+                        </button>
+                        <span x-show="error" x-cloak x-text="error" class="text-xs text-error-600"></span>
+                    </div>
+                @endif
                 <button type="reset" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">Clear</button>
                 <button type="submit" class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">{{ $submitLabel }}</button>
             @endif

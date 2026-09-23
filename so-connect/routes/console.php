@@ -26,6 +26,9 @@ Schedule::command('accreditation:enforce --disable')->daily();
 Schedule::command('backup:auto')->hourly();
 Schedule::command('backup:clean')->daily();
 
+// Daily reap of abandoned manual-filling drafts (and their files) past expiry.
+Schedule::command('manual-sessions:cleanup')->daily();
+
 Artisan::command('forms:bootstrap-template
     {name : Display name of the form}
     {docx_path : Path to source DOCX template}

@@ -117,7 +117,7 @@ class OcrClient
      * sidecar's extracted text fields, signature crops, and stamp detection.
      *
      * @param  array<string,mixed>  $template  {reference:{width,height}, zones:[...]}
-     * @return array<string,mixed>  ['ok'=>bool, 'fields'=>..., 'signature'=>bool, 'stamp'=>bool, ...]
+     * @return array<string,mixed> ['ok'=>bool, 'fields'=>..., 'signature'=>bool, 'stamp'=>bool, ...]
      */
     public function scanWaiver(string $imagePng, array $template): array
     {
@@ -140,6 +140,57 @@ class OcrClient
             Log::warning('Waiver scan unreachable: '.$e->getMessage());
 
             return ['ok' => false];
+        }
+    }
+
+    /**
+     * Order and deskew a set of scanned pages against the frozen reference
+     * pages of a manual-filling session. Reference pages are ordered base64
+     * PNGs; scans are raw image bytes in upload order (the sidecar re-orders
+     * them). Returns aligned per-reference-page images plus quality/missing/
+     * duplicate warnings. Failure is graceful (`ok:false`).
+     *
+     * @param  array<int,string>  $referencePngs  ordered base64 reference pages
+     * @param  array<int,string>  $scanBytes  raw scan image bytes, any order
+     * @return array{ok:bool, pages?:array<int,array<string,mixed>>, warnings?:array<int,string>, note?:string}
+     */
+    public function alignPages(array $referencePngs, array $scanBytes): array
+    {
+        $url = rtrim((string) config('services.ocr.url'), '/').'/align-pages';
+        $timeout = (int) config('services.ocr.timeout', 60);
+
+        if ($referencePngs === [] || $scanBytes === []) {
+            return ['ok' => false, 'note' => 'no pages to align'];
+        }
+
+        try {
+            $request = Http::timeout($timeout);
+            foreach (array_values($scanBytes) as $i => $bytes) {
+                $request = $request->attach('pages', $bytes, 'scan-'.$i.'.png');
+            }
+
+            $response = $request->post($url, [
+                'references' => json_encode(array_values($referencePngs)),
+            ]);
+
+            if (! $response->successful()) {
+                Log::warning('Page alignment returned non-200', [
+                    'status' => $response->status(),
+                    'detail' => $response->json('detail'),
+                ]);
+
+                return ['ok' => false, 'note' => 'aligner error'];
+            }
+
+            return [
+                'ok' => true,
+                'pages' => (array) $response->json('pages', []),
+                'warnings' => (array) $response->json('warnings', []),
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Page alignment unreachable: '.$e->getMessage());
+
+            return ['ok' => false, 'note' => 'aligner unavailable'];
         }
     }
 
@@ -308,7 +359,7 @@ class OcrClient
      * Full-word middle names are indistinguishable from compound first names on
      * a printed ID, so they intentionally stay in first_name.
      *
-     * @return array<string,string>  subset of first_name/middle_name/last_name
+     * @return array<string,string> subset of first_name/middle_name/last_name
      */
     public static function splitFullName(string $raw): array
     {
@@ -372,7 +423,7 @@ class OcrClient
      * Split a trailing generational suffix off a token list.
      *
      * @param  array<int,string>  $tokens
-     * @return array{0: array<int,string>, 1: string}  [remaining tokens, suffix ('' when none)]
+     * @return array{0: array<int,string>, 1: string} [remaining tokens, suffix ('' when none)]
      */
     private static function stripSuffix(array $tokens): array
     {
