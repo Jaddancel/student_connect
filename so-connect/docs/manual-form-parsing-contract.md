@@ -125,9 +125,12 @@ Writable areas come from one of two sources:
   blank render read by the document-vision model; they have no `cell_path`.
 
 `writable_area` is `present`, `missing`, or `uncertain`. For table cells the
-verdict uses a minimum-size heuristic: the blank room the cell leaves (its size
-minus any label text preceding the placeholder) is compared against per-field-type
-minimums in `config/manual_form.php`. A **required** field with a `missing`
+verdict is driven by the **horizontal room** the cell leaves for handwriting:
+its width minus any label or printed value before the placeholder on that line,
+compared against per-field-type minimums in `config/manual_form.php`. Row height
+only blocks when a row is pinned to an exact, sub-line height; auto-height rows
+grow to at least one writable line on print, and page position is never used to
+block (the estimate is too coarse). A **required** field with a `missing`
 writable area marks manual filling **unavailable** for that template version
 (ordinary online submission stays available).
 
@@ -174,17 +177,16 @@ with a named-field warning; the user cannot enter the drop state for that draft.
 
 **Writable areas for table fields are re-measured per session, not copied from
 the baseline.** The partial document is populated with the real `known_values`,
-so a long digital entry can grow a table row and push the fields below it down
-(or off the page) — a distortion the blank template never shows. Because the
-freeze runs while the user waits ("Preparing your printable form…"), no model
-inference runs here:
+so a long value printed on the same line as a field can consume the cell's width
+and leave no room to write it by hand — a distortion the blank template never
+shows. Because the freeze runs while the user waits ("Preparing your printable
+form…"), no model inference runs here:
 
 - With a baseline `cell_path` → its cell is re-measured against the session's
   populated `.docx` (deterministic, fast), so the verdict reflects the actual
-  printed layout.
+  printed line.
 - Without a `cell_path` → the field keeps the baseline area the vision model
-  located at save time (the layout of a free-flow field does not shift with a
-  table row's growth).
+  located at save time.
 
 ---
 
@@ -304,6 +306,20 @@ is meaningful; anything below `DOCUMENT_VISION_CONFIDENCE_THRESHOLD` is surfaced
 as low-confidence for review but **still shown**, never silently dropped.
 `unresolved` lists requested keys the model returned `null` for or that failed
 validation. Signatures never appear in `values`.
+
+### 4.3 Signature capture
+
+The model reports a signature only as `present` + a `bounds` box, never as an
+image. To capture the ink, `ManualScanParser` crops each signature field's
+**known schema region** (its `page`/`bounds`, i.e. the deterministic cell or
+located area) from the aligned scan — cropped whether or not the model flagged
+presence, since a small model often overlooks a handwritten mark — and runs it
+through `App\Support\SignatureImage` (server-side ink extraction). A blank region
+yields no ink and is skipped; implausible whole-page boxes are ignored. Each page
+is decoded once and only the small regions are analysed. The stored paths live in
+`parse_result.signature_images` (field key → path) and are pre-filled into the
+review form like a saved signature, so the signer's ink carries into the reviewed
+submission.
 
 ---
 

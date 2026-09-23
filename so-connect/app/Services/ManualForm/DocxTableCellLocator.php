@@ -127,9 +127,7 @@ class DocxTableCellLocator
         $y1 = $this->clamp01($yStartTwips / $pageH);
         $y2 = $this->clamp01(($yStartTwips + $rowHeight) / $pageH);
 
-        $overflowed = ($yStartTwips + $rowHeight) > ($pageH - $page['marginBottom']);
-
-        $writable = $this->classify($cell, $cellWidth, $rowHeight, $fieldType, $overflowed);
+        $writable = $this->classify($cell, $cellWidth, $row, $fieldType);
 
         return [
             'page' => 0,
@@ -340,6 +338,8 @@ class DocxTableCellLocator
         return [
             'repeating' => $repeating,
             'height' => max(1, $height),
+            'heightRule' => $heightRule,
+            'heightVal' => $heightVal,
             'cells' => $cells,
         ];
     }
@@ -456,28 +456,37 @@ class DocxTableCellLocator
     }
 
     /**
-     * Classify the blank room a field's cell offers using the minimum-size
-     * heuristic. The label text preceding the placeholder on its line is
-     * subtracted from the horizontal room; an off-page row is always missing.
+     * Classify the blank room a field's cell offers. Handwriting is constrained
+     * by horizontal room, so the verdict is driven by the cell width minus any
+     * label printed before the placeholder on its line. Height only blocks when
+     * the row is pinned to an exact, sub-line height (an auto row grows to at
+     * least one writable line on print); page position is never used, since the
+     * estimate is too coarse to justify blocking a field that visibly fits.
      *
      * @param  array<string,mixed>  $cell
+     * @param  array<string,mixed>  $row
      */
-    private function classify(array $cell, int $cellWidth, int $rowHeight, string $fieldType, bool $overflowed): string
+    private function classify(array $cell, int $cellWidth, array $row, string $fieldType): string
     {
-        if ($overflowed) {
-            return 'missing';
+        // No reliable width measurement — never block on a guess.
+        if ($cellWidth <= 0) {
+            return 'uncertain';
         }
 
         $minimums = $this->minimums($fieldType);
         $leadingTwips = $this->leadingLabelWidth($cell);
-
         $availableWidth = max(0, $cellWidth - $this->cellMargin() - $leadingTwips);
-        $availableHeight = max(0, $rowHeight - $this->cellMargin());
 
-        $ratio = min(
-            $minimums['min_width'] > 0 ? $availableWidth / $minimums['min_width'] : 1.0,
-            $minimums['min_height'] > 0 ? $availableHeight / $minimums['min_height'] : 1.0,
-        );
+        $widthRatio = $minimums['min_width'] > 0 ? $availableWidth / $minimums['min_width'] : 1.0;
+
+        // Word honours an exact row height by clipping overflow, so a pinned row
+        // shorter than a writable line genuinely has nowhere to write.
+        $heightRatio = 1.0;
+        if (($row['heightRule'] ?? null) === 'exact' && $minimums['min_height'] > 0) {
+            $heightRatio = (int) ($row['heightVal'] ?? 0) / $minimums['min_height'];
+        }
+
+        $ratio = min($widthRatio, $heightRatio);
 
         $uncertain = (float) config('manual_form.writable_area.uncertain_ratio', 0.75);
         if ($ratio >= 1.0) {

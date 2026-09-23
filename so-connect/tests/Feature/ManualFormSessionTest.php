@@ -98,6 +98,26 @@ function manualPartialDocx(string $sessionId, string $rows): void
     @unlink($tmp);
 }
 
+/** A light-background PNG with a dark handwritten-style scrawl (has real ink). */
+function manualSignaturePng(): string
+{
+    $img = imagecreatetruecolor(200, 80);
+    imagefilledrectangle($img, 0, 0, 199, 79, imagecolorallocate($img, 255, 255, 255));
+    $ink = imagecolorallocate($img, 12, 12, 20);
+    imagesetthickness($img, 3);
+    imageline($img, 12, 60, 60, 20, $ink);
+    imageline($img, 60, 20, 92, 60, $ink);
+    imageline($img, 92, 60, 150, 24, $ink);
+    imageline($img, 20, 46, 168, 46, $ink);
+
+    ob_start();
+    imagepng($img);
+    $bytes = (string) ob_get_clean();
+    imagedestroy($img);
+
+    return $bytes;
+}
+
 it('sends scan pages as repeated multipart fields expected by FastAPI', function () {
     config(['services.ocr.url' => 'http://ocr.test']);
     Http::fake([
@@ -248,6 +268,57 @@ it('rasterizes an uploaded PDF before aligning manual scan pages', function () {
         ->and($session->parse_error)->toBeNull();
 });
 
+it('crops a detected signature from the scan and stores it for review', function () {
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+
+    $form = manualForm('adviser_sig', 'sig-scan-form');
+    $session = manualSession($form, [
+        'status' => ManualFormSession::STATUS_PARSING,
+        'page_meta' => [['index' => 0, 'path' => 'manual-form/ref.png']],
+        'scan_paths' => ['manual-form/scan.png'],
+        'session_schema' => ['extractable_fields' => [
+            ['key' => 'adviser_sig', 'type' => 'signature', 'page' => 0, 'bounds' => [0.05, 0.1, 0.85, 0.75]],
+        ]],
+    ]);
+    Storage::disk('public')->put('manual-form/ref.png', 'ref-bytes');
+    Storage::disk('public')->put('manual-form/scan.png', manualSignaturePng());
+
+    $ocr = Mockery::mock(OcrClient::class);
+    $ocr->shouldReceive('alignPages')->once()->andReturn([
+        'ok' => true,
+        'pages' => [[
+            'index' => 0,
+            'matched' => true,
+            'image' => 'data:image/png;base64,'.base64_encode(manualSignaturePng()),
+        ]],
+        'warnings' => [],
+    ]);
+
+    $vision = Mockery::mock(DocumentVisionClient::class);
+    $vision->shouldReceive('extract')->once()->andReturn([
+        'ok' => true,
+        'model' => 'test-model',
+        'values' => [],
+        'signatures' => [
+            'adviser_sig' => ['present' => true, 'page' => 0, 'bounds' => [0.0, 0.0, 1.0, 1.0]],
+        ],
+        'unresolved' => [],
+        'confidence' => [],
+        'warnings' => [],
+    ]);
+
+    (new ManualScanParser($ocr, $vision, Mockery::mock(PdfRasterizer::class)))
+        ->parse((string) $session->getKey());
+
+    $session->refresh();
+    $stored = $session->parse_result['signature_images']['adviser_sig'] ?? null;
+
+    expect($session->status)->toBe(ManualFormSession::STATUS_REVIEW)
+        ->and($stored)->not->toBeNull()
+        ->and(Storage::disk('public')->exists($stored))->toBeTrue();
+});
+
 it('links a reviewed manual draft to its submission and records provenance', function () {
     Storage::fake('public');
     config(['documents.disk' => 'public']);
@@ -373,7 +444,7 @@ it('reaps expired abandoned drafts but keeps submitted ones', function () {
         ->and(ManualFormSession::find($submitted->id))->not->toBeNull();
 });
 
-it('blocks a session when a populated value pushes a required field off the printed page', function () {
+it('blocks a session when a populated value leaves a required field no room to write', function () {
     Storage::fake('public');
     config(['documents.disk' => 'public']);
 
@@ -388,7 +459,7 @@ it('blocks a session when a populated value pushes a required field off the prin
             'type' => 'text',
             'paper_support' => 'extract',
             'writable_area' => 'present',
-            'cell_path' => ['block' => 0, 'row' => 1, 'col' => 1, 'colspan' => 1, 'rowspan' => 1],
+            'cell_path' => ['block' => 0, 'row' => 0, 'col' => 1, 'colspan' => 1, 'rowspan' => 1],
         ]]],
         'extractable_fields' => [[
             'key' => 'adviser2_name',
@@ -399,15 +470,12 @@ it('blocks a session when a populated value pushes a required field off the prin
         ]],
     ]);
 
-    // A long digital value grew the first row past the printable height, so the
-    // required field's row now overflows the page and has no room to write.
+    // A long value printed on the same line as the field consumes the cell's
+    // width, so there is no room left to write the required field by hand.
     manualPartialDocx((string) $session->getKey(),
-        '<w:tr><w:trPr><w:trHeight w:val="14000" w:hRule="exact"/></w:trPr>'
+        '<w:tr><w:trPr><w:trHeight w:val="600" w:hRule="exact"/></w:trPr>'
         .'<w:tc><w:p><w:r><w:t>Adviser 1 Name:</w:t></w:r></w:p></w:tc>'
-        .'<w:tc><w:p><w:r><w:t>A very long adviser full legal name value</w:t></w:r></w:p></w:tc></w:tr>'
-        .'<w:tr><w:trPr><w:trHeight w:val="600" w:hRule="exact"/></w:trPr>'
-        .'<w:tc><w:p><w:r><w:t>Adviser 2 Name:</w:t></w:r></w:p></w:tc>'
-        .'<w:tc><w:p><w:r><w:t>{{adviser2_name}}</w:t></w:r></w:p></w:tc></w:tr>'
+        .'<w:tc><w:p><w:r><w:t>Full legal name of the faculty adviser assigned: {{adviser2_name}}</w:t></w:r></w:p></w:tc></w:tr>'
     );
 
     app(\App\Services\ManualForm\ManualSessionSchemaGenerator::class)->generate((string) $session->getKey());

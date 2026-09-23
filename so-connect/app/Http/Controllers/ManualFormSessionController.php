@@ -102,11 +102,16 @@ class ManualFormSessionController extends Controller
         if ($session->status === ManualFormSession::STATUS_REVIEW && $form !== null) {
             $context = \App\Forms\FormRenderContext::build($form, $request);
             $parsed = (array) ($session->parse_result['values'] ?? []);
+            // Signatures the model read on paper are cropped and stored at parse
+            // time; pre-fill them like any saved signature so the signer's ink
+            // carries into the reviewed submission.
+            $signatureImages = (array) ($session->parse_result['signature_images'] ?? []);
             $prefill = array_merge(
                 (array) $context['prefill'],
                 (array) $session->draft_payload,
                 (array) $session->known_fields,
                 $parsed,
+                $signatureImages,
             );
             $hidden = (array) $context['hidden'];
             $hidden['manual_session_id'] = (string) $session->getKey();

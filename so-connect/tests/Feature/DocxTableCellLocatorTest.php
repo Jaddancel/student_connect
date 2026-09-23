@@ -88,28 +88,46 @@ it('skips repeating tables so row-cloning fields stay on the vision path', funct
     @unlink($docx);
 });
 
-it('reports missing space when a preceding grown row pushes a field off the page', function () {
+it('reports missing space when a long value on the field line crowds it out', function () {
     $locator = app(DocxTableCellLocator::class);
-    $cellPath = ['block' => 0, 'row' => 1, 'col' => 1];
+    $cellPath = ['block' => 0, 'row' => 0, 'col' => 1];
 
-    // Baseline: a short first row leaves the target row comfortably on the page.
-    $baseline = locatorDocx(locatorTable(
-        locatorRow(locatorCell('Header').locatorCell('value'))
-        .locatorRow(locatorCell('Adviser 2 Name:').locatorCell('{{adviser2_name}}'))
+    // Fits: a short printed value leaves the field plenty of room to write.
+    $fits = locatorDocx(locatorTable(
+        locatorRow(locatorCell('Adviser:').locatorCell('Ref 12 {{adviser2_name}}'))
     ));
 
-    // Populated: a long digital value grew the first row past the printable
-    // height, so the target row now overflows the page (no room to write).
-    $populated = locatorDocx(locatorTable(
-        locatorRow(locatorCell('Header').locatorCell('long value'), 14000)
-        .locatorRow(locatorCell('Adviser 2 Name:').locatorCell('{{adviser2_name}}'))
+    // Crowded: a long digital value populated on the same line leaves no room.
+    $crowded = locatorDocx(locatorTable(
+        locatorRow(locatorCell('Adviser:').locatorCell(
+            'Full legal name of the faculty adviser assigned: {{adviser2_name}}'
+        ))
     ));
 
-    expect($locator->geometryFor($baseline, $cellPath, 'text')['writable_area'])->not->toBe('missing')
-        ->and($locator->geometryFor($populated, $cellPath, 'text')['writable_area'])->toBe('missing');
+    expect($locator->geometryFor($fits, $cellPath, 'text')['writable_area'])->toBe('present')
+        ->and($locator->geometryFor($crowded, $cellPath, 'text')['writable_area'])->toBe('missing');
 
-    @unlink($baseline);
-    @unlink($populated);
+    @unlink($fits);
+    @unlink($crowded);
+});
+
+it('does not report missing for a normal single-line auto-height row', function () {
+    // A plain one-line cell (auto height, no label) must read as writable —
+    // regressed previously when a horizontal inset was subtracted from height.
+    $docx = locatorDocx(locatorTable(
+        '<w:tr><w:tc><w:p><w:r><w:t>Adviser 2 Name:</w:t></w:r></w:p></w:tc>'
+        .'<w:tc><w:p><w:r><w:t>{{adviser2_name}}</w:t></w:r></w:p></w:tc></w:tr>'
+    ));
+
+    $geometry = app(DocxTableCellLocator::class)->geometryFor(
+        $docx,
+        ['block' => 0, 'row' => 0, 'col' => 1],
+        'text',
+    );
+
+    expect($geometry['writable_area'])->toBe('present');
+
+    @unlink($docx);
 });
 
 it('shrinks writable width when a label precedes the placeholder in the cell', function () {
