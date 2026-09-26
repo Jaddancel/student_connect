@@ -202,6 +202,15 @@ class MenuHelper
             }
         }
 
+        if ((int) $user->user_type === 3 && $user->officers()->where('role', 'president')->exists()) {
+            $menuGroups[] = [
+                'title' => 'Requests',
+                'items' => [
+                    ['icon' => 'task', 'name' => 'Membership Requests', 'path' => '/membership-requests'],
+                ],
+            ];
+        }
+
         return $menuGroups;
     }
 

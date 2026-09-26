@@ -25,6 +25,7 @@ class ApprovalFactory extends Factory
             'approved_at' => now(),
             'request' => null,
             'admin' => null,
+            'stage' => null,
         ];
     }
 

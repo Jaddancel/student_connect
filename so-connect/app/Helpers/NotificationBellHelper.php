@@ -34,6 +34,25 @@ class NotificationBellHelper
     }
 
     /**
+     * @return array<int, int>
+     */
+    public static function organizationAlertCountsForUser(User $user): array
+    {
+        $counts = [];
+
+        foreach (self::buildForUser($user, 24) as $notification) {
+            $organizationId = (int) (($notification['organization_id'] ?? 0));
+            if ($organizationId <= 0) {
+                continue;
+            }
+
+            $counts[$organizationId] = ($counts[$organizationId] ?? 0) + 1;
+        }
+
+        return $counts;
+    }
+
+    /**
      * @return Collection<int, array<string, mixed>>
      */
     public static function semesterWarningNotifications(User $user): Collection
@@ -127,7 +146,9 @@ class NotificationBellHelper
 
                 $link = $isSuperAdmin
                     ? route('superadmin.profile-requests')
-                    : ($canReview && ! $isRequester ? route('approval-requests') : route('dashboard'));
+                    : ($canReview && ! $isRequester && (int) $actionRequest->action_type === 1
+                        ? route('membership-requests')
+                        : route('dashboard'));
 
                 $description = 'New '.$type.' submitted.';
                 if ($isRequester) {
@@ -136,6 +157,8 @@ class NotificationBellHelper
                     $description = 'Requires your review.';
                 }
 
+                $organizationId = self::parseLeadingOrganizationId($actionRequest->action);
+
                 return [
                     'id' => 'request-'.$actionRequest->request_id,
                     'kind' => 'request',
@@ -143,6 +166,7 @@ class NotificationBellHelper
                     'description' => $description,
                     'name' => 'Request #'.$actionRequest->request_id,
                     'created_at' => $actionRequest->requested_at,
+                    'organization_id' => $organizationId,
                     'link' => $link,
                 ];
             })
@@ -179,6 +203,7 @@ class NotificationBellHelper
             ->limit(50)
             ->select([
                 'e.event_id',
+                'e.organization as organization_id',
                 'ed.name as event_name',
                 'ed.start_time',
                 DB::raw("COALESCE(od.name, 'Unknown Organization') as organization_name"),
@@ -187,6 +212,8 @@ class NotificationBellHelper
         return $query
             ->get()
             ->map(function ($event) {
+                $organizationId = (int) ($event->organization_id ?? 0);
+
                 return [
                     'id' => 'event-'.$event->event_id,
                     'kind' => 'event',
@@ -194,6 +221,7 @@ class NotificationBellHelper
                     'description' => $event->event_name.' · '.$event->organization_name,
                     'name' => $event->event_name,
                     'created_at' => $event->start_time,
+                    'organization_id' => $organizationId,
                     'link' => route('calendar'),
                 ];
             })
@@ -231,6 +259,7 @@ class NotificationBellHelper
             'description' => ($row->form_name ?? 'A document').' is ready for download.',
             'name'        => $row->form_name ?? 'Document',
             'created_at'  => $row->generated_at,
+            'organization_id' => (int) ($row->organization_id ?? 0),
             'link'        => route('documents.index'),
         ])->values();
     }

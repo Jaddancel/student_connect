@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Faker\FilipinoPersonProvider;
+use App\Helpers\NotificationBellHelper;
+use App\Helpers\OrganizationLogoHelper;
 use App\Listeners\LogAuthActivity;
 use App\Listeners\SendLoginNotification;
 use App\Models\Officer;
@@ -83,7 +85,52 @@ class AppServiceProvider extends ServiceProvider
                 return (int) $query->count();
             });
 
-            $view->with('newDocumentCount', $count);
+            $user = auth()->user();
+            $organizationSwitcherItems = collect();
+            $activeOrganizationId = 0;
+
+            if ($user) {
+                $userId = (int) $user->getKey();
+                $matches = DB::table('organization_officers as oo')
+                    ->join('organizations as o', 'o.organization_id', '=', 'oo.organization')
+                    ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+                    ->where('oo.user', $userId)
+                    ->select([
+                        'o.organization_id as id',
+                        DB::raw("COALESCE(od.name, 'Unknown Organization') as name"),
+                    ])
+                    ->orderBy('name')
+                    ->get();
+
+                $logoMap = OrganizationLogoHelper::map();
+                $counts = NotificationBellHelper::organizationAlertCountsForUser($user);
+
+                $organizationSwitcherItems = $matches->map(function ($organization) use ($logoMap, $counts) {
+                    $orgName = (string) ($organization->name ?? 'Unknown Organization');
+                    $logo = $logoMap[$orgName] ?? null;
+                    $parts = preg_split('/\s+/', trim($orgName));
+                    $initials = implode('', array_map(static fn ($part) => strtoupper(substr($part, 0, 1)), array_slice($parts, 0, 2)));
+
+                    return [
+                        'id' => (int) $organization->id,
+                        'name' => $orgName,
+                        'logo' => $logo,
+                        'initials' => $initials !== '' ? $initials : 'ORG',
+                        'alert_count' => (int) ($counts[(int) $organization->id] ?? 0),
+                    ];
+                })->values();
+
+                $activeOrganizationId = (int) session('active_organization_id', $organizationSwitcherItems->first()['id'] ?? 0);
+                if ($activeOrganizationId <= 0 || ! $organizationSwitcherItems->contains('id', $activeOrganizationId)) {
+                    $activeOrganizationId = (int) ($organizationSwitcherItems->first()['id'] ?? 0);
+                }
+                session(['active_organization_id' => $activeOrganizationId]);
+            }
+
+            $view->with('newDocumentCount', $count)
+                ->with('organizationSwitcherItems', $organizationSwitcherItems)
+                ->with('hasMultipleOrganizations', $organizationSwitcherItems->count() > 1)
+                ->with('activeOrganizationId', $activeOrganizationId);
         });
 
         Gate::define('access-dashboard', function (User $user, string $dashboard): bool {

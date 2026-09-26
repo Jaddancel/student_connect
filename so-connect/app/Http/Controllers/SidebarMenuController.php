@@ -64,21 +64,20 @@ class SidebarMenuController extends Controller
         ]);
     }
 
-    public function approvalRequests(Request $request)
+    public function membershipRequests(Request $request)
     {
         $userId = (int) $request->user()->getKey();
-        $officerOrganizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
         $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
 
-        if (empty($officerOrganizationIds) && empty($presidentOrganizationIds)) {
+        if (empty($presidentOrganizationIds)) {
             return view('pages.sidebar.approval-requests', [
-                'title' => 'Approval Requests',
+                'title' => 'Membership Requests',
                 'rows' => collect(),
             ]);
         }
 
         $candidateRequests = ActionRequest::query()
-            ->whereIn('action_type', [1, 2, 3, 4, 7, 8])
+            ->where('action_type', 1)
             ->orderByDesc('requested_at')
             ->limit(300)
             ->get(['request_id', 'action', 'action_type', 'requested_at', 'user', 'payload']);
@@ -120,13 +119,13 @@ class SidebarMenuController extends Controller
             ->all();
 
         $rows = $candidateRequests
-            ->map(function (ActionRequest $actionRequest) use ($officerOrganizationIds, $presidentOrganizationIds, $formNameMap, $templateNameMap) {
+            ->map(function (ActionRequest $actionRequest) use ($presidentOrganizationIds, $formNameMap, $templateNameMap) {
                 $actionType = (int) $actionRequest->action_type;
 
                 if ($actionType === 1) {
                     [$organizationId] = $this->parseMembershipAction($actionRequest->action);
 
-                    if ($organizationId <= 0 || ! in_array($organizationId, $officerOrganizationIds, true)) {
+                    if ($organizationId <= 0 || ! in_array($organizationId, $presidentOrganizationIds, true)) {
                         return null;
                     }
 
@@ -242,6 +241,7 @@ class SidebarMenuController extends Controller
 
         $approvalMap = Approval::query()
             ->whereIn('request', $rows->pluck('request_id')->all())
+            ->where('stage', 'president')
             ->get(['request', 'is_rejected'])
             ->keyBy('request');
 
@@ -256,7 +256,11 @@ class SidebarMenuController extends Controller
                 $row['request_organization'] = $organizationNameMap[(int) $row['organization_id']] ?? 'Unknown Organization';
                 $row['requester_name'] = $requesterNameMap[(int) $row['requester_user_id']] ?? 'Unknown User';
                 $row['status'] = $status;
-                $row['status_label'] = ucfirst($status);
+                $row['status_label'] = match ($status) {
+                    'approved' => 'President Approved',
+                    'rejected' => 'Rejected by President',
+                    default => 'Pending President Review',
+                };
                 $row['can_decide'] = $status === 'pending';
 
                 return $row;
@@ -267,7 +271,7 @@ class SidebarMenuController extends Controller
         $orgRecognitionFormId = $orgRecognitionForm ? (int) $orgRecognitionForm->getKey() : 0;
 
         return view('pages.sidebar.approval-requests', [
-            'title' => 'Approval Requests',
+            'title' => 'Membership Requests',
             'rows' => $rows,
             'orgRecognitionFormId' => $orgRecognitionFormId,
         ]);

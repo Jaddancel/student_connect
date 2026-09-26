@@ -61,6 +61,36 @@ it('still shows the form builder to admins in the sidebar', function () {
     expect($paths)->toContain('/admin/form-builder');
 });
 
+it('shows membership requests under Requests for organization presidents only', function () {
+    $organization = recordsOrganization('Menu Requests Org');
+    $officer = recordsUser(3);
+    $president = recordsUser(3);
+
+    foreach ([[$officer, 'officer'], [$president, 'president']] as [$user, $role]) {
+        DB::table('organization_officers')->insert([
+            'role' => $role,
+            'organization' => $organization->getKey(),
+            'user' => $user->getKey(),
+            'member_since' => now(),
+            'registered_at' => now(),
+            'reassigned_at' => now(),
+        ]);
+    }
+
+    $this->actingAs($officer);
+    $officerGroups = MenuHelper::getMenuGroups();
+    expect(collect($officerGroups)->pluck('title'))->not->toContain('Requests');
+
+    $this->actingAs($president);
+    $requestGroup = collect(MenuHelper::getMenuGroups())->firstWhere('title', 'Requests');
+
+    expect($requestGroup['items'])->toContain([
+        'icon' => 'task',
+        'name' => 'Membership Requests',
+        'path' => '/membership-requests',
+    ]);
+});
+
 it('does not surface the template manager to super admins in dashboard search', function () {
     $superAdmin = makeMenuUser(1);
 

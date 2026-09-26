@@ -145,9 +145,11 @@ class FormRequestController extends Controller
 
         $actionRequest = $this->requestForForm($form, $requestId);
 
+        $stage = ((int) $actionRequest->action_type === 1) ? 'admin' : null;
+
         if ($validated['decision'] === 'approve') {
             try {
-                $approvalService->approve($actionRequest, $userId);
+                $approvalService->approve($actionRequest, $userId, $stage);
             } catch (\Throwable $throwable) {
                 return back()->withErrors(['request' => $throwable->getMessage()]);
             }
@@ -156,7 +158,7 @@ class FormRequestController extends Controller
                 ->with('success', 'Request approved.');
         }
 
-        $approvalService->reject($actionRequest, $userId, $validated['rejection_reason'] ?? null);
+        $approvalService->reject($actionRequest, $userId, $validated['rejection_reason'] ?? null, $stage);
 
         return redirect()->route('admin.form-requests.index', $form)
             ->with('success', 'Request rejected — the requester can submit the form again.');

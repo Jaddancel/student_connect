@@ -144,10 +144,21 @@ it('rejects with a reason from the form request page', function () {
     expect(GeneratedDocument::query()->where('request_id', $actionRequest->request_id)->exists())->toBeFalse();
 });
 
-it('approves a membership-bound form request, creating the member row', function () {
+it('requires president approval before admin enrollment for a membership request', function () {
     $homeOrg = recordsOrganization('Home Org');
     $targetOrg = recordsOrganization('Target Org');
-    $officer = frpOfficer((int) $homeOrg->getKey());
+    $applicant = frpOfficer((int) $homeOrg->getKey());
+
+    $president = recordsUser(3);
+    DB::table('organization_officers')->insert([
+        'role' => 'president',
+        'organization' => $targetOrg->getKey(),
+        'user' => (int) $president->getKey(),
+        'yearterm' => null,
+        'member_since' => now(),
+        'registered_at' => now(),
+        'reassigned_at' => now(),
+    ]);
 
     $form = frpForm([
         'name' => 'Org Membership',
@@ -155,7 +166,7 @@ it('approves a membership-bound form request, creating the member row', function
         'system_function' => 'membership_registration',
     ], 'organization_id');
 
-    $this->actingAs($officer)
+    $this->actingAs($applicant)
         ->post(route('forms.render.submit', $form->route_name), [
             'organization_id' => (string) $targetOrg->getKey(),
         ])
@@ -164,12 +175,37 @@ it('approves a membership-bound form request, creating the member row', function
     $actionRequest = ActionRequest::query()
         ->where('form_id', $form->id)->where('action_type', 1)->firstOrFail();
 
-    $this->actingAs(recordsUser(2))
-        ->post(route('admin.form-requests.decide', [$form, $actionRequest->request_id]), ['decision' => 'approve'])
-        ->assertRedirect(route('admin.form-requests.index', $form));
+    $this->actingAs($president)
+        ->get(route('membership-requests'))
+        ->assertOk()
+        ->assertSee('Membership Requests')
+        ->assertSee('Membership Registration');
+
+    $admin = recordsUser(2);
+    expect(fn () => app(\App\Services\RequestApprovalService::class)->approve(
+        $actionRequest,
+        (int) $admin->getKey(),
+        'admin',
+    ))->toThrow(\LogicException::class);
+
+    $this->actingAs($president)
+        ->postJson('/api/requests/'.$actionRequest->getKey().'/decision', ['decision' => 'approve'])
+        ->assertOk();
 
     $memberRow = DB::table('organization_officers')
-        ->where('user', $officer->getKey())
+        ->where('user', $applicant->getKey())
+        ->where('organization', $targetOrg->getKey())
+        ->first();
+    expect($memberRow)->toBeNull();
+
+    app(\App\Services\RequestApprovalService::class)->approve(
+        $actionRequest,
+        (int) $admin->getKey(),
+        'admin',
+    );
+
+    $memberRow = DB::table('organization_officers')
+        ->where('user', $applicant->getKey())
         ->where('organization', $targetOrg->getKey())
         ->first();
     expect($memberRow)->not->toBeNull()

@@ -274,7 +274,7 @@ it('maps request type categories to matching sidebar buckets', function () {
         ->and(documentMenuGroupsContain($menuGroups, 'Available Forms'))->toBeFalse();
 });
 
-it('shows form upload requests in the approval queue for presidents', function () {
+it('keeps non-membership requests out of the membership requests page', function () {
     $president = createUserWithProfile('doc-president@example.test');
 
     $organization = Organization::query()->create([
@@ -318,10 +318,10 @@ it('shows form upload requests in the approval queue for presidents', function (
     ]);
 
     $this->actingAs($president)
-        ->get('/approval-requests')
+        ->get('/membership-requests')
         ->assertOk()
-        ->assertSee('Form Upload Request')
-        ->assertSee('Clearance Template');
+        ->assertSee('Membership Requests')
+        ->assertDontSee('Clearance Template');
 });
 
 it('forbids officers from approving form upload requests', function () {

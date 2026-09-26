@@ -78,6 +78,25 @@ class RequestDecisionController extends Controller
             }
         }
 
+        if ($this->isMembershipRequest($actionType, $systemKey)) {
+            $approvalService = app(\App\Services\RequestApprovalService::class);
+
+            if ($validated['decision'] === 'approve') {
+                $approvalService->approve($actionRequest, (int) $user->getKey(), 'president');
+                $message = 'Membership request approved by the president and sent to an admin for final approval.';
+            } else {
+                $approvalService->reject(
+                    $actionRequest,
+                    (int) $user->getKey(),
+                    $validated['rejection_reason'] ?? null,
+                    'president',
+                );
+                $message = 'Membership request rejected.';
+            }
+
+            return response()->json(['message' => $message]);
+        }
+
         $generatedDocumentId = null;
 
         if ($this->isDocumentGenerationRequest($actionType, $systemKey)
@@ -113,23 +132,6 @@ class RequestDecisionController extends Controller
         if ($generatedDocumentId > 0) {
             \App\Models\GeneratedDocument::where('generated_document_id', $generatedDocumentId)
                 ->update(['approval_id' => (int) $approval->approval_id]);
-        }
-
-        if ($this->isMembershipRequest($actionType, $systemKey) && $validated['decision'] === 'approve') {
-            [$targetOrganizationId, $targetUserId] = $this->resolveMembershipDetails($actionRequest);
-
-            if ($targetOrganizationId > 0 && $targetUserId > 0) {
-                DB::table('organization_officers')
-                    ->where('user', $targetUserId)
-                    ->where('organization', $targetOrganizationId)
-                    ->whereIn('role', ['officer', 'president'])
-                    ->delete();
-
-                DB::table('organization_officers')->updateOrInsert(
-                    ['user' => $targetUserId, 'organization' => $targetOrganizationId],
-                    ['role' => 'member', 'member_since' => now(), 'registered_at' => now(), 'reassigned_at' => now()]
-                );
-            }
         }
 
         if ($this->isRoleChangeRequest($actionType, $systemKey) && $validated['decision'] === 'approve') {
@@ -634,7 +636,7 @@ class RequestDecisionController extends Controller
 
     private function isPresidentScopeRequest(int $actionType, string $systemKey): bool
     {
-        return in_array($actionType, [2, 7, 10], true)
+        return in_array($actionType, [1, 2, 7, 10], true)
             || in_array($systemKey, [
                 RequestType::SYSTEM_KEY_EVENT,
                 RequestType::SYSTEM_KEY_ROLE_CHANGE,

@@ -7,6 +7,28 @@ use Illuminate\Support\Facades\DB;
 
 class OrganizationController extends Controller
 {
+    public function switch(Request $request, int $organization)
+    {
+        $userId = (int) $request->user()->getKey();
+        $allowedOrganizationIds = DB::table('organization_officers')
+            ->where('user', $userId)
+            ->whereIn('role', ['officer', 'president'])
+            ->pluck('organization')
+            ->map(fn ($organizationId) => (int) $organizationId)
+            ->filter(fn ($organizationId) => $organizationId > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! in_array($organization, $allowedOrganizationIds, true)) {
+            abort(403);
+        }
+
+        session(['active_organization_id' => $organization]);
+
+        return redirect()->back();
+    }
+
     public function manage(Request $request)
     {
         $userId = (int) $request->user()->getKey();

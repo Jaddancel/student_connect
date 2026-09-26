@@ -16,8 +16,8 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Org Membership Registration: a bound form's submission creates the same
- * action_type=1 membership request the /register flow does (auto-approved when
- * the requester is the org's president).
+ * action_type=1 membership request the /register flow does, but requests now
+ * require the receiving org president and then the admin before enrollment.
  */
 class MembershipRegistrationHandler implements SystemFunctionHandler
 {
@@ -48,7 +48,18 @@ class MembershipRegistrationHandler implements SystemFunctionHandler
         $hasPendingRequest = ActionRequest::query()
             ->where('action_type', 1)
             ->where('action', $organizationId.'|'.$userId)
-            ->whereNotIn('request_id', Approval::query()->select('request')->whereNotNull('request'))
+            ->whereNotExists(function ($query) {
+                $query->from('approvals as a')
+                    ->whereColumn('a.request', 'requests.request_id')
+                    ->where(function ($nested) {
+                        $nested->whereNull('a.stage')
+                            ->orWhere('a.stage', 'admin');
+                    })
+                    ->where(function ($nested) {
+                        $nested->where('a.is_rejected', false)
+                            ->orWhereNull('a.is_rejected');
+                    });
+            })
             ->exists();
         if ($hasPendingRequest) {
             throw ValidationException::withMessages([
@@ -89,8 +100,6 @@ class MembershipRegistrationHandler implements SystemFunctionHandler
             'user' => $userId,
             'requested_at' => now(),
         ]);
-
-        app(RequestApprovalService::class)->autoApproveIfPresident($actionRequest, $userId);
 
         return redirect()
             ->route('forms.render', $form->route_name)

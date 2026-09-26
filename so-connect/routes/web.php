@@ -241,9 +241,18 @@ Route::get('/download-files/{documentId}/download', [SidebarMenuController::clas
     ->middleware('auth')
     ->name('download-files.download');
 
-Route::get('/approval-requests', [SidebarMenuController::class, 'approvalRequests'])
+Route::get('/membership-requests', [SidebarMenuController::class, 'membershipRequests'])
+    ->middleware('auth')
+    ->name('membership-requests');
+
+Route::get('/approval-requests', fn () => redirect()->route('membership-requests'))
     ->middleware('auth')
     ->name('approval-requests');
+
+Route::post('/organizations/{organization}/switch', [OrganizationController::class, 'switch'])
+    ->whereNumber('organization')
+    ->middleware('auth')
+    ->name('organizations.switch');
 
 Route::get('/request-forms', [SidebarMenuController::class, 'requestForms'])
     ->middleware(['auth', 'admin'])

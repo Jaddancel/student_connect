@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-    <x-common.page-breadcrumb pageTitle="Approval Requests" />
+    <x-common.page-breadcrumb pageTitle="Membership Requests" />
 
     <div class="space-y-4">
         <div id="approval-request-feedback" class="hidden rounded-lg px-4 py-3 text-sm"></div>
@@ -9,10 +9,9 @@
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
             <div class="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Requests Requiring Review</h3>
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Membership Requests Requiring Review</h3>
                     <p class="text-sm text-gray-500 dark:text-gray-400">
-                        Membership, event, document generation, form upload, access, and role-change requests scoped to your
-                        assigned organizations.
+                        Review membership requests submitted to your organizations. Approved requests are forwarded to an admin for final approval.
                     </p>
                 </div>
                 <span
@@ -22,7 +21,7 @@
             </div>
 
             @if ($rows->isEmpty())
-                <p class="text-sm text-gray-500 dark:text-gray-400">No requests are currently assigned to you.</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">No membership requests are currently assigned to you.</p>
             @else
                 <div class="overflow-x-auto">
                     <table class="min-w-full">

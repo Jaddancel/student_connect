@@ -17,6 +17,7 @@ class Approval extends Model
         'approved_at',
         'request',
         'admin',
+        'stage',
         'is_rejected',
         'rejection_reason',
     ];

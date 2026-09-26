@@ -30,7 +30,7 @@ class RequestApprovalService
         return $this->approve($actionRequest, $requesterUserId);
     }
 
-    public function approve(ActionRequest $actionRequest, int $approverUserId): Approval
+    public function approve(ActionRequest $actionRequest, int $approverUserId, ?string $stage = null): Approval
     {
         $actionRequest->loadMissing('requestType');
 
@@ -38,15 +38,33 @@ class RequestApprovalService
         $requestType = $actionRequest->requestType;
         $systemKey = (string) ($requestType?->system_key ?? '');
 
+        if ($this->isMembershipRequest($actionType, $systemKey) && $stage === 'admin') {
+            $hasPresidentApproval = Approval::query()
+                ->where('request', (int) $actionRequest->getKey())
+                ->where('stage', 'president')
+                ->where('is_rejected', false)
+                ->exists();
+
+            if (! $hasPresidentApproval) {
+                throw new \LogicException('A president must approve this membership request before admin approval.');
+            }
+        }
+
         if ($this->isDocumentGenerationRequest($actionType, $systemKey)) {
             app(DocumentGenerationService::class)->generateFromApprovedRequest($actionRequest, $approverUserId);
         }
 
+        $approvalMatch = ['request' => (int) $actionRequest->getKey()];
+        if ($stage !== null && $stage !== '') {
+            $approvalMatch['stage'] = $stage;
+        }
+
         $approval = Approval::query()->updateOrCreate(
-            ['request' => (int) $actionRequest->getKey()],
+            $approvalMatch,
             [
                 'admin' => $approverUserId,
                 'approved_at' => now(),
+                'stage' => $stage,
                 'is_rejected' => false,
                 'rejection_reason' => null,
             ]
@@ -61,7 +79,7 @@ class RequestApprovalService
                 ->update(['approval_id' => (int) $approval->getKey()]);
         }
 
-        if ($this->isMembershipRequest($actionType, $systemKey)) {
+        if ($this->isMembershipRequest($actionType, $systemKey) && $stage === 'admin') {
             [$targetOrganizationId, $targetUserId] = $this->resolveMembershipDetails($actionRequest);
 
             if ($targetOrganizationId > 0 && $targetUserId > 0) {
@@ -157,18 +175,24 @@ class RequestApprovalService
      * an optional reason) and flips the event-plan status where applicable —
      * rejection has no other domain side effects (the requester starts over).
      */
-    public function reject(ActionRequest $actionRequest, int $adminUserId, ?string $reason = null): Approval
+    public function reject(ActionRequest $actionRequest, int $adminUserId, ?string $reason = null, ?string $stage = null): Approval
     {
         $actionRequest->loadMissing('requestType');
 
         $actionType = (int) $actionRequest->action_type;
         $systemKey = (string) ($actionRequest->requestType?->system_key ?? '');
 
+        $approvalMatch = ['request' => (int) $actionRequest->getKey()];
+        if ($stage !== null && $stage !== '') {
+            $approvalMatch['stage'] = $stage;
+        }
+
         $approval = Approval::query()->updateOrCreate(
-            ['request' => (int) $actionRequest->getKey()],
+            $approvalMatch,
             [
                 'admin' => $adminUserId,
                 'approved_at' => now(),
+                'stage' => $stage,
                 'is_rejected' => true,
                 'rejection_reason' => ($reason !== null && trim($reason) !== '') ? trim($reason) : null,
             ]
