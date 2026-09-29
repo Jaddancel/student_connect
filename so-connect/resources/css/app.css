@@ -966,6 +966,29 @@ span.flatpickr-weekday,
 
 .dark .fc-day-event-meta { color: rgba(255,255,255,0.35); }
 
+/* Per-organization colors (hue supplied inline via --org-hue) */
+.event-fc-color.fc-org-color,
+.fc-day-event-card.fc-org-color {
+  background: hsl(var(--org-hue) 85% 94%);
+  border-color: hsl(var(--org-hue) 85% 94%);
+}
+.event-fc-color.fc-org-color .fc-daygrid-event-dot,
+.fc-day-event-card.fc-org-color .fc-day-event-accent {
+  background: hsl(var(--org-hue) 70% 45%);
+}
+.event-fc-color.fc-org-color .fc-event-title,
+.fc-day-event-card.fc-org-color .fc-day-event-title { color: hsl(var(--org-hue) 60% 22%); }
+.fc-day-event-card.fc-org-color .fc-day-event-time  { color: hsl(var(--org-hue) 55% 35%); }
+
+.dark .event-fc-color.fc-org-color,
+.dark .fc-day-event-card.fc-org-color {
+  background: hsl(var(--org-hue) 70% 45% / 0.18);
+  border-color: transparent;
+}
+.dark .event-fc-color.fc-org-color .fc-event-title,
+.dark .fc-day-event-card.fc-org-color .fc-day-event-title { color: hsl(var(--org-hue) 80% 80%); }
+.dark .fc-day-event-card.fc-org-color .fc-day-event-time  { color: hsl(var(--org-hue) 70% 70%); }
+
 .input-date-icon::-webkit-inner-spin-button,
 .input-date-icon::-webkit-calendar-picker-indicator {
   opacity: 0;

@@ -134,8 +134,8 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Gate::define('access-dashboard', function (User $user, string $dashboard): bool {
-            $isPresident = $user->officers()->where('role', 'president')->exists();
-            $isOfficer = $user->officers()->whereIn('role', ['officer', 'president'])->exists();
+            $isPresident = ! empty(OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey()));
+            $isOfficer = ! empty(OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey()));
 
             return match ($dashboard) {
                 'president' => $isPresident,

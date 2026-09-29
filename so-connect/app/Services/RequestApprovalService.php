@@ -230,7 +230,7 @@ class RequestApprovalService
             return false;
         }
 
-        $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($requesterUserId);
+        $presidentOrganizationIds = OrganizationAuthorizationService::allPresidentOrganizationIdsForUser($requesterUserId);
 
         if (empty($presidentOrganizationIds)) {
             return false;

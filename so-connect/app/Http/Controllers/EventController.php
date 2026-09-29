@@ -13,7 +13,8 @@ use Illuminate\Validation\Rule;
 
 class EventController extends Controller
 {
-    private const EVENT_COLORS = ['Primary', 'Success', 'Warning', 'Danger'];
+    // Golden angle spreads consecutive organization IDs as far apart on the hue wheel as possible.
+    private const GOLDEN_ANGLE = 137.508;
 
     public function calendarEvents(Request $request)
     {
@@ -56,7 +57,7 @@ class EventController extends Controller
                     'start' => $event->start_time,
                     'end' => $event->end_time,
                     'extendedProps' => [
-                        'calendar' => $this->resolveOrganizationColor($organizationId),
+                        'orgHue' => $this->resolveOrganizationHue($organizationId),
                         'location' => $event->event_location,
                         'description' => $event->event_description,
                         'organization' => $event->organization_name,
@@ -367,14 +368,12 @@ class EventController extends Controller
         ], 201);
     }
 
-    private function resolveOrganizationColor(int $organizationId): string
+    private function resolveOrganizationHue(int $organizationId): int
     {
-        $paletteSize = count(self::EVENT_COLORS);
-
-        if ($organizationId <= 0 || $paletteSize === 0) {
-            return 'Primary';
+        if ($organizationId <= 0) {
+            return 140;
         }
 
-        return self::EVENT_COLORS[($organizationId - 1) % $paletteSize];
+        return (int) round(fmod($organizationId * self::GOLDEN_ANGLE, 360));
     }
 }

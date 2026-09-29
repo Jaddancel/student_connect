@@ -311,9 +311,9 @@ export function calendarInit() {
             return arg.text;
         },
         eventContent(eventInfo) {
-            const eventLevel =
-                eventInfo.event.extendedProps?.calendar || "Primary";
-            const colorClass = `fc-bg-${eventLevel.toLowerCase()}`;
+            const hue = Number(eventInfo.event.extendedProps?.orgHue);
+            const colorClass = "fc-org-color";
+            const colorStyle = `style="--org-hue: ${Number.isFinite(hue) ? hue : 140}"`;
             const viewType = eventInfo.view.type;
 
             if (viewType === "timeGridDay") {
@@ -326,7 +326,7 @@ export function calendarInit() {
 
                 return {
                     html: `
-            <div class="fc-day-event-card ${colorClass}">
+            <div class="fc-day-event-card ${colorClass}" ${colorStyle}>
               <div class="fc-day-event-accent"></div>
               <div class="fc-day-event-body">
                 <div class="fc-day-event-title">${eventInfo.event.title}</div>
@@ -339,7 +339,7 @@ export function calendarInit() {
 
             return {
                 html: `
-          <div class="event-fc-color flex fc-event-main ${colorClass} p-1 rounded-sm">
+          <div class="event-fc-color flex fc-event-main ${colorClass} p-1 rounded-sm" ${colorStyle}>
             <div class="fc-daygrid-event-dot"></div>
             <div class="fc-event-time">${eventInfo.timeText}</div>
             <div class="fc-event-title">${eventInfo.event.title}</div>

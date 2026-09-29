@@ -2,9 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\OrganizationAuthorizationService;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsurePresidentOrAdmin
@@ -21,10 +21,7 @@ class EnsurePresidentOrAdmin
             return $next($request);
         }
 
-        $isPresident = DB::table('organization_officers')
-            ->where('user', (int) $user->getKey())
-            ->where('role', 'president')
-            ->exists();
+        $isPresident = ! empty(OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey()));
 
         if (! $isPresident) {
             abort(403, 'Only presidents and administrators can access this page.');

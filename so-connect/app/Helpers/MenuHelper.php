@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use App\Models\User;
+use App\Services\OrganizationAuthorizationService;
 use Illuminate\Support\Facades\DB;
 
 class MenuHelper
@@ -172,7 +173,7 @@ class MenuHelper
         // Built forms are for user-type-3 officers/presidents only (matches
         // Form::isAccessibleBy) — admins author forms, they don't fill them.
         $isOfficerOrPresident = (int) $user->user_type === 3
-            && $user->officers()->whereIn('role', ['officer', 'president'])->exists();
+            && ! empty(OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey()));
 
         if ($isOfficerOrPresident) {
             $menuGroups[] = [
@@ -202,7 +203,7 @@ class MenuHelper
             }
         }
 
-        if ((int) $user->user_type === 3 && $user->officers()->where('role', 'president')->exists()) {
+        if ((int) $user->user_type === 3 && ! empty(OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey()))) {
             $menuGroups[] = [
                 'title' => 'Requests',
                 'items' => [
