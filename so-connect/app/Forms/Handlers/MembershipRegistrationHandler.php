@@ -7,6 +7,7 @@ use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
+use App\Forms\FieldType;
 use App\Services\RequestApprovalService;
 use App\Services\RequestTypeService;
 use Illuminate\Http\RedirectResponse;
@@ -25,9 +26,15 @@ class MembershipRegistrationHandler implements SystemFunctionHandler
 
     public function validatePayload(Form $form, array $payload, Request $request): void
     {
-        $values = $this->requirePayloadKeys($form, $payload, ['organization_id']);
+        $values = $this->requirePayloadKeys($form, $payload, ['organization_id', 'position']);
         $organizationId = (int) $values['organization_id'];
         $userId = (int) $request->user()->getKey();
+
+        if (! in_array((string) $values['position'], FieldType::POSITION_OPTIONS, true)) {
+            throw ValidationException::withMessages([
+                'form' => 'The selected position is not valid.',
+            ]);
+        }
 
         if (! DB::table('organizations')->where('organization_id', $organizationId)->exists()) {
             throw ValidationException::withMessages([
@@ -72,6 +79,16 @@ class MembershipRegistrationHandler implements SystemFunctionHandler
     {
         $userId = (int) $request->user()->getKey();
         $organizationId = (int) $this->payloadValue($form, $payload, 'organization_id');
+        $position = (string) $this->payloadValue($form, $payload, 'position');
+
+        // The org the submitter is acting under (org switcher context), shown
+        // to reviewing presidents so they know where the requester comes from.
+        $requesterOrganizationId = (int) session('active_organization_id', 0);
+        if ($requesterOrganizationId <= 0) {
+            $requesterOrganizationId = (int) (DB::table('organization_officers')
+                ->where('user', $userId)
+                ->value('organization') ?? 0);
+        }
 
         // Prefer the bound form's own request type (membership-bound forms
         // get one like any other form page); the membership system type is
@@ -95,6 +112,8 @@ class MembershipRegistrationHandler implements SystemFunctionHandler
             'payload' => array_merge($payload, [
                 'organization_id' => $organizationId,
                 'user_id' => $userId,
+                'position' => $position,
+                'requester_organization_id' => $requesterOrganizationId,
                 'form_submission_id' => (int) $submission->getKey(),
             ]),
             'user' => $userId,

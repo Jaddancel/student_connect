@@ -12,7 +12,6 @@ class OrganizationController extends Controller
         $userId = (int) $request->user()->getKey();
         $allowedOrganizationIds = DB::table('organization_officers')
             ->where('user', $userId)
-            ->whereIn('role', ['officer', 'president'])
             ->pluck('organization')
             ->map(fn ($organizationId) => (int) $organizationId)
             ->filter(fn ($organizationId) => $organizationId > 0)

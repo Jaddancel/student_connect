@@ -49,21 +49,32 @@ class FormRequestController extends Controller
 
         $approvals = $requests->isEmpty()
             ? collect()
-            : Approval::query()->whereIn('request', $requests->pluck('request_id'))->get()->keyBy('request');
+            : Approval::query()->whereIn('request', $requests->pluck('request_id'))->get()->groupBy('request');
 
         $requesterNames = $this->requesterNames($requests->pluck('user')->filter()->unique()->values()->all());
         $orgNames = $this->organizationNames(
-            $requests->map(fn ($r) => (int) ($r->organization_id ?? (((array) ($r->payload ?? []))['organization_id'] ?? 0)))
+            $requests->map(fn ($r) => $this->displayOrganizationId($r, (array) ($r->payload ?? [])))
                 ->filter(fn ($id) => $id > 0)->unique()->values()->all()
         );
 
         $rows = $requests->map(function ($r) use ($approvals, $requesterNames, $orgNames) {
             $payload = (array) ($r->payload ?? []);
-            $orgId = (int) ($r->organization_id ?? ($payload['organization_id'] ?? 0));
+            $orgId = $this->displayOrganizationId($r, $payload);
+            $group = $approvals->get($r->request_id) ?? collect();
+            $isMembership = (int) $r->action_type === 1;
+
+            // Membership is two-stage: the president approves first, then the
+            // admin here casts the final approval that triggers enrollment.
+            $decisionApproval = $isMembership ? $group->firstWhere('stage', 'admin') : $group->first();
+            $presidentApproval = $isMembership ? $group->firstWhere('stage', 'president') : null;
+            $isDecided = $decisionApproval !== null
+                || ($presidentApproval !== null && (bool) $presidentApproval->is_rejected);
 
             return [
                 'request' => $r,
-                'approval' => $approvals->get($r->request_id),
+                'approval' => $decisionApproval,
+                'president_approval' => $presidentApproval,
+                'is_decided' => $isDecided,
                 'requester_name' => $requesterNames[$r->user] ?? 'Unknown',
                 'org_name' => $orgNames[$orgId] ?? 'Unknown Organization',
                 'submission_id' => (int) ($payload['submission_id'] ?? ($payload['form_submission_id'] ?? 0)),
@@ -78,8 +89,11 @@ class FormRequestController extends Controller
         return view('pages.admin.form-requests.index', [
             'title' => $form->name.' Requests',
             'form' => $form,
-            'pending' => $rows->filter(fn ($row) => $row['approval'] === null)->values(),
-            'decided' => $rows->filter(fn ($row) => $row['approval'] !== null)->take(30)->values(),
+            'orgColumnLabel' => (string) $form->system_function === SystemFunction::MEMBERSHIP_REGISTRATION
+                ? "Requester's Organization"
+                : 'Organization',
+            'pending' => $rows->filter(fn ($row) => ! $row['is_decided'])->values(),
+            'decided' => $rows->filter(fn ($row) => $row['is_decided'])->take(30)->values(),
         ]);
     }
 
@@ -92,7 +106,7 @@ class FormRequestController extends Controller
         $submissionId = (int) ($payload['submission_id'] ?? ($payload['form_submission_id'] ?? 0));
         $submission = $submissionId ? FormSubmission::query()->find($submissionId) : null;
 
-        $orgId = (int) ($actionRequest->organization_id ?? ($payload['organization_id'] ?? 0));
+        $orgId = $this->displayOrganizationId($actionRequest, $payload);
         $orgNames = $orgId > 0 ? $this->organizationNames([$orgId]) : [];
         $requesterNames = $actionRequest->user ? $this->requesterNames([(int) $actionRequest->user]) : [];
 
@@ -115,6 +129,15 @@ class FormRequestController extends Controller
             }
         }
 
+        $isMembership = (int) $actionRequest->action_type === 1;
+        $presidentApproval = $isMembership
+            ? Approval::query()->where('request', $requestId)->where('stage', 'president')->first()
+            : null;
+        // Membership needs the admin (final) approval; other kinds are single-stage.
+        $decisionApproval = $isMembership
+            ? Approval::query()->where('request', $requestId)->where('stage', 'admin')->first()
+            : Approval::query()->where('request', $requestId)->first();
+
         return view('pages.admin.form-requests.show', [
             'title' => $form->name.' Requests',
             'form' => $form,
@@ -122,7 +145,8 @@ class FormRequestController extends Controller
             'actionRequest' => $actionRequest,
             'submission' => $submission,
             'submissionPayload' => $submission ? (array) ($submission->payload ?? []) : [],
-            'approval' => Approval::query()->where('request', $requestId)->first(),
+            'approval' => $decisionApproval,
+            'presidentApproval' => $presidentApproval,
             'orgName' => $orgNames[$orgId] ?? 'Unknown Organization',
             'requesterName' => $requesterNames[$actionRequest->user] ?? 'Unknown',
             'kind' => (int) $actionRequest->action_type === 1 ? 'Membership' : ((int) $actionRequest->action_type === NewOrganizationRegistrationHandler::ACTION_TYPE ? 'New Organization' : 'Document'),
@@ -181,6 +205,31 @@ class FormRequestController extends Controller
             ->where('form_id', (int) $form->getKey())
             ->whereIn('action_type', self::ACTION_TYPES)
             ->firstOrFail();
+    }
+
+    /**
+     * The org to display for a request. Membership requests show the org the
+     * requester belongs to (captured at submission, else their membership),
+     * not the receiving org the request was sent to; other kinds show their
+     * own organization.
+     */
+    private function displayOrganizationId(object $actionRequest, array $payload): int
+    {
+        $receivingOrgId = (int) ($actionRequest->organization_id ?? ($payload['organization_id'] ?? 0));
+
+        if ((int) $actionRequest->action_type !== 1) {
+            return $receivingOrgId;
+        }
+
+        $requesterOrgId = (int) ($payload['requester_organization_id'] ?? 0);
+        if ($requesterOrgId <= 0) {
+            $requesterOrgId = (int) (\Illuminate\Support\Facades\DB::table('organization_officers')
+                ->where('user', (int) $actionRequest->user)
+                ->orderByRaw("FIELD(role, 'president') DESC")
+                ->value('organization') ?? 0);
+        }
+
+        return $requesterOrgId > 0 ? $requesterOrgId : $receivingOrgId;
     }
 
     /**

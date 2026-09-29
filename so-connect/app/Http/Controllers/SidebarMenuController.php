@@ -129,11 +129,18 @@ class SidebarMenuController extends Controller
                         return null;
                     }
 
+                    $payload = $actionRequest->payload;
+                    if (! is_array($payload)) {
+                        $payload = json_decode((string) $payload, true) ?: [];
+                    }
+                    $requesterOrganizationId = (int) ($payload['requester_organization_id'] ?? 0);
+
                     return [
                         'request_id' => (int) $actionRequest->request_id,
                         'action_type' => $actionType,
                         'type_label' => 'Membership Request',
                         'organization_id' => $organizationId,
+                        'display_organization_id' => $requesterOrganizationId,
                         'requester_user_id' => (int) $actionRequest->user,
                         'summary' => 'Membership Registration',
                         'requested_at' => $actionRequest->requested_at,
@@ -245,21 +252,52 @@ class SidebarMenuController extends Controller
             ->get(['request', 'is_rejected'])
             ->keyBy('request');
 
-        $organizationNameMap = $this->organizationNameMap($rows->pluck('organization_id')->unique()->values());
+        // Membership rows show the requester's own org. Legacy requests made
+        // before that was captured fall back to any org they belong to.
+        $membershipFallbackUserIds = $rows
+            ->filter(fn (array $row) => (int) $row['action_type'] === 1 && (int) ($row['display_organization_id'] ?? 0) <= 0)
+            ->pluck('requester_user_id')
+            ->unique()
+            ->filter()
+            ->values();
+
+        $requesterOrgFallbackMap = $membershipFallbackUserIds->isEmpty()
+            ? []
+            : DB::table('organization_officers')
+                ->whereIn('user', $membershipFallbackUserIds->all())
+                ->get(['user', 'organization', 'role'])
+                ->groupBy('user')
+                ->map(fn ($group) => (int) (optional($group->firstWhere('role', 'president'))->organization ?? $group->first()->organization))
+                ->all();
+
+        $organizationNameMap = $this->organizationNameMap(
+            $rows->pluck('organization_id')
+                ->merge($rows->pluck('display_organization_id'))
+                ->merge(collect($requesterOrgFallbackMap)->values())
+                ->filter()
+                ->unique()
+                ->values()
+        );
         $requesterNameMap = $this->userNameMap($rows->pluck('requester_user_id')->unique()->filter()->values());
 
         $rows = $rows
-            ->map(function (array $row) use ($approvalMap, $organizationNameMap, $requesterNameMap) {
+            ->map(function (array $row) use ($approvalMap, $organizationNameMap, $requesterNameMap, $requesterOrgFallbackMap) {
                 $approval = $approvalMap->get((int) $row['request_id']);
                 $status = $this->resolveApprovalStatus($approval);
 
-                $row['request_organization'] = $organizationNameMap[(int) $row['organization_id']] ?? 'Unknown Organization';
+                $displayOrganizationId = (int) ($row['display_organization_id'] ?? 0);
+                if ($displayOrganizationId <= 0 && (int) $row['action_type'] === 1) {
+                    $displayOrganizationId = (int) ($requesterOrgFallbackMap[(int) $row['requester_user_id']] ?? 0);
+                }
+                $organizationIdForName = $displayOrganizationId > 0 ? $displayOrganizationId : (int) $row['organization_id'];
+
+                $row['request_organization'] = $organizationNameMap[$organizationIdForName] ?? 'Unknown Organization';
                 $row['requester_name'] = $requesterNameMap[(int) $row['requester_user_id']] ?? 'Unknown User';
                 $row['status'] = $status;
                 $row['status_label'] = match ($status) {
-                    'approved' => 'President Approved',
-                    'rejected' => 'Rejected by President',
-                    default => 'Pending President Review',
+                    'approved' => 'Approved',
+                    'rejected' => 'Rejected',
+                    default => 'Pending Review',
                 };
                 $row['can_decide'] = $status === 'pending';
 

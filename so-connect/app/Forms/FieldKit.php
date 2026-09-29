@@ -82,9 +82,13 @@ final class FieldKit
             ],
             SystemFunction::MEMBERSHIP_REGISTRATION => [
                 'label' => 'Membership fields',
-                'types' => [FieldType::ORG_SELECT],
+                // Same organization + position pickers as the Sign Up kit above —
+                // an applicant here is asking to hold that position in a
+                // DIFFERENT org, not creating a new account.
+                'types' => [FieldType::ORG_SELECT, FieldType::POSITION_SELECT],
                 'required' => [
                     'organization_id' => FieldType::ORG_SELECT,
+                    'position' => FieldType::POSITION_SELECT,
                 ],
             ],
             SystemFunction::ORG_ACCREDITATION => [

@@ -80,7 +80,7 @@ class RequestApprovalService
         }
 
         if ($this->isMembershipRequest($actionType, $systemKey) && $stage === 'admin') {
-            [$targetOrganizationId, $targetUserId] = $this->resolveMembershipDetails($actionRequest);
+            [$targetOrganizationId, $targetUserId, $position] = $this->resolveMembershipDetails($actionRequest);
 
             if ($targetOrganizationId > 0 && $targetUserId > 0) {
                 DB::table('organization_officers')
@@ -91,7 +91,7 @@ class RequestApprovalService
 
                 DB::table('organization_officers')->updateOrInsert(
                     ['user' => $targetUserId, 'organization' => $targetOrganizationId],
-                    ['role' => 'member', 'member_since' => now(), 'registered_at' => now(), 'reassigned_at' => now()]
+                    ['role' => 'member', 'position' => $position !== '' ? $position : null, 'member_since' => now(), 'registered_at' => now(), 'reassigned_at' => now()]
                 );
             }
         }
@@ -289,7 +289,7 @@ class RequestApprovalService
     }
 
     /**
-     * @return array{0:int,1:int}
+     * @return array{0:int,1:int,2:string}
      */
     private function resolveMembershipDetails(ActionRequest $actionRequest): array
     {
@@ -297,12 +297,15 @@ class RequestApprovalService
 
         $organizationId = (int) ($payload['organization_id'] ?? 0);
         $targetUserId = (int) ($payload['user_id'] ?? 0);
+        $position = (string) ($payload['position'] ?? '');
 
         if ($organizationId > 0 && $targetUserId > 0) {
-            return [$organizationId, $targetUserId];
+            return [$organizationId, $targetUserId, $position];
         }
 
-        return $this->parseMembershipAction($actionRequest->action);
+        [$parsedOrganizationId, $parsedUserId] = $this->parseMembershipAction($actionRequest->action);
+
+        return [$parsedOrganizationId, $parsedUserId, $position];
     }
 
     /**

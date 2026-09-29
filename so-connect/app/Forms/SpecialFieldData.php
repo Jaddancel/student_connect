@@ -55,7 +55,7 @@ final class SpecialFieldData
             : [];
 
         if (in_array(FieldType::ORG_SELECT, $types, true)) {
-            $data['organizations'] = self::organizations($user, $officerOrgIds);
+            $data['organizations'] = self::organizations($user, $officerOrgIds, $form);
         }
 
         if (in_array(FieldType::EVENT_SELECT, $types, true) || $hasTableEventColumn) {
@@ -106,19 +106,23 @@ final class SpecialFieldData
 
     /**
      * Organizations the submitter may pick: their officer orgs for regular
-     * users, every org for guests (public sign-up) and admins (preview).
+     * users, every org for guests (public sign-up), admins (preview), and
+     * Membership Registration — that form's whole point is picking a
+     * DIFFERENT org than the submitter's own.
      *
      * @param  int[]  $officerOrgIds
      * @return array<int,array{id:int,name:string}>
      */
-    private static function organizations(?User $user, array $officerOrgIds): array
+    private static function organizations(?User $user, array $officerOrgIds, ?Form $form = null): array
     {
         $query = DB::table('organizations as o')
             ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
             ->select(['o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as name")])
             ->orderBy('od.name');
 
-        if ($user && (int) $user->user_type === 3) {
+        $isMembershipRegistration = $form?->system_function === SystemFunction::MEMBERSHIP_REGISTRATION;
+
+        if ($user && (int) $user->user_type === 3 && ! $isMembershipRegistration) {
             $query->whereIn('o.organization_id', $officerOrgIds);
         }
 

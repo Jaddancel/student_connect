@@ -27,6 +27,7 @@ class FormPagesSeeder extends Seeder
     {
         $this->seedDirectory();
         $this->seedNewOrganizationRegistration();
+        $this->seedMembershipRegistration();
         $this->seedNewEvent();
         $this->seedJointStatement();
         $this->seedProjectRequest();
@@ -231,6 +232,40 @@ class FormPagesSeeder extends Seeder
             'pdf' => [
                 'title' => 'New Organization Registration',
                 'subtitle' => 'Student Organization Registration',
+                'html' => $html,
+            ],
+        ]);
+    }
+
+    // ------------------------------------------------------ Membership Registration
+
+    /**
+     * Org Membership Registration (bound to the membership_registration system
+     * function): the same organization + position pickers as the Sign Up kit
+     * above, since this asks to hold that position in a DIFFERENT org rather
+     * than create a new account. Submissions run through
+     * {@see \App\Forms\Handlers\MembershipRegistrationHandler}.
+     */
+    private function seedMembershipRegistration(): void
+    {
+        $fields = [
+            $this->f('organization_id', 'Organization', FieldType::ORG_SELECT, ['required' => true]),
+            $this->f('position', 'Position', FieldType::POSITION_SELECT, ['required' => true]),
+        ];
+
+        $html = '<h2>Organization Membership Request</h2>'
+            .$this->line('Organization', 'organization_id')
+            .$this->line('Position', 'position');
+
+        $this->buildForm([
+            'route_name' => 'organization-membership',
+            'name' => 'Organization Membership',
+            'description' => 'Request membership in another student organization. Requests require approval from the organization president and an admin.',
+            'system_function' => SystemFunction::MEMBERSHIP_REGISTRATION,
+            'fields' => $fields,
+            'pdf' => [
+                'title' => 'Organization Membership Request',
+                'subtitle' => 'Student Organization Membership',
                 'html' => $html,
             ],
         ]);

@@ -19,7 +19,7 @@
         <div class="rounded-2xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-800 dark:bg-white/[0.03]">
             <div class="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Organization</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">{{ $kind === 'Membership' ? "Requester's Organization" : 'Organization' }}</p>
                     <p class="mt-1 text-gray-800 dark:text-white/90">{{ $orgName }}</p>
                 </div>
                 <div>
@@ -28,7 +28,7 @@
                 </div>
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Submitted At</p>
-                    <p class="mt-1 text-gray-800 dark:text-white/90">{{ \Illuminate\Support\Carbon::parse($actionRequest->requested_at)->format('M d, Y h:i A') }}</p>
+                    <p class="mt-1 text-gray-800 dark:text-white/90">{{ $actionRequest->requested_at->timezone(config('app.display_timezone'))->format('M d, Y h:i A') }}</p>
                 </div>
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Kind</p>
@@ -141,6 +141,25 @@
         {{-- Completed-by-hand scan provenance, when the request came from a
              manual-filling draft. --}}
         <x-admin.manual-source :payload="$submissionPayload" />
+
+        {{-- President's decision provenance: membership requests are approved by
+             the org president before this admin stage, so show when they did. --}}
+        @if (!empty($presidentApproval))
+            <div class="rounded-2xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <p class="text-sm font-semibold text-gray-700 dark:text-white/90">President Approval</p>
+                <div class="mt-3 flex flex-wrap items-center gap-3">
+                    @if ($presidentApproval->is_rejected)
+                        <span class="inline-flex items-center rounded-full bg-error-50 px-3 py-1 text-sm font-medium text-error-700 dark:bg-error-500/15 dark:text-error-400">Rejected by President</span>
+                    @else
+                        <span class="inline-flex items-center rounded-full bg-success-50 px-3 py-1 text-sm font-medium text-success-700 dark:bg-success-500/15 dark:text-success-400">Approved by President</span>
+                    @endif
+                    <span class="text-sm text-gray-500 dark:text-gray-400">{{ $presidentApproval->approved_at->timezone(config('app.display_timezone'))->format('M d, Y h:i A') }}</span>
+                    @if ($presidentApproval->rejection_reason)
+                        <span class="text-sm text-gray-500 dark:text-gray-400">· {{ $presidentApproval->rejection_reason }}</span>
+                    @endif
+                </div>
+            </div>
+        @endif
 
         {{-- Decision --}}
         @if ($approval)

@@ -166,9 +166,15 @@ it('requires president approval before admin enrollment for a membership request
         'system_function' => 'membership_registration',
     ], 'organization_id');
 
+    FormDescription::create([
+        'form_id' => $form->id, 'field_key' => 'position', 'field_label' => 'Position',
+        'field_type' => 'position-select', 'is_required' => true, 'field_order' => 2,
+    ]);
+
     $this->actingAs($applicant)
         ->post(route('forms.render.submit', $form->route_name), [
             'organization_id' => (string) $targetOrg->getKey(),
+            'position' => 'Secretary',
         ])
         ->assertSessionHasNoErrors();
 
@@ -209,7 +215,8 @@ it('requires president approval before admin enrollment for a membership request
         ->where('organization', $targetOrg->getKey())
         ->first();
     expect($memberRow)->not->toBeNull()
-        ->and($memberRow->role)->toBe('member');
+        ->and($memberRow->role)->toBe('member')
+        ->and($memberRow->position)->toBe('Secretary');
 });
 
 it('has no request page for sign-up, new-event and new-workplan bindings', function () {
@@ -218,6 +225,25 @@ it('has no request page for sign-up, new-event and new-workplan bindings', funct
     $this->actingAs(recordsUser(2))
         ->get(route('admin.form-requests.index', $form))
         ->assertNotFound();
+});
+
+it('displays UTC request timestamps in the configured local timezone', function () {
+    config(['app.display_timezone' => 'Asia/Manila']);
+
+    $form = frpForm();
+    $actionRequest = ActionRequest::query()->create([
+        'action' => 'document_generation',
+        'requested_at' => '2026-09-29 00:17:46',
+        'user' => recordsUser(3)->getKey(),
+        'action_type' => \App\Helpers\FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION,
+        'form_id' => $form->getKey(),
+        'payload' => [],
+    ]);
+
+    $this->actingAs(recordsUser(2))
+        ->get(route('admin.form-requests.show', [$form, $actionRequest->getKey()]))
+        ->assertOk()
+        ->assertSee('Sep 29, 2026 08:17 AM');
 });
 
 it('never lists another form\'s requests', function () {

@@ -37,7 +37,7 @@
                                 </th>
                                 <th
                                     class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                    Organization
+                                    Requester's Organization
                                 </th>
                                 <th
                                     class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -57,7 +57,7 @@
                                         <p class="font-medium">#{{ $row['request_id'] }} · {{ $row['type_label'] }}</p>
                                         <p class="text-xs text-gray-500 dark:text-gray-400">{{ $row['summary'] }}</p>
                                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                            {{ \Illuminate\Support\Carbon::parse($row['requested_at'])->format('M d, Y h:i A') }}
+                                            {{ $row['requested_at']->timezone(config('app.display_timezone'))->format('M d, Y h:i A') }}
                                         </p>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">

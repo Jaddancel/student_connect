@@ -41,7 +41,7 @@
                     <table class="w-full text-left text-sm">
                         <thead>
                             <tr class="border-b border-gray-100 dark:border-gray-800">
-                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Organization</th>
+                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">{{ $orgColumnLabel }}</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Requester</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Kind</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Submitted</th>
@@ -111,7 +111,7 @@
                     <table class="w-full text-left text-sm">
                         <thead>
                             <tr class="border-b border-gray-100 dark:border-gray-800">
-                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Organization</th>
+                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">{{ $orgColumnLabel }}</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Requester</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Decision</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Reason</th>
