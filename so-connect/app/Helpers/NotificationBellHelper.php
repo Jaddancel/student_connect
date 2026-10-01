@@ -181,13 +181,7 @@ class NotificationBellHelper
         $now = now();
         $until = (clone $now)->addHours(max($hours, 1));
 
-        $organizationIds = DB::table('organization_officers')
-            ->where('user', (int) $user->getKey())
-            ->pluck('organization')
-            ->map(fn ($organizationId) => (int) $organizationId)
-            ->filter(fn ($organizationId) => $organizationId > 0)
-            ->unique()
-            ->values();
+        $organizationIds = collect(OrganizationAuthorizationService::memberOrganizationIdsForUser((int) $user->getKey()));
 
         if ($organizationIds->isEmpty()) {
             return collect();

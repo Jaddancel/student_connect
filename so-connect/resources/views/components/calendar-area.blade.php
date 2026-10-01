@@ -91,6 +91,7 @@
                 data-locked-org-ids="{{ json_encode(array_values(array_map('intval', $lockedOrgIds))) }}"
                 data-semesters="{{ json_encode($semesterData->all()) }}"
                 data-workplan-statuses="{{ json_encode($workplanStatuses ?? []) }}"
+                data-event-scope="current"
                 data-today="{{ now()->toDateString() }}"></div>
         </div>
     </div>

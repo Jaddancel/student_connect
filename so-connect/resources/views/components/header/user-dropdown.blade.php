@@ -20,17 +20,23 @@
             $roleLabel = 'Admin';
             $roleBadgeClass = 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400';
         } else {
-            $isPresident = $authUser->officers()->where('role', 'president')->exists();
+            $userId = (int) $authUser->getKey();
+            // Reflect the role in the org selected in the switcher, not across
+            // every org (scoped helpers narrow to the active organization).
+            $isPresident = ! empty(\App\Services\OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId));
 
             if ($isPresident) {
                 $roleLabel = 'President';
                 $roleBadgeClass = 'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-400';
             } else {
-                $isOfficer = $authUser->officers()->where('role', 'officer')->exists();
+                $isOfficer = ! empty(\App\Services\OrganizationAuthorizationService::officerOrganizationIdsForUser($userId));
 
                 if ($isOfficer) {
                     $roleLabel = 'Officer';
                     $roleBadgeClass = 'bg-warning-100 text-warning-700 dark:bg-warning-500/20 dark:text-warning-400';
+                } else {
+                    $roleLabel = 'Member';
+                    $roleBadgeClass = 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
                 }
             }
         }

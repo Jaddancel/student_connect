@@ -687,6 +687,19 @@ span.flatpickr-weekday,
 .fc-header-toolbar.fc-toolbar .fc-toolbar-chunk:last-child .fc-button.fc-button-active {
   @apply text-gray-900 bg-white dark:bg-gray-800 dark:text-white;
 }
+
+/* ALL / CURRENT scope toggle — pill styled like the view switcher. */
+.fc .fc-toolbar .fc-button-group:has(.fc-scopeCurrent-button) {
+  @apply gap-0 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-900;
+}
+.fc-button-group .fc-button.fc-scopeCurrent-button,
+.fc-button-group .fc-button.fc-scopeAll-button {
+  @apply !h-auto !w-auto rounded-md !border-0 !bg-transparent !px-4 !py-2 text-sm font-medium text-gray-500 hover:text-gray-700 focus:!shadow-none dark:text-gray-400;
+}
+.fc-button-group .fc-button.fc-scopeCurrent-button.fc-button-active,
+.fc-button-group .fc-button.fc-scopeAll-button.fc-button-active {
+  @apply !bg-white text-gray-900 dark:!bg-gray-800 dark:text-white;
+}
 .fc-theme-standard th {
   @apply !border-x-0 border-t !border-gray-200 bg-gray-50 !text-left dark:!border-gray-800 dark:bg-gray-900;
 }

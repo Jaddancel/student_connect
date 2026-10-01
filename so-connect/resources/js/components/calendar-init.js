@@ -19,6 +19,32 @@ export function calendarInit() {
     const todayStr =
         calendarWrapper.dataset.today || new Date().toISOString().slice(0, 10);
 
+    // Calendar scope: "current" = the org selected in the session switcher,
+    // "all" = every org the user belongs to. Toggled from the header.
+    let eventScope =
+        calendarWrapper.dataset.eventScope === "all" ? "all" : "current";
+
+    const updateScopeButtons = () => {
+        const currentBtn = calendarWrapper.querySelector(
+            ".fc-scopeCurrent-button",
+        );
+        const allBtn = calendarWrapper.querySelector(".fc-scopeAll-button");
+        if (currentBtn)
+            currentBtn.classList.toggle(
+                "fc-button-active",
+                eventScope === "current",
+            );
+        if (allBtn)
+            allBtn.classList.toggle("fc-button-active", eventScope === "all");
+    };
+
+    const setEventScope = (scope) => {
+        if (eventScope === scope) return;
+        eventScope = scope;
+        updateScopeButtons();
+        if (calendarInstance) calendarInstance.refetchEvents();
+    };
+
     // ─── Semester detection helpers ──────────────────────────────────────────────
 
     const getSemesterForDate = (dateStr) => {
@@ -104,6 +130,8 @@ export function calendarInit() {
                         const org = ev.extendedProps?.organization || "";
                         const location = ev.extendedProps?.location || "";
                         const description = ev.extendedProps?.description || "";
+                        const hue = Number(ev.extendedProps?.orgHue);
+                        const accentHue = Number.isFinite(hue) ? hue : 140;
                         const timeRange =
                             startStr && endStr
                                 ? `${startStr} – ${endStr}`
@@ -130,7 +158,7 @@ export function calendarInit() {
                             .join("");
 
                         return `
-              <div class="ep-item overflow-hidden rounded-lg border border-gray-100 dark:border-gray-700">
+              <div class="ep-item overflow-hidden rounded-lg border border-gray-100 dark:border-gray-700" style="border-left: 4px solid hsl(${accentHue} 70% 45%);">
                 <button type="button" class="ep-toggle w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
                   <span class="ep-chevron flex h-4 w-4 shrink-0 items-center justify-center text-gray-400 dark:text-gray-500 transition-transform duration-200">${chevronSvg}</span>
                   <span class="flex-1 min-w-0">
@@ -265,11 +293,24 @@ export function calendarInit() {
         initialView: "dayGridMonth",
         initialDate: `${newDate.getFullYear()}-${getDynamicMonth()}-07`,
         headerToolbar: {
-            left: "prev,next",
+            left: "prev,next scopeCurrent,scopeAll",
             center: "title",
             right: "dayGridMonth,listWeek,timeGridDay",
         },
-        events: "/api/events/calendar",
+        customButtons: {
+            scopeCurrent: {
+                text: "CURRENT ORG",
+                click: () => setEventScope("current"),
+            },
+            scopeAll: {
+                text: "ALL",
+                click: () => setEventScope("all"),
+            },
+        },
+        events: {
+            url: "/api/events/calendar",
+            extraParams: () => ({ scope: eventScope }),
+        },
         nowIndicator: true,
         slotDuration: "00:30:00",
         slotMinTime: "06:00:00",
@@ -348,7 +389,11 @@ export function calendarInit() {
         },
     });
 
+    // Re-apply the active scope highlight whenever the toolbar re-renders.
+    calendarInstance.setOption("datesSet", () => updateScopeButtons());
+
     calendarInstance.render();
+    updateScopeButtons();
 
     // ─── Event listeners ─────────────────────────────────────────────────────────
 

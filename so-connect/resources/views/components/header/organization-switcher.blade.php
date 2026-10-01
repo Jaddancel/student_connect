@@ -5,8 +5,36 @@
 @endphp
 
 @if ($items->count() > 1)
-    <div class="relative" x-data="{ open: false }" @click.away="open = false">
-        <button type="button" @click="open = !open" class="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-700">
+    <div class="relative" x-data="{
+            open: false,
+            positionPanel() {
+                const panel = this.$refs.panel;
+                const btn = this.$refs.switcherButton;
+                if (!panel || !btn) return;
+
+                // xl and up keep the right-anchored dropdown (CSS handles it).
+                if (window.innerWidth >= 1280) {
+                    panel.style.removeProperty('position');
+                    panel.style.removeProperty('top');
+                    panel.style.removeProperty('left');
+                    panel.style.removeProperty('width');
+                    return;
+                }
+
+                // Below xl the button can sit anywhere in the header row, so
+                // clamp the panel to the viewport instead of anchoring to it.
+                const rect = btn.getBoundingClientRect();
+                const margin = 16;
+                const width = Math.min(310, window.innerWidth - margin * 2);
+                const left = Math.min(Math.max(rect.left, margin), window.innerWidth - width - margin);
+
+                panel.style.position = 'fixed';
+                panel.style.top = `${rect.bottom + 8}px`;
+                panel.style.left = `${left}px`;
+                panel.style.width = `${width}px`;
+            }
+        }" @click.away="open = false" @resize.window="positionPanel()">
+        <button type="button" x-ref="switcherButton" @click="positionPanel(); open = !open" class="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-700">
             @if ($activeOrganization)
                 @if (!empty($activeOrganization['logo']))
                     <img src="{{ $activeOrganization['logo'] }}" alt="{{ $activeOrganization['name'] }} logo" class="h-8 w-8 rounded-full object-cover" />
@@ -18,7 +46,7 @@
             @endif
         </button>
 
-        <div x-show="open" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100" x-transition:leave="transition ease-in duration-75" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95" class="absolute right-0 z-50 mt-3 w-[310px] rounded-2xl border border-gray-200 bg-white p-2 shadow-lg dark:border-gray-800 dark:bg-gray-900" style="display:none">
+        <div x-ref="panel" x-show="open" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100" x-transition:leave="transition ease-in duration-75" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95" class="z-50 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg dark:border-gray-800 dark:bg-gray-900 xl:absolute xl:left-auto xl:right-0 xl:mt-3 xl:w-[310px]" style="display:none">
             <div class="max-h-80 overflow-y-auto">
                 @foreach ($items as $item)
                     @php

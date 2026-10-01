@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\OrganizationAuthorizationService;
 use Illuminate\Support\Facades\DB;
 
 class Dashboard extends Controller
@@ -42,13 +43,7 @@ class Dashboard extends Controller
     {
         $user = auth()->user();
 
-        $organizationIds = DB::table('organization_officers')
-            ->where('user', (int) $user->getKey())
-            ->pluck('organization')
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $id > 0)
-            ->unique()
-            ->values();
+        $organizationIds = collect(OrganizationAuthorizationService::memberOrganizationIdsForUser((int) $user->getKey()));
 
         $upcomingEvents = collect();
 

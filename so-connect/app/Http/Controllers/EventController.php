@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\EventPlan;
 use App\Models\Semester;
 use App\Models\Workplan;
+use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,13 +21,11 @@ class EventController extends Controller
     {
         $userId = (int) $request->user()->getKey();
 
-        $organizationIds = DB::table('organization_officers')
-            ->where('user', $userId)
-            ->pluck('organization')
-            ->map(fn ($organizationId) => (int) $organizationId)
-            ->filter(fn ($organizationId) => $organizationId > 0)
-            ->unique()
-            ->values();
+        // "all" lists every org the user belongs to; "current" (default) honours
+        // the org selected in the session switcher.
+        $organizationIds = $request->query('scope') === 'all'
+            ? collect(OrganizationAuthorizationService::allMemberOrganizationIdsForUser($userId))
+            : collect(OrganizationAuthorizationService::memberOrganizationIdsForUser($userId));
 
         if ($organizationIds->isEmpty()) {
             return response()->json([]);

@@ -67,6 +67,37 @@ class OrganizationAuthorizationService
     }
 
     /**
+     * Every org the user belongs to in any role (member included), scoped to
+     * the switcher — for features that list "my orgs" regardless of rank
+     * (calendar, dashboards, notifications).
+     *
+     * @return array<int>
+     */
+    public static function memberOrganizationIdsForUser(int $userId): array
+    {
+        return self::scopeToActiveOrganization($userId, self::allMemberOrganizationIdsForUser($userId));
+    }
+
+    /**
+     * @return array<int>
+     */
+    public static function allMemberOrganizationIdsForUser(int $userId): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        return DB::table('organization_officers')
+            ->where('user', $userId)
+            ->pluck('organization')
+            ->map(fn ($organizationId) => (int) $organizationId)
+            ->filter(fn ($organizationId) => $organizationId > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
      * Narrow a role-derived org set to the org the current user selected in the
      * switcher, so switching context re-scopes every feature to that one org
      * (and an org where they're only a member yields an empty officer/president
