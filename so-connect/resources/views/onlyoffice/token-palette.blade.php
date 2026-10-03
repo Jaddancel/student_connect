@@ -109,7 +109,7 @@
     </style>
 </head>
 <body data-form-id="{{ $formId ?? '' }}">
-    <p class="hint">Place the cursor in the document, then click a field to insert its token. An Activity Table inserts a table that prints one row per approved activity at generation time.</p>
+    <p class="hint">Place the cursor in the document, then click a field to insert its token. A Table field inserts a table that prints one row per entry at generation time.</p>
     <input type="text" id="search" class="search" placeholder="Search fields…" autocomplete="off">
     <div id="list"></div>
     <p id="empty" class="empty" hidden>No matching fields.</p>

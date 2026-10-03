@@ -14,6 +14,21 @@
     $rowTotalMultiply = array_values(array_filter(array_map('strval', (array) ($rowTotal['multiply'] ?? []))));
     $hasRowTotal = $rowTotalKey !== '' && count($rowTotalMultiply) >= 2;
     $events = $special['events'] ?? [];
+    $eventOptions = array_map(function ($event) {
+        $date = (string) ($event['date'] ?? '');
+        if ($date !== '') {
+            try {
+                $date = \Illuminate\Support\Carbon::parse($date)->format('F j, Y');
+            } catch (\Throwable) {
+                // Keep the raw string if it isn't a parseable date.
+            }
+        }
+
+        return [
+            'id' => $event['id'],
+            'label' => trim(($event['title'] ?? '').($date !== '' ? ' — '.$date : '')),
+        ];
+    }, $events);
 
     $oldRows = array_values(array_filter((array) old($key, []), 'is_array'));
     if (! count($oldRows)) {
@@ -42,6 +57,25 @@
             this.rows.push(blank);
         },
         removeRow(i) { this.rows.splice(i, 1); if (!this.rows.length) this.addRow(); },
+        // Publishes this table's per-column sums (plus its row-total column, if
+        // any) to the shared formCompute store, so `computed` fields referencing
+        // `{{ $key }}.columnKey` live-recompute as rows are typed/added/removed.
+        publishSums() {
+            const sums = {};
+            this.cols.forEach((c) => {
+                if (c.type === 'number') {
+                    sums[c.key] = this.rows.reduce((s, r) => s + (parseFloat(r[c.key]) || 0), 0);
+                }
+            });
+            if (this.hasRowTotal) {
+                sums['{{ $rowTotalKey }}'] = this.footer;
+            }
+            Alpine.store('formCompute').tableSums['{{ $key }}'] = sums;
+        },
+        init() {
+            this.publishSums();
+            this.$watch('rows', () => this.publishSums());
+        },
     }" class="overflow-x-auto">
     <table class="w-full border-collapse text-sm">
         <thead>
@@ -64,8 +98,8 @@
                                 <select :name="'{{ $key }}[' + i + '][{{ $col['key'] }}]'" x-model="row['{{ $col['key'] }}']"
                                     class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:text-white/90">
                                     <option value="">—</option>
-                                    @foreach ($events as $event)
-                                        <option value="{{ $event['id'] }}">{{ $event['title'] }}</option>
+                                    @foreach ($eventOptions as $event)
+                                        <option value="{{ $event['id'] }}">{{ $event['label'] }}</option>
                                     @endforeach
                                 </select>
                             @else

@@ -19,6 +19,7 @@ import { searchSelectField } from "./components/search-select-field";
 import { assistantChat } from "./components/assistant-chat";
 import { manualFormStart, manualScanUploader } from "./components/manual-form";
 import { registerAgeAutofill } from "./components/age-autofill";
+import { computedField } from "./components/computed-field";
 
 // flatpickr
 import flatpickr from "flatpickr";
@@ -46,6 +47,22 @@ Alpine.data("searchSelectField", searchSelectField);
 Alpine.data("assistantChat", assistantChat);
 Alpine.data("manualFormStart", manualFormStart);
 Alpine.data("manualScanUploader", manualScanUploader);
+Alpine.data("computedField", computedField);
+
+// Shared by table-input fields (tableSums) and `computed` fields
+// (computedValues) so a computed field can live-recompute from either without
+// the two components knowing about each other — see computed-field.js.
+Alpine.store("formCompute", {
+    tableSums: {},
+    computedValues: {},
+    tick: 0,
+});
+// Bumped on every keystroke so a computed field referencing a plain sibling
+// input (not a table column or another computed field) still recomputes live.
+document.addEventListener("input", () => {
+    Alpine.store("formCompute").tick++;
+});
+
 Alpine.start();
 
 // Live age-from-birthday autofill (Sign Up form); delegated at the document level.

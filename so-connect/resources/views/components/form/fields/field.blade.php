@@ -469,9 +469,20 @@
                 @break
 
             @case(FieldType::COMPUTED)
-                {{-- Derived server-side; shown read-only, recomputed live from siblings for feedback. --}}
-                <input type="text" readonly value="{{ $old }}" placeholder="Calculated automatically"
-                    class="{{ $inputClass }} bg-gray-50 dark:bg-white/[0.02]" />
+                {{-- Derived server-side (FieldCompute overwrites whatever is
+                     posted); live-mirrored client-side via computedField so it
+                     shows the autofilled value while the form is filled out. --}}
+                <div x-data="computedField({
+                        formula: @js($opts['formula'] ?? 'sum'),
+                        args: @js($opts['args'] ?? []),
+                        table: @js($opts['table'] ?? ''),
+                        column: @js($opts['column'] ?? ''),
+                        fieldKey: @js($key),
+                    })" x-effect="value = compute()">
+                    <input type="text" id="{{ $key }}" name="{{ $key }}" readonly :value="value"
+                        placeholder="Calculated automatically"
+                        class="{{ $inputClass }} bg-gray-50 dark:bg-white/[0.02]" />
+                </div>
                 @break
 
             @default

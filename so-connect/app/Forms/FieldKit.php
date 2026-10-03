@@ -138,9 +138,7 @@ final class FieldKit
                     FieldType::TABLE_INPUT,
                     FieldType::COMPUTED,
                 ],
-                'required' => [
-                    'organization_id' => FieldType::ORG_SELECT,
-                ],
+                'required' => [],
             ],
         ];
     }

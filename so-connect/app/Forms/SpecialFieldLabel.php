@@ -17,6 +17,9 @@ final class SpecialFieldLabel
     /** @var array<int,string> */
     private static array $plans = [];
 
+    /** @var array<int,string> */
+    private static array $plansWithDate = [];
+
     public static function forField(string $type, mixed $value): string
     {
         return match ($type) {
@@ -65,5 +68,36 @@ final class SpecialFieldLabel
         }
 
         return self::$plans[$id];
+    }
+
+    /**
+     * "Title — Date" for a table `event-select` column's stored event plan id
+     * (used by the printed PDF and the admin review table — the live form
+     * draws the same label from {@see SpecialFieldData}'s resolved event list).
+     */
+    public static function eventPlanTitleWithDate(mixed $value): string
+    {
+        if (! is_numeric($value)) {
+            return (string) $value;
+        }
+        $id = (int) $value;
+
+        if (! array_key_exists($id, self::$plansWithDate)) {
+            $row = DB::table('event_plans')->where('event_plan_id', $id)->first(['title', 'target_date']);
+            $title = (string) ($row->title ?? '');
+            $date = $row && $row->target_date ? self::formatDate((string) $row->target_date) : '';
+            self::$plansWithDate[$id] = trim($title.($date !== '' ? ' — '.$date : ''));
+        }
+
+        return self::$plansWithDate[$id];
+    }
+
+    private static function formatDate(string $value): string
+    {
+        try {
+            return \Illuminate\Support\Carbon::parse($value)->format('F j, Y');
+        } catch (\Throwable) {
+            return $value;
+        }
     }
 }

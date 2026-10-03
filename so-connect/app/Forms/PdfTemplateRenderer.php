@@ -149,6 +149,13 @@ final class PdfTemplateRenderer
             /** @var \DOMElement $container */
             $key = (string) $container->getAttribute('data-field-rows');
 
+            // Column defs, so an `event-select` column prints "Title — Date"
+            // instead of the raw stored event plan id.
+            $tableField = $fieldsByKey[$key] ?? null;
+            $columns = $tableField && $tableField->field_type === FieldType::TABLE_INPUT
+                ? collect(FieldType::tableColumns((array) ($tableField->field_options ?? [])))->keyBy('key')
+                : collect();
+
             // The template row = the last element child (any earlier element
             // children, e.g. a header row, are kept as-is).
             $templateRow = null;
@@ -174,7 +181,11 @@ final class PdfTemplateRenderer
                         while ($cell->firstChild) {
                             $cell->removeChild($cell->firstChild);
                         }
-                        $cell->appendChild($dom->createTextNode((string) ($row[$col] ?? '')));
+                        $value = $row[$col] ?? '';
+                        $text = ($columns->get($col)['type'] ?? null) === 'event-select'
+                            ? SpecialFieldLabel::eventPlanTitleWithDate($value)
+                            : (string) $value;
+                        $cell->appendChild($dom->createTextNode($text));
                     }
                 }
                 $container->insertBefore($clone, $templateRow);

@@ -245,3 +245,33 @@ it('emits dotted parallel arrays and a base fallback for an activity-table field
         // A bare {{wp_activities}} / {{wp_activities#}} falls back to the first column.
         ->and($values['wp_activities'])->toBe(['A', 'B']);
 });
+
+it('emits dotted parallel arrays, a row total and a base fallback for a table-input field', function () {
+    $field = new \App\Models\Form\FormDescription([
+        'field_key' => 'expenses',
+        'field_type' => 'table-input',
+        'field_options' => [
+            'columns' => [
+                ['key' => 'item', 'label' => 'Item', 'type' => 'text'],
+                ['key' => 'price', 'label' => 'Price', 'type' => 'number'],
+                ['key' => 'qty', 'label' => 'Qty', 'type' => 'number'],
+            ],
+            'row_total' => ['key' => 'line_total', 'label' => 'Total', 'multiply' => ['price', 'qty']],
+        ],
+    ]);
+
+    $payload = ['expenses' => [
+        ['item' => 'Pens', 'price' => '10', 'qty' => '2', 'line_total' => '20'],
+        ['item' => 'Paper', 'price' => '5', 'qty' => '4', 'line_total' => '20'],
+    ]];
+
+    $values = app(\App\Forms\DocxTemplateData::class)->build($payload, collect([$field]))['values'];
+
+    expect($values['expenses.item'])->toBe(['Pens', 'Paper'])
+        ->and($values['expenses.price'])->toBe(['10', '5'])
+        ->and($values['expenses.qty'])->toBe(['2', '4'])
+        // The per-row computed column prints alongside the declared columns.
+        ->and($values['expenses.line_total'])->toBe(['20', '20'])
+        // A bare {{expenses}} / {{expenses#}} falls back to the first column.
+        ->and($values['expenses'])->toBe(['Pens', 'Paper']);
+});

@@ -467,6 +467,42 @@ it('emits an activity-table token that inserts a table with column children', fu
     expect($html)->toContain('PasteHtml');
 });
 
+it('emits a table-input token that inserts a table with its columns and row total as children', function () {
+    $form = editorForm();
+    $form->fields()->create([
+        'field_key' => 'org_name', 'field_label' => 'Organization', 'field_type' => 'text', 'field_order' => 1,
+    ]);
+    $form->fields()->create([
+        'field_key' => 'expenses', 'field_label' => 'Expenses', 'field_type' => 'table-input', 'field_order' => 2,
+        'field_options' => [
+            'columns' => [
+                ['key' => 'item', 'label' => 'Item', 'type' => 'text'],
+                ['key' => 'price', 'label' => 'Price', 'type' => 'number'],
+                ['key' => 'qty', 'label' => 'Qty', 'type' => 'number'],
+            ],
+            'row_total' => ['key' => 'line_total', 'label' => 'Total', 'multiply' => ['price', 'qty']],
+        ],
+    ]);
+
+    $template = app(FormPrintTemplateService::class)->resolve($form);
+    $token = editorToken($template, 'plugin');
+
+    $html = $this->get(route('onlyoffice.plugin', ['form' => $form, 'token' => $token]))->assertOk()->getContent();
+    $tokens = collect(paletteTokens($html))->keyBy('key');
+
+    // The Table field inserts a whole table, carrying its columns (plus the
+    // per-row computed column) as children.
+    expect($tokens['expenses']['insert'])->toBe('table')
+        ->and(collect($tokens['expenses']['children'])->pluck('key')->all())
+        ->toBe(['expenses.item', 'expenses.price', 'expenses.qty', 'expenses.line_total']);
+
+    // Plain fields carry neither marker.
+    expect($tokens['org_name'])->not->toHaveKey('children')
+        ->and($tokens['org_name'])->not->toHaveKey('insert');
+
+    expect($html)->toContain('PasteHtml');
+});
+
 it('replaces the printed template with an uploaded .docx', function () {
     $form = editorForm();
     $template = app(FormPrintTemplateService::class)->resolve($form);

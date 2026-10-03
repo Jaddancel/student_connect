@@ -597,30 +597,29 @@ class FormPagesSeeder extends Seeder
             $this->heading('Financial Report'),
             $this->f('organization_id', 'Organization', FieldType::ORG_SELECT, ['required' => true]),
             $this->f('date', 'School Year', FieldType::TEXT, ['required' => true]),
-            $this->f('fund_sources', 'Source of Funds', FieldType::TABLE_INPUT, ['required' => true, 'options' => [
+            $this->f('fund_table', 'Fund Table', FieldType::TABLE_INPUT, ['required' => true, 'options' => [
                 'columns' => [
-                    ['key' => 'source', 'label' => 'Source of Funds', 'type' => 'text', 'required' => true],
-                    ['key' => 'amount', 'label' => 'Amount (₱)', 'type' => 'number', 'required' => true],
+                    ['key' => 'fundSource', 'label' => 'Fund Source', 'type' => 'text', 'required' => true],
+                    ['key' => 'amount', 'label' => 'Fund Amount (₱)', 'type' => 'number', 'required' => true],
                 ],
             ]]),
-            $this->f('total_funds', 'Total Funds', FieldType::COMPUTED, ['options' => [
-                'formula' => 'sum', 'args' => ['fund_sources.amount'],
+            $this->f('totalFunds', 'Total Funds', FieldType::COMPUTED, ['options' => [
+                'formula' => 'sum', 'args' => ['fund_table.amount'],
             ]]),
-            $this->f('expenses', 'Statement of Expenses', FieldType::TABLE_INPUT, ['options' => [
+            $this->f('expenses_summary', 'Expenses Summary', FieldType::TABLE_INPUT, ['required' => true, 'options' => [
                 'columns' => [
-                    ['key' => 'activity', 'label' => 'Activity', 'type' => 'event-select', 'required' => false],
-                    ['key' => 'ex_date', 'label' => 'Date', 'type' => 'date', 'required' => false],
-                    ['key' => 'item', 'label' => 'Item', 'type' => 'text', 'required' => false],
-                    ['key' => 'price', 'label' => 'Price/Unit', 'type' => 'number', 'required' => false],
-                    ['key' => 'qty', 'label' => 'Qty', 'type' => 'number', 'required' => false],
+                    ['key' => 'activity_and_date', 'label' => 'Activity Title and Date', 'type' => 'event-select', 'scope' => 'current_semester', 'required' => true],
+                    ['key' => 'item_title', 'label' => 'Item', 'type' => 'text', 'required' => true],
+                    ['key' => 'amount_per_unit', 'label' => 'Amount per Unit (₱)', 'type' => 'number', 'required' => true],
+                    ['key' => 'quantity', 'label' => 'Quantity', 'type' => 'number', 'required' => true],
                 ],
-                'row_total' => ['key' => 'line_total', 'label' => 'Total', 'multiply' => ['price', 'qty']],
+                'row_total' => ['key' => 'priceTotal', 'label' => 'Total Price', 'multiply' => ['amount_per_unit', 'quantity']],
             ]]),
-            $this->f('total_expenses', 'Total Expenses', FieldType::COMPUTED, ['options' => [
-                'formula' => 'sum', 'args' => ['expenses.line_total'],
+            $this->f('totalExpenses', 'Total Expenses', FieldType::COMPUTED, ['options' => [
+                'formula' => 'sum', 'args' => ['expenses_summary.priceTotal'],
             ]]),
-            $this->f('cash_on_hand', 'Cash on Hand', FieldType::COMPUTED, ['options' => [
-                'formula' => 'difference', 'args' => ['total_funds', 'total_expenses'],
+            $this->f('sum', 'Sum (Total Funds − Total Expenses)', FieldType::COMPUTED, ['options' => [
+                'formula' => 'difference', 'args' => ['totalFunds', 'totalExpenses'],
             ]]),
             $this->f('name_of_treasurer', 'Treasurer', FieldType::TEXT, ['required' => true]),
             $this->f('signature1', 'Treasurer Signature', FieldType::SIGNATURE, ['required' => true]),
@@ -631,15 +630,15 @@ class FormPagesSeeder extends Seeder
         $html = '<h2>Financial Report</h2>'
             .$this->line('Organization', 'organization_id')
             .$this->line('School Year', 'date')
-            .'<h3>Source of Funds</h3>'
-            .'<table><thead><tr><th>Source</th><th>Amount</th></tr></thead>'
-            .'<tbody data-field-rows="fund_sources"><tr><td data-col="source"></td><td data-col="amount"></td></tr></tbody></table>'
-            .'<p><strong>Total Funds:</strong> <span data-field="total_funds"></span></p>'
-            .'<h3>Statement of Expenses</h3>'
-            .'<table><thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Total</th></tr></thead>'
-            .'<tbody data-field-rows="expenses"><tr><td data-col="item"></td><td data-col="price"></td><td data-col="qty"></td><td data-col="line_total"></td></tr></tbody></table>'
-            .'<p><strong>Total Expenses:</strong> <span data-field="total_expenses"></span></p>'
-            .'<p><strong>Cash on Hand:</strong> <span data-field="cash_on_hand"></span></p>'
+            .'<h3>Fund Table</h3>'
+            .'<table><thead><tr><th>Fund Source</th><th>Fund Amount</th></tr></thead>'
+            .'<tbody data-field-rows="fund_table"><tr><td data-col="fundSource"></td><td data-col="amount"></td></tr></tbody></table>'
+            .'<p><strong>Total Funds:</strong> <span data-field="totalFunds"></span></p>'
+            .'<h3>Expenses Summary</h3>'
+            .'<table><thead><tr><th>Activity Title and Date</th><th>Item</th><th>Amount per Unit</th><th>Quantity</th><th>Total Price</th></tr></thead>'
+            .'<tbody data-field-rows="expenses_summary"><tr><td data-col="activity_and_date"></td><td data-col="item_title"></td><td data-col="amount_per_unit"></td><td data-col="quantity"></td><td data-col="priceTotal"></td></tr></tbody></table>'
+            .'<p><strong>Total Expenses:</strong> <span data-field="totalExpenses"></span></p>'
+            .'<p><strong>Sum:</strong> <span data-field="sum"></span></p>'
             .$this->line('Prepared by (Treasurer)', 'name_of_treasurer')
             .'<p><span data-field="signature1"></span></p>';
 

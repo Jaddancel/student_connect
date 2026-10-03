@@ -61,7 +61,9 @@ final class SpecialFieldData
         if (in_array(FieldType::EVENT_SELECT, $types, true) || $hasTableEventColumn) {
             $dedupe = $fields->first(fn ($f) => $f->field_type === FieldType::EVENT_SELECT
                 && (bool) (($f->field_options['dedupe'] ?? false))) !== null;
-            $data['events'] = self::approvedEventPlans($officerOrgIds, $dedupe ? $form : null);
+            $data['events'] = self::hasCurrentSemesterEventColumn($fields)
+                ? self::currentWorkplanPlans($officerOrgIds)
+                : self::approvedEventPlans($officerOrgIds, $dedupe ? $form : null);
         }
 
         if (in_array(FieldType::WORKPLAN_SELECT, $types, true)) {
@@ -215,6 +217,32 @@ final class SpecialFieldData
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * Whether any table-input field carries an `event-select` column scoped to
+     * `current_semester` — those draw their options from the current-semester
+     * approved workplan activities instead of the org's whole approved-plan
+     * history. Read directly off the raw column config (not
+     * {@see FieldType::tableColumns()}, which strips the `scope` property).
+     *
+     * @param  Collection<int,\App\Models\Form\FormDescription>  $fields
+     */
+    private static function hasCurrentSemesterEventColumn(Collection $fields): bool
+    {
+        return $fields->contains(function ($field) {
+            if ($field->field_type !== FieldType::TABLE_INPUT) {
+                return false;
+            }
+
+            foreach ((array) (($field->field_options ?? [])['columns'] ?? []) as $column) {
+                if (is_array($column) && ($column['type'] ?? null) === 'event-select' && ($column['scope'] ?? null) === 'current_semester') {
+                    return true;
+                }
+            }
+
+            return false;
+        });
     }
 
     /**

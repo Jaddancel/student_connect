@@ -88,7 +88,7 @@
                                         <tbody>
                                             @forelse ((array) $value as $row)
                                                 <tr class="border-b border-gray-100 dark:border-gray-800">
-                                                    @foreach ($tableCols as $col)<td class="px-2 py-1 text-gray-800 dark:text-white/90">{{ $row[$col['key']] ?? '' }}</td>@endforeach
+                                                    @foreach ($tableCols as $col)<td class="px-2 py-1 text-gray-800 dark:text-white/90">{{ $col['type'] === 'event-select' ? \App\Forms\SpecialFieldLabel::eventPlanTitleWithDate($row[$col['key']] ?? null) : ($row[$col['key']] ?? '') }}</td>@endforeach
                                                 </tr>
                                             @empty
                                                 <tr><td colspan="{{ count($tableCols) }}" class="px-2 py-1 text-gray-400">—</td></tr>

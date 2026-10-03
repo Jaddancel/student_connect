@@ -86,6 +86,45 @@ class DocxTemplateData
                 continue;
             }
 
+            // Table field: the stored value is a list of row objects keyed by
+            // column key. Like the Activity Table, emit one parallel array per
+            // column (and per-row computed column) under a dotted `{{key.col#}}`
+            // token so the row-repeat machinery clones one table row per entry;
+            // event-select columns print "Title — Date" to match the HTML path.
+            if ($type === FieldType::TABLE_INPUT) {
+                $rows = array_values(array_filter((array) ($payload[$key] ?? []), 'is_array'));
+                $columns = FieldType::tableColumns($options);
+
+                $cellValues = function (string $columnKey, ?string $columnType) use ($rows) {
+                    return array_map(function ($row) use ($columnKey, $columnType) {
+                        $cell = $row[$columnKey] ?? '';
+
+                        return $columnType === 'event-select'
+                            ? SpecialFieldLabel::eventPlanTitleWithDate($cell)
+                            : (string) $cell;
+                    }, $rows);
+                };
+
+                $columnKeys = [];
+                foreach ($columns as $column) {
+                    $values[$key.'.'.$column['key']] = $cellValues($column['key'], $column['type']);
+                    $columnKeys[] = $column['key'];
+                }
+
+                $rowTotal = (array) ($options['row_total'] ?? []);
+                $rowTotalKey = trim((string) ($rowTotal['key'] ?? ''));
+                if ($rowTotalKey !== '' && ! in_array($rowTotalKey, $columnKeys, true)) {
+                    $values[$key.'.'.$rowTotalKey] = $cellValues($rowTotalKey, null);
+                }
+
+                $firstColumn = $columns[0] ?? null;
+                $values[$key] = $firstColumn
+                    ? $cellValues($firstColumn['key'], $firstColumn['type'])
+                    : [];
+
+                continue;
+            }
+
             $values[$key] = $this->textValue($payload, $key, $type, $options);
         }
 

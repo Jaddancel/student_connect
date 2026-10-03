@@ -516,6 +516,35 @@ class FormPrintTemplateController extends Controller
                 }
             }
 
+            // A Table field inserts a table the same way: a heading row of
+            // column labels and a data row of `{{key.col#}}` tokens that repeat
+            // per submitted row. Its sub-fields are its declared columns plus
+            // any per-row computed column (row_total).
+            if ((string) $field->field_type === FieldType::TABLE_INPUT) {
+                $options = (array) ($field->field_options ?? []);
+                $token['insert'] = 'table';
+                $token['children'] = [];
+                foreach (FieldType::tableColumns($options) as $column) {
+                    $token['children'][] = [
+                        'key' => $key.'.'.$column['key'],
+                        'label' => (string) $column['label'],
+                        'icon' => (string) ($catalog[$column['type']]['icon'] ?? 'text'),
+                        'type_label' => FieldType::label((string) $column['type']),
+                    ];
+                }
+                $rowTotal = (array) ($options['row_total'] ?? []);
+                $rowTotalKey = trim((string) ($rowTotal['key'] ?? ''));
+                $rowTotalMultiply = array_filter(array_map('strval', (array) ($rowTotal['multiply'] ?? [])));
+                if ($rowTotalKey !== '' && count($rowTotalMultiply) >= 2) {
+                    $token['children'][] = [
+                        'key' => $key.'.'.$rowTotalKey,
+                        'label' => (string) ($rowTotal['label'] ?? $rowTotalKey),
+                        'icon' => (string) ($catalog[FieldType::NUMBER]['icon'] ?? 'number'),
+                        'type_label' => FieldType::label(FieldType::NUMBER),
+                    ];
+                }
+            }
+
             $fieldsByGroup[$group][] = $token;
         }
 
