@@ -79,6 +79,47 @@ class FormTemplateHelper
      */
     public static function extractPlaceholdersFromDocx(string $absolutePath): array
     {
+        $combined = self::readDocxText($absolutePath);
+
+        preg_match_all('/\{\{\s*([a-zA-Z0-9_\.:-]+#?)\s*\}\}/', $combined, $matches);
+
+        return collect($matches[1] ?? [])
+            ->map(function (string $placeholder): string {
+                $isMultiline = str_ends_with($placeholder, '#');
+                $base = $isMultiline ? substr($placeholder, 0, -1) : $placeholder;
+                $normalizedBase = self::normalizeFieldKey($base);
+
+                return $normalizedBase !== '' ? ($normalizedBase.($isMultiline ? '#' : '')) : '';
+            })
+            ->filter(fn (string $placeholder) => $placeholder !== '' && $placeholder !== '#')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /** Exact keys, including table-column dots and repeating suffixes. */
+    public static function exactTokenKeysFromDocxContents(string $contents): array
+    {
+        $file = tmpfile();
+        if ($file === false) {
+            throw new RuntimeException('Unable to create a DOCX inspection file.');
+        }
+
+        try {
+            if (fwrite($file, $contents) !== strlen($contents)) {
+                throw new RuntimeException('Unable to write the DOCX inspection file.');
+            }
+            $text = self::readDocxText(stream_get_meta_data($file)['uri']);
+            preg_match_all('/\{\{([^{}\r\n]*)\}\}/u', $text, $matches);
+
+            return array_values(array_unique($matches[1] ?? []));
+        } finally {
+            fclose($file);
+        }
+    }
+
+    private static function readDocxText(string $absolutePath): string
+    {
         if (! is_file($absolutePath)) {
             throw new InvalidArgumentException('DOCX template file does not exist: '.$absolutePath);
         }
@@ -120,26 +161,7 @@ class FormTemplateHelper
 
         $zip->close();
 
-        if ($combined === '') {
-            return [];
-        }
-
-        // Allow trailing # which marks a field as multiline (e.g. {{members#}}).
-        preg_match_all('/\{\{\s*([a-zA-Z0-9_\.:-]+#?)\s*\}\}/', $combined, $matches);
-
-        return collect($matches[1] ?? [])
-            ->map(function (string $placeholder): string {
-                // Preserve the trailing # but normalise everything before it.
-                $isMultiline = str_ends_with($placeholder, '#');
-                $base = $isMultiline ? substr($placeholder, 0, -1) : $placeholder;
-                $normalizedBase = self::normalizeFieldKey($base);
-
-                return $normalizedBase !== '' ? ($normalizedBase.($isMultiline ? '#' : '')) : '';
-            })
-            ->filter(fn (string $placeholder) => $placeholder !== '' && $placeholder !== '#')
-            ->unique()
-            ->values()
-            ->all();
+        return $combined;
     }
 
     /**

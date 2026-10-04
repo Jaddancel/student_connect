@@ -620,6 +620,58 @@ it('scopes Document Server saves to the selected draft slot', function () {
         ->and($templates->readSlotDocx($sync['draftId'], $second['id']))->toBe('SECOND-SLOT-EDITED');
 });
 
+it('provides authenticated usage across persisted documents of the same form only', function () {
+    $templates = app(FormPrintTemplateService::class);
+    $form = editorForm('<p>{{full_name}}</p>');
+    $first = $templates->resolve($form);
+    $otherForm = editorForm('<p>{{foreign_field}}</p>');
+    $templates->resolve($otherForm);
+    $templates->createSlot($form, 'Second document', Storage::disk('public')->get($first->docx_path), 1, null);
+    $url = route('onlyoffice.token-usage', $form);
+
+    $this->getJson($url)->assertForbidden();
+    $this->getJson($url.'?token='.editorToken($first, 'document'))->assertForbidden();
+    $documents = $this->getJson($url.'?token='.editorToken($first, 'plugin'))
+        ->assertOk()->assertHeader('Cache-Control', 'no-store, private')->json('documents');
+
+    expect($documents)->toHaveCount(2)
+        ->and($documents[0]['keys'])->toBe(['full_name'])
+        ->and($documents[1]['name'])->toBe('Second document')
+        ->and($documents[1]['keys'])->toBe(['full_name']);
+});
+
+it('preserves the selected slot identity through the plugin handshake and refreshes draft usage', function () {
+    $templates = app(FormPrintTemplateService::class);
+    $sync = $this->actingAs(recordsUser(2))->postJson(route('admin.form-builder.draft.sync'), [
+        'name' => 'Usage test', 'fields' => [],
+    ])->assertOk()->json();
+    $bytes = $templates->readDraftDocx($sync['draftId']);
+    $added = $this->post($sync['addUrl'], [
+        'docx' => UploadedFile::fake()->createWithContent('other.docx', $bytes),
+    ], ['Accept' => 'application/json'])->assertOk()->json();
+    $second = $added['slots'][1];
+    $config = $this->getJson($second['configUrl'])->assertOk()->json('config');
+    $pluginConfig = $this->getJson($config['editorConfig']['plugins']['pluginsData'][0])->assertOk()->json();
+    expect($pluginConfig['variations'][0]['events'])->toBe(['onContextMenuShow', 'onContextMenuClick']);
+    $pluginToken = substr($pluginConfig['variations'][0]['url'], strlen('plugin/'));
+    expect(app(OnlyOfficeService::class)->verify($pluginToken)['sid'])->toBe($second['id']);
+    $this->get(route('onlyoffice.draft.plugin', ['draftId' => $sync['draftId'], 'token' => $pluginToken]))
+        ->assertOk()->assertSee('"documentId":"'.$second['id'].'"', false);
+    $url = route('onlyoffice.draft.token-usage', $sync['draftId']);
+    $this->getJson($url)->assertForbidden();
+    $this->getJson(route('onlyoffice.draft.token-usage', 'wrong-draft').'?token='.$pluginToken)->assertForbidden();
+    $response = $this->getJson($url.'?token='.$pluginToken)->assertOk();
+    expect($response->json('documents'))->toHaveCount(2)
+        ->and($response->json('documents.1.id'))->toBe($second['id']);
+
+    $form = editorForm('<p>{{updated_field}}</p>');
+    $saved = $templates->resolve($form);
+    $templates->storeSlotRevision($sync['draftId'], $second['id'], Storage::disk('public')->get($saved->docx_path));
+    $this->getJson($url.'?token='.$pluginToken)->assertOk()->assertJsonPath('documents.1.keys', ['updated_field']);
+    $templates->removeDraftSlot($sync['draftId'], $second['id']);
+    $this->getJson($url.'?token='.$pluginToken)->assertNotFound();
+});
+
 it('rejects an import that is not a real .docx', function () {
     $form = editorForm();
     $template = app(FormPrintTemplateService::class)->resolve($form);

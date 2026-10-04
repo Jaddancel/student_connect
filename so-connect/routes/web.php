@@ -1240,6 +1240,8 @@ Route::prefix('onlyoffice/draft/{draftId}')
             ->name('onlyoffice.draft.callback');
         Route::get('/config.json', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'draftPluginConfig'])
             ->name('onlyoffice.draft.plugin-config');
+        Route::get('/token-usage', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'draftTokenUsage'])
+            ->name('onlyoffice.draft.token-usage');
         Route::get('/{icon}', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'pluginIcon'])
             ->where('icon', 'icon(@2x)?\.png')
             ->name('onlyoffice.draft.plugin-icon');
@@ -1280,6 +1282,8 @@ Route::prefix('onlyoffice/{form}')
         // name yields an empty baseUrl and the editor mangles the variation URL.
         Route::get('/config.json', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'pluginConfig'])
             ->name('onlyoffice.plugin-config');
+        Route::get('/token-usage', [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'tokenUsage'])
+            ->name('onlyoffice.token-usage');
         // The plugin's toolbar icon. The editor resolves the config's
         // icons [icon.png, icon@2x.png] against the plugin baseUrl
         // (…/onlyoffice/{form}/), so both must be served here.

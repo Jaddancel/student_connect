@@ -58,3 +58,24 @@ it('builds replacement maps and reports missing required fields', function () {
         'last_name' => 'Doe',
     ]);
 });
+
+it('reads exact token usage across split runs and headers without normalizing keys', function () {
+    $path = tempnam(sys_get_temp_dir(), 'token-docx-');
+    $zip = new ZipArchive;
+    $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    $zip->addFromString('word/document.xml', '<w:document><w:p><w:r><w:t>{{expenses.</w:t></w:r><w:r><w:t>amount#}}</w:t></w:r></w:p><w:p><w:r><w:t>{{Full_Name}} {{ Full_Name }} {{bad-key}} {{Full_Name}}</w:t></w:r></w:p></w:document>');
+    $zip->addFromString('word/header1.xml', '<w:hdr><w:p><w:r><w:t>{{organization_name}}</w:t></w:r></w:p></w:hdr>');
+    $zip->addFromString('word/styles.xml', '<w:t>{{not_a_document_token}}</w:t>');
+    $zip->close();
+
+    try {
+        expect(FormTemplateHelper::exactTokenKeysFromDocxContents(file_get_contents($path)))
+            ->toBe(['expenses.amount#', 'Full_Name', ' Full_Name ', 'bad-key', 'organization_name']);
+    } finally {
+        unlink($path);
+    }
+});
+
+it('reports unreadable documents explicitly during token usage inspection', function () {
+    FormTemplateHelper::exactTokenKeysFromDocxContents('not a zip');
+})->throws(RuntimeException::class, 'Unable to read DOCX template file.');

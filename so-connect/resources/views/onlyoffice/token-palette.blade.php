@@ -106,15 +106,22 @@
         }
         .children-toggle:hover { color: var(--brand-500); }
         .token.child { padding: 6px 8px; }
+        .usage { display: block; font-size: 10px; color: #6b7280; margin-top: 3px; }
+        .usage.used { color: #15803d; }
+        .status { flex: 0 0 auto; margin: 0 0 8px; font-size: 11px; color: #6b7280; }
+        .status.warning { color: #a16207; }
     </style>
 </head>
 <body data-form-id="{{ $formId ?? '' }}">
     <p class="hint">Place the cursor in the document, then click a field to insert its token. A Table field inserts a table that prints one row per entry at generation time.</p>
     <input type="text" id="search" class="search" placeholder="Search fields…" autocomplete="off">
+    <p id="checking-status" class="status" role="status">Checking token usage...</p>
     <div id="list"></div>
     <p id="empty" class="empty" hidden>No matching fields.</p>
 
     <script id="token-data" type="application/json">@json($tokens)</script>
+    <script id="usage-data" type="application/json">@json(['url' => $usageUrl, 'documentId' => $documentId, 'adapterUrl' => asset('js/field-token-tools.js')])</script>
+    <script src="{{ asset('js/field-token-tools.js') }}"></script>
 
     @verbatim
     <script type="text/javascript">
@@ -123,6 +130,89 @@
             var list = document.getElementById('list');
             var empty = document.getElementById('empty');
             var search = document.getElementById('search');
+            var tools = window.FieldTokenTools;
+            var usageData = JSON.parse(document.getElementById('usage-data').textContent);
+            var checkingStatus = document.getElementById('checking-status');
+            var currentUsage = {};
+            var documents = [];
+            var scanError = '';
+            var usageError = '';
+            var unknownCount = 0;
+            var known = tools.knownKeys(tokens);
+            var checking = false;
+            var disposed = false;
+            var scanTimer;
+            var usageTimer;
+            var commandQueue = [];
+            var commandRunning = false;
+
+            function updateStatus() {
+                checkingStatus.classList.toggle('warning', !!(scanError || usageError || unknownCount));
+                checkingStatus.textContent = scanError || usageError || (unknownCount
+                    ? unknownCount + ' unknown token(s). Right-click a token for suggestions.'
+                    : 'Tokens checked. Usage updates as you edit.');
+            }
+
+            function command(action, extra, callback) {
+                commandQueue.push({ request: Object.assign({ action: action, known: known, adapterUrl: usageData.adapterUrl }, extra || {}), callback: callback });
+                runNextCommand();
+            }
+
+            // The SDK has only one callCommand callback slot.
+            function runNextCommand() {
+                if (commandRunning || !commandQueue.length) return;
+                commandRunning = true;
+                var next = commandQueue.shift();
+                window.Asc.scope.fieldTokenRequest = next.request;
+                window.Asc.plugin.callCommand(tools.editorCommand, false, false, function (result) {
+                    commandRunning = false;
+                    next.callback(result || { error: 'The editor did not respond to token checking.' });
+                    runNextCommand();
+                });
+            }
+
+            function scan() {
+                if (checking || disposed) return;
+                checking = true;
+                command('scan', null, function (result) {
+                    checking = false;
+                    scanError = result.error || '';
+                    if (result.current) {
+                        currentUsage = result.current;
+                        unknownCount = result.unknown;
+                        render(search.value);
+                    }
+                    updateStatus();
+                });
+            }
+
+            async function refreshUsage() {
+                try {
+                    var response = await fetch(usageData.url, { credentials: 'omit', headers: { Accept: 'application/json' } });
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    var data = await response.json();
+                    if (!Array.isArray(data.documents)) throw new Error('Invalid usage response');
+                    documents = data.documents;
+                    usageError = '';
+                    render(search.value);
+                } catch (error) {
+                    usageError = 'Could not check other documents: ' + error.message;
+                    console.error(usageError);
+                }
+                updateStatus();
+            }
+
+            function usageLabel(token) {
+                var usage = tools.usage(token, currentUsage, documents, usageData.documentId);
+                var badge = document.createElement('span');
+                badge.className = 'usage' + (usage.here || usage.elsewhere.length ? ' used' : '');
+                var labels = [];
+                if (usage.here) labels.push('Used here (' + usage.here + ')');
+                if (usage.elsewhere.length) labels.push('Used in other DOCX (' + usage.elsewhere.length + ')');
+                badge.textContent = labels.join(' / ') || 'Not used';
+                badge.title = usage.elsewhere.join(', ');
+                return badge;
+            }
 
             // Trusted, static SVG bodies keyed by the FieldType icon name the
             // server sends. Icons come ONLY from this map (never from token
@@ -262,12 +352,14 @@
 
                 text.appendChild(label);
                 text.appendChild(key);
+                text.appendChild(usageLabel(token));
                 button.appendChild(icon);
                 button.appendChild(text);
                 button.addEventListener('click', function () { insert(token); });
                 wrap.appendChild(button);
 
-                if (hasChildren && (state.inserted[token.key] || childFilterMatch(token, needle))) {
+                if (hasChildren && (state.inserted[token.key] || tools.usage(token, currentUsage, documents, usageData.documentId).here
+                    || tools.usage(token, currentUsage, documents, usageData.documentId).elsewhere.length || childFilterMatch(token, needle))) {
                     wrap.appendChild(childList(token, childFilterMatch(token, needle)));
                 }
 
@@ -310,6 +402,7 @@
                         k.textContent = placeholder(child.key + '#');
                         t.appendChild(l);
                         t.appendChild(k);
+                        t.appendChild(usageLabel(child));
                         b.appendChild(ic);
                         b.appendChild(t);
                         // A single-cell repair: drop just this column's repeating token.
@@ -372,9 +465,55 @@
 
             window.Asc.plugin.init = function () {
                 render('');
+                scan();
+                refreshUsage();
+                scanTimer = window.setInterval(scan, 1000);
+                usageTimer = window.setInterval(refreshUsage, 5000);
             };
 
+            window.Asc.plugin.attachEvent('onContextMenuShow', function (options) {
+                if (!options) return;
+                if (options.type !== 'Selection' && options.type !== 'Target') {
+                    window.Asc.plugin.executeMethod('AddContextMenuItem', [{ guid: window.Asc.plugin.guid, items: [] }]);
+                    return;
+                }
+                command('target', null, function (result) {
+                    var items = [];
+                    if (result.error) {
+                        scanError = result.error;
+                        updateStatus();
+                    }
+                    if (result.target) {
+                        items = tools.suggestions(result.target.key, tokens).map(function (key, index) {
+                            var id = 'field-token-replace-' + index;
+                            var original = result.target.text;
+                            window.Asc.plugin.attachContextMenuClickEvent(id, function () {
+                                command('selectReplacement', { text: original }, function (selected) {
+                                    if (selected.error) {
+                                        scanError = selected.error;
+                                        updateStatus();
+                                        return;
+                                    }
+                                    window.Asc.plugin.executeMethod('PasteText', [placeholder(key)], scan);
+                                });
+                            });
+                            return { id: id, text: placeholder(key) };
+                        });
+                        if (items.length) items = [{ id: 'field-token-suggestions', text: 'Replace field token', disabled: false, items: items }];
+                    }
+                    window.Asc.plugin.executeMethod('AddContextMenuItem', [{ guid: window.Asc.plugin.guid, items: items }]);
+                });
+            });
+
+            function cleanup() {
+                disposed = true;
+                window.clearInterval(scanTimer);
+                window.clearInterval(usageTimer);
+                command('clear', null, function () {});
+            }
+            window.addEventListener('pagehide', cleanup);
             window.Asc.plugin.button = function () {
+                cleanup();
                 this.executeCommand('close', '');
             };
         })();

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Forms\FieldType;
+use App\Helpers\FormTemplateHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
 use App\Models\Template as FormTemplate;
@@ -299,7 +300,7 @@ class FormPrintTemplateController extends Controller
         return [
             'name' => 'Field tokens',
             'guid' => self::PLUGIN_GUID,
-            'version' => '1.1.0',
+            'version' => '1.2.3',
             'minVersion' => '7.0.0',
             'variations' => [[
                 'description' => 'Insert form field and profile tokens',
@@ -315,6 +316,7 @@ class FormPrintTemplateController extends Controller
                 'isInsideMode' => true,
                 'initDataType' => 'none',
                 'initData' => '',
+                'events' => ['onContextMenuShow', 'onContextMenuClick'],
                 'buttons' => [],
                 'size' => [320, 600],
             ]],
@@ -429,7 +431,7 @@ class FormPrintTemplateController extends Controller
      */
     public function plugin(Request $request, Form $form, string $token, OnlyOfficeService $onlyOffice)
     {
-        $this->authorizeToken($request, $form, self::PURPOSE_PLUGIN, $token);
+        $template = $this->authorizeToken($request, $form, self::PURPOSE_PLUGIN, $token);
 
         $response = response()->view('onlyoffice.token-palette', [
             'tokens' => $this->tokensFor($form->fields()->orderBy('field_order')->orderBy('id')->get()),
@@ -438,6 +440,8 @@ class FormPrintTemplateController extends Controller
             'sdkBase' => $onlyOffice->publicUrl(),
             // Scopes the palette's localStorage (inserted/expanded state) per form.
             'formId' => (int) $form->getKey(),
+            'documentId' => (string) $template->getKey(),
+            'usageUrl' => route('onlyoffice.token-usage', $form).'?token='.$token,
         ]);
 
         // The editor frames this page from the Document Server's origin, so the
@@ -457,6 +461,19 @@ class FormPrintTemplateController extends Controller
         $response->headers->set('Access-Control-Allow-Origin', $onlyOffice->publicUrl() ?: '*');
 
         return $response;
+    }
+
+    public function tokenUsage(Request $request, Form $form, FormPrintTemplateService $templates): JsonResponse
+    {
+        $this->authorizeToken($request, $form, self::PURPOSE_PLUGIN);
+
+        return response()->json([
+            'documents' => $templates->activeTemplates($form)->map(fn (FormTemplate $template) => [
+                'id' => (string) $template->getKey(),
+                'name' => (string) $template->template_name,
+                'keys' => FormTemplateHelper::exactTokenKeysFromDocxContents(File::get($templates->absolutePath($template))),
+            ])->all(),
+        ])->header('Cache-Control', 'no-store');
     }
 
     /**
@@ -768,7 +785,7 @@ class FormPrintTemplateController extends Controller
             $serverBase.'/onlyoffice/draft/'.$draftId.'/document?token='.$this->issueDraft($draftId, self::PURPOSE_DOCUMENT, slotId: $slotId),
             $serverBase.'/onlyoffice/draft/'.$draftId.'/callback?token='.$this->issueDraft($draftId, self::PURPOSE_CALLBACK, minutes: 60 * 12, slotId: $slotId),
         );
-        $pluginToken = $this->issueDraft($draftId, self::PURPOSE_PLUGIN, minutes: 60 * 12);
+        $pluginToken = $this->issueDraft($draftId, self::PURPOSE_PLUGIN, minutes: 60 * 12, slotId: $slotId);
         $config['editorConfig']['plugins'] = [
             'autostart' => [self::PLUGIN_GUID],
             'pluginsData' => [
@@ -1019,7 +1036,8 @@ class FormPrintTemplateController extends Controller
     {
         $this->authorizeDraftToken($request, $draftId, self::PURPOSE_PLUGIN);
 
-        $pluginUrl = 'plugin/'.$this->issueDraft($draftId, self::PURPOSE_PLUGIN, minutes: 60 * 12);
+        $claims = $onlyOffice->verify((string) $request->query('token', ''));
+        $pluginUrl = 'plugin/'.$this->issueDraft($draftId, self::PURPOSE_PLUGIN, minutes: 60 * 12, slotId: $claims['sid'] ?? null);
 
         return response()->json($this->pluginConfigBody($pluginUrl))->withHeaders([
             'Access-Control-Allow-Origin' => $onlyOffice->publicUrl() ?: '*',
@@ -1063,6 +1081,8 @@ class FormPrintTemplateController extends Controller
             // Namespaced so the palette's localStorage never collides with a
             // real form's (int) id.
             'formId' => 'draft-'.$draftId,
+            'documentId' => (string) ($onlyOffice->verify($token)['sid'] ?? ($templates->draftSlots($draftId)[0]['id'] ?? 'legacy')),
+            'usageUrl' => route('onlyoffice.draft.token-usage', $draftId).'?token='.$token,
         ]);
 
         $response->headers->remove('X-Frame-Options');
@@ -1073,6 +1093,23 @@ class FormPrintTemplateController extends Controller
         $response->headers->set('Access-Control-Allow-Origin', $onlyOffice->publicUrl() ?: '*');
 
         return $response;
+    }
+
+    public function draftTokenUsage(Request $request, string $draftId, FormPrintTemplateService $templates): JsonResponse
+    {
+        $this->authorizeDraftToken($request, $draftId, self::PURPOSE_PLUGIN);
+        $documents = [];
+        foreach ($templates->draftSlots($draftId) as $slot) {
+            $contents = $templates->readSlotDocx($draftId, $slot['id']);
+            abort_if($contents === null, 404, 'Printed template document is unavailable.');
+            $documents[] = [
+                'id' => $slot['id'],
+                'name' => $slot['name'],
+                'keys' => FormTemplateHelper::exactTokenKeysFromDocxContents($contents),
+            ];
+        }
+
+        return response()->json(['documents' => $documents])->header('Cache-Control', 'no-store');
     }
 
     /**

@@ -34,6 +34,28 @@ template order; conflicting values retain the first document's value and
 surface a review warning. Uploaded scans are never shared across documents.
 The existing owner/public-token authorization applies to every document URL.
 
+Step 2's Field tokens plugin shows live occurrence counts in the open DOCX and
+usage in other DOCX slots of the same form (from their latest saved draft
+revisions). It rescans the open document every second and refreshes sibling
+usage every five seconds. Table parents aggregate their column tokens; column
+badges report individual usage. Usage is document-derived, not insertion history.
+
+Unknown, complete `{{...}}` placeholders receive a yellow, non-printing underline.
+Right-click inside one to see up to five closest assigned tokens, ranked by
+case-insensitive edit distance; choosing one replaces only that occurrence,
+including its braces. Known tokens include profile/organization tokens and
+table-column/repeating variants. Incomplete braces are not checked.
+The underline adapter is explicitly pinned to ONLYOFFICE **9.4.0** and uses its
+internal range geometry and editor overlay DOM. On other versions the plugin
+reports that underlines are unavailable, while usage and suggestions continue
+working at the caret/selection. The adapter loads the application's static
+`public/js/field-token-tools.js` into the editor frame to capture native pointer
+events (ONLYOFFICE consumes legacy mouse events before they reach the panel).
+Allow that application origin in Document Server's script CSP if adding a CSP;
+blocked adapter loading is reported in the panel. The overlay never changes
+DOCX formatting and expires when the plugin
+stops refreshing it. Revalidate this adapter before upgrading Document Server.
+
 The old session download/upload/retry endpoints continue to address the first
 document (and remain available for backfilled legacy sessions). New per-document
 endpoints are `manual.documents.download`, `manual.documents.status`,
