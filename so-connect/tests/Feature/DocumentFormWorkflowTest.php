@@ -13,12 +13,68 @@ use App\Models\Template;
 use App\Models\Template\TemplateDescription;
 use App\Models\User;
 use App\Services\DocumentGenerationService;
+use App\Services\DocxTemplateService;
+use App\Mail\DocumentGeneratedMail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
 
 uses(RefreshDatabase::class);
+
+it('prints every active template for a submission and sends one notification', function () {
+    Storage::fake('public');
+    Mail::fake();
+    $user = createDocumentWorkflowUserWithProfile('multi-layout@example.test');
+    $form = Form::query()->create(['name' => 'Multi layout', 'is_active' => true]);
+    $submission = FormSubmission::query()->create([
+        'form_id' => $form->getKey(),
+        'submitted_by' => $user->getKey(),
+        'payload' => [],
+        'submitted_at' => now(),
+    ]);
+    $templates = collect(['First', 'Second'])->map(function ($name) use ($form) {
+        $path = 'form-templates/'.$form->getKey().'/'.$name.'.docx';
+        Storage::disk('public')->put($path, 'docx');
+        return Template::query()->create([
+            'form_id' => $form->getKey(),
+            'template_name' => $name,
+            'docx_path' => $path,
+            'version' => 1,
+            'is_active' => true,
+        ]);
+    });
+
+    $this->mock(DocxTemplateService::class, function ($mock) {
+        $mock->shouldReceive('populate')->twice()->andReturnUsing(function ($template) {
+            $dir = storage_path('app/tmp/multi-layout-'.bin2hex(random_bytes(6)));
+            File::ensureDirectoryExists($dir);
+            File::put($dir.'/populated.docx', (string) $template->template_name);
+            return $dir.'/populated.docx';
+        });
+        $mock->shouldReceive('toPdf')->twice()->andReturnUsing(function ($path) {
+            $pdf = dirname($path).'/populated.pdf';
+            File::put($pdf, '%PDF-1.4 '.File::get($path));
+            return $pdf;
+        });
+    });
+
+    $documents = app(DocumentGenerationService::class)->generateAllFromSubmission($submission, null, (int) $user->getKey());
+
+    expect($documents)->toHaveCount(2)
+        ->and($documents->pluck('template_id')->all())->toBe($templates->pluck('id')->all());
+    foreach ($documents as $document) {
+        expect(Storage::disk('public')->get($document->pdf_path))
+            ->toContain($document->template->template_name);
+    }
+    Mail::assertSent(DocumentGeneratedMail::class, 1);
+
+    $listing = $this->actingAs(recordsUser(2))->get(route('documents.index'));
+    $listing->assertOk()->assertSee('First')->assertSee('Second');
+    expect($listing->viewData('documents')->total())->toBe(2);
+});
 
 function createDocumentWorkflowUserWithProfile(string $email): User
 {
@@ -501,14 +557,19 @@ it('returns a generated document id when a generation request is approved', func
         'generated_at' => now(),
     ]);
 
-    $generationService = new class($generatedDocument) extends DocumentGenerationService {
-        public function __construct(private GeneratedDocument $generatedDocument)
+    $secondDocument = $generatedDocument->replicate();
+    $secondDocument->template_id = $template->getKey();
+    $secondDocument->pdf_path = 'generated-documents/transcript-second.pdf';
+    $secondDocument->save();
+
+    $generationService = new class($generatedDocument, $secondDocument) extends DocumentGenerationService {
+        public function __construct(private GeneratedDocument $generatedDocument, private GeneratedDocument $secondDocument)
         {
         }
 
-        public function generateFromApprovedRequest(ActionRequest $request, int $generatedByUserId): GeneratedDocument
+        public function generateAllFromApprovedRequest(ActionRequest $request, int $generatedByUserId): \Illuminate\Support\Collection
         {
-            return $this->generatedDocument;
+            return collect([$this->generatedDocument, $this->secondDocument]);
         }
     };
 
@@ -526,6 +587,8 @@ it('returns a generated document id when a generation request is approved', func
         'admin' => $president->getKey(),
         'is_rejected' => 0,
     ]);
+    expect(GeneratedDocument::query()->where('request_id', $actionRequest->getKey())
+        ->whereNotNull('approval_id')->count())->toBe(2);
 });
 
 it('downloads generated pdfs for the submitting user', function () {

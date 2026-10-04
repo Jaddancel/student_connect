@@ -100,6 +100,8 @@ class WorkplanController extends Controller
                         if ($requestStatus === 'approved') {
                             $generatedDocument = GeneratedDocument::query()
                                 ->where('request_id', $actionRequest->request_id)
+                                ->where('status', 'generated')
+                                ->orderBy('generated_document_id')
                                 ->first();
                         }
                     } else {
@@ -303,6 +305,8 @@ class WorkplanController extends Controller
 
         $generatedDocument = GeneratedDocument::query()
             ->where('request_id', $actionRequest->request_id)
+            ->where('status', 'generated')
+            ->orderBy('generated_document_id')
             ->first();
 
         if (! $generatedDocument) {

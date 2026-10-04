@@ -20,10 +20,10 @@ class GenerateManualSessionSchema implements ShouldQueue
 
     public int $tries = 3;
 
-    public function __construct(public readonly string $sessionId) {}
+    public function __construct(public readonly string $sessionId, public readonly ?int $documentId = null) {}
 
     public function handle(ManualSessionSchemaGenerator $generator): void
     {
-        $generator->generate($this->sessionId);
+        $generator->generate($this->sessionId, $this->documentId);
     }
 }

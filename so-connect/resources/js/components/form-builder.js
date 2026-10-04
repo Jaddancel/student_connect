@@ -242,6 +242,8 @@ export function formBuilder(config) {
                     configUrl: json.configUrl,
                     importUrl: json.importUrl,
                     versionUrl: json.versionUrl,
+                    slots: json.slots,
+                    addUrl: json.addUrl,
                 };
             } catch (e) {
                 this.draftError = "Could not prepare the printed template.";

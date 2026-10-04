@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
 /**
- * Blank printable PDF of a published form — the form's active printed
+ * Blank printable PDF of a published form — a selected active printed
  * (Step 2) template populated with empty values, converted to PDF, and
  * streamed inline. This is what the `/forms` directory cards link to: a
  * print-and-fill-on-paper copy, not the online renderer.
@@ -42,7 +42,12 @@ class FormBlankPdfController extends Controller
             ->directoryEligible()
             ->firstOrFail();
 
-        $template = $templates->activeStored($form);
+        $active = $templates->activeTemplates($form);
+        $templateId = $request->query('template');
+        abort_if($templateId !== null && (! ctype_digit((string) $templateId) || (int) $templateId <= 0), 404);
+        $template = $templateId === null
+            ? $active->first()
+            : $active->first(fn ($candidate) => (int) $candidate->getKey() === (int) $templateId);
         abort_if($template === null, 404);
 
         try {
@@ -58,8 +63,11 @@ class FormBlankPdfController extends Controller
 
         // Read then drop the scratch directory so neither the PDF nor the
         // intermediate .docx behind it outlives the response.
-        $contents = File::get($generatedPath);
-        File::deleteDirectory(dirname($generatedPath));
+        try {
+            $contents = File::get($generatedPath);
+        } finally {
+            File::deleteDirectory(dirname($generatedPath));
+        }
 
         $filename = Str::slug((string) ($template->template_name ?: $form->name)) ?: 'form';
 

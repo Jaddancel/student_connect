@@ -13,6 +13,33 @@ It defines three data boundaries and their JSON shapes:
 3. **Extraction request/response** — what the app sends to / expects from the
    document-vision client when parsing a returned scan.
 
+### Multiple printed templates
+
+`FormPrintTemplateService::activeTemplates($form)` returns ordered, active stored
+template rows. Starting a draft snapshots one `manual_form_session_documents`
+row per template (including the template version and baseline schema). Each
+document has its own `documents/{id}/partial.pdf`, populated DOCX, page images,
+scan uploads, session schema, parse state, and results. The session's legacy
+single-document columns remain populated from the first document for existing
+links and provenance; previous drafts are backfilled into a position-zero
+document by the migration.
+
+Schema fields are limited to keys present in that template's baseline. Required
+hand-fill fields must have usable writable space on **at least one** document;
+otherwise the draft fails with an actionable error. A document with no
+hand-fill/signature fields goes directly to `review` and requires no scan.
+Each scanned document must align all of *its own* pages. Session review opens
+only after every document is reviewed. Parse values and confidence merge in
+template order; conflicting values retain the first document's value and
+surface a review warning. Uploaded scans are never shared across documents.
+The existing owner/public-token authorization applies to every document URL.
+
+The old session download/upload/retry endpoints continue to address the first
+document (and remain available for backfilled legacy sessions). New per-document
+endpoints are `manual.documents.download`, `manual.documents.status`,
+`manual.documents.upload`, and `manual.documents.retry`; bind both `{session}`
+and `{document}` and check document membership after authorizing the session.
+
 The vision model is dedicated to document vision only. It is **not** the Gemini
 chat assistant and **not** the PaddleOCR ID/waiver scanner; those keep their own
 contracts and behavior.

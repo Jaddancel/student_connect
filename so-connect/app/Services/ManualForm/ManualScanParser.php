@@ -3,6 +3,7 @@
 namespace App\Services\ManualForm;
 
 use App\Models\ManualFormSession;
+use App\Models\ManualFormSessionDocument;
 use App\Services\DocumentVision\DocumentVisionClient;
 use App\Services\OcrClient;
 use App\Services\PdfRasterizer;
@@ -25,27 +26,32 @@ class ManualScanParser
         private readonly PdfRasterizer $rasterizer,
     ) {}
 
-    public function parse(string $sessionId): void
+    public function parse(string $sessionId, ?int $documentId = null): void
     {
         $session = ManualFormSession::find($sessionId);
-        if ($session === null || $session->status !== ManualFormSession::STATUS_PARSING) {
+        $document = $documentId === null ? null : $session?->documents()->find($documentId);
+        if ($session === null || ($documentId !== null && $document === null)) {
+            return;
+        }
+        $target = $document ?? $session;
+        if ($target->status !== ManualFormSession::STATUS_PARSING) {
             return;
         }
 
         $disk = (string) config('documents.disk', 'public');
 
-        $referencePngs = $this->referenceImages($session, $disk);
-        $scanBytes = $this->scanBytes($session, $disk);
+        $referencePngs = $this->referenceImages($target, $disk);
+        $scanBytes = $this->scanBytes($target, $disk);
 
         if ($referencePngs === [] || $scanBytes === []) {
-            $this->fail($session, 'The scan could not be read. Please upload a clearer copy.');
+            $this->fail($target, 'The scan could not be read. Please upload a clearer copy.');
 
             return;
         }
 
         $alignment = $this->ocr->alignPages(array_column($referencePngs, 'base64'), $scanBytes);
         if (! ($alignment['ok'] ?? false)) {
-            $this->fail($session, 'The scan pages could not be aligned. Please try again.');
+            $this->fail($target, 'The scan pages could not be aligned. Please try again.');
 
             return;
         }
@@ -56,7 +62,7 @@ class ManualScanParser
         $unmatched = array_values(array_filter($alignedPages, fn ($p) => ! ($p['matched'] ?? false)));
         if ($unmatched !== [] || $alignedPages === []) {
             $this->fail(
-                $session,
+                $target,
                 'Some pages are missing or did not match the printed form. Re-scan every page in order.',
                 $warnings,
             );
@@ -76,31 +82,31 @@ class ManualScanParser
         }
 
         if ($pages === []) {
-            $this->fail($session, 'No usable pages were produced from the scan.', $warnings);
+            $this->fail($target, 'No usable pages were produced from the scan.', $warnings);
 
             return;
         }
 
         $result = $this->vision->extract([
             'known_values' => (array) $session->known_fields,
-            'fields' => $this->extractionFields($session),
+            'fields' => $this->extractionFields($target),
             'pages' => $pages,
         ]);
 
         if (! ($result['ok'] ?? false)) {
-            $this->fail($session, 'The reader is unavailable right now. Your draft is saved — try again shortly.', $warnings);
+            $this->fail($target, 'The reader is unavailable right now. Your draft is saved — try again shortly.', $warnings);
 
             return;
         }
 
         $signatures = (array) ($result['signatures'] ?? []);
 
-        $session->forceFill([
+        $target->forceFill([
             'status' => ManualFormSession::STATUS_REVIEW,
             'parse_result' => [
                 'values' => $result['values'] ?? [],
                 'signatures' => $signatures,
-                'signature_images' => $this->captureSignatures($session, $pages, $signatures),
+                'signature_images' => $this->captureSignatures($target, $pages, $signatures),
                 'unresolved' => $result['unresolved'] ?? [],
             ],
             'parse_confidence' => $result['confidence'] ?? [],
@@ -108,6 +114,9 @@ class ManualScanParser
             'parse_error' => null,
             'parse_model' => $result['model'] ?? null,
         ])->save();
+        if ($document) {
+            app(ManualFormSessionService::class)->syncDocuments($session);
+        }
     }
 
     /**
@@ -121,9 +130,9 @@ class ManualScanParser
      *
      * @param  array<int,array{index:int,reference_image:string,scan_image:string}>  $pages
      * @param  array<string,array{present:bool,page:int,bounds:?array<int,float>}>  $modelSignatures
-     * @return array<string,string>  field key => stored signature path
+     * @return array<string,string> field key => stored signature path
      */
-    private function captureSignatures(ManualFormSession $session, array $pages, array $modelSignatures): array
+    private function captureSignatures(ManualFormSession|ManualFormSessionDocument $session, array $pages, array $modelSignatures): array
     {
         if (! (bool) config('manual_form.signature_capture.enabled', true)) {
             return [];
@@ -178,7 +187,8 @@ class ManualScanParser
                     continue;
                 }
 
-                $path = SignatureImage::store($crop, 'manual-form/'.$session->getKey().'/signatures');
+                $path = SignatureImage::store($crop, 'manual-form/'.($session instanceof ManualFormSessionDocument
+                    ? $session->manual_form_session_id.'/documents/'.$session->getKey() : $session->getKey()).'/signatures');
                 if ($path !== null) {
                     $stored[$key] = $path;
                 }
@@ -302,7 +312,7 @@ class ManualScanParser
     /**
      * @return array<int,array{index:int,base64:string}>
      */
-    private function referenceImages(ManualFormSession $session, string $disk): array
+    private function referenceImages(ManualFormSession|ManualFormSessionDocument $session, string $disk): array
     {
         $images = [];
         foreach ((array) $session->page_meta as $page) {
@@ -324,10 +334,10 @@ class ManualScanParser
     /**
      * @return array<int,string> raw scan image bytes in upload order
      */
-    private function scanBytes(ManualFormSession $session, string $disk): array
+    private function scanBytes(ManualFormSession|ManualFormSessionDocument $session, string $disk): array
     {
         $storage = Storage::disk($disk);
-        $workDir = storage_path('app/tmp/manual-scan-'.$session->getKey().'-'.bin2hex(random_bytes(4)));
+        $workDir = storage_path('app/manual-scan-'.$session->getKey().'-'.bin2hex(random_bytes(4)));
         $bytes = [];
 
         try {
@@ -373,7 +383,7 @@ class ManualScanParser
      *
      * @return array<int,array<string,mixed>>
      */
-    private function extractionFields(ManualFormSession $session): array
+    private function extractionFields(ManualFormSession|ManualFormSessionDocument $session): array
     {
         $fields = (array) ($session->session_schema['extractable_fields'] ?? []);
 
@@ -389,12 +399,15 @@ class ManualScanParser
     /**
      * @param  array<int,string>  $warnings
      */
-    private function fail(ManualFormSession $session, string $reason, array $warnings = []): void
+    private function fail(ManualFormSession|ManualFormSessionDocument $session, string $reason, array $warnings = []): void
     {
         $session->forceFill([
             'status' => ManualFormSession::STATUS_FAILED,
             'parse_error' => $reason,
             'parse_warnings' => $warnings ?: $session->parse_warnings,
         ])->save();
+        if ($session instanceof ManualFormSessionDocument) {
+            app(ManualFormSessionService::class)->syncDocuments($session->session);
+        }
     }
 }

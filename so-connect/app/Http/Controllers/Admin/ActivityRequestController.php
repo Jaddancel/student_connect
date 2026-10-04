@@ -201,7 +201,7 @@ class ActivityRequestController extends Controller
 
         if ($isApproved) {
             try {
-                $generatedDocument   = $documentGenerationService->generateFromApprovedRequest($actionRequest, $userId);
+                $generatedDocument   = $documentGenerationService->generateAllFromApprovedRequest($actionRequest, $userId)->first();
                 $generatedDocumentId = (int) $generatedDocument->getKey();
             } catch (\Throwable $throwable) {
                 return back()->withErrors(['request' => $throwable->getMessage()]);
@@ -219,7 +219,7 @@ class ActivityRequestController extends Controller
         );
 
         if ($generatedDocumentId) {
-            GeneratedDocument::where('generated_document_id', $generatedDocumentId)
+            GeneratedDocument::where('request_id', $actionRequest->getKey())->where('status', 'generated')
                 ->update(['approval_id' => (int) $approval->approval_id]);
         }
 

@@ -20,6 +20,7 @@ class DocumentController extends Controller
         $base = DB::table('generated_documents as gd')
             ->leftJoin('form_submissions as fs', 'fs.form_submission_id', '=', 'gd.form_submission_id')
             ->leftJoin('forms as f', 'f.id', '=', 'fs.form_id')
+            ->leftJoin('templates as t', 't.id', '=', 'gd.template_id')
             ->leftJoin('organizations as o', 'o.organization_id', '=', 'fs.organization_id')
             ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
             ->where('gd.status', 'generated')
@@ -29,6 +30,7 @@ class DocumentController extends Controller
                 'gd.pdf_path',
                 'gd.generated_at',
                 'f.name as form_name',
+                't.template_name',
                 'f.route_name as form_route',
                 'fs.organization_id',
                 DB::raw("COALESCE(od.name, 'Unknown Organization') as org_name"),

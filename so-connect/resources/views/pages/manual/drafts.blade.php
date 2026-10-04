@@ -76,7 +76,13 @@
                                     <td class="px-3 py-3">
                                         <div class="flex items-center justify-end gap-2">
                                             <a href="{{ route('manual.show', $draft) }}" class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-600">Resume</a>
-                                            @if ($draft->partial_pdf_path)
+                                            @if ($draft->documents->count() > 1)
+                                                @foreach ($draft->documents as $document)
+                                                    @if ($document->partial_pdf_path)
+                                                        <a href="{{ route('manual.documents.download', [$draft, $document]) }}" target="_blank" rel="noopener" aria-label="Download document {{ $loop->iteration }} PDF" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">PDF {{ $loop->iteration }}</a>
+                                                    @endif
+                                                @endforeach
+                                            @elseif ($draft->partial_pdf_path || $draft->documents->first()?->partial_pdf_path)
                                                 <a href="{{ route('manual.download', $draft) }}" target="_blank" rel="noopener" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">PDF</a>
                                             @endif
                                             <form method="post" action="{{ route('manual.destroy', $draft) }}" onsubmit="return confirm('Delete this draft?');">

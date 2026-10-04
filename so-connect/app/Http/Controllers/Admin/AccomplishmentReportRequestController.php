@@ -163,7 +163,7 @@ class AccomplishmentReportRequestController extends Controller
         $generatedDocumentId = null;
         if ($validated['decision'] === 'approve') {
             try {
-                $generatedDocument = $documentGenerationService->generateFromApprovedRequest($actionRequest, $userId);
+                $generatedDocument = $documentGenerationService->generateAllFromApprovedRequest($actionRequest, $userId)->first();
                 $generatedDocumentId = (int) $generatedDocument->getKey();
             } catch (\Throwable $throwable) {
                 return back()->withErrors(['request' => $throwable->getMessage()]);
@@ -181,7 +181,7 @@ class AccomplishmentReportRequestController extends Controller
         );
 
         if ($generatedDocumentId) {
-            \App\Models\GeneratedDocument::where('generated_document_id', $generatedDocumentId)
+            \App\Models\GeneratedDocument::where('request_id', $actionRequest->getKey())->where('status', 'generated')
                 ->update(['approval_id' => (int) $approval->approval_id]);
         }
 

@@ -102,10 +102,10 @@ class RequestDecisionController extends Controller
         if ($this->isDocumentGenerationRequest($actionType, $systemKey)
             && $validated['decision'] === 'approve') {
             try {
-                $generatedDocument = $documentGenerationService->generateFromApprovedRequest(
+                $generatedDocument = $documentGenerationService->generateAllFromApprovedRequest(
                     $actionRequest,
                     (int) $user->getKey(),
-                );
+                )->first();
 
                 $generatedDocumentId = (int) $generatedDocument->getKey();
             } catch (\Throwable $throwable) {
@@ -130,7 +130,8 @@ class RequestDecisionController extends Controller
         );
 
         if ($generatedDocumentId > 0) {
-            \App\Models\GeneratedDocument::where('generated_document_id', $generatedDocumentId)
+            \App\Models\GeneratedDocument::where('request_id', (int) $actionRequest->getKey())
+                ->where('status', 'generated')
                 ->update(['approval_id' => (int) $approval->approval_id]);
         }
 
@@ -235,14 +236,15 @@ class RequestDecisionController extends Controller
                 if ($submission) {
                     $submission->update(['submitted_by' => $newUserId]);
                     try {
-                        $generatedDoc = $documentGenerationService->generateFromSubmission(
+                        $generatedDocs = $documentGenerationService->generateAllFromSubmission(
                             $submission->fresh(['form']),
                             (int) $actionRequest->getKey(),
                             (int) $user->getKey(),
                         );
-                        $generatedDoc->update(['approval_id' => (int) $approval->approval_id]);
-                    } catch (\Throwable) {
-                        // Document generation failure does not roll back the approval
+                        \App\Models\GeneratedDocument::whereKey($generatedDocs->modelKeys())
+                            ->update(['approval_id' => (int) $approval->approval_id]);
+                    } catch (\Throwable $throwable) {
+                        report($throwable);
                     }
                 }
             }
@@ -329,10 +331,10 @@ class RequestDecisionController extends Controller
         $submission->update(['payload' => $payload]);
 
         try {
-            $generatedDocument = $documentGenerationService->generateFromApprovedRequest(
+            $generatedDocument = $documentGenerationService->generateAllFromApprovedRequest(
                 $actionRequest,
                 (int) $user->getKey(),
-            );
+            )->first();
             $generatedDocumentId = (int) $generatedDocument->getKey();
         } catch (\Throwable $throwable) {
             return response()->json(['message' => $throwable->getMessage()], 422);
@@ -350,7 +352,8 @@ class RequestDecisionController extends Controller
         );
 
         if ($generatedDocumentId > 0) {
-            \App\Models\GeneratedDocument::where('generated_document_id', $generatedDocumentId)
+            \App\Models\GeneratedDocument::where('request_id', (int) $actionRequest->getKey())
+                ->where('status', 'generated')
                 ->update(['approval_id' => (int) $approval->approval_id]);
         }
 

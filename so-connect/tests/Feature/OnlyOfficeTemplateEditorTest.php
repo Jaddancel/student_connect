@@ -532,15 +532,92 @@ it('closes the draft editor before uploading a replacement document', function (
     $methodEnd = strpos($source, 'async boot()', $methodStart);
     $method = substr($source, $methodStart, $methodEnd - $methodStart);
 
+    $waitAt = strpos($method, 'await this.flushForSave()');
     $teardownAt = strpos($method, 'this.teardown();');
-    $waitAt = strpos($method, 'await this.pollVersion(target, 20000);');
     $uploadAt = strpos($method, 'await fetch(this.importUrl');
 
     // The outgoing session's final callback can write old bytes. Waiting for
     // it before import ensures the replacement remains the newest revision.
-    expect($teardownAt)->toBeInt()
-        ->and($waitAt)->toBeGreaterThan($teardownAt)
-        ->and($uploadAt)->toBeGreaterThan($waitAt);
+    expect($waitAt)->toBeInt()
+        ->and($teardownAt)->toBeGreaterThan($waitAt)
+        ->and($uploadAt)->toBeGreaterThan($teardownAt);
+});
+
+it('creates, switches, replaces and removes independent printed template slots', function () {
+    $form = editorForm();
+    $admin = recordsUser(2);
+    $templates = app(FormPrintTemplateService::class);
+    $original = $templates->resolve($form);
+    $originalBytes = Storage::disk('public')->get($original->docx_path);
+
+    $sync = $this->actingAs($admin)->postJson(route('admin.form-builder.draft.sync'), [
+        'form_id' => $form->getKey(),
+        'name' => $form->name,
+        'fields' => [],
+    ])->assertOk()->json();
+    expect($sync['slots'])->toHaveCount(1);
+    $first = $sync['slots'][0];
+
+    $added = $this->post($sync['addUrl'], [
+        'docx' => UploadedFile::fake()->createWithContent('second.docx', $originalBytes),
+    ], ['Accept' => 'application/json'])->assertOk()->json();
+    expect($added['slots'])->toHaveCount(2);
+    $second = $added['slots'][1];
+    expect($second['name'])->toBe('second.docx');
+
+    $configA = $this->getJson($first['configUrl'])->assertOk()->json();
+    $configB = $this->getJson($second['configUrl'])->assertOk()->json();
+    expect($configA['config']['document']['key'])->not->toBe($configB['config']['document']['key']);
+    $this->getJson($second['versionUrl'])->assertJson(['version' => 1]);
+
+    $this->post($second['importUrl'], [
+        'docx' => UploadedFile::fake()->createWithContent('updated.docx', $originalBytes),
+    ], ['Accept' => 'application/json'])->assertOk();
+    $this->getJson($second['versionUrl'])->assertJson(['version' => 2]);
+    $this->getJson($first['versionUrl'])->assertJson(['version' => 1]);
+
+    $templates->adoptDraft($form, $sync['draftId'], (int) $admin->getKey());
+    expect($templates->activeTemplates($form))->toHaveCount(2);
+    expect($templates->activeTemplates($form)->pluck('template_name')->all())
+        ->toBe([$form->name, 'updated.docx']);
+
+    $sync2 = $this->postJson(route('admin.form-builder.draft.sync'), [
+        'form_id' => $form->getKey(), 'name' => $form->name, 'fields' => [],
+    ])->assertOk()->json();
+    $this->deleteJson($sync2['slots'][1]['removeUrl'])->assertOk();
+    $this->deleteJson($sync2['slots'][0]['removeUrl'])->assertUnprocessable();
+    $templates->adoptDraft($form, $sync2['draftId'], (int) $admin->getKey());
+    expect($templates->activeTemplates($form))->toHaveCount(1)
+        ->and($form->templates()->count())->toBe(2);
+});
+
+it('scopes Document Server saves to the selected draft slot', function () {
+    $admin = recordsUser(2);
+    $sync = $this->actingAs($admin)->postJson(route('admin.form-builder.draft.sync'), [
+        'name' => 'Two pages', 'fields' => [],
+    ])->assertOk()->json();
+    $source = app(FormPrintTemplateService::class)->readDraftDocx($sync['draftId']);
+    $added = $this->post($sync['addUrl'], [
+        'docx' => UploadedFile::fake()->createWithContent('second.docx', $source),
+    ], ['Accept' => 'application/json'])->assertOk()->json();
+    $first = $added['slots'][0];
+    $second = $added['slots'][1];
+    $config = $this->getJson($second['configUrl'])->assertOk()->json('config');
+    $callback = $config['editorConfig']['callbackUrl'];
+    $document = $config['document']['url'];
+    $this->get($document)->assertOk()->assertSee($source, false);
+
+    Http::fake(['*' => Http::response('SECOND-SLOT-EDITED')]);
+    $body = app(OnlyOfficeService::class)->sign([
+        'status' => 2, 'url' => 'http://onlyoffice/cache/files/output.docx',
+    ]);
+    $this->postJson($callback, ['token' => $body])->assertOk()->assertJson(['error' => 0]);
+
+    $this->getJson($first['versionUrl'])->assertJson(['version' => 1, 'closed' => false]);
+    $this->getJson($second['versionUrl'])->assertJson(['version' => 2, 'closed' => true]);
+    $templates = app(FormPrintTemplateService::class);
+    expect($templates->readSlotDocx($sync['draftId'], $first['id']))->toBe($source)
+        ->and($templates->readSlotDocx($sync['draftId'], $second['id']))->toBe('SECOND-SLOT-EDITED');
 });
 
 it('rejects an import that is not a real .docx', function () {

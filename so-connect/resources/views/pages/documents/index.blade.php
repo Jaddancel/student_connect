@@ -80,6 +80,9 @@
                                                     {{ $doc->form_name ?? 'Document' }}
                                                 @endif
                                             </span>
+                                            @if ($doc->template_name)
+                                                <span class="block text-xs text-gray-500 dark:text-gray-400">{{ $doc->template_name }}</span>
+                                            @endif
                                         </div>
                                     </td>
                                     @if ($isAdmin)

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\GeneratedDocument;
 use App\Models\Template\TemplateDescription;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -24,6 +23,7 @@ class Template extends Model
         'docx_path',
         'version',
         'is_active',
+        'slot_order',
         'manual_schema',
         'manual_schema_status',
         'manual_schema_error',
@@ -36,6 +36,7 @@ class Template extends Model
         return [
             'is_active' => 'boolean',
             'version' => 'integer',
+            'slot_order' => 'integer',
             'manual_schema' => 'array',
             'manual_schema_template_version' => 'integer',
             'manual_schema_generated_at' => 'datetime',

@@ -14,6 +14,52 @@
         Form initiated on: {{ $session->created_at?->format('M j, Y') }} {{ $session->created_at?->format('g:i A') }}
     </p>
 
+    @if ($documents->count() > 1)
+        <div class="mx-auto max-w-3xl space-y-5">
+            <p class="text-sm text-gray-600">Print each document. Upload a completed scan for every document with handwritten fields; documents without handwritten fields need no scan.</p>
+            @foreach ($documents as $document)
+                @php
+                    $needsScan = ! empty($document->session_schema['extractable_fields']);
+                    $query = $token !== '' ? '?t=' . urlencode($token) : '';
+                @endphp
+                <div class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]"
+                    x-data="manualScanUploader({
+                        status: @js($document->status),
+                        error: @js($document->parse_error ?? ''),
+                        warnings: @js($document->parse_warnings ?? []),
+                        token: @js($token),
+                        statusUrl: @js(route('manual.documents.status', [$session, $document]) . $query),
+                        uploadUrl: @js(route('manual.documents.upload', [$session, $document])),
+                        retryUrl: @js(route('manual.documents.retry', [$session, $document])),
+                        csrf: @js(csrf_token())
+                    })"
+                    @if (! $document->partial_pdf_path)
+                        x-effect="if (status === 'awaiting_scan' || status === 'review') window.location.reload()"
+                    @endif>
+                    <h3 class="font-semibold">Document {{ $loop->iteration }} — {{ $document->template?->template_name ?: 'Printed template' }}</h3>
+                    <p class="mt-1 text-sm" x-text="status.replaceAll('_', ' ')"></p>
+                    <p class="mt-1 text-sm text-red-600" x-show="error" x-text="error"></p>
+                    @if ($document->partial_pdf_path)
+                        <a class="mt-3 inline-block rounded-lg bg-brand-500 px-4 py-2 text-sm text-white"
+                            href="{{ route('manual.documents.download', [$session, $document]) . $query }}" target="_blank" rel="noopener">Download PDF</a>
+                    @endif
+                    @if ($needsScan)
+                        <div class="mt-4" x-show="status === 'awaiting_scan' || status === 'failed' || status === 'review'">
+                            <p class="text-sm">Upload all pages of this document in order (PDF, JPG or PNG).</p>
+                            <input class="mt-2 block text-sm" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" @change="onPick($event)">
+                            <p class="mt-1 text-xs" x-show="files.length" x-text="files.length + ' file(s) selected'"></p>
+                            <button type="button" class="mt-2 rounded-lg bg-brand-500 px-4 py-2 text-sm text-white disabled:opacity-50"
+                                :disabled="!files.length || uploading" @click="upload()">Upload &amp; read</button>
+                            <button type="button" class="mt-2 rounded-lg border px-4 py-2 text-sm"
+                                x-show="status === 'failed'" @click="retry()">Retry saved scan</button>
+                        </div>
+                    @else
+                        <p class="mt-2 text-sm">No handwritten fields — no scan required.</p>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+    @else
     <div class="mx-auto max-w-3xl space-y-6"
         x-data="manualScanUploader({
             status: @js($status),
@@ -33,6 +79,7 @@
                 <p class="text-sm font-medium text-gray-700 dark:text-white/90">Preparing your printable form…</p>
                 <p class="mt-1 text-xs text-gray-400">This only takes a moment.</p>
             </div>
+            @endif
         </template>
 
         {{-- ── Awaiting scan (download + upload) ─────────────────────── --}}

@@ -12,9 +12,9 @@ use Illuminate\Http\Request;
  * browsable page. The literal `/forms` route is registered before the generic
  * `/forms/{routeName}` renderer so it always wins.
  *
- * Each card opens a blank printable PDF generated from the form's active
- * Step 2 template ({@see FormBlankPdfController}), so only forms backed by a
- * usable stored template are listed. Available to organization
+ * Each card opens a blank printable PDF generated from one active
+ * Step 2 template ({@see FormBlankPdfController}), so each usable stored
+ * template gets its own card. Available to organization
  * officers/presidents (user type 3) and to admins (user type 2); everyone else
  * gets an empty directory. Every published, active form is eligible — the
  * system-function forms (sign-up, new-event, etc.) included — since the card
@@ -37,17 +37,18 @@ class FormDirectoryController extends Controller
                 ->get(['id', 'name', 'route_name', 'description_text'])
                 // A template row whose .docx vanished from storage can't print —
                 // keep the directory in step with what the endpoint will serve.
-                ->filter(fn (Form $form) => $templates->activeStored($form) !== null)
+                ->filter(fn (Form $form) => $templates->activeTemplates($form)->isNotEmpty())
                 ->values();
         }
 
         return view('pages.form.directory', [
             'title' => 'Forms',
-            'forms' => $forms->map(fn (Form $form) => [
+            'forms' => $forms->flatMap(fn (Form $form) => $templates->activeTemplates($form)->map(fn ($template) => [
                 'name' => $form->name,
                 'purpose' => (string) ($form->description_text ?? ''),
-                'url' => route('forms.blank-pdf', $form->route_name),
-            ])->values(),
+                'template_name' => (string) ($template->template_name ?: $form->name),
+                'url' => route('forms.blank-pdf', ['routeName' => $form->route_name, 'template' => $template->getKey()]),
+            ]))->values(),
         ]);
     }
 }

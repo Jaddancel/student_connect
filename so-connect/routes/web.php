@@ -353,6 +353,14 @@ Route::post('/manual/{session}/scan', [ManualFormSessionController::class, 'uplo
     ->middleware('throttle:20,1')->name('manual.upload');
 Route::post('/manual/{session}/retry', [ManualFormSessionController::class, 'retry'])
     ->middleware('throttle:20,1')->name('manual.retry');
+Route::get('/manual/{session}/documents/{document}/status', [ManualFormSessionController::class, 'statusDocument'])
+    ->name('manual.documents.status');
+Route::get('/manual/{session}/documents/{document}/partial.pdf', [ManualFormSessionController::class, 'downloadDocument'])
+    ->name('manual.documents.download');
+Route::post('/manual/{session}/documents/{document}/scans', [ManualFormSessionController::class, 'uploadDocument'])
+    ->middleware('throttle:20,1')->name('manual.documents.upload');
+Route::post('/manual/{session}/documents/{document}/retry', [ManualFormSessionController::class, 'retryDocument'])
+    ->middleware('throttle:20,1')->name('manual.documents.retry');
 Route::delete('/manual/{session}', [ManualFormSessionController::class, 'destroy'])->name('manual.destroy');
 
 // The Drafts page is officer-only (type 3): a filtered list of the signed-in
@@ -603,6 +611,21 @@ Route::middleware(['auth', 'admin'])->group(function () {
         [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'draftVersion'])
         ->where('draftId', '[A-Za-z0-9\-]+')
         ->name('admin.form-builder.draft.version');
+    Route::post('/admin/form-builder/draft/{draftId}/slots',
+        [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'addDraftSlot'])
+        ->name('admin.form-builder.draft.slots.store');
+    Route::get('/admin/form-builder/draft/{draftId}/slots/{slotId}/config',
+        [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'slotConfig'])
+        ->name('admin.form-builder.draft.slots.config');
+    Route::get('/admin/form-builder/draft/{draftId}/slots/{slotId}/version',
+        [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'slotVersion'])
+        ->name('admin.form-builder.draft.slots.version');
+    Route::post('/admin/form-builder/draft/{draftId}/slots/{slotId}/import',
+        [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'importDraftSlot'])
+        ->name('admin.form-builder.draft.slots.import');
+    Route::delete('/admin/form-builder/draft/{draftId}/slots/{slotId}',
+        [\App\Http\Controllers\Admin\FormPrintTemplateController::class, 'removeDraftSlot'])
+        ->name('admin.form-builder.draft.slots.destroy');
 
     // The upload / verify / activate pages are gone: printed templates are now
     // authored in the form builder's Step 2 editor and created automatically

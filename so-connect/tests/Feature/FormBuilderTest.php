@@ -138,6 +138,44 @@ it('stores a form with layout and fields', function () {
     expect($form->is_active)->toBeTrue();
 });
 
+it('publishes every printed-template draft slot and deactivates removed slots on edit', function () {
+    Storage::fake('public');
+    \Illuminate\Support\Facades\Queue::fake();
+    $admin = makeUser(2);
+    $templates = app(\App\Services\FormPrintTemplateService::class);
+    $sync = $this->actingAs($admin)->postJson(route('admin.form-builder.draft.sync'), [
+        'name' => 'Multi printed', 'fields' => [
+            ['field_key' => 'name', 'field_label' => 'Name', 'field_type' => 'text'],
+        ],
+    ])->assertOk()->json();
+    $bytes = $templates->readDraftDocx($sync['draftId']);
+    $this->post($sync['addUrl'], [
+        'docx' => UploadedFile::fake()->createWithContent('extra.docx', $bytes),
+    ], ['Accept' => 'application/json'])->assertOk();
+    $payload = [
+        'name' => 'Multi printed',
+        'route_name' => 'multi-printed',
+        'fields' => [['field_key' => 'name', 'field_label' => 'Name', 'field_type' => 'text']],
+        'rows' => [],
+        'draft_id' => $sync['draftId'],
+    ];
+    $this->postJson(route('admin.form-builder.store'), $payload)->assertOk();
+    $form = Form::where('route_name', 'multi-printed')->firstOrFail();
+    expect($templates->activeTemplates($form)->pluck('template_name')->all())
+        ->toBe(['Multi printed', 'extra.docx']);
+
+    $resync = $this->postJson(route('admin.form-builder.draft.sync'), [
+        'form_id' => $form->getKey(), 'name' => 'Multi printed', 'fields' => [
+            ['field_key' => 'name', 'field_label' => 'Name', 'field_type' => 'text'],
+        ],
+    ])->assertOk()->json();
+    $this->deleteJson($resync['slots'][1]['removeUrl'])->assertOk();
+    $payload['draft_id'] = $resync['draftId'];
+    $this->putJson(route('admin.form-builder.update', $form), $payload)->assertOk();
+    expect($templates->activeTemplates($form)->pluck('template_name')->all())->toBe(['Multi printed'])
+        ->and($form->templates()->count())->toBe(2);
+});
+
 it('persists row header/static text and prunes fully-empty rows', function () {
     $admin = makeUser(2);
 

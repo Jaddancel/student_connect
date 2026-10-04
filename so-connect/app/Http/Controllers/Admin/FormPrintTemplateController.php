@@ -621,6 +621,13 @@ class FormPrintTemplateController extends Controller
         // across re-syncs — only a real callback save bumps it. New drafts start
         // at 1.
         $existing = $templates->readDraft($draftId);
+        if ($existing !== null) {
+            abort_unless(
+                (int) $existing['created_by'] === (int) $request->user()->getKey()
+                    && ($existing['form_id'] ?? null) === ($validated['form_id'] ?? null),
+                403,
+            );
+        }
         $version = $existing !== null ? (int) $existing['version'] : 1;
 
         $name = trim((string) ($validated['name'] ?? '')) !== ''
@@ -648,13 +655,135 @@ class FormPrintTemplateController extends Controller
         $form = isset($validated['form_id'])
             ? Form::query()->find((int) $validated['form_id'])
             : null;
-        $templates->ensureDraftDocx($draftId, $name, $form, (int) $request->user()->getKey());
+        $templates->ensureDraftSlots($draftId, $name, $form, (int) $request->user()->getKey());
 
         return response()->json([
             'draftId' => $draftId,
             'configUrl' => route('admin.form-builder.draft.config', $draftId),
             'importUrl' => route('admin.form-builder.draft.import', $draftId),
             'versionUrl' => route('admin.form-builder.draft.version', $draftId),
+            'addUrl' => route('admin.form-builder.draft.slots.store', $draftId),
+            'slots' => $this->slotResponses($draftId, $templates),
+        ]);
+    }
+
+    private function slotResponses(string $draftId, FormPrintTemplateService $templates): array
+    {
+        return array_map(fn ($slot) => [
+            'id' => $slot['id'],
+            'name' => $slot['name'],
+            'configUrl' => route('admin.form-builder.draft.slots.config', [$draftId, $slot['id']]),
+            'importUrl' => route('admin.form-builder.draft.slots.import', [$draftId, $slot['id']]),
+            'versionUrl' => route('admin.form-builder.draft.slots.version', [$draftId, $slot['id']]),
+            'removeUrl' => route('admin.form-builder.draft.slots.destroy', [$draftId, $slot['id']]),
+        ], $templates->draftSlots($draftId));
+    }
+
+    public function addDraftSlot(Request $request, string $draftId, FormPrintTemplateService $templates): JsonResponse
+    {
+        $this->browserDraft($request, $draftId, $templates);
+        $file = $this->validatedDocx($request);
+        if (count($templates->draftSlots($draftId)) >= FormPrintTemplateService::MAX_SLOTS) {
+            throw ValidationException::withMessages(['docx' => 'The form can have at most 10 printed templates.']);
+        }
+        $templates->addDraftSlot($draftId, $file->getClientOriginalName(), File::get($file->getRealPath()));
+
+        return response()->json(['ok' => true, 'slots' => $this->slotResponses($draftId, $templates)]);
+    }
+
+    public function removeDraftSlot(Request $request, string $draftId, string $slotId, FormPrintTemplateService $templates): JsonResponse
+    {
+        $this->browserDraft($request, $draftId, $templates);
+        abort_if($templates->draftSlot($draftId, $slotId) === null, 404);
+        if (count($templates->draftSlots($draftId)) <= 1) {
+            throw ValidationException::withMessages(['slot' => 'At least one printed template must remain.']);
+        }
+        $templates->removeDraftSlot($draftId, $slotId);
+
+        return response()->json(['ok' => true, 'slots' => $this->slotResponses($draftId, $templates)]);
+    }
+
+    public function importDraftSlot(Request $request, string $draftId, string $slotId, FormPrintTemplateService $templates): JsonResponse
+    {
+        $this->browserDraft($request, $draftId, $templates);
+        abort_if($templates->draftSlot($draftId, $slotId) === null, 404);
+        $file = $this->validatedDocx($request);
+        $templates->replaceDraftSlot($draftId, $slotId, File::get($file->getRealPath()), $file->getClientOriginalName());
+
+        return response()->json(['ok' => true, 'slots' => $this->slotResponses($draftId, $templates)]);
+    }
+
+    private function validatedDocx(Request $request): UploadedFile
+    {
+        $request->validate(['docx' => ['required', 'file', 'max:20480']]);
+        $file = $request->file('docx');
+        if (! $this->isDocx($file)) {
+            throw ValidationException::withMessages(['docx' => 'Please upload a valid Word (.docx) file.']);
+        }
+
+        return $file;
+    }
+
+    private function browserDraft(Request $request, string $draftId, FormPrintTemplateService $templates): array
+    {
+        $draft = $templates->readDraft($draftId);
+        abort_if($draft === null, 404);
+        abort_unless((int) $draft['created_by'] === (int) $request->user()->getKey(), 403);
+
+        return $draft;
+    }
+
+    public function slotVersion(Request $request, string $draftId, string $slotId, FormPrintTemplateService $templates): JsonResponse
+    {
+        $this->browserDraft($request, $draftId, $templates);
+        $slot = $templates->draftSlot($draftId, $slotId);
+        abort_if($slot === null, 404);
+
+        return response()->json(['version' => $slot['version'], 'closed' => isset($slot['closed_status'])]);
+    }
+
+    public function slotConfig(
+        Request $request,
+        string $draftId,
+        string $slotId,
+        OnlyOfficeService $onlyOffice,
+        FormPrintTemplateService $templates,
+    ): JsonResponse {
+        $this->browserDraft($request, $draftId, $templates);
+        $slot = $templates->draftSlot($draftId, $slotId);
+        abort_if($slot === null, 404);
+        abort_if($templates->readSlotDocx($draftId, $slotId) === null, 404);
+        $templates->clearSlotClosed($draftId, $slotId);
+
+        if (! $onlyOffice->enabled()) {
+            return response()->json(['enabled' => false, 'message' => 'The document editor is not configured.'], 503);
+        }
+
+        $serverBase = $onlyOffice->appUrl();
+        $config = $onlyOffice->editorConfigForDraft(
+            $draftId.'-'.$slotId,
+            $slot['version'],
+            $slot['name'],
+            $request->user(),
+            $serverBase.'/onlyoffice/draft/'.$draftId.'/document?token='.$this->issueDraft($draftId, self::PURPOSE_DOCUMENT, slotId: $slotId),
+            $serverBase.'/onlyoffice/draft/'.$draftId.'/callback?token='.$this->issueDraft($draftId, self::PURPOSE_CALLBACK, minutes: 60 * 12, slotId: $slotId),
+        );
+        $pluginToken = $this->issueDraft($draftId, self::PURPOSE_PLUGIN, minutes: 60 * 12);
+        $config['editorConfig']['plugins'] = [
+            'autostart' => [self::PLUGIN_GUID],
+            'pluginsData' => [
+                rtrim((string) config('app.url'), '/').'/onlyoffice/draft/'.$draftId.'/config.json?token='.$pluginToken,
+            ],
+        ];
+        unset($config['token']);
+        $config['token'] = $onlyOffice->sign($config);
+
+        return response()->json([
+            'enabled' => true,
+            'apiScript' => $onlyOffice->apiScriptUrl(),
+            'config' => $config,
+            'draftId' => $draftId,
+            'version' => $slot['version'],
         ]);
     }
 
@@ -669,6 +798,13 @@ class FormPrintTemplateController extends Controller
     {
         $draft = $templates->readDraft($draftId);
         abort_if($draft === null, 404);
+        $slots = $templates->draftSlots($draftId);
+        if ($slots !== []) {
+            return response()->json([
+                'version' => $slots[0]['version'],
+                'closed' => isset($slots[0]['closed_status']),
+            ]);
+        }
 
         return response()->json([
             'version' => (int) $draft['version'],
@@ -688,6 +824,10 @@ class FormPrintTemplateController extends Controller
         OnlyOfficeService $onlyOffice,
         FormPrintTemplateService $templates,
     ): JsonResponse {
+        $slots = $templates->draftSlots($draftId);
+        if ($slots !== []) {
+            return $this->slotConfig($request, $draftId, $slots[0]['id'], $onlyOffice, $templates);
+        }
         if (! $onlyOffice->enabled()) {
             return response()->json([
                 'enabled' => false,
@@ -749,6 +889,10 @@ class FormPrintTemplateController extends Controller
      */
     public function draftImport(Request $request, string $draftId, FormPrintTemplateService $templates): JsonResponse
     {
+        $slots = $templates->draftSlots($draftId);
+        if ($slots !== []) {
+            return $this->importDraftSlot($request, $draftId, $slots[0]['id'], $templates);
+        }
         $request->validate([
             'docx' => ['required', 'file', 'max:20480'],
         ]);
@@ -775,7 +919,11 @@ class FormPrintTemplateController extends Controller
     {
         $this->authorizeDraftToken($request, $draftId, self::PURPOSE_DOCUMENT);
 
-        $bytes = $templates->readDraftDocx($draftId);
+        $claims = app(OnlyOfficeService::class)->verify((string) $request->query('token'));
+        $slotId = $claims['sid'] ?? null;
+        $bytes = $slotId !== null
+            ? $templates->readSlotDocx($draftId, (string) $slotId)
+            : $templates->readDraftDocx($draftId);
         abort_if($bytes === null, 404);
 
         // The draft document lives in cache, not on disk, so this returns bytes
@@ -795,7 +943,17 @@ class FormPrintTemplateController extends Controller
         FormPrintTemplateService $templates,
         OnlyOfficeService $onlyOffice,
     ): JsonResponse {
-        $this->authorizeDraftToken($request, $draftId, self::PURPOSE_CALLBACK);
+        $routeClaims = $onlyOffice->verify((string) $request->query('token'));
+        abort_unless(
+            is_array($routeClaims) && ($routeClaims['purpose'] ?? null) === self::PURPOSE_CALLBACK
+                && ($routeClaims['did'] ?? null) === $draftId,
+            403,
+        );
+        abort_if($templates->readDraft($draftId) === null, 404);
+        $slotId = isset($routeClaims['sid']) ? (string) $routeClaims['sid'] : null;
+        if ($slotId !== null && $templates->draftSlot($draftId, $slotId) === null) {
+            return response()->json(['error' => 0]);
+        }
 
         $body = (array) $request->json()->all();
 
@@ -826,7 +984,11 @@ class FormPrintTemplateController extends Controller
 
             try {
                 $contents = $this->fetchEditedDocument($downloadUrl);
-                $templates->storeDraftRevision($draftId, $contents);
+                if ($slotId !== null) {
+                    $templates->storeSlotRevision($draftId, $slotId, $contents);
+                } else {
+                    $templates->storeDraftRevision($draftId, $contents);
+                }
             } catch (\Throwable $throwable) {
                 report($throwable);
 
@@ -840,7 +1002,11 @@ class FormPrintTemplateController extends Controller
         // session open, so it is excluded. Runs after storeDraftRevision, which
         // rebuilds the draft metadata and would otherwise drop the marker.
         if (in_array($status, [2, 4], true)) {
-            $templates->markDraftClosed($draftId, $status);
+            if ($slotId !== null) {
+                $templates->markSlotClosed($draftId, $slotId, $status);
+            } else {
+                $templates->markDraftClosed($draftId, $status);
+            }
         }
 
         return response()->json(['error' => 0]);
@@ -913,13 +1079,14 @@ class FormPrintTemplateController extends Controller
      * Mint a short-lived token scoped to one draft and one purpose. Mirrors
      * {@see issue()} but carries the draftId in a `did` claim instead of `tid`.
      */
-    private function issueDraft(string $draftId, string $purpose, ?int $minutes = null): string
+    private function issueDraft(string $draftId, string $purpose, ?int $minutes = null, ?string $slotId = null): string
     {
         $minutes ??= (int) config('onlyoffice.download_ttl_minutes', 30);
 
         return app(OnlyOfficeService::class)->sign([
             'did' => $draftId,
             'purpose' => $purpose,
+            'sid' => $slotId,
             'iat' => now()->getTimestamp(),
             'exp' => now()->addMinutes(max($minutes, 1))->getTimestamp(),
         ]);
@@ -940,6 +1107,9 @@ class FormPrintTemplateController extends Controller
         abort_if($claims === null, 403, 'Invalid or expired editor token.');
         abort_unless(($claims['purpose'] ?? null) === $purpose, 403, 'Token is not valid for this action.');
         abort_unless((string) ($claims['did'] ?? '') === $draftId, 403);
+        if (isset($claims['sid']) && $claims['sid'] !== null) {
+            abort_if(app(FormPrintTemplateService::class)->draftSlot($draftId, (string) $claims['sid']) === null, 404);
+        }
 
         $draft = app(FormPrintTemplateService::class)->readDraft($draftId);
         abort_if($draft === null, 404);

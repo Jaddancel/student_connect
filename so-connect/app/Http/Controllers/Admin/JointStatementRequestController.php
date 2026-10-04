@@ -217,7 +217,7 @@ class JointStatementRequestController extends Controller
 
         if ($validated['decision'] === 'approve') {
             try {
-                $generatedDocument = $documentGenerationService->generateFromApprovedRequest($actionRequest, $userId);
+                $generatedDocument = $documentGenerationService->generateAllFromApprovedRequest($actionRequest, $userId)->first();
                 $generatedDocumentId = (int) $generatedDocument->getKey();
             } catch (\Throwable $throwable) {
                 $docGenWarning = $throwable->getMessage();
@@ -235,7 +235,7 @@ class JointStatementRequestController extends Controller
         );
 
         if ($generatedDocumentId) {
-            \App\Models\GeneratedDocument::where('generated_document_id', $generatedDocumentId)
+            \App\Models\GeneratedDocument::where('request_id', $actionRequest->getKey())->where('status', 'generated')
                 ->update(['approval_id' => (int) $approval->getKey()]);
         }
 
@@ -281,9 +281,9 @@ class JointStatementRequestController extends Controller
         }
 
         try {
-            $generatedDocument = $documentGenerationService->generateFromApprovedRequest($actionRequest, $userId);
+            $generatedDocument = $documentGenerationService->generateAllFromApprovedRequest($actionRequest, $userId)->first();
 
-            \App\Models\GeneratedDocument::where('generated_document_id', (int) $generatedDocument->getKey())
+            \App\Models\GeneratedDocument::where('request_id', $actionRequest->getKey())->where('status', 'generated')
                 ->update(['approval_id' => (int) $approval->getKey()]);
         } catch (\Throwable $throwable) {
             return back()->withErrors(['request' => 'Document generation failed: '.$throwable->getMessage()]);

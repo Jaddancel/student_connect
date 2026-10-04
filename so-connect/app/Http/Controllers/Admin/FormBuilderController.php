@@ -158,9 +158,7 @@ class FormBuilderController extends Controller
             // A form's system-function binding is immutable after creation.
             'lockedFunction' => $form->system_function ?: null,
             'iconChoices' => $this->iconChoices(),
-            // Manual-filling readiness of the form's active printed template.
-            'manualSchema' => optional(app(FormPrintTemplateService::class)->activeStored($form))
-                ->only(['manual_schema_status', 'manual_schema_error']),
+            'manualSchema' => $this->manualSchemaStatus($form),
         ]);
     }
 
@@ -480,22 +478,14 @@ class FormBuilderController extends Controller
         ];
     }
 
-    /**
-     * Fold a Step-2 printed-template draft into the form's real template after
-     * save, then clear the draft. Wrapped so a template-adoption failure never
-     * fails the save itself — the seeded blank template already stands in.
-     */
+    /** Fold every Step-2 draft slot into its saved form. */
     private function adoptPrintedTemplateDraft(Form $form, ?string $draftId, ?int $userId): void
     {
         if ($draftId === null) {
             return;
         }
 
-        try {
-            app(FormPrintTemplateService::class)->adoptDraft($form, $draftId, $userId);
-        } catch (\Throwable $throwable) {
-            report($throwable);
-        }
+        app(FormPrintTemplateService::class)->adoptDraft($form, $draftId, $userId);
     }
 
     /**
@@ -508,23 +498,57 @@ class FormBuilderController extends Controller
     private function dispatchManualSchema(Form $form): void
     {
         try {
-            $template = app(FormPrintTemplateService::class)->activeStored($form);
-            if ($template === null) {
-                return;
+            foreach (app(FormPrintTemplateService::class)->activeTemplates($form) as $template) {
+                $template->forceFill([
+                    'manual_schema_status' => 'pending',
+                    'manual_schema_error' => null,
+                ])->save();
+
+                \App\Jobs\GenerateTemplateManualSchema::dispatch(
+                    (int) $template->getKey(),
+                    (int) $template->version,
+                );
             }
-
-            $template->forceFill([
-                'manual_schema_status' => 'pending',
-                'manual_schema_error' => null,
-            ])->save();
-
-            \App\Jobs\GenerateTemplateManualSchema::dispatch(
-                (int) $template->getKey(),
-                (int) $template->version,
-            );
         } catch (\Throwable $throwable) {
             report($throwable);
         }
+    }
+
+    private function manualSchemaStatus(Form $form): ?array
+    {
+        $templates = app(FormPrintTemplateService::class)->activeTemplates($form);
+        if ($templates->isEmpty()) {
+            return null;
+        }
+        $failed = $templates->first(fn ($template) => $template->manual_schema_status === 'failed');
+        if ($failed !== null) {
+            return ['manual_schema_status' => 'failed', 'manual_schema_error' => $failed->manual_schema_error];
+        }
+        if ($templates->contains(fn ($template) => $template->manual_schema_status !== 'ready')) {
+            return ['manual_schema_status' => 'pending'];
+        }
+
+        $fields = app(\App\Services\ManualForm\ManualSchemaBuilder::class)->fieldsFor($form);
+        foreach ($fields as $field) {
+            if (! ($field['required'] ?? false) || ! in_array(
+                $field['paper_support'],
+                [\App\Forms\FieldType::PAPER_EXTRACT, \App\Forms\FieldType::PAPER_SIGNATURE],
+                true,
+            )) {
+                continue;
+            }
+            $covered = $templates->contains(fn ($template) => collect($template->manual_schema['fields'] ?? [])
+                ->contains(fn ($area) => ($area['key'] ?? null) === $field['key']
+                    && ($area['writable_area'] ?? 'uncertain') !== 'missing'));
+            if (! $covered) {
+                return [
+                    'manual_schema_status' => 'failed',
+                    'manual_schema_error' => 'No printed template has writable space for '.$field['label'].'.',
+                ];
+            }
+        }
+
+        return ['manual_schema_status' => 'ready'];
     }
 
     /**
@@ -994,6 +1018,36 @@ class FormBuilderController extends Controller
         // "Preview printed document": render the PDF template with sample/blank
         // values inline, without persisting a submission or generated document.
         if ($request->query('document')) {
+            $templates = app(\App\Services\FormPrintTemplateService::class)->activeTemplates($form);
+            $selectedId = $request->query('template');
+            abort_if($selectedId !== null && (! ctype_digit((string) $selectedId) || (int) $selectedId <= 0), 404);
+            $template = $selectedId === null
+                ? $templates->first()
+                : $templates->first(fn ($item) => (int) $item->getKey() === (int) $selectedId);
+            abort_if($selectedId !== null && $template === null, 404);
+            if ($template !== null) {
+                $fields = $form->fields()->get();
+                $data = app(\App\Forms\DocxTemplateData::class)->build(
+                    $this->sampleValues($fields),
+                    $fields,
+                    $request->user()?->profile()->first(),
+                    \App\Support\OrganizationField::resolveOrganization($request->user()),
+                );
+                $docx = app(\App\Services\DocxTemplateService::class);
+                $populated = $docx->populate($template, $data['values'], $data['images']);
+                try {
+                    $pdf = $docx->toPdf($populated);
+                    $contents = \Illuminate\Support\Facades\File::get($pdf);
+                } finally {
+                    \Illuminate\Support\Facades\File::deleteDirectory(dirname($populated));
+                }
+
+                return response($contents, 200, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="preview-'.\Illuminate\Support\Str::slug((string) ($template->template_name ?: $form->name)).'.pdf"',
+                ]);
+            }
+
             $pdfTemplate = (array) ($form->pdf_template ?? []);
             $templateHtml = (string) ($pdfTemplate['html'] ?? '');
 
@@ -1037,6 +1091,7 @@ class FormBuilderController extends Controller
             'fields' => $fields,
             'special' => \App\Forms\SpecialFieldData::resolve($request->user(), $fields, $form),
             'preview' => true,
+            'previewTemplates' => app(\App\Services\FormPrintTemplateService::class)->activeTemplates($form),
         ]);
     }
 

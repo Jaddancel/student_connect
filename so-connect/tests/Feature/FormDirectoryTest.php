@@ -84,7 +84,66 @@ it('lists a published form with a usable template, linked to its blank PDF', fun
 
     expect($forms)->toHaveCount(1)
         ->and($forms->first()['name'])->toBe('Clearance Form')
-        ->and($forms->first()['url'])->toBe(route('forms.blank-pdf', $form->route_name));
+        ->and($forms->first()['url'])->toBe(route('forms.blank-pdf', ['routeName' => $form->route_name, 'template' => $form->templates()->first()->getKey()]));
+});
+
+it('lists each active template separately and rejects foreign template ids', function () {
+    $form = directoryForm(['name' => 'Two print layouts']);
+    $secondPath = 'form-templates/'.$form->getKey().'/second.docx';
+    Storage::disk('public')->put($secondPath, 'docx');
+    $second = Template::query()->create([
+        'form_id' => $form->getKey(),
+        'template_name' => 'Second layout',
+        'docx_path' => $secondPath,
+        'version' => 1,
+        'is_active' => true,
+    ]);
+
+    $officer = directoryOfficer();
+    $response = $this->actingAs($officer)->get(route('forms.directory'));
+    $response->assertOk();
+    $forms = collect($response->viewData('forms'));
+    expect($forms)->toHaveCount(2)
+        ->and($forms->pluck('template_name')->all())->toBe(['Two print layouts', 'Second layout'])
+        ->and($forms->last()['url'])->toBe(route('forms.blank-pdf', ['routeName' => $form->route_name, 'template' => $second->getKey()]));
+
+    $other = directoryForm();
+    $this->actingAs($officer)
+        ->get(route('forms.blank-pdf', ['routeName' => $form->route_name, 'template' => $other->templates()->first()->getKey()]))
+        ->assertNotFound();
+});
+
+it('previews a selected printed layout from its docx without creating a submission', function () {
+    $form = directoryForm(['name' => 'Preview layouts']);
+    $path = 'form-templates/'.$form->getKey().'/alternate.docx';
+    Storage::disk('public')->put($path, 'docx');
+    $alternate = Template::query()->create([
+        'form_id' => $form->getKey(),
+        'template_name' => 'Alternate',
+        'docx_path' => $path,
+        'version' => 1,
+        'is_active' => true,
+    ]);
+    $this->mock(DocxTemplateService::class, function ($mock) use ($alternate) {
+        $mock->shouldReceive('populate')->once()->withArgs(fn ($template) => $template->is($alternate))
+            ->andReturnUsing(function () {
+                $dir = storage_path('app/tmp/preview-'.bin2hex(random_bytes(4)));
+                File::ensureDirectoryExists($dir);
+                File::put($dir.'/populated.docx', 'docx');
+                return $dir.'/populated.docx';
+            });
+        $mock->shouldReceive('toPdf')->once()->andReturnUsing(function ($path) {
+            $pdf = dirname($path).'/populated.pdf';
+            File::put($pdf, '%PDF-1.4 alternate');
+            return $pdf;
+        });
+    });
+
+    $this->actingAs(recordsUser(2))
+        ->get(route('admin.form-builder.preview', ['form' => $form, 'document' => 1, 'template' => $alternate->getKey()]))
+        ->assertOk()->assertHeader('Content-Type', 'application/pdf')
+        ->assertSee('%PDF-1.4 alternate', false);
+    expect(\App\Models\FormSubmission::query()->where('form_id', $form->getKey())->exists())->toBeFalse();
 });
 
 it('omits forms that have no stored template', function () {

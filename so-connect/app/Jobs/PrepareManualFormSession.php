@@ -29,6 +29,16 @@ class PrepareManualFormSession implements ShouldQueue
 
     public function failed(?\Throwable $throwable): void
     {
+        $session = ManualFormSession::find($this->sessionId);
+        if ($session?->documents()->exists()) {
+            $session->documents()->where('status', ManualFormSession::STATUS_PREPARING)->update([
+                'status' => ManualFormSession::STATUS_FAILED,
+                'parse_error' => 'Could not prepare the printable form. Please start a new manual-filling draft.',
+            ]);
+            app(ManualFormSessionService::class)->syncDocuments($session);
+
+            return;
+        }
         ManualFormSession::query()
             ->whereKey($this->sessionId)
             ->where('status', ManualFormSession::STATUS_PREPARING)

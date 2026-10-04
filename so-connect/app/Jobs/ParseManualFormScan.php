@@ -25,15 +25,26 @@ class ParseManualFormScan implements ShouldQueue
 
     public bool $failOnTimeout = true;
 
-    public function __construct(public readonly string $sessionId) {}
+    public function __construct(public readonly string $sessionId, public readonly ?int $documentId = null) {}
 
     public function handle(ManualScanParser $parser): void
     {
-        $parser->parse($this->sessionId);
+        $parser->parse($this->sessionId, $this->documentId);
     }
 
     public function failed(?\Throwable $throwable): void
     {
+        if ($this->documentId !== null) {
+            $document = \App\Models\ManualFormSessionDocument::query()
+                ->where('manual_form_session_id', $this->sessionId)->find($this->documentId);
+            if ($document?->status === ManualFormSession::STATUS_PARSING) {
+                $document->update(['status' => ManualFormSession::STATUS_FAILED,
+                    'parse_error' => 'The scan could not be read in time. Please retry the saved draft.']);
+                app(\App\Services\ManualForm\ManualFormSessionService::class)->syncDocuments($document->session);
+            }
+
+            return;
+        }
         ManualFormSession::query()
             ->whereKey($this->sessionId)
             ->where('status', ManualFormSession::STATUS_PARSING)

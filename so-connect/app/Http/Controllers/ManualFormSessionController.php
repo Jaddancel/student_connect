@@ -6,6 +6,7 @@ use App\Forms\SystemFunction;
 use App\Jobs\ParseManualFormScan;
 use App\Models\Form;
 use App\Models\ManualFormSession;
+use App\Models\ManualFormSessionDocument;
 use App\Services\ManualForm\ManualFormSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -40,8 +41,7 @@ class ManualFormSessionController extends Controller
             'Form pages are available to organization officers only.',
         );
 
-        $pdfTemplate = (array) ($form->pdf_template ?? []);
-        if (trim((string) ($pdfTemplate['html'] ?? '')) === '') {
+        if (app(\App\Services\FormPrintTemplateService::class)->activeTemplates($form)->isEmpty()) {
             return response()->json(['ok' => false, 'error' => 'This form has no printed template yet.'], 422);
         }
 
@@ -69,6 +69,23 @@ class ManualFormSessionController extends Controller
             'error' => $session->parse_error,
             'warnings' => $session->parse_warnings ?? [],
             'download_ready' => $session->partial_pdf_path !== null,
+            'documents' => $session->documents->map(fn ($doc) => [
+                'id' => $doc->getKey(), 'status' => $doc->status,
+                'download_ready' => $doc->partial_pdf_path !== null,
+                'error' => $doc->parse_error,
+            ])->all(),
+        ]);
+    }
+
+    public function statusDocument(Request $request, ManualFormSession $session, ManualFormSessionDocument $document): JsonResponse
+    {
+        $this->authorize403($request, $session);
+        $this->assertDocument($session, $document);
+
+        return response()->json([
+            'ok' => true, 'status' => $document->status, 'error' => $document->parse_error,
+            'warnings' => $document->parse_warnings ?? [],
+            'download_ready' => $document->partial_pdf_path !== null,
         ]);
     }
 
@@ -77,10 +94,23 @@ class ManualFormSessionController extends Controller
     {
         $this->authorize403($request, $session);
 
-        $disk = (string) config('documents.disk', 'public');
-        abort_if($session->partial_pdf_path === null || ! Storage::disk($disk)->exists($session->partial_pdf_path), 404);
+        return $this->downloadPdf($session, $session->documents()->first()?->partial_pdf_path ?? $session->partial_pdf_path);
+    }
 
-        return response(Storage::disk($disk)->get($session->partial_pdf_path), 200, [
+    public function downloadDocument(Request $request, ManualFormSession $session, ManualFormSessionDocument $document)
+    {
+        $this->authorize403($request, $session);
+        $this->assertDocument($session, $document);
+
+        return $this->downloadPdf($session, $document->partial_pdf_path);
+    }
+
+    private function downloadPdf(ManualFormSession $session, ?string $path)
+    {
+        $disk = (string) config('documents.disk', 'public');
+        abort_if($path === null || ! Storage::disk($disk)->exists($path), 404);
+
+        return response(Storage::disk($disk)->get($path), 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="'.($session->form?->route_name ?: 'form').'-to-fill.pdf"',
             'Cache-Control' => 'no-store',
@@ -136,6 +166,7 @@ class ManualFormSessionController extends Controller
             'form' => $form,
             'token' => $token,
             'review' => $review,
+            'documents' => $session->documents,
         ]);
     }
 
@@ -160,6 +191,9 @@ class ManualFormSessionController extends Controller
     public function upload(Request $request, ManualFormSession $session): JsonResponse
     {
         $this->authorize403($request, $session);
+        if ($document = $session->documents()->first()) {
+            return $this->storeDocumentScans($request, $session, $document);
+        }
 
         if (! in_array($session->status, [
             ManualFormSession::STATUS_AWAITING_SCAN,
@@ -202,6 +236,9 @@ class ManualFormSessionController extends Controller
     public function retry(Request $request, ManualFormSession $session): JsonResponse
     {
         $this->authorize403($request, $session);
+        if ($document = $session->documents()->first()) {
+            return $this->retryScan($session, $document);
+        }
 
         if (empty($session->scan_paths)) {
             return response()->json(['ok' => false, 'error' => 'Upload a scan first.'], 422);
@@ -215,6 +252,71 @@ class ManualFormSessionController extends Controller
         ParseManualFormScan::dispatch((string) $session->getKey());
 
         return response()->json(['ok' => true, 'status' => $session->status]);
+    }
+
+    public function uploadDocument(Request $request, ManualFormSession $session, ManualFormSessionDocument $document): JsonResponse
+    {
+        $this->authorize403($request, $session);
+        $this->assertDocument($session, $document);
+
+        return $this->storeDocumentScans($request, $session, $document);
+    }
+
+    private function storeDocumentScans(Request $request, ManualFormSession $session, ManualFormSessionDocument $document): JsonResponse
+    {
+        if (! in_array($document->status, [ManualFormSession::STATUS_AWAITING_SCAN,
+            ManualFormSession::STATUS_FAILED, ManualFormSession::STATUS_REVIEW], true)
+            || empty($document->session_schema['extractable_fields'])) {
+            return response()->json(['ok' => false, 'error' => 'This document does not need a scan.'], 422);
+        }
+        $maxPages = (int) config('services.document_vision.max_pages', 10);
+        $request->validate([
+            'scans' => ['required', 'array', 'max:'.$maxPages],
+            'scans.*' => ['file', 'mimes:pdf,jpeg,jpg,png', 'max:10240'],
+        ]);
+        $disk = (string) config('documents.disk', 'public');
+        $dir = 'manual-form/'.$session->getKey().'/documents/'.$document->getKey().'/scans';
+        Storage::disk($disk)->deleteDirectory($dir);
+        $paths = [];
+        foreach ($request->file('scans', []) as $file) {
+            $paths[] = $file->store($dir, $disk);
+        }
+        $document->forceFill([
+            'scan_paths' => $paths, 'status' => ManualFormSession::STATUS_PARSING,
+            'parse_error' => null, 'parse_result' => null,
+            'parse_confidence' => null, 'parse_warnings' => null,
+        ])->save();
+        $this->sessions->syncDocuments($session);
+        ParseManualFormScan::dispatch((string) $session->getKey(), (int) $document->getKey());
+
+        return response()->json(['ok' => true, 'status' => $document->status]);
+    }
+
+    public function retryDocument(Request $request, ManualFormSession $session, ManualFormSessionDocument $document): JsonResponse
+    {
+        $this->authorize403($request, $session);
+        $this->assertDocument($session, $document);
+
+        return $this->retryScan($session, $document);
+    }
+
+    private function retryScan(ManualFormSession $session, ManualFormSessionDocument $document): JsonResponse
+    {
+        if (! in_array($document->status, [
+            ManualFormSession::STATUS_FAILED, ManualFormSession::STATUS_REVIEW,
+        ], true) || empty($document->scan_paths)) {
+            return response()->json(['ok' => false, 'error' => 'Upload a scan first.'], 422);
+        }
+        $document->forceFill(['status' => ManualFormSession::STATUS_PARSING, 'parse_error' => null])->save();
+        $this->sessions->syncDocuments($session);
+        ParseManualFormScan::dispatch((string) $session->getKey(), (int) $document->getKey());
+
+        return response()->json(['ok' => true, 'status' => $document->status]);
+    }
+
+    private function assertDocument(ManualFormSession $session, ManualFormSessionDocument $document): void
+    {
+        abort_unless($document->manual_form_session_id === $session->getKey(), 404);
     }
 
     /** Delete a draft and its files. */
@@ -246,7 +348,7 @@ class ManualFormSessionController extends Controller
         $query = ManualFormSession::query()
             ->where('user_id', (int) $user->getKey())
             ->whereIn('status', ManualFormSession::OPEN_STATUSES)
-            ->with('form:id,name,route_name')
+            ->with(['form:id,name,route_name', 'documents'])
             ->latest('updated_at');
 
         if (($from = (string) $request->query('from', '')) !== '') {

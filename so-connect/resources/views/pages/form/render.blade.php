@@ -13,11 +13,16 @@
         @if ($preview)
             <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm font-medium text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-400">
                 <span>Preview mode — this form is shown regardless of its published/active status. Submitting is disabled.</span>
-                @if (! empty($form->pdf_template['html']))
+                @if (($previewTemplates ?? collect())->isNotEmpty())
+                    @foreach ($previewTemplates as $template)
+                        <a href="{{ route('admin.form-builder.preview', ['form' => $form, 'document' => 1, 'template' => $template->getKey()]) }}" target="_blank"
+                            class="rounded-lg border border-warning-300 px-3 py-1.5 text-xs font-semibold text-warning-700 transition hover:bg-warning-100 dark:border-warning-500/40 dark:text-warning-300">
+                            Preview {{ $template->template_name ?: $form->name }}
+                        </a>
+                    @endforeach
+                @elseif (! empty($form->pdf_template['html']))
                     <a href="{{ route('admin.form-builder.preview', ['form' => $form, 'document' => 1]) }}" target="_blank"
-                        class="rounded-lg border border-warning-300 px-3 py-1.5 text-xs font-semibold text-warning-700 transition hover:bg-warning-100 dark:border-warning-500/40 dark:text-warning-300">
-                        Preview printed document
-                    </a>
+                        class="rounded-lg border border-warning-300 px-3 py-1.5 text-xs font-semibold text-warning-700 transition hover:bg-warning-100 dark:border-warning-500/40 dark:text-warning-300">Preview printed document</a>
                 @endif
             </div>
         @endif

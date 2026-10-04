@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Mail\DocumentGeneratedMail;
 use App\Helpers\FormTemplateHelper;
+use App\Mail\DocumentGeneratedMail;
 use App\Models\Approval;
 use App\Models\Document;
 use App\Models\Form;
@@ -15,6 +15,7 @@ use App\Models\RequestType;
 use App\Models\User;
 use App\Models\Workplan;
 use App\Support\OrganizationField;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -24,10 +25,9 @@ use RuntimeException;
 use Symfony\Component\Process\Process;
 
 /**
- * Generates the printable PDF for a form submission from the form's Word
- * template: the `.docx` authored in the form builder's "Printed template" step
- * is populated with the submission's values and converted to PDF through
- * LibreOffice.
+ * Generates one printable PDF per active Word template for a form submission:
+ * each `.docx` authored in the form builder's "Printed template" step is
+ * populated with the submission's values and converted to PDF.
  *
  * This supersedes the intermediate dompdf pipeline, which rendered a separate
  * rich-text `pdf_template.html` blob. Those blobs are migrated to `.docx` on
@@ -143,6 +143,12 @@ class DocumentGenerationService
 
     public function generateFromApprovedRequest(ActionRequest $request, int $generatedByUserId): GeneratedDocument
     {
+        return $this->generateAllFromApprovedRequest($request, $generatedByUserId)->first();
+    }
+
+    /** @return Collection<int, GeneratedDocument> */
+    public function generateAllFromApprovedRequest(ActionRequest $request, int $generatedByUserId): Collection
+    {
         [$organizationId, $submissionId, $formId] = FormTemplateHelper::decodeDocumentGenerationAction($request->action);
 
         // organizationId == 0 means the form is not scoped to a specific org — that is valid.
@@ -165,26 +171,31 @@ class DocumentGenerationService
             throw new RuntimeException('Form submission organization does not match request organization.');
         }
 
-        return $this->generateFromSubmission(
+        return $this->generateAllFromSubmission(
             $submission,
             (int) $request->getKey(),
             $generatedByUserId,
         );
     }
 
-    /**
-     * Render a submission's form layout (or ordered fields) to a PDF and persist it.
-     */
+    /** Return the primary document while still printing all active templates. */
     public function generateFromSubmission(
         FormSubmission $submission,
         ?int $requestId,
         int $generatedByUserId,
     ): GeneratedDocument {
-        $disk = (string) config('documents.disk', 'public');
+        return $this->generateAllFromSubmission($submission, $requestId, $generatedByUserId)->first();
+    }
 
-        $generatedPdfRelativePath = $this->nextGeneratedPdfPath((int) $submission->getKey());
-        $generatedPdfAbsolutePath = Storage::disk($disk)->path($generatedPdfRelativePath);
-        File::ensureDirectoryExists(dirname($generatedPdfAbsolutePath));
+    /** @return Collection<int, GeneratedDocument> */
+    public function generateAllFromSubmission(
+        FormSubmission $submission,
+        ?int $requestId,
+        int $generatedByUserId,
+    ): Collection {
+        $disk = (string) config('documents.disk', 'public');
+        $generated = collect();
+        $currentPdfPath = null;
 
         try {
             $form = $submission->form ?: Form::query()->find($submission->form_id);
@@ -201,7 +212,10 @@ class DocumentGenerationService
             // form builder's OnlyOffice step), populated with this submission
             // and converted to PDF. Page setup, fonts and headers now live in
             // the .docx itself rather than in a separate config blob.
-            $printTemplate = app(\App\Services\FormPrintTemplateService::class)->resolve($form);
+            $printTemplates = app(\App\Services\FormPrintTemplateService::class)->resolveAll($form);
+            if ($printTemplates->isEmpty()) {
+                throw new RuntimeException('No printable templates are available for this form.');
+            }
 
             // Resolve the submitter's profile + organization so `{{profile.*}}`
             // tokens print from them. `profile` is a FK column that shadows the
@@ -221,46 +235,51 @@ class DocumentGenerationService
             );
 
             $docxService = app(\App\Services\DocxTemplateService::class);
-            $populatedDocxPath = $docxService->populate(
-                $printTemplate,
-                $templateData['values'],
-                $templateData['images'],
-            );
+            foreach ($printTemplates as $index => $printTemplate) {
+                $generatedPdfRelativePath = $this->nextGeneratedPdfPath((int) $submission->getKey());
+                $currentPdfPath = $generatedPdfRelativePath;
+                $generatedPdfAbsolutePath = Storage::disk($disk)->path($generatedPdfRelativePath);
+                File::ensureDirectoryExists(dirname($generatedPdfAbsolutePath));
+                $populatedDocxPath = $docxService->populate(
+                    $printTemplate,
+                    $templateData['values'],
+                    $templateData['images'],
+                );
 
-            try {
-                $pdfAbsolutePath = $docxService->toPdf($populatedDocxPath);
-                Storage::disk($disk)->put($generatedPdfRelativePath, File::get($pdfAbsolutePath));
-            } finally {
-                // Both the populated .docx and its PDF live in the same scratch
-                // directory; the stored copy above is the one that survives.
-                File::deleteDirectory(dirname($populatedDocxPath));
+                try {
+                    $pdfAbsolutePath = $docxService->toPdf($populatedDocxPath);
+                    Storage::disk($disk)->put($generatedPdfRelativePath, File::get($pdfAbsolutePath));
+                } finally {
+                    File::deleteDirectory(dirname($populatedDocxPath));
+                }
+
+                if ($index === 0) {
+                    $workplanPdfAbsPath = $this->findWorkplanApprovedPdf((array) $submission->payload, $disk);
+                    if ($workplanPdfAbsPath !== null) {
+                        $this->appendPdfPages($generatedPdfAbsolutePath, $workplanPdfAbsPath);
+                    }
+                }
+
+                $formName = trim((string) ($form->name ?? 'Form'));
+                $document = Document::query()->create([
+                    'description_text' => $formName.' - '.(string) ($printTemplate->template_name ?: $formName).' submission #'.(int) $submission->getKey(),
+                    'author' => (int) ($submission->submitted_by ?? 0) ?: null,
+                    'link' => $generatedPdfRelativePath,
+                ]);
+
+                $generated->push(GeneratedDocument::query()->create([
+                    'form_submission_id' => (int) $submission->getKey(),
+                    'template_id' => (int) $printTemplate->getKey(),
+                    'request_id' => $requestId,
+                    'document_id' => (int) $document->getKey(),
+                    'generated_by' => $generatedByUserId,
+                    'docx_path' => null,
+                    'pdf_path' => $generatedPdfRelativePath,
+                    'status' => 'generated',
+                    'generated_at' => now(),
+                ]));
+                $currentPdfPath = null;
             }
-
-            // Recognition forms attach the org's approved workplan PDF, if any.
-            $workplanPdfAbsPath = $this->findWorkplanApprovedPdf((array) $submission->payload, $disk);
-            if ($workplanPdfAbsPath !== null) {
-                $this->appendPdfPages($generatedPdfAbsolutePath, $workplanPdfAbsPath);
-            }
-
-            $formName = trim((string) ($form->name ?? 'Form'));
-            $document = Document::query()->create([
-                'description_text' => $formName.' submission #'.(int) $submission->getKey(),
-                'author' => (int) ($submission->submitted_by ?? 0) ?: null,
-                'link' => $generatedPdfRelativePath,
-            ]);
-
-            $generatedDocument = GeneratedDocument::query()->create([
-                'form_submission_id' => (int) $submission->getKey(),
-                // Now traceable: the .docx revision this PDF was printed from.
-                'template_id' => (int) $printTemplate->getKey(),
-                'request_id' => $requestId,
-                'document_id' => (int) $document->getKey(),
-                'generated_by' => $generatedByUserId,
-                'docx_path' => null,
-                'pdf_path' => $generatedPdfRelativePath,
-                'status' => 'generated',
-                'generated_at' => now(),
-            ]);
 
             $submission->loadMissing(['submitter', 'organization.detail', 'form']);
             $recipientEmail = $submission->submitter?->user_email;
@@ -278,8 +297,16 @@ class DocumentGenerationService
                 }
             }
 
-            return $generatedDocument;
+            return $generated;
         } catch (\Throwable $throwable) {
+            if ($currentPdfPath !== null) {
+                Storage::disk($disk)->delete($currentPdfPath);
+            }
+            foreach ($generated as $item) {
+                Storage::disk($disk)->delete((string) $item->pdf_path);
+                $item->document?->delete();
+                $item->delete();
+            }
             $failedRecord = GeneratedDocument::query()->create([
                 'form_submission_id' => (int) $submission->getKey(),
                 'template_id' => null,
@@ -287,9 +314,7 @@ class DocumentGenerationService
                 'document_id' => null,
                 'generated_by' => $generatedByUserId,
                 'docx_path' => null,
-                'pdf_path' => Storage::disk($disk)->exists($generatedPdfRelativePath)
-                    ? $generatedPdfRelativePath
-                    : null,
+                'pdf_path' => null,
                 'status' => 'failed',
                 'failure_reason' => $throwable->getMessage(),
                 'generated_at' => now(),
@@ -320,12 +345,14 @@ class DocumentGenerationService
         $workplan = Workplan::find($workplanId);
         if (! $workplan) {
             Log::warning("DocumentGenerationService: workplan #{$workplanId} not found; skipping PDF merge.");
+
             return null;
         }
 
         $workplanForm = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_WORKPLAN);
         if (! $workplanForm) {
             Log::warning('DocumentGenerationService: workplan form not configured; skipping PDF merge.');
+
             return null;
         }
 
@@ -340,6 +367,7 @@ class DocumentGenerationService
 
         if (! $matchedSubmission) {
             Log::warning("DocumentGenerationService: no workplan form submission found for workplan #{$workplanId}; skipping PDF merge.");
+
             return null;
         }
 
@@ -352,6 +380,7 @@ class DocumentGenerationService
 
         if (! $actionRequest) {
             Log::warning("DocumentGenerationService: no action request found for workplan submission #{$matchedSubmission->getKey()}; skipping PDF merge.");
+
             return null;
         }
 
@@ -362,22 +391,26 @@ class DocumentGenerationService
 
         if (! $approval) {
             Log::warning("DocumentGenerationService: workplan request #{$actionRequest->request_id} not yet approved; skipping PDF merge.");
+
             return null;
         }
 
         $generatedDoc = GeneratedDocument::query()
             ->where('request_id', $actionRequest->request_id)
             ->where('status', 'generated')
+            ->orderBy('generated_document_id')
             ->first();
 
         if (! $generatedDoc || (string) ($generatedDoc->pdf_path ?? '') === '') {
             Log::warning("DocumentGenerationService: workplan generated document not found for request #{$actionRequest->request_id}; skipping PDF merge.");
+
             return null;
         }
 
         $absPath = Storage::disk($disk)->path((string) $generatedDoc->pdf_path);
         if (! is_file($absPath)) {
             Log::warning("DocumentGenerationService: workplan PDF file missing on disk ({$absPath}); skipping PDF merge.");
+
             return null;
         }
 
@@ -412,6 +445,7 @@ class DocumentGenerationService
             if (! $process->isSuccessful() || ! is_file($tmpPath)) {
                 @unlink($tmpPath);
                 Log::warning('DocumentGenerationService: PDF merge failed (pdfunite and ghostscript both failed); recognition PDF generated without workplan attachment.');
+
                 return;
             }
         }

@@ -4,6 +4,7 @@ namespace App\Services\ManualForm;
 
 use App\Forms\FieldType;
 use App\Models\ManualFormSession;
+use App\Models\ManualFormSessionDocument;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -29,19 +30,27 @@ class ManualSessionSchemaGenerator
         private readonly DocxTableCellLocator $cellLocator,
     ) {}
 
-    public function generate(string $sessionId): void
+    public function generate(string $sessionId, ?int $documentId = null): void
     {
         $session = ManualFormSession::find($sessionId);
         if ($session === null || $session->status !== ManualFormSession::STATUS_PREPARING) {
             return;
         }
 
-        $baselineByKey = $this->baselineByKey($session);
+        $document = $documentId === null ? null : $session->documents()->find($documentId);
+        if ($documentId !== null && ($document === null || $document->status !== ManualFormSession::STATUS_PREPARING)) {
+            return;
+        }
+        $target = $document ?? $session;
+        $baselineByKey = $this->baselineByKey($target);
         $extractable = (array) $session->extractable_fields;
+        if ($document !== null) {
+            $extractable = array_values(array_filter($extractable, fn ($field) => isset($baselineByKey[$field['key'] ?? ''])));
+        }
 
         // Re-check only the present/missing verdict against the populated
         // partial; positions stay as the accurate baseline bounds.
-        $verdicts = $this->recomputeVerdicts($session, $baselineByKey, $extractable);
+        $verdicts = $this->recomputeVerdicts($session, $baselineByKey, $extractable, $document);
 
         $blocking = [];
         $schemaFields = [];
@@ -53,6 +62,9 @@ class ManualSessionSchemaGenerator
             $baseline = $baselineByKey[$key] ?? [];
             $writable = (string) ($verdicts[$key] ?? $baseline['writable_area'] ?? 'uncertain');
 
+            if ($writable === 'missing' && $document !== null) {
+                continue;
+            }
             if (($field['required'] ?? false) && $writable === 'missing') {
                 $blocking[] = (string) ($field['label'] ?? $key);
             }
@@ -72,7 +84,8 @@ class ManualSessionSchemaGenerator
         // Signature fields are located from the baseline too so the scan can be
         // checked for presence at review.
         foreach ($baselineByKey as $key => $area) {
-            if (($area['paper_support'] ?? null) === FieldType::PAPER_SIGNATURE) {
+            if (($area['paper_support'] ?? null) === FieldType::PAPER_SIGNATURE
+                && ! array_key_exists($key, (array) $session->known_fields)) {
                 $schemaFields[] = [
                     'key' => $key,
                     'label' => $area['label'] ?? $key,
@@ -87,24 +100,31 @@ class ManualSessionSchemaGenerator
         }
 
         if ($blocking !== []) {
-            $session->forceFill([
+            $target->forceFill([
                 'status' => ManualFormSession::STATUS_FAILED,
                 'parse_error' => 'These required fields have no space to write on the printed form: '
                     .implode(', ', $blocking).'. Fill them on the digital form instead.',
             ])->save();
+            if ($document) {
+                app(ManualFormSessionService::class)->syncDocuments($session);
+            }
 
             return;
         }
 
-        $session->forceFill([
+        $target->forceFill([
             'session_schema' => [
-                'pages' => $session->page_meta,
+                'pages' => $target->page_meta,
                 'known_values' => $session->known_fields,
                 'extractable_fields' => $schemaFields,
                 'digital_only_fields' => $session->digital_only_fields,
             ],
-            'status' => ManualFormSession::STATUS_AWAITING_SCAN,
+            'status' => $schemaFields === [] && $document
+                ? ManualFormSession::STATUS_REVIEW : ManualFormSession::STATUS_AWAITING_SCAN,
         ])->save();
+        if ($document) {
+            app(ManualFormSessionService::class)->syncDocuments($session);
+        }
     }
 
     /**
@@ -115,9 +135,9 @@ class ManualSessionSchemaGenerator
      *
      * @param  array<string,array<string,mixed>>  $baselineByKey
      * @param  array<int,array<string,mixed>>  $extractable
-     * @return array<string,string>  field key => writable_area
+     * @return array<string,string> field key => writable_area
      */
-    private function recomputeVerdicts(ManualFormSession $session, array $baselineByKey, array $extractable): array
+    private function recomputeVerdicts(ManualFormSession $session, array $baselineByKey, array $extractable, ?ManualFormSessionDocument $document = null): array
     {
         $paperKeys = [];
         foreach ($extractable as $field) {
@@ -127,7 +147,7 @@ class ManualSessionSchemaGenerator
             }
         }
 
-        $docxPath = $this->partialDocxPath($session);
+        $docxPath = $this->partialDocxPath($session, $document);
         if ($docxPath === null) {
             return [];
         }
@@ -153,10 +173,10 @@ class ManualSessionSchemaGenerator
         return $verdicts;
     }
 
-    private function partialDocxPath(ManualFormSession $session): ?string
+    private function partialDocxPath(ManualFormSession $session, ?ManualFormSessionDocument $document = null): ?string
     {
         $disk = (string) config('documents.disk', 'public');
-        $relative = 'manual-form/'.$session->getKey().'/partial.docx';
+        $relative = 'manual-form/'.$session->getKey().($document ? '/documents/'.$document->getKey() : '').'/partial.docx';
         if (! Storage::disk($disk)->exists($relative)) {
             return null;
         }
@@ -169,7 +189,7 @@ class ManualSessionSchemaGenerator
      *
      * @return array<string,array<string,mixed>>
      */
-    private function baselineByKey(ManualFormSession $session): array
+    private function baselineByKey(ManualFormSession|ManualFormSessionDocument $session): array
     {
         $baseline = (array) ($session->baseline_schema['fields'] ?? []);
         $byKey = [];

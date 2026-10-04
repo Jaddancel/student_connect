@@ -166,6 +166,11 @@ class Form extends Model
         return $this->hasMany(Template::class, 'form_id', 'id');
     }
 
+    public function activeTemplates(): HasMany
+    {
+        return $this->templates()->where('is_active', true)->orderBy('slot_order')->orderBy('id');
+    }
+
     public function submissions(): HasMany
     {
         return $this->hasMany(FormSubmission::class, 'form_id', 'id')->latest('submitted_at');

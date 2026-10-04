@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A durable manual-filling draft. Holds the frozen partial PDF, the parsing
@@ -22,11 +23,17 @@ class ManualFormSession extends Model
     protected $table = 'manual_form_sessions';
 
     public const STATUS_PREPARING = 'preparing';
+
     public const STATUS_AWAITING_SCAN = 'awaiting_scan';
+
     public const STATUS_PARSING = 'parsing';
+
     public const STATUS_REVIEW = 'review';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_SUBMITTED = 'submitted';
+
     public const STATUS_EXPIRED = 'expired';
 
     /** Statuses that still count as an open draft (not yet finalized/dead). */
@@ -92,6 +99,11 @@ class ManualFormSession extends Model
     public function form(): BelongsTo
     {
         return $this->belongsTo(Form::class, 'form_id', 'id');
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(ManualFormSessionDocument::class, 'manual_form_session_id')->orderBy('position');
     }
 
     public function template(): BelongsTo

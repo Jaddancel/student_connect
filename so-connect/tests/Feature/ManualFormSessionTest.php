@@ -16,11 +16,13 @@ use App\Services\PdfRasterizer;
 use App\Services\SignatureReferenceService;
 use App\Support\SignatureImage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -193,6 +195,288 @@ it('queues partial PDF preparation instead of blocking the start request', funct
         PrepareManualFormSession::class,
         fn ($job) => $job->sessionId === (string) $session->getKey(),
     );
+});
+
+it('starts from an active stored template without legacy PDF HTML', function () {
+    Queue::fake();
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+    $org = recordsOrganization('No Legacy HTML Org');
+    $officer = manualOfficer((int) $org->getKey());
+    $form = manualForm('purpose', 'stored-template-only');
+    $template = app(\App\Services\FormPrintTemplateService::class)->resolve($form, (int) $officer->getKey());
+    $form->pdf_template = [];
+    $form->save();
+
+    $response = $this->actingAs($officer)->postJson(route('manual.start', $form->route_name), []);
+    $response->assertOk();
+    $session = ManualFormSession::findOrFail($response->json('session_id'));
+    expect($session->documents)->toHaveCount(1)
+        ->and($session->documents->first()->template_id)->toBe($template->getKey());
+});
+
+it('creates one ordered document per active printed template', function () {
+    Queue::fake();
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+    $org = recordsOrganization('Multi Template Org');
+    $officer = manualOfficer((int) $org->getKey());
+    $form = manualForm('purpose', 'multi-manual-start');
+    $first = app(\App\Services\FormPrintTemplateService::class)->resolve($form, (int) $officer->getKey());
+    $second = $first->replicate();
+    $second->docx_path = 'templates/second-manual.docx';
+    $second->slot_order = 2;
+    $second->save();
+    Storage::disk('public')->put($second->docx_path, Storage::disk('public')->get($first->docx_path));
+
+    $response = $this->actingAs($officer)->postJson(route('manual.start', $form->route_name), []);
+    $response->assertOk();
+    $session = ManualFormSession::findOrFail($response->json('session_id'));
+    expect($session->documents->pluck('template_id')->all())
+        ->toBe(app(\App\Services\FormPrintTemplateService::class)->activeTemplates($form)->pluck('id')->all())
+        ->and($session->documents)->toHaveCount(2);
+});
+
+it('backfills a legacy session into a first document during migration', function () {
+    $previous = DB::getDefaultConnection();
+    config(['database.connections.sqlite.database' => ':memory:']);
+    DB::setDefaultConnection('sqlite');
+    try {
+        \Illuminate\Support\Facades\Schema::create('templates', function ($table) {
+            $table->id();
+        });
+        \Illuminate\Support\Facades\Schema::create('manual_form_sessions', function ($table) {
+            $table->uuid('id')->primary();
+            foreach (['template_id', 'template_version', 'status', 'baseline_schema',
+                'session_schema', 'partial_pdf_path', 'partial_pdf_hash', 'page_meta',
+                'scan_paths', 'aligned_page_paths', 'parse_result', 'parse_confidence',
+                'parse_warnings', 'parse_error', 'parse_model'] as $field) {
+                $table->string($field)->nullable();
+            }
+            $table->timestamps();
+        });
+        $id = (string) Str::uuid();
+        DB::table('manual_form_sessions')->insert([
+            'id' => $id, 'status' => 'review',
+            'partial_pdf_path' => 'manual-form/old/partial.pdf',
+            'scan_paths' => '["manual-form/old/scan.png"]',
+            'parse_result' => '{"values":{"purpose":"Old value"}}',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $migration = require database_path('migrations/2026_09_25_000001_create_manual_form_session_documents.php');
+        $migration->up();
+        $document = DB::table('manual_form_session_documents')->where('manual_form_session_id', $id)->first();
+        expect($document)->not->toBeNull()
+            ->and($document->position)->toBe(0)
+            ->and($document->partial_pdf_path)->toBe('manual-form/old/partial.pdf')
+            ->and(json_decode($document->scan_paths, true))->toBe(['manual-form/old/scan.png'])
+            ->and(json_decode($document->parse_result, true)['values']['purpose'])->toBe('Old value');
+    } finally {
+        DB::setDefaultConnection($previous);
+        DB::disconnect('sqlite');
+    }
+});
+
+it('merges separate document results and does not require a scan for a document without paper fields', function () {
+    $form = manualForm('purpose', 'multi-manual-review');
+    $session = manualSession($form, [
+        'status' => ManualFormSession::STATUS_AWAITING_SCAN,
+        'extractable_fields' => [['key' => 'purpose', 'label' => 'Purpose', 'required' => true]],
+    ]);
+    $scan = $session->documents()->create([
+        'position' => 0, 'status' => ManualFormSession::STATUS_AWAITING_SCAN,
+        'session_schema' => ['extractable_fields' => [['key' => 'purpose']]],
+    ]);
+    $noScan = $session->documents()->create([
+        'position' => 1, 'status' => ManualFormSession::STATUS_REVIEW,
+        'session_schema' => ['extractable_fields' => []],
+    ]);
+    app(\App\Services\ManualForm\ManualFormSessionService::class)->syncDocuments($session);
+    expect($session->refresh()->status)->toBe(ManualFormSession::STATUS_AWAITING_SCAN);
+
+    $scan->update([
+        'status' => ManualFormSession::STATUS_REVIEW,
+        'parse_result' => ['values' => ['purpose' => 'Sports fest'], 'unresolved' => []],
+        'parse_confidence' => ['purpose' => 0.9],
+        'scan_paths' => ['manual-form/test/scan.png'],
+    ]);
+    app(\App\Services\ManualForm\ManualFormSessionService::class)->syncDocuments($session);
+    expect($session->refresh()->status)->toBe(ManualFormSession::STATUS_REVIEW)
+        ->and($session->parse_result['values']['purpose'])->toBe('Sports fest')
+        ->and($session->scan_paths)->toBe(['manual-form/test/scan.png'])
+        ->and($noScan->refresh()->scan_paths)->toBeNull();
+});
+
+it('generates document-specific schemas and skips scans without hand-fill fields', function () {
+    $form = manualForm('purpose', 'manual-schema-per-document');
+    $session = manualSession($form, [
+        'status' => ManualFormSession::STATUS_PREPARING,
+        'extractable_fields' => [
+            ['key' => 'purpose', 'label' => 'Purpose', 'required' => true, 'type' => 'text',
+                'paper_support' => \App\Forms\FieldType::PAPER_EXTRACT],
+        ],
+    ]);
+    $paper = $session->documents()->create([
+        'position' => 0, 'status' => ManualFormSession::STATUS_PREPARING,
+        'baseline_schema' => ['fields' => [
+            ['key' => 'purpose', 'writable_area' => 'present', 'page' => 0],
+        ]],
+    ]);
+    $digital = $session->documents()->create([
+        'position' => 1, 'status' => ManualFormSession::STATUS_PREPARING,
+        'baseline_schema' => ['fields' => []],
+    ]);
+    $generator = app(\App\Services\ManualForm\ManualSessionSchemaGenerator::class);
+    $generator->generate((string) $session->getKey(), $paper->getKey());
+    $generator->generate((string) $session->getKey(), $digital->getKey());
+    expect($paper->refresh()->status)->toBe(ManualFormSession::STATUS_AWAITING_SCAN)
+        ->and($digital->refresh()->status)->toBe(ManualFormSession::STATUS_REVIEW)
+        ->and($session->refresh()->status)->toBe(ManualFormSession::STATUS_AWAITING_SCAN);
+});
+
+it('rejects uncovered required fields and isolates documents by session ownership', function () {
+    $form = manualForm('purpose', 'multi-manual-authorization');
+    $owner = recordsUser(3);
+    $session = manualSession($form, [
+        'user_id' => $owner->getKey(),
+        'extractable_fields' => [['key' => 'purpose', 'label' => 'Purpose', 'required' => true]],
+    ]);
+    $document = $session->documents()->create([
+        'position' => 0, 'status' => ManualFormSession::STATUS_REVIEW,
+        'session_schema' => ['extractable_fields' => []],
+    ]);
+    app(\App\Services\ManualForm\ManualFormSessionService::class)->syncDocuments($session);
+    expect($session->refresh()->status)->toBe(ManualFormSession::STATUS_FAILED)
+        ->and($session->parse_error)->toContain('Purpose');
+
+    Route::get('/test-manual/{session}/documents/{document}', [
+        \App\Http\Controllers\ManualFormSessionController::class, 'statusDocument',
+    ])->middleware(\Illuminate\Routing\Middleware\SubstituteBindings::class);
+    $url = "/test-manual/{$session->getKey()}/documents/{$document->getKey()}";
+    $this->getJson($url)->assertNotFound();
+    $this->actingAs($owner)->getJson($url)->assertOk()->assertJson(['status' => ManualFormSession::STATUS_REVIEW]);
+    $other = manualSession($form, ['user_id' => $owner->getKey()]);
+    $this->getJson("/test-manual/{$other->getKey()}/documents/{$document->getKey()}")->assertNotFound();
+});
+
+it('parses each document against only its own scan and waits for all documents before review', function () {
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+    $form = manualForm('purpose', 'multi-manual-scans');
+    $session = manualSession($form, [
+        'status' => ManualFormSession::STATUS_PARSING,
+        'extractable_fields' => [
+            ['key' => 'purpose', 'required' => true, 'label' => 'Purpose'],
+            ['key' => 'venue', 'required' => true, 'label' => 'Venue'],
+        ],
+    ]);
+    $documents = collect(['purpose', 'venue'])->map(function ($key, $position) use ($session) {
+        $prefix = "manual-form/{$session->getKey()}/documents/{$position}";
+        Storage::disk('public')->put("{$prefix}/reference.png", "ref-{$key}");
+        Storage::disk('public')->put("{$prefix}/scan.png", "scan-{$key}");
+
+        return $session->documents()->create([
+            'position' => $position,
+            'status' => ManualFormSession::STATUS_PARSING,
+            'page_meta' => [['index' => 0, 'path' => "{$prefix}/reference.png"]],
+            'scan_paths' => ["{$prefix}/scan.png"],
+            'session_schema' => ['extractable_fields' => [['key' => $key, 'type' => 'text', 'page' => 0]]],
+        ]);
+    });
+
+    $ocr = Mockery::mock(OcrClient::class);
+    $ocr->shouldReceive('alignPages')->twice()->andReturnUsing(function ($references, $scans) {
+        expect($references)->toBe([base64_encode(str_replace('scan-', 'ref-', $scans[0]))]);
+
+        return ['ok' => true, 'pages' => [
+            ['index' => 0, 'matched' => true, 'image' => base64_encode($scans[0])],
+        ]];
+    });
+    $vision = Mockery::mock(DocumentVisionClient::class);
+    $vision->shouldReceive('extract')->twice()->andReturnUsing(function ($input) {
+        $key = $input['fields'][0]['key'];
+
+        return ['ok' => true, 'values' => [$key => "read-{$key}"], 'confidence' => [$key => 0.8]];
+    });
+    $parser = new ManualScanParser($ocr, $vision, Mockery::mock(PdfRasterizer::class));
+    $parser->parse((string) $session->getKey(), $documents[0]->getKey());
+    expect($session->refresh()->status)->toBe(ManualFormSession::STATUS_PARSING);
+    $parser->parse((string) $session->getKey(), $documents[1]->getKey());
+    expect($session->refresh()->status)->toBe(ManualFormSession::STATUS_REVIEW)
+        ->and($session->parse_result['values'])->toEqual([
+            'purpose' => 'read-purpose', 'venue' => 'read-venue',
+        ]);
+});
+
+it('stores uploaded scans under their own document and rejects cross-session uploads', function () {
+    Queue::fake();
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+    $form = manualForm('purpose', 'manual-document-upload');
+    $owner = recordsUser(3);
+    $session = manualSession($form, ['user_id' => $owner->getKey(),
+        'status' => ManualFormSession::STATUS_AWAITING_SCAN,
+        'extractable_fields' => [['key' => 'purpose', 'label' => 'Purpose', 'required' => true]],
+    ]);
+    $document = $session->documents()->create([
+        'position' => 0, 'status' => ManualFormSession::STATUS_AWAITING_SCAN,
+        'session_schema' => ['extractable_fields' => [['key' => 'purpose']]],
+    ]);
+    Route::post('/test-manual/{session}/documents/{document}/scans', [
+        \App\Http\Controllers\ManualFormSessionController::class, 'uploadDocument',
+    ])->middleware(\Illuminate\Routing\Middleware\SubstituteBindings::class);
+    $url = "/test-manual/{$session->getKey()}/documents/{$document->getKey()}/scans";
+    $this->postJson($url, ['scans' => [UploadedFile::fake()->image('page.png')]])->assertNotFound();
+    $this->actingAs($owner)->postJson($url, [
+        'scans' => [UploadedFile::fake()->image('page.png')],
+    ])->assertOk();
+    $path = $document->refresh()->scan_paths[0];
+    expect($path)->toContain("manual-form/{$session->getKey()}/documents/{$document->getKey()}/scans/")
+        ->and(Storage::disk('public')->exists($path))->toBeTrue();
+    Queue::assertPushed(ParseManualFormScan::class,
+        fn ($job) => $job->documentId === $document->getKey());
+    $other = manualSession($form, ['user_id' => $owner->getKey()]);
+    $this->postJson("/test-manual/{$other->getKey()}/documents/{$document->getKey()}/scans", [
+        'scans' => [UploadedFile::fake()->image('page.png')],
+    ])->assertNotFound();
+});
+
+it('shows separately downloadable documents on the manual resume page', function () {
+    $form = manualForm('purpose', 'manual-multi-resume');
+    $owner = recordsUser(3);
+    $session = manualSession($form, [
+        'user_id' => $owner->getKey(), 'status' => ManualFormSession::STATUS_AWAITING_SCAN,
+    ]);
+    foreach ([0, 1] as $position) {
+        $session->documents()->create([
+            'position' => $position, 'status' => ManualFormSession::STATUS_AWAITING_SCAN,
+            'partial_pdf_path' => "manual-form/{$session->getKey()}/documents/{$position}/partial.pdf",
+            'session_schema' => ['extractable_fields' => [['key' => 'purpose']]],
+        ]);
+    }
+    $this->actingAs($owner)->get(route('manual.show', $session))
+        ->assertOk()->assertSee('Document 1')->assertSee('Document 2')
+        ->assertSee(route('manual.documents.download', [$session, $session->documents[0]]))
+        ->assertSee(route('manual.documents.download', [$session, $session->documents[1]]));
+});
+
+it('lists every printable document separately on the officer drafts page', function () {
+    $form = manualForm('purpose', 'manual-multi-drafts');
+    $org = recordsOrganization('Draft Links Org');
+    $owner = manualOfficer((int) $org->getKey());
+    $session = manualSession($form, [
+        'user_id' => $owner->getKey(), 'status' => ManualFormSession::STATUS_AWAITING_SCAN,
+    ]);
+    foreach ([0, 1] as $position) {
+        $session->documents()->create([
+            'position' => $position, 'status' => ManualFormSession::STATUS_AWAITING_SCAN,
+            'partial_pdf_path' => "manual-form/{$session->getKey()}/documents/{$position}/partial.pdf",
+        ]);
+    }
+    $response = $this->actingAs($owner)->get(route('manual.drafts'));
+    $response->assertOk()->assertSee('PDF 1')->assertSee('PDF 2')
+        ->assertSee(route('manual.documents.download', [$session, $session->documents[0]]))
+        ->assertSee(route('manual.documents.download', [$session, $session->documents[1]]));
 });
 
 it('fails a manual session when queued preparation exhausts its attempts', function () {
