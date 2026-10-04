@@ -7,9 +7,11 @@ use App\Helpers\NotificationBellHelper;
 use App\Helpers\OrganizationLogoHelper;
 use App\Listeners\LogAuthActivity;
 use App\Listeners\SendLoginNotification;
+use App\Models\Event as CalendarEvent;
 use App\Models\Officer;
 use App\Models\User;
 use App\Policies\RolePolicy;
+use App\Observers\EventCreatedObserver;
 use App\Services\OrganizationAuthorizationService;
 use Faker\Generator as FakerGenerator;
 use Illuminate\Auth\Events\Login;
@@ -51,6 +53,8 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen([Login::class, Logout::class], LogAuthActivity::class);
         Event::listen(Login::class, SendLoginNotification::class);
+
+        CalendarEvent::observe(EventCreatedObserver::class);
 
         Gate::policy(Officer::class, RolePolicy::class);
 
