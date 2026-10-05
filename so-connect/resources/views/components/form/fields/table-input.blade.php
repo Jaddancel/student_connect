@@ -3,16 +3,16 @@
 
     /**
      * Table-input special field: a repeating grid whose columns are declared in
-     * field_options.columns. Optional per-row computed column (row_total.multiply)
-     * and footer are shown read-only; the server recomputes them (FieldCompute).
+     * field_options.columns. Optional per-row computed column (row_total: an
+     * operation across chosen columns, see FieldType::tableRowTotal()) and its
+     * footer are shown read-only; the server recomputes them (FieldCompute).
      *
      * Expects: $field, $key, $opts, $special.
      */
     $columns = FieldType::tableColumns($opts);
-    $rowTotal = (array) ($opts['row_total'] ?? []);
-    $rowTotalKey = (string) ($rowTotal['key'] ?? '');
-    $rowTotalMultiply = array_values(array_filter(array_map('strval', (array) ($rowTotal['multiply'] ?? []))));
-    $hasRowTotal = $rowTotalKey !== '' && count($rowTotalMultiply) >= 2;
+    $rowTotal = FieldType::tableRowTotal($opts);
+    $hasRowTotal = $rowTotal !== null;
+    $rowTotalKey = $rowTotal['key'] ?? '';
     $events = $special['events'] ?? [];
     $eventOptions = array_map(function ($event) {
         $date = (string) ($event['date'] ?? '');
@@ -41,15 +41,24 @@
 <div x-data="{
         rows: {{ Illuminate\Support\Js::from($oldRows) }},
         cols: {{ Illuminate\Support\Js::from($columns) }},
-        multiply: {{ Illuminate\Support\Js::from($rowTotalMultiply) }},
+        operands: {{ Illuminate\Support\Js::from($rowTotal['columns'] ?? []) }},
+        op: {{ Illuminate\Support\Js::from($rowTotal['op'] ?? 'multiply') }},
         hasRowTotal: {{ $hasRowTotal ? 'true' : 'false' }},
+        // Mirrors FieldType::applyRowTotal(): left to right, ÷0 gives 0.
         rowTotal(row) {
             if (!this.hasRowTotal) return 0;
-            return this.multiply.reduce((p, k) => p * (parseFloat(row[k]) || 0), 1);
+            const values = this.operands.map((k) => parseFloat(row[k]) || 0);
+            const result = values.slice(1).reduce((acc, v) => {
+                if (this.op === 'add') return acc + v;
+                if (this.op === 'subtract') return acc - v;
+                if (this.op === 'divide') return v === 0 ? 0 : acc / v;
+                return acc * v;
+            }, values[0] || 0);
+            return Math.round(result * 100) / 100;
         },
         get footer() {
             if (!this.hasRowTotal) return 0;
-            return this.rows.reduce((s, r) => s + this.rowTotal(r), 0);
+            return Math.round(this.rows.reduce((s, r) => s + this.rowTotal(r), 0) * 100) / 100;
         },
         addRow() {
             const blank = {};
@@ -84,7 +93,7 @@
                     <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-500">{{ $col['label'] }}</th>
                 @endforeach
                 @if ($hasRowTotal)
-                    <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-500">{{ $rowTotal['label'] ?? 'Total' }}</th>
+                    <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-500">{{ $rowTotal['label'] }}</th>
                 @endif
                 <th class="w-8"></th>
             </tr>

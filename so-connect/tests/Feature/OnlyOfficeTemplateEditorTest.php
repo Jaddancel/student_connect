@@ -503,6 +503,51 @@ it('emits a table-input token that inserts a table with its columns and row tota
     expect($html)->toContain('PasteHtml');
 });
 
+it('offers a table-input token as a new table or a new chart', function () {
+    $form = editorForm();
+    $form->fields()->create([
+        'field_key' => 'expenses', 'field_label' => 'Expenses', 'field_type' => 'table-input', 'field_order' => 1,
+        'field_options' => [
+            'columns' => [
+                ['key' => 'item', 'label' => 'Item', 'type' => 'text'],
+                ['key' => 'price', 'label' => 'Price', 'type' => 'number'],
+                ['key' => 'qty', 'label' => 'Qty', 'type' => 'number'],
+            ],
+            'row_total' => ['key' => 'line_total', 'label' => 'Total', 'multiply' => ['price', 'qty']],
+        ],
+    ]);
+    $form->fields()->create([
+        'field_key' => 'funds', 'field_label' => 'Funds', 'field_type' => 'table-input', 'field_order' => 2,
+        'field_options' => ['columns' => [
+            ['key' => 'source', 'label' => 'Source', 'type' => 'text'],
+            ['key' => 'amount', 'label' => 'Amount', 'type' => 'number'],
+            ['key' => 'grant', 'label' => 'Grant', 'type' => 'number'],
+        ]],
+    ]);
+    $form->fields()->create([
+        'field_key' => 'guests', 'field_label' => 'Guests', 'field_type' => 'table-input', 'field_order' => 3,
+        'field_options' => ['columns' => [['key' => 'name', 'label' => 'Name', 'type' => 'text']]],
+    ]);
+
+    $template = app(FormPrintTemplateService::class)->resolve($form);
+    $html = $this->get(route('onlyoffice.plugin', ['form' => $form, 'token' => editorToken($template, 'plugin')]))
+        ->assertOk()->getContent();
+    $tokens = collect(paletteTokens($html))->keyBy('key');
+
+    // The first text column labels each row; the row total is what's plotted.
+    expect($tokens['expenses']['actions'])->toBe(['table', 'chart'])
+        ->and($tokens['expenses']['chart'])->toBe([
+            'title' => 'Expenses', 'category' => 'expenses.item', 'series' => ['expenses.line_total'],
+        ])
+        // Without a row total every number column becomes a series.
+        ->and($tokens['funds']['chart']['series'])->toBe(['funds.amount', 'funds.grant'])
+        // Nothing numeric to plot: the token only inserts a table.
+        ->and($tokens['guests'])->not->toHaveKey('actions')
+        ->and($tokens['guests']['insert'])->toBe('table');
+
+    expect($html)->toContain('New chart')->toContain('CreateChart');
+});
+
 it('replaces the printed template with an uploaded .docx', function () {
     $form = editorForm();
     $template = app(FormPrintTemplateService::class)->resolve($form);

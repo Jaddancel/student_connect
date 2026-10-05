@@ -81,21 +81,21 @@
         }
         .token:hover { border-color: var(--brand-400); background: var(--brand-50); }
         .token:focus-visible { outline: none; border-color: var(--brand-400); box-shadow: 0 0 0 3px rgba(34, 197, 94, .18); }
-        .token .icon {
+        .token .icon, .token-card .icon {
             flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
             width: 26px; height: 26px; border-radius: 7px;
             background: var(--brand-50); color: var(--brand-500);
         }
         .token:hover .icon { background: #fff; }
-        .token .icon svg { display: block; }
-        .token .text { min-width: 0; }
-        .token .label { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .token .key {
+        .token .icon svg, .token-card .icon svg { display: block; }
+        .token .text, .token-card .text { min-width: 0; }
+        .token .label, .token-card .label { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .token .key, .token-card .key {
             display: block; font-family: ui-monospace, Menlo, Consolas, monospace;
             font-size: 11px; color: var(--muted);
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
-        .token-card { margin-bottom: 5px; padding: 8px 9px; background: #fff; border: 1px solid var(--line); border-radius: 9px; }
+        .token-card { margin-bottom: 5px; padding: 8px 9px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 9px; }
         .token-card .head { display: flex; align-items: center; gap: 9px; }
         .token-card .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
         .action-btn {
@@ -122,7 +122,7 @@
     </style>
 </head>
 <body data-form-id="{{ $formId ?? '' }}">
-    <p class="hint">Place the cursor in the document, then click a field to insert its token. A Table field inserts a table that prints one row per entry at generation time.</p>
+    <p class="hint">Place the cursor in the document, then click a field to insert its token. A Table field can be placed as a table (one row per entry) or as a chart built from its rows and columns at generation time.</p>
     <input type="text" id="search" class="search" placeholder="Search fields…" autocomplete="off">
     <p id="checking-status" class="status" role="status">Checking token usage...</p>
     <div id="list"></div>
@@ -163,7 +163,14 @@
             }
 
             function command(action, extra, callback) {
-                commandQueue.push({ request: Object.assign({ action: action, known: known, adapterUrl: usageData.adapterUrl }, extra || {}), callback: callback });
+                var request = Object.assign({ action: action, known: known, adapterUrl: usageData.adapterUrl }, extra || {});
+                enqueue(tools.editorCommand, false, function () { window.Asc.scope.fieldTokenRequest = request; }, callback);
+            }
+
+            // `recalc` re-lays out the document afterwards — needed when the
+            // command inserts content, skipped for the read-only token scans.
+            function enqueue(fn, recalc, prepare, callback) {
+                commandQueue.push({ fn: fn, recalc: recalc, prepare: prepare, callback: callback });
                 runNextCommand();
             }
 
@@ -172,8 +179,8 @@
                 if (commandRunning || !commandQueue.length) return;
                 commandRunning = true;
                 var next = commandQueue.shift();
-                window.Asc.scope.fieldTokenRequest = next.request;
-                window.Asc.plugin.callCommand(tools.editorCommand, false, false, function (result) {
+                next.prepare();
+                window.Asc.plugin.callCommand(next.fn, false, next.recalc, function (result) {
                     commandRunning = false;
                     next.callback(result || { error: 'The editor did not respond to token checking.' });
                     runNextCommand();
@@ -331,6 +338,9 @@
                 empty.hidden = shown !== 0;
             }
 
+            // Button text for each way a palette card can be placed.
+            var ACTION_LABELS = { table: 'New table', chart: 'New chart', block: 'New repeating block' };
+
             // One parent token row, plus (for table tokens that have been
             // inserted, or whose columns match the filter) its column children.
             function tokenRow(token, needle) {
@@ -378,7 +388,7 @@
                         var b = document.createElement('button');
                         b.type = 'button';
                         b.className = 'action-btn';
-                        b.textContent = action === 'table' ? 'New table' : 'New repeating block';
+                        b.textContent = ACTION_LABELS[action] || action;
                         b.addEventListener('click', function () { insert(token, action); });
                         bar.appendChild(b);
                     });
@@ -457,6 +467,10 @@
                     insertTable(token);
                     return;
                 }
+                if (action === 'chart') {
+                    insertChart(token);
+                    return;
+                }
                 if (action === 'block') {
                     insertBlock(token);
                     return;
@@ -497,6 +511,55 @@
                 state.expanded[token.key] = true;
                 persist();
                 render(search.value);
+            }
+
+            // A Table field as a native chart. Its data sheet holds repeating
+            // column tokens — the category column labels each bar, every
+            // series is a number column — and generation expands them into one
+            // spreadsheet row per table entry (DocxChartFiller). The chart type,
+            // style and series can then be changed with the editor's own chart
+            // tools.
+            function insertChart(token) {
+                var chart = token.chart || {};
+                var series = chart.series || [];
+                if (!series.length) return;
+                var spec = {
+                    title: chart.title || token.label,
+                    category: chart.category ? placeholder(chart.category + '#') : '',
+                    series: series.map(function (key) { return placeholder(key + '#'); }),
+                };
+                enqueue(insertChartCommand, true, function () { window.Asc.scope.fieldTokenChart = spec; }, function (result) {
+                    if (result.error) {
+                        scanError = result.error;
+                        updateStatus();
+                        return;
+                    }
+                    state.inserted[token.key] = true;
+                    state.expanded[token.key] = true;
+                    persist();
+                    render(search.value);
+                    scan();
+                });
+            }
+
+            // Serialized by callCommand: all dependencies must come from Api or Asc.scope.
+            function insertChartCommand() {
+                var spec = Asc.scope.fieldTokenChart;
+                try {
+                    // Placeholder bar heights so the preview isn't empty; real
+                    // values arrive at generation.
+                    var values = spec.series.map(function (name, i) { return [3 + (i % 3)]; });
+                    var chart = Api.CreateChart('bar', values, spec.series, [spec.category], 5486400, 3200400, 24);
+                    if (!chart) return { error: 'The editor could not create the chart.' };
+                    chart.SetTitle(spec.title, 13);
+                    chart.SetLegendPos('bottom');
+                    var paragraph = Api.CreateParagraph();
+                    paragraph.AddDrawing(chart);
+                    Api.GetDocument().InsertContent([paragraph]);
+                    return { inserted: true };
+                } catch (error) {
+                    return { error: 'Inserting the chart failed: ' + error.message };
+                }
             }
 
             // A report group's repeating block: an opening marker paragraph, a

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Helpers\FormTemplateHelper;
 use App\Models\Template as FormTemplate;
+use App\Support\DocxChartFiller;
 use App\Support\DocxTemplateProcessor;
 use App\Support\UniversalField;
 use Illuminate\Http\UploadedFile;
@@ -45,10 +46,14 @@ class DocxTemplateService
      * sits in a table row the row is cloned once per value, otherwise the values
      * are joined into one multi-line run.
      *
+     * Charts whose series/category cells hold repeating table tokens are then
+     * re-pointed at the table's rows by {@see DocxChartFiller}.
+     *
      * @param  array<string, mixed>  $data  field_key => value (keys are normalized)
      * @param  array<string, string|array<int,string>>  $images  field_key => absolute image path(s)
+     * @param  array<string, array<string, string>>  $tables  table field_key => [column key => label]
      */
-    public function populate(FormTemplate $template, array $data, array $images = []): string
+    public function populate(FormTemplate $template, array $data, array $images = [], array $tables = []): string
     {
         $disk = (string) config('documents.disk', 'public');
         $relativePath = (string) ($template->docx_path ?? '');
@@ -87,6 +92,8 @@ class DocxTemplateService
         if (! is_file($outputPath)) {
             throw new RuntimeException('Failed to write the populated .docx file.');
         }
+
+        (new DocxChartFiller)->fill($outputPath, $values, $tables);
 
         return $outputPath;
     }

@@ -86,6 +86,11 @@ final class AfterEventTokenData
                     return $child;
                 }, $token['children']);
             }
+            if (isset($token['chart']) && is_array($token['chart'])) {
+                $prefix = fn (?string $key) => $key === null ? null : self::FIELD_PREFIX.$key;
+                $token['chart']['category'] = $prefix($token['chart']['category'] ?? null);
+                $token['chart']['series'] = array_map($prefix, (array) ($token['chart']['series'] ?? []));
+            }
             $tokens[] = $token;
         }
 
@@ -95,7 +100,7 @@ final class AfterEventTokenData
     /**
      * Token values/images for an After Event Report submission.
      *
-     * @return array{values: array<string, mixed>, images: array<string, mixed>}
+     * @return array{values: array<string, mixed>, images: array<string, mixed>, tables: array<string, array<string, string>>}
      */
     public function build(FormSubmission $submission, ?string $disk = null): array
     {
@@ -154,7 +159,11 @@ final class AfterEventTokenData
                 $images[self::FIELD_PREFIX.$key] = $value;
             }
         }
+        $tables = [];
+        foreach ($data['tables'] as $key => $columns) {
+            $tables[self::FIELD_PREFIX.$key] = $columns;
+        }
 
-        return ['values' => $values, 'images' => $images];
+        return ['values' => $values, 'images' => $images, 'tables' => $tables];
     }
 }

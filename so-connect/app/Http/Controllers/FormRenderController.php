@@ -6,12 +6,14 @@ use App\Forms\ActivityTableData;
 use App\Forms\ConditionEvaluator;
 use App\Forms\FieldType;
 use App\Forms\FormRenderContext;
+use App\Forms\SemesterSubmissionLimit;
 use App\Forms\SystemFunction;
 use App\Services\OrganizationAuthorizationService;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\ManualFormSession;
 use App\Services\DocumentGenerationService;
+use App\Services\FormPrintTemplateService;
 use App\Services\ManualForm\ManualFormSessionService;
 use App\Support\IdScanRetryCache;
 use App\Support\OrganizationField;
@@ -94,6 +96,7 @@ class FormRenderController extends Controller
             'hidden' => $hidden,
             'afterEvent' => $afterEvent,
             'recentSubmissions' => $this->recentSubmissions($request, $form),
+            'submissionLimit' => SemesterSubmissionLimit::status($form),
         ]));
     }
 
@@ -362,11 +365,17 @@ class FormRenderController extends Controller
         );
 
         // Defense in depth: an untemplated form must never accept a submission,
-        // since it could not produce its printed document.
+        // since it could not produce its printed document. The printed template
+        // is either an active .docx slot (the Step-2 editor) or a legacy
+        // rich-text `pdf_template.html` that generation migrates on first use.
         $pdfTemplate = (array) ($form->pdf_template ?? []);
-        if (trim((string) ($pdfTemplate['html'] ?? '')) === '') {
+        if (trim((string) ($pdfTemplate['html'] ?? '')) === ''
+            && app(FormPrintTemplateService::class)->activeTemplates($form)->isEmpty()) {
             abort(422, 'This form is not ready to accept submissions yet (no printed template).');
         }
+
+        // The form's per-semester cap on accepted submissions.
+        SemesterSubmissionLimit::assertOpen($form);
 
         // A reviewed manual-filling draft finalizes through this same endpoint,
         // carrying its session id (and, for a public form, its resume token).

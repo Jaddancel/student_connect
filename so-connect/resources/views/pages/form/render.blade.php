@@ -89,15 +89,30 @@
             </div>
         @endif
 
-        @include('components.form.builder-form', [
-            'form' => $form,
-            'fields' => $fields,
-            'prefill' => $prefill ?? [],
-            'conditions' => $conditions ?? [],
-            'advisers' => $advisers ?? [],
-            'special' => $special ?? [],
-            'hidden' => $hidden ?? [],
-            'preview' => $preview,
-        ])
+        @php $limitReached = ! $preview && ($submissionLimit['reached'] ?? false); @endphp
+
+        @if ($limitReached)
+            <div class="rounded-2xl border border-error-200 bg-error-50 p-5 dark:border-error-500/30 dark:bg-error-500/10">
+                <h3 class="text-sm font-semibold text-error-700 dark:text-error-400">Submissions closed for this semester</h3>
+                <p class="mt-1 text-sm text-error-700 dark:text-error-400">{{ \App\Forms\SemesterSubmissionLimit::blockedMessage($form, $submissionLimit) }}</p>
+            </div>
+        @else
+            @if (! $preview && ($submissionLimit ?? null))
+                <p class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300">
+                    {{ $submissionLimit['remaining'] }} of {{ $submissionLimit['limit'] }} accepted {{ $submissionLimit['limit'] === 1 ? 'submission' : 'submissions' }} remaining this semester.
+                </p>
+            @endif
+
+            @include('components.form.builder-form', [
+                'form' => $form,
+                'fields' => $fields,
+                'prefill' => $prefill ?? [],
+                'conditions' => $conditions ?? [],
+                'advisers' => $advisers ?? [],
+                'special' => $special ?? [],
+                'hidden' => $hidden ?? [],
+                'preview' => $preview,
+            ])
+        @endif
     </div>
 @endsection

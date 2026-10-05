@@ -159,6 +159,9 @@ class FormBuilderController extends Controller
             'lockedFunction' => $form->system_function ?: null,
             'iconChoices' => $this->iconChoices(),
             'manualSchema' => $this->manualSchemaStatus($form),
+            'submissionLimitUsage' => ($semester = \App\Models\Semester::current())
+                ? ['semester' => $semester, 'accepted' => \App\Forms\SemesterSubmissionLimit::acceptedCount($form, $semester)]
+                : null,
         ]);
     }
 
@@ -221,6 +224,7 @@ class FormBuilderController extends Controller
                 'description_text' => $data['description_text'],
                 'route_name' => $data['route_name'],
                 'icon' => $data['icon'],
+                'semester_submission_limit' => $data['semester_submission_limit'],
                 'system_function' => $data['system_function'],
                 'is_active' => $data['is_active'],
                 'is_published' => $data['is_published'],
@@ -266,6 +270,7 @@ class FormBuilderController extends Controller
                 'description_text' => $data['description_text'],
                 'route_name' => $data['route_name'],
                 'icon' => $data['icon'],
+                'semester_submission_limit' => $data['semester_submission_limit'],
                 // The system-function binding is immutable once created.
                 'system_function' => $form->system_function,
                 'is_active' => $data['is_active'],
@@ -351,6 +356,7 @@ class FormBuilderController extends Controller
                 Rule::unique('forms', 'system_function')->ignore($formId),
             ],
             'icon' => ['nullable', 'string', Rule::in(MenuHelper::iconNames())],
+            'semester_submission_limit' => ['nullable', 'integer', 'min:1', 'max:100000'],
             'fields' => ['present', 'array'],
             'fields.*.field_key' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9_]+$/'],
             'fields.*.field_label' => ['required', 'string', 'max:255'],
@@ -380,6 +386,8 @@ class FormBuilderController extends Controller
             'fields.*.field_options.autofill_now' => ['nullable', 'boolean'],
             // Same-row date-derived number calculations (e.g. birthday -> age).
             'fields.*.field_options.calculate_from' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_]+$/'],
+            // Column totalled when calculate_from names a table field.
+            'fields.*.field_options.calculate_column' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_]+$/'],
             // Special kit-scoped option keys: table columns + totals, computed
             // formulas, photo-set limits and media mirroring, event autofill.
             // Shared by table-input and activity-table columns. The key/type are
@@ -396,6 +404,7 @@ class FormBuilderController extends Controller
             'fields.*.field_options.row_total.label' => ['nullable', 'string', 'max:255'],
             'fields.*.field_options.row_total.multiply' => ['nullable', 'array'],
             'fields.*.field_options.row_total.multiply.*' => ['nullable', 'string', 'max:64'],
+            'fields.*.field_options.row_total.op' => ['nullable', 'string', Rule::in(FieldType::ROW_TOTAL_OPS)],
             'fields.*.field_options.formula' => ['nullable', 'string', Rule::in(['sum', 'difference', 'table_sum'])],
             'fields.*.field_options.args' => ['nullable', 'array'],
             'fields.*.field_options.args.*' => ['nullable', 'string', 'max:128'],
@@ -465,6 +474,7 @@ class FormBuilderController extends Controller
             'description_text' => $validated['description_text'] ?? null,
             'route_name' => $validated['route_name'],
             'icon' => ($validated['icon'] ?? '') !== '' ? $validated['icon'] : null,
+            'semester_submission_limit' => isset($validated['semester_submission_limit']) ? (int) $validated['semester_submission_limit'] : null,
             'system_function' => ($validated['system_function'] ?? '') !== '' ? $validated['system_function'] : null,
             // Saving publishes: there is no draft/unpublished state — every
             // form goes live immediately on save/create.
@@ -975,6 +985,7 @@ class FormBuilderController extends Controller
             'description_text' => '',
             'route_name' => '',
             'icon' => '',
+            'semester_submission_limit' => null,
             'system_function' => '',
             'fields' => [],
             'rows' => [],
@@ -1020,6 +1031,7 @@ class FormBuilderController extends Controller
             'description_text' => $form->description_text,
             'route_name' => $form->route_name,
             'icon' => (string) ($form->icon ?? ''),
+            'semester_submission_limit' => $form->semester_submission_limit,
             'system_function' => (string) ($form->system_function ?? ''),
             'fields' => $fields,
             'rows' => $layout['rows'] ?? [],
@@ -1065,7 +1077,7 @@ class FormBuilderController extends Controller
                     \App\Support\OrganizationField::resolveOrganization($request->user()),
                 );
                 $docx = app(\App\Services\DocxTemplateService::class);
-                $populated = $docx->populate($template, $data['values'], $data['images']);
+                $populated = $docx->populate($template, $data['values'], $data['images'], $data['tables']);
                 try {
                     $pdf = $docx->toPdf($populated);
                     $contents = \Illuminate\Support\Facades\File::get($pdf);

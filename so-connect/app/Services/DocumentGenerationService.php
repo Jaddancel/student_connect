@@ -224,7 +224,10 @@ class DocumentGenerationService
                 ? User::find((int) $submission->submitted_by)
                 : null;
             $submitterProfile = $submitter?->profile()->first();
-            $submitterOrganization = OrganizationField::resolveOrganization($submitter);
+            // Org tokens print the organization the request was filed under.
+            $submitterOrganization = ($submission->organization_id
+                ? \App\Models\Organization::query()->find((int) $submission->organization_id)
+                : null) ?? OrganizationField::resolveOrganization($submitter);
 
             $templateData = app(\App\Forms\DocxTemplateData::class)->build(
                 (array) $submission->payload,
@@ -240,6 +243,7 @@ class DocumentGenerationService
                 $eventData = app(\App\Forms\AfterEventTokenData::class)->build($submission, $disk);
                 $templateData['values'] = $eventData['values'] + $templateData['values'];
                 $templateData['images'] = $eventData['images'] + $templateData['images'];
+                $templateData['tables'] = $eventData['tables'] + $templateData['tables'];
             }
 
             $docxService = app(\App\Services\DocxTemplateService::class);
@@ -252,6 +256,7 @@ class DocumentGenerationService
                     $printTemplate,
                     $templateData['values'],
                     $templateData['images'],
+                    $templateData['tables'],
                 );
 
                 try {

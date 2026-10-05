@@ -48,6 +48,12 @@ it('renders an accept attribute mirroring the effective extensions', function ()
         ->toBe('application/pdf');
 });
 
+it('offers the table field in every form palette', function () {
+    expect(FieldType::paletteCatalog())->toHaveKey(FieldType::TABLE_INPUT)
+        ->and(FieldType::catalog()[FieldType::TABLE_INPUT]['group'])->toBe('basic')
+        ->and(FieldType::isSpecial(FieldType::TABLE_INPUT))->toBeFalse();
+});
+
 it('offers the search field in the palette', function () {
     expect(FieldType::paletteCatalog())->toHaveKey(FieldType::SEARCH)
         ->and(FieldType::isValid(FieldType::SEARCH))->toBeTrue()

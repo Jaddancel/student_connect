@@ -163,6 +163,11 @@
             @case(FieldType::AGE)
                 <input type="number" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder }}"
                     @if (! empty($opts['calculate_from'])) data-calculate-from="{{ $opts['calculate_from'] }}" @endif
+                    {{-- Only acts when the source is a table on this page (see tableColumnSumField). --}}
+                    @if ($type === FieldType::NUMBER && ! empty($opts['calculate_from']) && ! empty($opts['calculate_column']))
+                        x-data="tableColumnSumField({ source: @js((string) $opts['calculate_from']), column: @js((string) $opts['calculate_column']) })"
+                        x-effect="sync()"
+                    @endif
                     @isset($opts['min']) min="{{ $opts['min'] }}" @endisset
                     @isset($opts['max']) max="{{ $opts['max'] }}" @endisset
                     step="{{ $opts['step'] ?? ($type === FieldType::AGE ? '1' : 'any') }}"

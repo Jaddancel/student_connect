@@ -20,14 +20,17 @@ use Illuminate\Support\Facades\Storage;
  * the same whichever pipeline rendered it.
  *
  * Values that are pictures (signatures, uploads) come back separately, because
- * PhpWord inserts those through `setImageValue()` rather than as text.
+ * PhpWord inserts those through `setImageValue()` rather than as text. Table
+ * fields also report their ordered column labels under `tables`, which
+ * {@see \App\Support\DocxChartFiller} uses to lay a chart's spreadsheet out
+ * like the table.
  */
 class DocxTemplateData
 {
     /**
      * @param  array<string, mixed>  $payload  the submission payload
      * @param  Collection<int, \App\Models\Form\FormDescription>  $fields
-     * @return array{values: array<string, mixed>, images: array<string, string|array<int,string>>}
+     * @return array{values: array<string, mixed>, images: array<string, string|array<int,string>>, tables: array<string, array<string, string>>}
      */
     public function build(
         array $payload,
@@ -40,6 +43,7 @@ class DocxTemplateData
 
         $values = [];
         $images = [];
+        $tables = [];
 
         foreach ($fields as $field) {
             $key = (string) ($field->field_key ?? '');
@@ -108,16 +112,16 @@ class DocxTemplateData
                     }, $rows);
                 };
 
-                $columnKeys = [];
+                $tables[$key] = [];
                 foreach ($columns as $column) {
                     $values[$key.'.'.$column['key']] = $cellValues($column['key'], $column['type']);
-                    $columnKeys[] = $column['key'];
+                    $tables[$key][$column['key']] = $column['label'];
                 }
 
-                $rowTotal = (array) ($options['row_total'] ?? []);
-                $rowTotalKey = trim((string) ($rowTotal['key'] ?? ''));
-                if ($rowTotalKey !== '' && ! in_array($rowTotalKey, $columnKeys, true)) {
-                    $values[$key.'.'.$rowTotalKey] = $cellValues($rowTotalKey, null);
+                $rowTotal = FieldType::tableRowTotal($options);
+                if ($rowTotal !== null && ! array_key_exists($rowTotal['key'], $tables[$key])) {
+                    $values[$key.'.'.$rowTotal['key']] = $cellValues($rowTotal['key'], null);
+                    $tables[$key][$rowTotal['key']] = $rowTotal['label'];
                 }
 
                 $firstColumn = $columns[0] ?? null;
@@ -156,7 +160,7 @@ class DocxTemplateData
 
             $meta = UniversalField::get($universalKey);
 
-            if (($meta['type'] ?? null) === FieldType::IMAGE) {
+            if (in_array($meta['type'] ?? null, [FieldType::IMAGE, FieldType::SIGNATURE], true)) {
                 $path = $this->firstImagePath($value, $disk);
 
                 if ($path !== null) {
@@ -171,7 +175,7 @@ class DocxTemplateData
             $values[$token] = (string) $value;
         }
 
-        return ['values' => $values, 'images' => $images];
+        return ['values' => $values, 'images' => $images, 'tables' => $tables];
     }
 
     /**

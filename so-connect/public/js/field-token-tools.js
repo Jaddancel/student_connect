@@ -171,6 +171,20 @@
                     if (!Object.prototype.hasOwnProperty.call(args.known, match[1])) unknown.push({ paragraph: p, text: match[0] });
                 }
             });
+            // Table charts keep their column tokens in the chart's data sheet
+            // (series names + category), not in body text.
+            try {
+                doc.GetAllCharts().forEach(function (chart) {
+                    var seen = Object.create(null);
+                    (chart.Chart && chart.Chart.getAllSeries ? chart.Chart.getAllSeries() : []).forEach(function (series) {
+                        [series.getSeriesName(), series.getCatName(0)].forEach(function (text) {
+                            var match = /^\s*\{\{([^{}\r\n]*)\}\}\s*$/.exec(String(text || ''));
+                            if (match) seen[match[1]] = true;
+                        });
+                    });
+                    Object.keys(seen).forEach(function (key) { current[key] = (current[key] || 0) + 1; });
+                });
+            } catch (chartError) { /* chart internals vary by editor version; usage is best-effort */ }
 
             var wc = api.WordControl;
             if (api.GetVersion() !== '9.4.0' || !wc || !wc.m_oOverlay || !wc.m_oOverlay.HtmlElement

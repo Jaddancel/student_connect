@@ -24,26 +24,42 @@ final class FieldCompute
             if ($field->field_type !== FieldType::TABLE_INPUT) {
                 continue;
             }
-            $options = (array) ($field->field_options ?? []);
-            $rowTotal = (array) ($options['row_total'] ?? []);
-            $multiply = array_values(array_filter(array_map('strval', (array) ($rowTotal['multiply'] ?? []))));
-            if (count($multiply) < 2) {
+            $rowTotal = FieldType::tableRowTotal((array) ($field->field_options ?? []));
+            if ($rowTotal === null) {
                 continue;
             }
 
-            $totalKey = (string) ($rowTotal['key'] ?? 'row_total');
             $rows = is_array($payload[$field->field_key] ?? null) ? $payload[$field->field_key] : [];
             foreach ($rows as $i => $row) {
                 if (! is_array($row)) {
                     continue;
                 }
-                $product = 1.0;
-                foreach ($multiply as $columnKey) {
-                    $product *= (float) ($row[$columnKey] ?? 0);
-                }
-                $rows[$i][$totalKey] = self::round($product);
+                $operands = array_map(fn (string $columnKey) => (float) ($row[$columnKey] ?? 0), $rowTotal['columns']);
+                $rows[$i][$rowTotal['key']] = self::round(FieldType::applyRowTotal($rowTotal['op'], $operands));
             }
             $payload[$field->field_key] = $rows;
+        }
+
+        // Number fields that "calculate from" a table: the total of one of its
+        // number columns (or its row total) across every row. Before computed
+        // fields so they can reference it.
+        $tables = $fields->filter(fn ($f) => $f->field_type === FieldType::TABLE_INPUT)->keyBy('field_key');
+        foreach ($fields as $field) {
+            $options = (array) ($field->field_options ?? []);
+            $table = $tables->get((string) ($options['calculate_from'] ?? ''));
+            if ($field->field_type !== FieldType::NUMBER || $table === null) {
+                continue;
+            }
+            $column = (string) ($options['calculate_column'] ?? '');
+            if (! in_array($column, self::summableColumns((array) ($table->field_options ?? [])), true)) {
+                continue;
+            }
+            $rows = is_array($payload[$table->field_key] ?? null) ? $payload[$table->field_key] : [];
+            $sum = 0.0;
+            foreach ($rows as $row) {
+                $sum += is_array($row) ? (float) ($row[$column] ?? 0) : 0.0;
+            }
+            $payload[$field->field_key] = self::round($sum);
         }
 
         foreach ($fields as $field) {
@@ -126,6 +142,27 @@ final class FieldCompute
         }
 
         return (float) ($payload[$key] ?? 0);
+    }
+
+    /**
+     * Columns of a table a number field may total: its number columns, plus
+     * the per-row total when one is configured.
+     *
+     * @param  array<string,mixed>  $tableOptions
+     * @return array<int,string>
+     */
+    public static function summableColumns(array $tableOptions): array
+    {
+        $columns = array_column(array_filter(
+            FieldType::tableColumns($tableOptions),
+            fn (array $column) => $column['type'] === 'number',
+        ), 'key');
+        $rowTotal = FieldType::tableRowTotal($tableOptions);
+        if ($rowTotal !== null && ! in_array($rowTotal['key'], $columns, true)) {
+            $columns[] = $rowTotal['key'];
+        }
+
+        return $columns;
     }
 
     private static function round(float $value): float|int

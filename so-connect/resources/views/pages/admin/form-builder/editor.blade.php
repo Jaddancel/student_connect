@@ -300,17 +300,36 @@
 
                             <div x-show="['number', 'age'].includes(f.field_type)" x-cloak class="space-y-2">
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Calculate from</label>
-                                <select x-model="f.field_options.calculate_from" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
+                                <select x-model="f.field_options.calculate_from" @change="onCalculateFromChange(f)" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
                                     <option value="">— none —</option>
                                     <template x-if="calculateFromOptions(f).length">
-                                        <optgroup label="Calculate from">
+                                        <optgroup label="Years since (date)">
                                             <template x-for="opt in calculateFromOptions(f)" :key="opt.value">
-                                                <option :value="opt.value" x-text="opt.label"></option>
+                                                <option :value="opt.value" x-text="opt.label" :selected="f.field_options.calculate_from === opt.value"></option>
+                                            </template>
+                                        </optgroup>
+                                    </template>
+                                    <template x-if="calculateFromTableOptions(f).length">
+                                        <optgroup label="Column total (table)">
+                                            <template x-for="opt in calculateFromTableOptions(f)" :key="opt.value">
+                                                <option :value="opt.value" x-text="opt.label" :selected="f.field_options.calculate_from === opt.value"></option>
                                             </template>
                                         </optgroup>
                                     </template>
                                 </select>
-                                <p class="text-[10px] text-gray-400">Choose a date field in the same row to fill this number with the number of full years from today.</p>
+                                <div x-show="calculatesFromTable(f)" x-cloak class="flex items-center gap-2">
+                                    <label class="shrink-0 text-xs text-gray-600 dark:text-gray-400">Column</label>
+                                    <select x-model="f.field_options.calculate_column"
+                                        class="h-8 flex-1 rounded border border-gray-300 bg-transparent px-1 text-xs dark:border-gray-700 dark:text-white/90">
+                                        <option value="">— choose a column —</option>
+                                        <template x-for="opt in calculateColumnOptions(f)" :key="opt.value">
+                                            <option :value="opt.value" x-text="opt.label" :selected="f.field_options.calculate_column === opt.value"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <p x-show="calculatesFromTable(f) && !calculateColumnOptions(f).length" x-cloak class="text-[10px] text-warning-600">This table has no number columns to total yet.</p>
+                                <p x-show="!calculatesFromTable(f)" class="text-[10px] text-gray-400">Choose a date field in the same row to fill this number with the number of full years from today<span x-show="f.field_type === 'number'">, or a table in the same column to fill it with the total of one of the table's columns</span>.</p>
+                                <p x-show="calculatesFromTable(f)" x-cloak class="text-[10px] text-gray-400">Fills this number with that column's total across every row of the table. It updates as the table is filled and can't be typed over.</p>
                             </div>
 
                             {{-- signature: expected signer(s) + Compare mode --}}
@@ -470,18 +489,42 @@
                                 </template>
                                 <button type="button" @click="addColumn(selectedKey)" class="text-xs text-brand-500">+ Add column</button>
 
-                                <label class="mt-2 block text-xs font-medium text-gray-600 dark:text-gray-400">Row total (optional)</label>
-                                <div class="flex items-center gap-1">
-                                    <input type="text" x-model="f.field_options.row_total.label" placeholder="Total label"
-                                        class="h-8 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700 dark:text-white/90" />
-                                    <input type="text" x-model="f.field_options.row_total.key" placeholder="key"
-                                        class="h-8 w-24 rounded border border-gray-300 bg-transparent px-2 font-mono text-[10px] dark:border-gray-700 dark:text-white/90" />
-                                </div>
-                                <p class="text-[10px] text-gray-400">Multiply these number columns per row (keys, comma-separated):</p>
-                                <input type="text" :value="(f.field_options.row_total.multiply || []).join(', ')"
-                                    @input="f.field_options.row_total.multiply = $event.target.value.split(',').map(s => s.trim()).filter(Boolean)"
-                                    placeholder="e.g. price_per_unit, quantity"
-                                    class="h-8 w-full rounded border border-gray-300 bg-transparent px-2 font-mono text-[10px] dark:border-gray-700 dark:text-white/90" />
+                                {{-- Only rendered for tables (the panel itself is x-show, so it would
+                                     otherwise evaluate for every field); older tables gain an empty total. --}}
+                                <template x-if="f.field_type === 'table-input'">
+                                    <div class="space-y-2" x-init="f.field_options.row_total ??= { key: '', label: 'Total', op: 'multiply', multiply: [] }">
+                                        <label class="mt-2 block text-xs font-medium text-gray-600 dark:text-gray-400">Row total (optional)</label>
+                                        <div class="flex items-center gap-1">
+                                            <input type="text" x-model="f.field_options.row_total.label" placeholder="Total label"
+                                                class="h-8 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700 dark:text-white/90" />
+                                            <input type="text" x-model="f.field_options.row_total.key" placeholder="key"
+                                                class="h-8 w-24 rounded border border-gray-300 bg-transparent px-2 font-mono text-[10px] dark:border-gray-700 dark:text-white/90" />
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <label class="shrink-0 text-[10px] text-gray-500">Operation</label>
+                                            <select :value="f.field_options.row_total.op || 'multiply'" @change="f.field_options.row_total.op = $event.target.value"
+                                                class="h-8 flex-1 rounded border border-gray-300 bg-transparent px-1 text-xs dark:border-gray-700 dark:text-white/90">
+                                                <option value="multiply">Multiply (×)</option>
+                                                <option value="add">Add (+)</option>
+                                                <option value="subtract">Subtract (−)</option>
+                                                <option value="divide">Divide (÷)</option>
+                                            </select>
+                                        </div>
+                                        <p class="text-[10px] text-gray-400">Number columns to combine per row, in order (keys, comma-separated):</p>
+                                        <input type="text" :value="(f.field_options.row_total.multiply || []).join(', ')"
+                                            @input="f.field_options.row_total.multiply = $event.target.value.split(',').map(s => s.trim()).filter(Boolean)"
+                                            placeholder="e.g. price_per_unit, quantity"
+                                            class="h-8 w-full rounded border border-gray-300 bg-transparent px-2 font-mono text-[10px] dark:border-gray-700 dark:text-white/90" />
+                                        <p class="text-[10px] text-gray-400" x-show="(f.field_options.columns || []).some(c => c.type === 'number')">
+                                            Number columns: <span class="font-mono" x-text="(f.field_options.columns || []).filter(c => c.type === 'number').map(c => c.key).join(', ')"></span>
+                                        </p>
+                                        <p class="text-[10px] text-brand-600 dark:text-brand-400" x-show="(f.field_options.row_total.multiply || []).length >= 2">
+                                            <span x-text="(f.field_options.row_total.label || 'Total') + ' = '"></span><span class="font-mono"
+                                                x-text="(f.field_options.row_total.multiply || []).join({ multiply: ' × ', add: ' + ', subtract: ' − ', divide: ' ÷ ' }[f.field_options.row_total.op || 'multiply'])"></span>
+                                        </p>
+                                        <p class="text-[10px] text-gray-400" x-show="(f.field_options.row_total.multiply || []).length < 2">Pick at least two columns to add a total column.</p>
+                                    </div>
+                                </template>
                             </div>
 
                             {{-- activity-table columns (choose from the New Events form's fields) --}}
@@ -715,6 +758,45 @@
                             </p>
                         </div>
                     @endif
+
+                    {{-- Semester submission limit: caps accepted (approved)
+                         submissions per semester across all organizations;
+                         enforced by App\Forms\SemesterSubmissionLimit. --}}
+                    <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <input type="checkbox" :checked="submission_limit_enabled" @change="toggleSubmissionLimit($event)"
+                                class="h-4 w-4 rounded border-gray-300 text-brand-500" />
+                            Limit accepted submissions per semester
+                        </label>
+                        <p class="mt-1 text-xs text-gray-400">
+                            Once this many submissions have been approved in the current semester (across all organizations),
+                            officers can no longer submit this form until the next semester. Pending and rejected submissions don't count.
+                        </p>
+
+                        <div x-show="submission_limit_enabled" x-cloak class="mt-3 space-y-3">
+                            <div>
+                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Maximum accepted submissions per semester</label>
+                                <input type="number" min="1" step="1" x-model="semester_submission_limit"
+                                    class="h-10 w-40 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
+                                @if ($submissionLimitUsage ?? null)
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        {{ $submissionLimitUsage['accepted'] }} accepted so far in the
+                                        {{ $submissionLimitUsage['semester']->semesterLabel() }} Semester of {{ $submissionLimitUsage['semester']->schoolYear() }}.
+                                    </p>
+                                @elseif (! \App\Models\Semester::current())
+                                    <p class="mt-1 text-xs text-warning-600 dark:text-orange-400">
+                                        No semester is configured, so the limit isn't enforced until one is set up.
+                                    </p>
+                                @endif
+                            </div>
+
+                            <p x-show="system_function" class="rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-xs font-medium text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-orange-400">
+                                Warning: this form drives a system function. Once the limit is reached, officers are blocked from
+                                this core flow for the rest of the semester. Functions that don't go through admin approval
+                                (such as the After Event Report) never count toward the limit.
+                            </p>
+                        </div>
+                    </div>
 
                     {{-- Forms publish on save — no draft/sidebar-targeting config.
                          Every saved form now has a printed template: it is created

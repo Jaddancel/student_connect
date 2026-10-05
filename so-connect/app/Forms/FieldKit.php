@@ -105,7 +105,7 @@ final class FieldKit
             // field, so this kit requires no keys.
             SystemFunction::AFTER_EVENT_REPORT => [
                 'label' => 'After Event Report fields',
-                'types' => [FieldType::COMPUTED, FieldType::TABLE_INPUT, FieldType::MULTI_IMAGE],
+                'types' => [FieldType::COMPUTED, FieldType::MULTI_IMAGE],
                 'required' => [],
             ],
 
@@ -143,7 +143,6 @@ final class FieldKit
                 'label' => 'Financial Report fields',
                 'types' => [
                     FieldType::ORG_SELECT,
-                    FieldType::TABLE_INPUT,
                     FieldType::COMPUTED,
                 ],
                 'required' => [],

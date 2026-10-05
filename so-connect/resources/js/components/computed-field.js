@@ -72,3 +72,29 @@ export function computedField(config = {}) {
         },
     };
 }
+
+/**
+ * A number field that "calculates from" a table: mirrors the total of one of
+ * the table's number columns (or its row total) across every row, read from
+ * the per-column sums each table-input publishes to `formCompute.tableSums`.
+ * Read-only while the table is on the page. The server recomputes it at submit
+ * (FieldCompute::apply()).
+ */
+export function tableColumnSumField(config = {}) {
+    return {
+        source: config.source || "",
+        column: config.column || "",
+
+        sync() {
+            const sums = Alpine.store("formCompute").tableSums[this.source];
+            if (sums === undefined || !this.column) return;
+
+            const next = String(Math.round((parseFloat(sums[this.column]) || 0) * 100) / 100);
+            this.$el.readOnly = true;
+            if (this.$el.value === next) return;
+            this.$el.value = next;
+            // Lets computed fields and conditions that read this input react.
+            this.$el.dispatchEvent(new Event("input", { bubbles: true }));
+        },
+    };
+}

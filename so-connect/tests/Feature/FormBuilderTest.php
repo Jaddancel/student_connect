@@ -995,3 +995,53 @@ it('round-trips the multi-column layout shape', function () {
     expect($rows[1]['columns'])->toHaveCount(1);
     expect($rows[1]['columns'][0])->toBe(['span' => 12, 'fields' => ['third']]);
 });
+
+it('saves a table row-total operation and rejects unknown ones', function () {
+    $admin = makeUser(2);
+    $payload = fn (string $op) => [
+        'name' => 'Budget', 'route_name' => 'budget-'.$op,
+        'fields' => [[
+            'field_key' => 'budget', 'field_label' => 'Budget', 'field_type' => 'table-input', 'is_required' => false,
+            'field_options' => [
+                'columns' => [
+                    ['key' => 'income', 'label' => 'Income', 'type' => 'number', 'required' => false],
+                    ['key' => 'expense', 'label' => 'Expense', 'type' => 'number', 'required' => false],
+                ],
+                'row_total' => ['key' => 'net', 'label' => 'Net', 'op' => $op, 'multiply' => ['income', 'expense']],
+            ],
+        ]],
+        'rows' => [],
+        'pdf_template' => ['html' => '', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ];
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), $payload('subtract'))->assertOk();
+    $options = Form::where('route_name', 'budget-subtract')->firstOrFail()->fields()->first()->field_options;
+    expect($options['row_total'])->toEqual(['key' => 'net', 'label' => 'Net', 'op' => 'subtract', 'multiply' => ['income', 'expense']]);
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), $payload('power'))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('fields.0.field_options.row_total.op');
+});
+
+it('stores a calculate-from table mapping with its column', function () {
+    $admin = makeUser(2);
+    $payload = fn (string $route, string $column) => [
+        'name' => 'Column Sum', 'route_name' => $route,
+        'fields' => [
+            ['field_key' => 'funds', 'field_label' => 'Funds', 'field_type' => 'table-input', 'field_options' => [
+                'columns' => [['key' => 'cash', 'label' => 'Cash', 'type' => 'number', 'required' => false]],
+            ]],
+            ['field_key' => 'cash_total', 'field_label' => 'Cash total', 'field_type' => 'number',
+                'field_options' => ['calculate_from' => 'funds', 'calculate_column' => $column]],
+        ],
+        'rows' => [['columns' => [['span' => 12, 'fields' => ['funds', 'cash_total']]]]],
+        'pdf_template' => ['html' => '<p>x</p>', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ];
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), $payload('column-sum', 'cash'))->assertOk();
+    expect(Form::where('route_name', 'column-sum')->first()->fields()->where('field_key', 'cash_total')->first()->field_options)
+        ->toMatchArray(['calculate_from' => 'funds', 'calculate_column' => 'cash']);
+
+    $this->actingAs($admin)->postJson(route('admin.form-builder.store'), $payload('column-sum-2', 'cash; drop'))
+        ->assertUnprocessable()->assertJsonValidationErrors('fields.1.field_options.calculate_column');
+});

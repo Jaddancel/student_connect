@@ -77,6 +77,10 @@ final class UniversalField
             'org_auditor'    => ['label' => 'Organization Auditor',   'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_secretary'  => ['label' => 'Organization Secretary', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_category'   => ['label' => 'Organization Category',  'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
+            'org_president_signature' => ['label' => 'Organization President Signature', 'type' => FieldType::SIGNATURE, 'source' => 'org', 'group' => 'organization'],
+            'org_treasurer_signature' => ['label' => 'Organization Treasurer Signature', 'type' => FieldType::SIGNATURE, 'source' => 'org', 'group' => 'organization'],
+            'org_auditor_signature' => ['label' => 'Organization Auditor Signature', 'type' => FieldType::SIGNATURE, 'source' => 'org', 'group' => 'organization'],
+            'org_secretary_signature' => ['label' => 'Organization Secretary Signature', 'type' => FieldType::SIGNATURE, 'source' => 'org', 'group' => 'organization'],
 
             // System-scoped: resolved from the clock/school calendar at render time
             // (see systemValue()), not from the submitter or their organization.

@@ -55,6 +55,24 @@ test('unknown scanning includes punctuation and blanks, but ignores incomplete t
     assert.match(result.error, /require ONLYOFFICE 9\.4\.0/);
 });
 
+test('counts table-chart column tokens from series names and categories once per chart', () => {
+    const series = (name, category) => ({ getSeriesName: () => name, getCatName: () => category });
+    const api = { GetVersion: () => 'future-version' };
+    const document = {
+        Document: { GetApi: () => api },
+        GetAllParagraphs: () => [],
+        GetAllCharts: () => [
+            { Chart: { getAllSeries: () => [series('{{expenses.amount#}}', '{{expenses.item#}}'), series('{{expenses.total#}}', '{{expenses.item#}}')] } },
+            { Chart: { getAllSeries: () => [series('Sales', '1')] } },
+        ],
+    };
+    globalThis.Api = { GetDocument: () => document };
+    globalThis.Asc = { scope: { fieldTokenRequest: { action: 'scan', known: tools.knownKeys(tokens) } } };
+    const result = tools.editorCommand();
+    assert.deepEqual({ ...result.current }, { 'expenses.amount#': 1, 'expenses.total#': 1, 'expenses.item#': 1 });
+    assert.equal(result.unknown, 0);
+});
+
 test('replacement refuses stale tokens rather than overwriting unrelated text', () => {
     const api = { __fieldTokenTarget: { text: '{{ful_name}}', range: { GetText: () => 'changed' } } };
     globalThis.Api = { GetDocument: () => ({ Document: { GetApi: () => api } }) };

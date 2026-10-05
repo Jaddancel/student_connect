@@ -539,12 +539,14 @@ class FormPrintTemplateController extends Controller
             // A Table field inserts a table the same way: a heading row of
             // column labels and a data row of `{{key.col#}}` tokens that repeat
             // per submitted row. Its sub-fields are its declared columns plus
-            // any per-row computed column (row_total).
+            // any per-row computed column (row_total). When it has a number
+            // column it can instead be placed as a chart (see chartSpec()).
             if ((string) $field->field_type === FieldType::TABLE_INPUT) {
                 $options = (array) ($field->field_options ?? []);
+                $columns = FieldType::tableColumns($options);
                 $token['insert'] = 'table';
                 $token['children'] = [];
-                foreach (FieldType::tableColumns($options) as $column) {
+                foreach ($columns as $column) {
                     $token['children'][] = [
                         'key' => $key.'.'.$column['key'],
                         'label' => (string) $column['label'],
@@ -552,16 +554,20 @@ class FormPrintTemplateController extends Controller
                         'type_label' => FieldType::label((string) $column['type']),
                     ];
                 }
-                $rowTotal = (array) ($options['row_total'] ?? []);
-                $rowTotalKey = trim((string) ($rowTotal['key'] ?? ''));
-                $rowTotalMultiply = array_filter(array_map('strval', (array) ($rowTotal['multiply'] ?? [])));
-                if ($rowTotalKey !== '' && count($rowTotalMultiply) >= 2) {
+                $rowTotal = FieldType::tableRowTotal($options);
+                if ($rowTotal !== null) {
                     $token['children'][] = [
-                        'key' => $key.'.'.$rowTotalKey,
-                        'label' => (string) ($rowTotal['label'] ?? $rowTotalKey),
+                        'key' => $key.'.'.$rowTotal['key'],
+                        'label' => $rowTotal['label'],
                         'icon' => (string) ($catalog[FieldType::NUMBER]['icon'] ?? 'number'),
                         'type_label' => FieldType::label(FieldType::NUMBER),
                     ];
+                }
+
+                $chart = $this->chartSpec($key, $token['label'], $columns, $rowTotal['key'] ?? null);
+                if ($chart !== null) {
+                    $token['actions'] = ['table', 'chart'];
+                    $token['chart'] = $chart;
                 }
             }
 
@@ -609,6 +615,37 @@ class FormPrintTemplateController extends Controller
         }
 
         return $tokens;
+    }
+
+    /**
+     * How the palette's "New chart" button lays out a Table field: the first
+     * non-number column labels each row (the category), and the per-row total
+     * — or, without one, every number column — is plotted as a series. Each is
+     * a repeating `{{key.col#}}` token in the chart's data sheet, which
+     * {@see \App\Support\DocxChartFiller} expands into one row per entry at
+     * generation. Null when the table has nothing numeric to plot.
+     *
+     * @param  array<int, array{key: string, label: string, type: string, required: bool}>  $columns
+     * @return array{title: string, category: ?string, series: array<int, string>}|null
+     */
+    private function chartSpec(string $key, string $label, array $columns, ?string $rowTotalKey): ?array
+    {
+        $category = null;
+        $numbers = [];
+        foreach ($columns as $column) {
+            if ($column['type'] === FieldType::NUMBER) {
+                $numbers[] = $key.'.'.$column['key'];
+            } elseif ($category === null) {
+                $category = $key.'.'.$column['key'];
+            }
+        }
+
+        $series = $rowTotalKey !== null ? [$key.'.'.$rowTotalKey] : $numbers;
+        if ($series === []) {
+            return null;
+        }
+
+        return ['title' => $label, 'category' => $category, 'series' => $series];
     }
 
     // ── Non-persistent Step-2 drafts ────────────────────────────────────────

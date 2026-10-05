@@ -109,13 +109,41 @@ class FormTemplateHelper
             if (fwrite($file, $contents) !== strlen($contents)) {
                 throw new RuntimeException('Unable to write the DOCX inspection file.');
             }
-            $text = self::readDocxText(stream_get_meta_data($file)['uri']);
+            $path = stream_get_meta_data($file)['uri'];
+            $text = self::readDocxText($path)."\n".self::readDocxChartText($path);
             preg_match_all('/\{\{([^{}\r\n]*)\}\}/u', $text, $matches);
 
             return array_values(array_unique($matches[1] ?? []));
         } finally {
             fclose($file);
         }
+    }
+
+    /**
+     * Cached cell text of the document's charts (series names, categories),
+     * one cell per line — where a Table chart keeps its column tokens.
+     */
+    private static function readDocxChartText(string $absolutePath): string
+    {
+        $zip = new ZipArchive;
+        if ($zip->open($absolutePath) !== true) {
+            return '';
+        }
+
+        $lines = [];
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $entryName = (string) $zip->getNameIndex($i);
+            if (! preg_match('#^word/charts/chart[^/]*\.xml$#', $entryName)) {
+                continue;
+            }
+            preg_match_all('/<c:v>([^<]*)<\/c:v>/', (string) $zip->getFromIndex($i), $cells);
+            foreach ($cells[1] ?? [] as $cell) {
+                $lines[] = html_entity_decode($cell, ENT_QUOTES | ENT_XML1, 'UTF-8');
+            }
+        }
+        $zip->close();
+
+        return implode("\n", $lines);
     }
 
     private static function readDocxText(string $absolutePath): string

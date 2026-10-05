@@ -275,3 +275,115 @@ it('emits dotted parallel arrays, a row total and a base fallback for a table-in
         // A bare {{expenses}} / {{expenses#}} falls back to the first column.
         ->and($values['expenses'])->toBe(['Pens', 'Paper']);
 });
+
+it('reports each table-input field\'s ordered column labels, including the row total', function () {
+    $field = new \App\Models\Form\FormDescription([
+        'field_key' => 'expenses',
+        'field_type' => 'table-input',
+        'field_options' => [
+            'columns' => [
+                ['key' => 'item', 'label' => 'Item', 'type' => 'text'],
+                ['key' => 'price', 'label' => 'Price', 'type' => 'number'],
+            ],
+            'row_total' => ['key' => 'line_total', 'label' => 'Total', 'multiply' => ['price', 'price']],
+        ],
+    ]);
+
+    expect(app(\App\Forms\DocxTemplateData::class)->build([], collect([$field]))['tables'])
+        ->toBe(['expenses' => ['item' => 'Item', 'price' => 'Price', 'line_total' => 'Total']]);
+});
+
+it('fills a table chart\'s series, categories and data sheet from the table rows', function () {
+    Storage::fake('public');
+    $form = Form::query()->create(['name' => 'Expense Report', 'route_name' => 'forms.expense-report']);
+    $relativePath = 'form-templates/'.$form->getKey().'/chart.docx';
+    // Inserted by the palette's "New chart" button (OnlyOffice Api.CreateChart):
+    // series {{expenses.line_total#}}, category {{expenses.item#}}.
+    Storage::disk('public')->put($relativePath, file_get_contents(base_path('tests/Fixtures/charts/table-chart.docx')));
+    $template = Template::query()->create([
+        'form_id' => $form->getKey(), 'template_name' => 'Chart', 'docx_path' => $relativePath, 'version' => 1, 'is_active' => true,
+    ]);
+
+    $field = new \App\Models\Form\FormDescription([
+        'field_key' => 'expenses',
+        'field_type' => 'table-input',
+        'field_options' => [
+            'columns' => [
+                ['key' => 'item', 'label' => 'Item', 'type' => 'text'],
+                ['key' => 'price', 'label' => 'Price', 'type' => 'number'],
+                ['key' => 'qty', 'label' => 'Qty', 'type' => 'number'],
+            ],
+            'row_total' => ['key' => 'line_total', 'label' => 'Total', 'multiply' => ['price', 'qty']],
+        ],
+    ]);
+    $built = app(\App\Forms\DocxTemplateData::class)->build(['expenses' => [
+        ['item' => 'Pens', 'price' => '10', 'qty' => '2', 'line_total' => '20'],
+        ['item' => 'Paper & ink', 'price' => '5', 'qty' => '4', 'line_total' => '20'],
+        ['item' => 'Banner', 'price' => '1,250.50', 'qty' => '1', 'line_total' => '1250.5'],
+    ]], collect([$field]));
+
+    $path = app(DocxTemplateService::class)->populate($template, ['org_name' => 'CSS'] + $built['values'], $built['images'], $built['tables']);
+
+    $zip = new ZipArchive;
+    $zip->open($path);
+    $chart = (string) $zip->getFromName('word/charts/chart1.xml');
+    $workbook = tempnam(sys_get_temp_dir(), 'wb');
+    file_put_contents($workbook, $zip->getFromName('word/embeddings/Microsoft_Excel_Worksheet1.xlsx'));
+    $zip->close();
+
+    $dom = new DOMDocument;
+    $dom->loadXML($chart);
+    $xpath = new DOMXPath($dom);
+    $xpath->registerNamespace('c', 'http://schemas.openxmlformats.org/drawingml/2006/chart');
+    $texts = fn (string $query) => array_map(fn ($n) => $n->textContent, iterator_to_array($xpath->query($query)));
+
+    // The series is named after its column and plots one point per table row,
+    // labelled by the category column — all pointing into the data sheet.
+    expect($chart)->not->toContain('{{')
+        ->and($texts('//c:ser/c:tx//c:v'))->toBe(['Total'])
+        ->and($texts('//c:ser/c:tx//c:f'))->toBe(['Sheet1!$D$1'])
+        ->and($texts('//c:ser/c:cat//c:v'))->toBe(['Pens', 'Paper & ink', 'Banner'])
+        ->and($texts('//c:ser/c:cat//c:f'))->toBe(['Sheet1!$A$2:$A$4'])
+        ->and($texts('//c:ser/c:val//c:pt/c:v'))->toBe(['20', '20', '1250.5'])
+        ->and($texts('//c:ser/c:val//c:f'))->toBe(['Sheet1!$D$2:$D$4']);
+
+    // The embedded sheet ("Edit chart data") is the table itself.
+    $sheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($workbook)->getActiveSheet();
+    @unlink($workbook);
+    expect($sheet->getTitle())->toBe('Sheet1')
+        ->and($sheet->toArray(null, false, false))->toEqual([
+            ['Item', 'Price', 'Qty', 'Total'],
+            ['Pens', '10', '2', 20],
+            ['Paper & ink', '5', '4', 20],
+            ['Banner', '1,250.50', '1', 1250.5],
+        ])
+        // Plotted columns are real numbers; the rest keep their printed text.
+        ->and($sheet->getCell('D4')->getDataType())->toBe(\PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC)
+        ->and($sheet->getCell('B4')->getDataType())->toBe(\PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+
+    // Body tokens still fill as usual.
+    expect(docxText($path))->toContain('Expenses for CSS');
+});
+
+it('blanks a table chart when the table has no rows', function () {
+    Storage::fake('public');
+    $form = Form::query()->create(['name' => 'Expense Report', 'route_name' => 'forms.expense-report']);
+    $relativePath = 'form-templates/'.$form->getKey().'/chart.docx';
+    Storage::disk('public')->put($relativePath, file_get_contents(base_path('tests/Fixtures/charts/table-chart.docx')));
+    $template = Template::query()->create([
+        'form_id' => $form->getKey(), 'template_name' => 'Chart', 'docx_path' => $relativePath, 'version' => 1, 'is_active' => true,
+    ]);
+
+    $path = app(DocxTemplateService::class)->populate($template, []);
+
+    $zip = new ZipArchive;
+    $zip->open($path);
+    $chart = (string) $zip->getFromName('word/charts/chart1.xml');
+    $zip->close();
+
+    // No raw tokens reach the printed chart; the series falls back to a
+    // readable column name.
+    expect($chart)->not->toContain('{{')
+        ->toContain('<c:v>Line Total</c:v>')
+        ->toContain('<c:ptCount val="0"/>');
+});
