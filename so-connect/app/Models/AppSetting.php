@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Cache;
  *  - accreditation.notify_days  (int, default 7)
  *  - accreditation.purge_grace_days (int, default 30)
  *  - backup.interval_hours      (int, default 24)
+ *  - after_event.elapsed_days   (int, default 3)
  */
 class AppSetting extends Model
 {

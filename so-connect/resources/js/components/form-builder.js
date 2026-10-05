@@ -1,4 +1,5 @@
 import Sortable from "sortablejs";
+import { flushPrintedTemplate } from "./shared/printed-template-draft";
 
 /**
  * Alpine component backing the WYSIWYG form-builder editor.
@@ -223,6 +224,7 @@ export function formBuilder(config) {
                     body: JSON.stringify({
                         draft_id: this.draftId,
                         form_id: this.formId,
+                        kit: this.kit || null,
                         name: this.name,
                         fields: this.fields.map(
                             ({ _keyLocked, ...field }) => field,
@@ -430,6 +432,7 @@ export function formBuilder(config) {
             if (type === "age") return { min: 0, max: 150, step: 1 };
             if (type === "static-text") return { content: "Static text…" };
             if (type === "password") return { min: 8 };
+            if (type === "image") return { multiple: false, max_files: 5 };
             if (type === "multi-image") return { max_files: 5 };
             if (type === "computed") return { formula: "sum", args: [] };
             if (type === "activity-table") return { columns: [] };
@@ -1434,29 +1437,7 @@ export function formBuilder(config) {
          * clear the draft before the Document Server's final save lands.
          */
         flushPrintedTemplate() {
-            return new Promise((resolve) => {
-                const done = (event) => {
-                    window.removeEventListener(
-                        "printed-template:flush-done",
-                        done,
-                    );
-                    clearTimeout(timer);
-                    resolve(!event.detail || event.detail.ok !== false);
-                };
-                window.addEventListener("printed-template:flush-done", done);
-                // Slightly longer than the component's own flush timeout, so an
-                // absent/unresponsive component can't hang the save forever.
-                const timer = setTimeout(() => {
-                    window.removeEventListener(
-                        "printed-template:flush-done",
-                        done,
-                    );
-                    resolve(false);
-                }, 25000);
-                window.dispatchEvent(
-                    new CustomEvent("printed-template:flush-request"),
-                );
-            });
+            return flushPrintedTemplate();
         },
     };
 }

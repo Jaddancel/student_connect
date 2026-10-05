@@ -95,6 +95,15 @@
             font-size: 11px; color: var(--muted);
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
+        .token-card { margin-bottom: 5px; padding: 8px 9px; background: #fff; border: 1px solid var(--line); border-radius: 9px; }
+        .token-card .head { display: flex; align-items: center; gap: 9px; }
+        .token-card .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .action-btn {
+            flex: 1 1 0; padding: 5px 8px; font: inherit; font-size: 12px; font-weight: 500; color: var(--ink);
+            background: #fff; border: 1px solid var(--line); border-radius: 7px; cursor: pointer;
+        }
+        .action-btn:hover { border-color: var(--brand-400); background: var(--brand-50); }
+        .action-btn:focus-visible { outline: none; border-color: var(--brand-400); box-shadow: 0 0 0 3px rgba(34, 197, 94, .18); }
         .empty { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
         /* Activity-table column children: an indented, collapsible list under
            the parent table token. */
@@ -327,9 +336,10 @@
             function tokenRow(token, needle) {
                 var wrap = document.createElement('div');
 
-                var button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'token';
+                var actions = token.actions || [];
+                var button = document.createElement(actions.length ? 'div' : 'button');
+                if (!actions.length) button.type = 'button';
+                button.className = actions.length ? 'token-card' : 'token';
 
                 var icon = document.createElement('span');
                 icon.className = 'icon';
@@ -349,13 +359,35 @@
                 var key = document.createElement('span');
                 key.className = 'key';
                 key.textContent = (token.insert === 'table') ? 'Inserts a table' : placeholder(token.key);
+                if (actions.length) key.textContent = 'Repeats for every row';
 
                 text.appendChild(label);
                 text.appendChild(key);
                 text.appendChild(usageLabel(token));
-                button.appendChild(icon);
-                button.appendChild(text);
-                button.addEventListener('click', function () { insert(token); });
+
+                if (actions.length) {
+                    var head = document.createElement('div');
+                    head.className = 'head';
+                    head.appendChild(icon);
+                    head.appendChild(text);
+                    button.appendChild(head);
+
+                    var bar = document.createElement('div');
+                    bar.className = 'actions';
+                    actions.forEach(function (action) {
+                        var b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'action-btn';
+                        b.textContent = action === 'table' ? 'New table' : 'New repeating block';
+                        b.addEventListener('click', function () { insert(token, action); });
+                        bar.appendChild(b);
+                    });
+                    button.appendChild(bar);
+                } else {
+                    button.appendChild(icon);
+                    button.appendChild(text);
+                    button.addEventListener('click', function () { insert(token); });
+                }
                 wrap.appendChild(button);
 
                 if (hasChildren && (state.inserted[token.key] || tools.usage(token, currentUsage, documents, usageData.documentId).here
@@ -399,7 +431,10 @@
                         l.textContent = child.label;
                         var k = document.createElement('span');
                         k.className = 'key';
-                        k.textContent = placeholder(child.key + '#');
+                        // Report-group children insert their plain key (for use
+                        // inside a repeating block); table columns insert `key#`.
+                        var childKey = child.insert_key || (child.key + '#');
+                        k.textContent = placeholder(childKey);
                         t.appendChild(l);
                         t.appendChild(k);
                         t.appendChild(usageLabel(child));
@@ -407,7 +442,7 @@
                         b.appendChild(t);
                         // A single-cell repair: drop just this column's repeating token.
                         b.addEventListener('click', function () {
-                            window.Asc.plugin.executeMethod('PasteText', [placeholder(child.key + '#')]);
+                            window.Asc.plugin.executeMethod('PasteText', [placeholder(childKey)]);
                         });
                         box.appendChild(b);
                     });
@@ -416,9 +451,14 @@
                 return box;
             }
 
-            function insert(token) {
-                if (token.insert === 'table') {
+            function insert(token, action) {
+                action = action || token.insert;
+                if (action === 'table') {
                     insertTable(token);
+                    return;
+                }
+                if (action === 'block') {
+                    insertBlock(token);
                     return;
                 }
                 // PasteText drops the token at the cursor. Community Edition
@@ -453,6 +493,23 @@
                     var html = '<table>' + head + body + '</table>';
                     window.Asc.plugin.executeMethod('PasteHtml', [html]);
                 }
+                state.inserted[token.key] = true;
+                state.expanded[token.key] = true;
+                persist();
+                render(search.value);
+            }
+
+            // A report group's repeating block: an opening marker paragraph, a
+            // body paragraph seeded with the group's values, and a closing
+            // marker paragraph. Everything between the markers repeats per row.
+            function insertBlock(token) {
+                var body = (token.children || []).map(function (c) {
+                    return escapeHtml(placeholder(c.insert_key || c.key));
+                }).join(' — ');
+                var html = '<p>' + escapeHtml(placeholder('#' + token.key)) + '</p>'
+                    + '<p>' + (body || '&nbsp;') + '</p>'
+                    + '<p>' + escapeHtml(placeholder('/' + token.key)) + '</p>';
+                window.Asc.plugin.executeMethod('PasteHtml', [html]);
                 state.inserted[token.key] = true;
                 state.expanded[token.key] = true;
                 persist();

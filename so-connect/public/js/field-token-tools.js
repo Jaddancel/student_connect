@@ -20,6 +20,9 @@
         tokens.forEach(function (token) {
             keys.push(token.key);
             (token.children || []).forEach(function (child) { keys.push(child.key + '#'); });
+            // Extra literal keys a token owns, e.g. a report group's
+            // `#group` / `/group` block markers.
+            (token.known || []).forEach(function (key) { keys.push(key); });
         });
         return Array.from(new Set(keys));
     }

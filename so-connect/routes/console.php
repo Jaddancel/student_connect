@@ -29,6 +29,9 @@ Schedule::command('backup:clean')->daily();
 // Daily reap of abandoned manual-filling drafts (and their files) past expiry.
 Schedule::command('manual-sessions:cleanup')->daily();
 
+// Daily: email officials once per event whose after-event report is due.
+Schedule::command('after-event:notify')->daily();
+
 Artisan::command('forms:bootstrap-template
     {name : Display name of the form}
     {docx_path : Path to source DOCX template}

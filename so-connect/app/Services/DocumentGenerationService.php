@@ -234,6 +234,14 @@ class DocumentGenerationService
                 $disk,
             );
 
+            // An After Event Report also prints its event's record and the
+            // original New Event form answers (`{{eventinfo.*}}`/`{{event.*}}`).
+            if ($form->system_function === \App\Forms\SystemFunction::AFTER_EVENT_REPORT) {
+                $eventData = app(\App\Forms\AfterEventTokenData::class)->build($submission, $disk);
+                $templateData['values'] = $eventData['values'] + $templateData['values'];
+                $templateData['images'] = $eventData['images'] + $templateData['images'];
+            }
+
             $docxService = app(\App\Services\DocxTemplateService::class);
             foreach ($printTemplates as $index => $printTemplate) {
                 $generatedPdfRelativePath = $this->nextGeneratedPdfPath((int) $submission->getKey());

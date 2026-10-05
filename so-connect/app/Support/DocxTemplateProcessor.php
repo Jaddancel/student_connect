@@ -64,6 +64,11 @@ class DocxTemplateProcessor extends TemplateProcessor
         }
     }
 
+    public function macro(string $name): string
+    {
+        return self::$macroOpeningChars.$name.self::$macroClosingChars;
+    }
+
     /**
      * Restore PhpWord's process-wide defaults — the delimiters are static, so
      * leaving them switched would leak into unrelated later use.

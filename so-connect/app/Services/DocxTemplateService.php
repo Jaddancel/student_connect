@@ -46,7 +46,7 @@ class DocxTemplateService
      * are joined into one multi-line run.
      *
      * @param  array<string, mixed>  $data  field_key => value (keys are normalized)
-     * @param  array<string, string>  $images  field_key => absolute image path
+     * @param  array<string, string|array<int,string>>  $images  field_key => absolute image path(s)
      */
     public function populate(FormTemplate $template, array $data, array $images = []): string
     {
@@ -65,7 +65,7 @@ class DocxTemplateService
         $pictures = $this->normalizeData($images);
 
         try {
-            $this->fillRepeating($processor, $values);
+            $this->fillRepeating($processor, $values, $pictures);
             $this->fillImages($processor, $pictures);
             $this->fillRemaining($processor, $values);
 
@@ -74,7 +74,7 @@ class DocxTemplateService
                 DocxTemplateProcessor::LEGACY_OPENING,
                 DocxTemplateProcessor::LEGACY_CLOSING,
             );
-            $this->fillRepeating($processor, $values);
+            $this->fillRepeating($processor, $values, $pictures);
             $this->fillImages($processor, $pictures);
             $this->fillRemaining($processor, $values);
         } finally {
@@ -251,8 +251,9 @@ class DocxTemplateService
      * placeholders that cloning leaves behind.
      *
      * @param  array<string, mixed>  $values
+     * @param  array<string, mixed>  $images
      */
-    private function fillRepeating(TemplateProcessor $processor, array $values): void
+    private function fillRepeating(TemplateProcessor $processor, array $values, array $images = []): void
     {
         foreach ($processor->getVariables() as $variable) {
             if (! str_ends_with($variable, self::REPEAT_MARKER)) {
@@ -265,13 +266,22 @@ class DocxTemplateService
                 continue;
             }
 
-            $rows = $this->listValues($values[$this->keyFor($variable)] ?? null);
+            $key = $this->keyFor($variable);
+            $hasTextRows = array_key_exists($key, $values);
+            $rows = $this->listValues($values[$key] ?? null);
+            if ($rows === [] && array_key_exists($key, $images)) {
+                $rows = $this->imagePaths($images[$key]);
+            }
 
             try {
                 $processor->cloneRow($variable, max(count($rows), 1));
             } catch (\Throwable) {
-                // Not inside a table — emit the values as one multi-line run.
-                $processor->setValue($variable, $this->xmlValue(implode("\n", $rows)));
+                // Not inside a table — emit text values as one multi-line run.
+                // Image values are left for fillImages(), which can expand the
+                // still-standing placeholder into sibling picture placeholders.
+                if ($hasTextRows) {
+                    $processor->setValue($variable, $this->xmlValue(implode("\n", $rows)));
+                }
             }
         }
 
@@ -297,6 +307,9 @@ class DocxTemplateService
             }
 
             $value = $values[$this->keyFor($matches[1])] ?? null;
+            if (! array_key_exists($this->keyFor($matches[1]), $values)) {
+                continue;
+            }
             $index = (int) $matches[2] - 1;
 
             if ($isRepeating || is_array($value)) {
@@ -314,7 +327,7 @@ class DocxTemplateService
      * Swap picture placeholders for the actual images. Runs before
      * {@see fillRemaining()}, which would otherwise blank them as text.
      *
-     * @param  array<string, string>  $images  normalized key => absolute path
+     * @param  array<string, string|array<int,string>>  $images  normalized key => absolute path(s)
      */
     private function fillImages(TemplateProcessor $processor, array $images): void
     {
@@ -323,20 +336,36 @@ class DocxTemplateService
         }
 
         foreach ($processor->getVariables() as $variable) {
-            $path = $images[$this->keyFor($variable)] ?? null;
-
-            if ($path === null || ! is_file($path)) {
+            $key = $this->keyFor($variable);
+            if (! array_key_exists($key, $images)) {
                 continue;
             }
 
-            // Bounded rather than fixed: a signature scan and an event photo
-            // want very different sizes, and 'true' keeps the aspect ratio.
-            $processor->setImageValue($variable, [
-                'path' => $path,
-                'width' => 200,
-                'height' => 120,
-                'ratio' => true,
-            ]);
+            $paths = $this->imagePaths($images[$key]);
+            if ($paths === []) {
+                continue;
+            }
+
+            $index = $this->imageIndexForVariable($variable);
+            if ($index !== null) {
+                if (isset($paths[$index])) {
+                    $processor->setImageValue($variable, $this->imageValue($paths[$index]));
+                }
+
+                continue;
+            }
+
+            if (is_array($images[$key])) {
+                $names = $this->expandedImageVariables($key, count($paths));
+                $processor->setValue($variable, $this->imagePlaceholderRun($processor, $key, count($paths)));
+                foreach ($names as $i => $name) {
+                    $processor->setImageValue($name, $this->imageValue($paths[$i]));
+                }
+
+                continue;
+            }
+
+            $processor->setImageValue($variable, $this->imageValue($paths[0]));
         }
     }
 
@@ -378,7 +407,75 @@ class DocxTemplateService
      */
     private function keyFor(string $variable): string
     {
+        if (preg_match('/^(.+)##\d+$/', $variable, $matches)
+            || preg_match('/^(.+)#\d+$/', $variable, $matches)) {
+            $variable = $matches[1];
+        }
+
         return FormTemplateHelper::normalizeFieldKey(rtrim($variable, self::REPEAT_MARKER));
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function expandedImageVariables(string $key, int $count): array
+    {
+        return array_map(fn (int $i) => $key.'__'.$i, range(1, $count));
+    }
+
+    private function imagePlaceholderRun(TemplateProcessor $processor, string $key, int $count): string
+    {
+        return implode(' ', array_map(
+            fn (string $name) => $this->macro($processor, $name),
+            $this->expandedImageVariables($key, $count),
+        ));
+    }
+
+    private function macro(TemplateProcessor $processor, string $name): string
+    {
+        return $processor instanceof DocxTemplateProcessor
+            ? $processor->macro($name)
+            : '{{'.$name.'}}';
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function imagePaths(mixed $value): array
+    {
+        return array_values(array_filter(
+            array_map('strval', is_array($value) ? $value : [$value]),
+            fn (string $path) => $path !== '' && is_file($path),
+        ));
+    }
+
+    /**
+     * Zero-based image index from cloneRow-produced placeholders.
+     */
+    private function imageIndexForVariable(string $variable): ?int
+    {
+        if (preg_match('/^.+##(\d+)$/', $variable, $matches)
+            || preg_match('/^.+#(\d+)$/', $variable, $matches)) {
+            return max(0, (int) $matches[1] - 1);
+        }
+
+        return null;
+    }
+
+    /**
+     * Bounded rather than fixed: a signature scan and an event photo want very
+     * different sizes, and 'true' keeps the aspect ratio.
+     *
+     * @return array{path:string,width:int,height:int,ratio:bool}
+     */
+    private function imageValue(string $path): array
+    {
+        return [
+            'path' => $path,
+            'width' => 200,
+            'height' => 120,
+            'ratio' => true,
+        ];
     }
 
     /**

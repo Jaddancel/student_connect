@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Forms\AfterEventTokenData;
+use App\Forms\FieldKit;
 use App\Forms\FieldType;
+use App\Forms\SystemFunction;
 use App\Helpers\FormTemplateHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
@@ -434,7 +437,7 @@ class FormPrintTemplateController extends Controller
         $template = $this->authorizeToken($request, $form, self::PURPOSE_PLUGIN, $token);
 
         $response = response()->view('onlyoffice.token-palette', [
-            'tokens' => $this->tokensFor($form->fields()->orderBy('field_order')->orderBy('id')->get()),
+            'tokens' => $this->tokensFor($form->fields()->orderBy('field_order')->orderBy('id')->get(), FieldKit::forForm($form)),
             // The plugin SDK is served by the Document Server, and this page
             // runs in the browser, so it needs the public URL.
             'sdkBase' => $onlyOffice->publicUrl(),
@@ -489,7 +492,7 @@ class FormPrintTemplateController extends Controller
      * @param  iterable<int, object{field_key: string, field_label: string, field_type: string, field_options: array}>  $fields
      * @return array<int, array{key: string, label: string, icon: string, group: string}>
      */
-    private function tokensFor(iterable $fields): array
+    private function tokensFor(iterable $fields, ?string $kit = null): array
     {
         $catalog = FieldType::catalog();
 
@@ -580,6 +583,13 @@ class FormPrintTemplateController extends Controller
             }
         }
 
+        // The After Event Report prints the concluded event's own details and
+        // its original New Event form answers (`{{event.*}}`), resolved at
+        // generation time by AfterEventTokenData.
+        if ($kit === SystemFunction::AFTER_EVENT_REPORT) {
+            array_push($tokens, ...AfterEventTokenData::paletteTokens(fn (iterable $f) => $this->tokensFor($f)));
+        }
+
         // Universal tokens, grouped by source: profile fields, then org fields.
         // The icon reuses the FieldType catalog via the universal field's type.
         foreach (['profile' => 'Profile', 'org' => 'Organization'] as $source => $label) {
@@ -630,6 +640,7 @@ class FormPrintTemplateController extends Controller
             'fields.*.field_label' => ['nullable', 'string', 'max:255'],
             'fields.*.field_type' => ['required', 'string', 'max:64'],
             'fields.*.field_options' => ['nullable', 'array'],
+            'kit' => ['nullable', 'string', 'max:64'],
         ]);
 
         $draftId = $validated['draft_id'] ?? (string) Str::uuid();
@@ -658,6 +669,16 @@ class FormPrintTemplateController extends Controller
             'field_options' => (array) ($f['field_options'] ?? []),
         ], $validated['fields']);
 
+        // An existing form's draft opens on its saved template (legacy HTML is
+        // migrated on first use); only brand-new forms start blank.
+        $form = isset($validated['form_id'])
+            ? Form::query()->find((int) $validated['form_id'])
+            : null;
+
+        // The kit decides kit-only palette groups (e.g. the After Event
+        // Report's New Event tokens): a saved form's own kit wins.
+        $kit = FieldKit::forForm($form) ?? (FieldKit::has((string) ($validated['kit'] ?? '')) ? (string) $validated['kit'] : null);
+
         $templates->writeDraft(
             $draftId,
             isset($validated['form_id']) ? (int) $validated['form_id'] : null,
@@ -665,13 +686,8 @@ class FormPrintTemplateController extends Controller
             $fields,
             $version,
             (int) $request->user()->getKey(),
+            ['kit' => $kit],
         );
-
-        // An existing form's draft opens on its saved template (legacy HTML is
-        // migrated on first use); only brand-new forms start blank.
-        $form = isset($validated['form_id'])
-            ? Form::query()->find((int) $validated['form_id'])
-            : null;
         $templates->ensureDraftSlots($draftId, $name, $form, (int) $request->user()->getKey());
 
         return response()->json([
@@ -684,7 +700,7 @@ class FormPrintTemplateController extends Controller
         ]);
     }
 
-    private function slotResponses(string $draftId, FormPrintTemplateService $templates): array
+    public function slotResponses(string $draftId, FormPrintTemplateService $templates): array
     {
         return array_map(fn ($slot) => [
             'id' => $slot['id'],
@@ -1076,7 +1092,9 @@ class FormPrintTemplateController extends Controller
         abort_if($draft === null, 404);
 
         $response = response()->view('onlyoffice.token-palette', [
-            'tokens' => $this->tokensFor(FieldTokenSource::fromDraft((array) $draft['fields'])),
+            'tokens' => isset($draft['tokens']) && is_array($draft['tokens'])
+                ? $draft['tokens']
+                : $this->tokensFor(FieldTokenSource::fromDraft((array) $draft['fields']), $draft['kit'] ?? null),
             'sdkBase' => $onlyOffice->publicUrl(),
             // Namespaced so the palette's localStorage never collides with a
             // real form's (int) id.

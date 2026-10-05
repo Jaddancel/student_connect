@@ -138,7 +138,9 @@ class Form extends Model
      */
     public function scopeDirectoryEligible(Builder $query): Builder
     {
-        return $query;
+        // The After Event Report is filed per event from its own page.
+        return $query->where(fn (Builder $q) => $q->whereNull('system_function')
+            ->orWhere('system_function', '!=', \App\Forms\SystemFunction::AFTER_EVENT_REPORT));
     }
 
     public function organization(): BelongsTo

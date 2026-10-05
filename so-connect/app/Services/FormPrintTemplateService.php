@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Form;
+use App\Models\ReportTemplate;
 use App\Models\Template as FormTemplate;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Database\Eloquent\Collection;
@@ -277,10 +278,12 @@ class FormPrintTemplateService
      *
      * @param  array<int, array<string, mixed>>  $fields  descriptors: field_key/field_label/field_type/field_options
      */
-    public function writeDraft(string $draftId, ?int $formId, string $name, array $fields, int $version, ?int $userId): void
+    public function writeDraft(string $draftId, ?int $formId, string $name, array $fields, int $version, ?int $userId, array $extra = []): void
     {
         $existing = $this->readDraft($draftId);
-        $this->draftCache()->put($this->draftKey($draftId), array_merge($existing ?? [], [
+        // $extra carries owner-specific metadata: the form's field `kit`, or a
+        // report template's precomputed palette `tokens` (owner 'report').
+        $this->draftCache()->put($this->draftKey($draftId), array_merge($existing ?? [], $extra, [
             'form_id' => $formId,
             'name' => trim($name) !== '' ? trim($name) : 'Printed template',
             'fields' => array_values($fields),
@@ -323,7 +326,21 @@ class FormPrintTemplateService
             return;
         }
 
-        $templates = $form ? $this->resolveAll($form, $userId) : new Collection;
+        $this->ensureDraftSlotsFrom($draftId, $name, $form ? $this->resolveAll($form, $userId) : new Collection);
+    }
+
+    /**
+     * Seed an empty draft's slots from existing template rows (any owner), or
+     * a single blank starter document when there are none.
+     *
+     * @param  Collection<int, FormTemplate>  $templates
+     */
+    public function ensureDraftSlotsFrom(string $draftId, string $name, Collection $templates): void
+    {
+        if ($this->draftSlots($draftId) !== []) {
+            return;
+        }
+
         $slots = [];
         foreach ($templates as $template) {
             $id = (string) Str::uuid();
@@ -636,6 +653,101 @@ class FormPrintTemplateService
         $this->forgetDraft($draftId);
 
         return $template;
+    }
+
+    // ── Report template slots ───────────────────────────────────────────────
+    //
+    // Report templates (App\Models\ReportTemplate) reuse Template rows, keyed
+    // by report_template_id instead of form_id, and the same Step-2 drafts.
+
+    /** @return Collection<int, FormTemplate> */
+    public function activeReportTemplates(ReportTemplate $report): Collection
+    {
+        return $report->activeTemplates()->get()->filter(fn (FormTemplate $template) => $this->fileExists($template))->values();
+    }
+
+    public function createReportSlot(ReportTemplate $report, string $name, string $contents, int $order, ?int $userId): FormTemplate
+    {
+        if ($contents === '') {
+            throw new RuntimeException('Refusing to create an empty report template.');
+        }
+
+        $path = 'report-templates/'.$report->getKey().'/report-template-'.Str::uuid().'.docx';
+        if (! Storage::disk($this->disk())->put($path, $contents)) {
+            throw new RuntimeException('Could not store the report template.');
+        }
+
+        return FormTemplate::query()->create([
+            'report_template_id' => $report->getKey(),
+            'uploaded_by' => $userId,
+            'template_name' => $name,
+            'docx_path' => $path,
+            'version' => 1,
+            'is_active' => true,
+            'slot_order' => $order,
+        ]);
+    }
+
+    /**
+     * Fold a report's Step-2 draft into its template rows (mirrors
+     * {@see adoptDraft()} for forms).
+     */
+    public function adoptReportDraft(ReportTemplate $report, string $draftId, ?int $userId = null): ?FormTemplate
+    {
+        $draft = $this->readDraft($draftId);
+        if ($draft === null
+            || ($draft['owner'] ?? null) !== 'report'
+            || (($draft['report_template_id'] ?? null) !== null && (int) $draft['report_template_id'] !== (int) $report->getKey())
+            || $draft['created_by'] !== $userId) {
+            throw new RuntimeException('Printed template draft does not belong to this report and user.');
+        }
+
+        $slots = $this->draftSlots($draftId);
+        $documents = [];
+        foreach ($slots as $slot) {
+            $bytes = $this->readSlotDocx($draftId, $slot['id']);
+            if ($bytes === null) {
+                throw new RuntimeException('A draft template is missing its document.');
+            }
+            if ($slot['template_id'] !== null && $report->templates()->find($slot['template_id']) === null) {
+                throw new RuntimeException('A draft template does not belong to this report.');
+            }
+            $documents[$slot['id']] = $bytes;
+        }
+
+        $ids = [];
+        foreach ($slots as $order => $slot) {
+            $bytes = $documents[$slot['id']];
+            if ($slot['template_id'] !== null) {
+                $template = $report->templates()->findOrFail($slot['template_id']);
+                if (File::get($this->absolutePath($template)) !== $bytes) {
+                    $this->storeRevision($template, $bytes);
+                }
+                $template->forceFill([
+                    'template_name' => $slot['name'],
+                    'is_active' => true,
+                    'slot_order' => $order,
+                ])->save();
+            } else {
+                $template = $this->createReportSlot($report, $slot['name'], $bytes, $order, $userId);
+            }
+            $ids[] = $template->getKey();
+        }
+
+        if ($ids === []) {
+            $this->forgetDraft($draftId);
+
+            return null;
+        }
+
+        FormTemplate::query()
+            ->where('report_template_id', $report->getKey())
+            ->where('is_active', true)
+            ->whereNotIn('id', $ids)
+            ->update(['is_active' => false]);
+        $this->forgetDraft($draftId);
+
+        return FormTemplate::query()->findOrFail($ids[0]);
     }
 
     private function pathFor(Form $form): string

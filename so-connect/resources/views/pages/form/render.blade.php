@@ -41,6 +41,28 @@
             </div>
         @endif
 
+        @if (! empty($afterEvent))
+            <div class="rounded-2xl border border-brand-200 bg-brand-50/60 p-5 dark:border-brand-500/30 dark:bg-brand-500/5">
+                <p class="text-xs font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-300">After event report for</p>
+                <h3 class="mt-1 text-base font-semibold text-gray-800 dark:text-white/90">{{ $afterEvent['name'] }}</h3>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                    {{ $afterEvent['organization_name'] }}
+                    · Finished {{ $afterEvent['finished_at']->format('F j, Y g:i A') }}
+                    @if ($afterEvent['location'] !== '')
+                        · {{ $afterEvent['location'] }}
+                    @endif
+                </p>
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Details from the event's original New Event form are carried into the printed report automatically.
+                    @if ($afterEvent['deadline'])
+                        This report must be filed by {{ $afterEvent['deadline']->format('F j, Y') }}, when the current semester ends.
+                    @else
+                        This report cannot be filed after the current semester ends.
+                    @endif
+                </p>
+            </div>
+        @endif
+
         {{-- The submitter's latest requests for this form + decision state --}}
         @if (! $preview && ! empty($recentSubmissions ?? []))
             <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03]">

@@ -74,10 +74,25 @@ class FormRenderController extends Controller
             $prefill = self::applyTargetDatePrefill($request, $fields, $prefill);
         }
 
+        // The After Event Report is always filed for one concluded event,
+        // picked on the After Event Form page (?event=).
+        $afterEvent = null;
+        if ($form->system_function === SystemFunction::AFTER_EVENT_REPORT) {
+            try {
+                $afterEvent = app(\App\Services\AfterEventReportService::class)
+                    ->assertFileable($request->user(), (int) $request->query('event', 0));
+            } catch (\Illuminate\Validation\ValidationException $exception) {
+                return redirect()->route('after-event-reports.index')
+                    ->withErrors($exception->errors());
+            }
+            $hidden[\App\Forms\Handlers\AfterEventReportHandler::EVENT_INPUT] = (string) $afterEvent['event_id'];
+        }
+
         return view('pages.form.render', array_merge($context, [
             'title' => $form->name,
             'prefill' => $prefill,
             'hidden' => $hidden,
+            'afterEvent' => $afterEvent,
             'recentSubmissions' => $this->recentSubmissions($request, $form),
         ]));
     }
@@ -444,6 +459,21 @@ class FormRenderController extends Controller
                 continue;
             }
 
+            $options = (array) ($field->field_options ?? []);
+            if (FieldType::isMultiImage($type, $options)) {
+                $paths = [];
+                foreach ((array) $request->file($key, []) as $file) {
+                    if ($file !== null) {
+                        $paths[] = $file->store(
+                            'form-uploads/'.$form->route_name,
+                            (string) config('documents.disk', 'public'),
+                        );
+                    }
+                }
+                $payload[$key] = $paths;
+                continue;
+            }
+
             if (FieldType::isFileLike($type)) {
                 if ($request->hasFile($key)) {
                     $payload[$key] = $request->file($key)->store(
@@ -474,20 +504,6 @@ class FormRenderController extends Controller
                 if (is_string($submitted) && str_starts_with($submitted, 'data:image')) {
                     $capturedSignatures[] = $key;
                 }
-                continue;
-            }
-
-            if ($type === FieldType::MULTI_IMAGE) {
-                $paths = [];
-                foreach ((array) $request->file($key, []) as $file) {
-                    if ($file !== null) {
-                        $paths[] = $file->store(
-                            'form-uploads/'.$form->route_name,
-                            (string) config('documents.disk', 'public'),
-                        );
-                    }
-                }
-                $payload[$key] = $paths;
                 continue;
             }
 

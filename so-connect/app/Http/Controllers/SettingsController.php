@@ -51,6 +51,7 @@ class SettingsController extends Controller
             'accreditationForms' => $accreditationForms,
             'accreditationRequiredForms' => $accreditationRequiredForms,
             'backupIntervalHours' => (int) AppSetting::get('backup.interval_hours', 24),
+            'afterEventElapsedDays' => app(\App\Services\AfterEventReportService::class)->elapsedDays(),
         ]);
     }
 
@@ -144,6 +145,31 @@ class SettingsController extends Controller
         );
 
         return back()->with('status', 'Notification window saved.');
+    }
+
+    /**
+     * Notification section (type 2): days after an event ends before it is
+     * listed on the After Event Form page and its officials are notified.
+     */
+    public function updateAfterEventDays(Request $request): RedirectResponse
+    {
+        $this->authorizeAdmin($request);
+
+        $validated = $request->validate([
+            'after_event_days' => ['required', 'integer', 'min:0', 'max:180'],
+        ]);
+
+        $days = (int) $validated['after_event_days'];
+        AppSetting::put(\App\Services\AfterEventReportService::SETTING_ELAPSED_DAYS, $days);
+
+        ActionLogger::log(
+            ActionLogger::CATEGORY_SETTINGS,
+            'after_event_days_updated',
+            'After-event report period set to '.$days.' days',
+            ['after_event_days' => $days],
+        );
+
+        return back()->with('status', 'After-event report period saved.');
     }
 
     /**

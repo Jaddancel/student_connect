@@ -27,7 +27,7 @@ class DocxTemplateData
     /**
      * @param  array<string, mixed>  $payload  the submission payload
      * @param  Collection<int, \App\Models\Form\FormDescription>  $fields
-     * @return array{values: array<string, mixed>, images: array<string, string>}
+     * @return array{values: array<string, mixed>, images: array<string, string|array<int,string>>}
      */
     public function build(
         array $payload,
@@ -52,9 +52,12 @@ class DocxTemplateData
             $options = (array) ($field->field_options ?? []);
 
             if (in_array($type, [FieldType::IMAGE, FieldType::SIGNATURE, FieldType::MULTI_IMAGE], true)) {
-                $path = $this->firstImagePath(SubmissionPresenter::raw($payload, $key), $disk);
+                $raw = SubmissionPresenter::raw($payload, $key);
+                $path = FieldType::isMultiImage($type, $options)
+                    ? $this->imagePaths($raw, $disk)
+                    : $this->firstImagePath($raw, $disk);
 
-                if ($path !== null) {
+                if ($path !== null && $path !== []) {
                     $images[$key] = $path;
                 } else {
                     $values[$key] = '';
@@ -235,10 +238,13 @@ class DocxTemplateData
     }
 
     /**
-     * Absolute path of the first stored image behind a value, if it exists.
+     * Absolute paths of the stored images behind a value, if they exist.
+     *
+     * @return array<int,string>
      */
-    private function firstImagePath(mixed $raw, string $disk): ?string
+    private function imagePaths(mixed $raw, string $disk): array
     {
+        $paths = [];
         foreach ((array) $raw as $candidate) {
             $relative = (string) $candidate;
 
@@ -247,15 +253,25 @@ class DocxTemplateData
             }
 
             if (Storage::disk($disk)->exists($relative)) {
-                return Storage::disk($disk)->path($relative);
+                $paths[] = Storage::disk($disk)->path($relative);
+
+                continue;
             }
 
             // Signature/profile columns sometimes already hold an absolute path.
             if (is_file($relative)) {
-                return $relative;
+                $paths[] = $relative;
             }
         }
 
-        return null;
+        return $paths;
+    }
+
+    /**
+     * Absolute path of the first stored image behind a value, if it exists.
+     */
+    private function firstImagePath(mixed $raw, string $disk): ?string
+    {
+        return $this->imagePaths($raw, $disk)[0] ?? null;
     }
 }

@@ -413,6 +413,20 @@
                                 </label>
                             </div>
 
+                            {{-- image multiplicity --}}
+                            <div x-show="f.field_type === 'image'" class="space-y-2">
+                                <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                                    <input type="checkbox" x-model="f.field_options.multiple"
+                                        @change="if (f.field_options.multiple && !f.field_options.max_files) f.field_options.max_files = 5"
+                                        class="h-4 w-4 rounded border-gray-300 text-brand-500" />
+                                    Allow multiple images
+                                </label>
+                                <div x-show="f.field_options.multiple">
+                                    <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Max images</label>
+                                    <input type="number" min="1" max="10" x-model.number="f.field_options.max_files" class="h-9 w-24 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:text-white/90" />
+                                </div>
+                            </div>
+
                             {{-- password minimum length --}}
                             <div x-show="f.field_type === 'password'">
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Minimum length</label>

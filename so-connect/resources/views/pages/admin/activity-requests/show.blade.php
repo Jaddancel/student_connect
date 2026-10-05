@@ -2,6 +2,7 @@
 
 @php
     use App\Forms\FieldType;
+    use App\Forms\SubmissionPresenter;
 @endphp
 
 @section('content')
@@ -46,38 +47,14 @@
                         @php
                             $type = $field->field_type;
                             $value = $submissionPayload[$field->field_key] ?? null;
-                            $isImagePath = is_string($value) && $value !== ''
-                                && (FieldType::isFileLike($type) || in_array($type, [FieldType::SIGNATURE, FieldType::WAIVER_SCAN], true))
-                                && preg_match('/\.(jpe?g|png|gif|webp|heic|heif)$/i', $value);
-                            $isFilePath = is_string($value) && $value !== '' && FieldType::isFileLike($type) && ! $isImagePath;
-                            $isDataUri = is_string($value) && str_starts_with($value, 'data:image');
+                            $attachments = SubmissionPresenter::attachments($submissionPayload, $field->field_key, $type);
                             $tableCols = $type === FieldType::TABLE_INPUT ? FieldType::tableColumns((array) ($field->field_options ?? [])) : [];
                         @endphp
-                        <div @class(['sm:col-span-2' => in_array($type, [FieldType::TEXTAREA, FieldType::TABLE_INPUT, FieldType::MULTI_IMAGE, FieldType::WAIVER_SCAN], true)])>
+                        <div @class(['sm:col-span-2' => in_array($type, [FieldType::TEXTAREA, FieldType::TABLE_INPUT, FieldType::MULTI_IMAGE, FieldType::WAIVER_SCAN], true)
+                            || count($attachments) > 1])>
                             <p class="text-xs font-medium text-gray-400">{{ $field->field_label }}</p>
-                            @if ($isImagePath || $isDataUri)
-                                <x-admin.zoomable-image :src="$isDataUri ? $value : asset('storage/'.$value)" :alt="$field->field_label"
-                                     class="mt-2 max-h-40 rounded-lg border border-gray-200 object-contain dark:border-gray-700" />
-                            @elseif ($isFilePath)
-                                <a href="{{ asset('storage/'.$value) }}" target="_blank" class="mt-1 inline-block text-brand-500 hover:underline">Open file</a>
-                            @elseif ($type === FieldType::MULTI_IMAGE && is_array($value))
-                                <div class="mt-2 flex flex-wrap gap-2">
-                                    @forelse ($value as $photo)
-                                        <x-admin.zoomable-image :src="asset('storage/'.$photo)" alt="Photo" class="h-24 w-24 rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
-                                    @empty
-                                        <span class="text-gray-800 dark:text-white/90">—</span>
-                                    @endforelse
-                                </div>
-                            @elseif ($type === FieldType::WAIVER_SCAN && is_array($value))
-                                {{-- One or more scanned waivers, each stored as a path or (unresubmitted) data URI. --}}
-                                <div class="mt-2 flex flex-wrap gap-2">
-                                    @forelse ($value as $waiver)
-                                        @continue(! is_string($waiver) || $waiver === '')
-                                        <x-admin.zoomable-image :src="str_starts_with($waiver, 'data:image') ? $waiver : asset('storage/'.$waiver)" alt="Scanned waiver" class="h-24 w-24 rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
-                                    @empty
-                                        <span class="text-gray-800 dark:text-white/90">—</span>
-                                    @endforelse
-                                </div>
+                            @if (SubmissionPresenter::holdsAttachments($type))
+                                <x-admin.attachments :items="$attachments" :label="$field->field_label" />
                             @elseif ($type === FieldType::TABLE_INPUT && count($tableCols))
                                 <div class="mt-1 overflow-x-auto">
                                     <table class="w-full border-collapse text-xs">

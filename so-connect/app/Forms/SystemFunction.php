@@ -2,6 +2,7 @@
 
 namespace App\Forms;
 
+use App\Forms\Handlers\AfterEventReportHandler;
 use App\Forms\Handlers\MembershipRegistrationHandler;
 use App\Forms\Handlers\NewEventHandler;
 use App\Forms\Handlers\NewOrganizationRegistrationHandler;
@@ -40,6 +41,8 @@ final class SystemFunction
 
     public const NEW_ORGANIZATION_REGISTRATION = 'new_organization_registration';
 
+    public const AFTER_EVENT_REPORT = 'after_event_report';
+
     /**
      * @return array<string, array{label:string, description:string, handler:class-string<SystemFunctionHandler>}>
      */
@@ -75,6 +78,11 @@ final class SystemFunction
                 'label' => 'New Organization Registration',
                 'description' => 'Submissions register a new organization; an admin approval creates the organization and invites the submitted founder email to become its president.',
                 'handler' => Handlers\NewOrganizationRegistrationHandler::class,
+            ],
+            self::AFTER_EVENT_REPORT => [
+                'label' => 'After Event Report Form',
+                'description' => 'Organization officials file it per concluded event from the After Event Form page; the document is generated immediately (no approval).',
+                'handler' => AfterEventReportHandler::class,
             ],
         ];
     }

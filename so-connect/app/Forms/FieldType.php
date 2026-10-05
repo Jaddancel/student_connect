@@ -250,6 +250,21 @@ final class FieldType
         return in_array($type, self::fileLike(), true);
     }
 
+    /**
+     * Whether a field stores multiple uploaded image paths.
+     *
+     * @param  array<string,mixed>  $options
+     */
+    public static function isMultiImage(string $type, array $options = []): bool
+    {
+        if ($type === self::MULTI_IMAGE) {
+            return true;
+        }
+
+        return $type === self::IMAGE
+            && filter_var($options['multiple'] ?? false, FILTER_VALIDATE_BOOL);
+    }
+
     public static function isOptioned(string $type): bool
     {
         return in_array($type, self::optioned(), true);
@@ -406,6 +421,15 @@ final class FieldType
                 break;
 
             case self::IMAGE:
+                if (self::isMultiImage($type, $options)) {
+                    $rules[] = 'array';
+                    if ($required) {
+                        $rules[] = 'min:1';
+                    }
+                    $rules[] = 'max:'.(int) ($options['max_files'] ?? 5);
+                    break;
+                }
+                // no break
             case self::FILE:
                 // Files are handled separately as uploads; the presence rule
                 // still applies. The type allowlist is enforced server-side
@@ -525,10 +549,15 @@ final class FieldType
             case self::WORKPLAN_EVENTS:
                 return ['*' => ['integer', 'exists:event_plans,event_plan_id']];
 
+            case self::IMAGE:
+                if (! self::isMultiImage($type, $options)) {
+                    return [];
+                }
+                // no break
             case self::MULTI_IMAGE:
                 return ['*' => [
                     'file',
-                    'mimes:'.implode(',', self::allowedUploadExtensions(self::IMAGE)),
+                    'mimes:'.implode(',', self::effectiveUploadExtensions(self::IMAGE, $options)),
                     'max:'.(int) ($options['max_kb'] ?? 5120),
                 ]];
 

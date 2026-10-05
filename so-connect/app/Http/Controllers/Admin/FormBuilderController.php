@@ -375,6 +375,7 @@ class FormBuilderController extends Controller
             'fields.*.field_options.max' => ['nullable', 'numeric'],
             'fields.*.field_options.step' => ['nullable', 'numeric'],
             'fields.*.field_options.accept' => ['nullable', 'string', 'max:255'],
+            'fields.*.field_options.multiple' => ['nullable', 'boolean'],
             // Date/time autofill-with-now toggle.
             'fields.*.field_options.autofill_now' => ['nullable', 'boolean'],
             // Same-row date-derived number calculations (e.g. birthday -> age).
@@ -453,6 +454,7 @@ class FormBuilderController extends Controller
 
         $this->enforceFieldKit($validated, $form);
 
+        $validated['fields'] = $this->normalizeImageOptions($validated['fields']);
         $validated['fields'] = $this->normalizeVisibilityConditions($validated['fields']);
         $validated['fields'] = $this->normalizeActivityTableColumns($validated['fields']);
 
@@ -631,6 +633,7 @@ class FormBuilderController extends Controller
             SystemFunction::NEW_EVENT,
             SystemFunction::NEW_WORKPLAN,
             SystemFunction::NEW_ORGANIZATION_REGISTRATION,
+            SystemFunction::AFTER_EVENT_REPORT,
         ], true);
 
         if ($excepted) {
@@ -750,6 +753,34 @@ class FormBuilderController extends Controller
             }, $columns);
 
             $fields[$i]['field_options']['columns'] = $columns;
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Keep image upload options as predictable scalars when persisted.
+     *
+     * @param  array<int,array<string,mixed>>  $fields
+     * @return array<int,array<string,mixed>>
+     */
+    private function normalizeImageOptions(array $fields): array
+    {
+        foreach ($fields as $i => $field) {
+            $type = (string) ($field['field_type'] ?? '');
+            if (! in_array($type, [FieldType::IMAGE, FieldType::MULTI_IMAGE], true)) {
+                continue;
+            }
+
+            $options = (array) ($field['field_options'] ?? []);
+            $maxFiles = (int) ($options['max_files'] ?? 5);
+            $options['max_files'] = max(1, min(10, $maxFiles));
+
+            if ($type === FieldType::IMAGE) {
+                $options['multiple'] = filter_var($options['multiple'] ?? false, FILTER_VALIDATE_BOOL);
+            }
+
+            $fields[$i]['field_options'] = $options;
         }
 
         return $fields;

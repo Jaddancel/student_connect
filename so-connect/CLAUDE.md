@@ -1,6 +1,6 @@
 # Student Connect Platform — Project Context
 
-**Last updated:** 2026-07-29
+**Last updated:** 2026-10-05
 
 This file documents the project architecture, Docker setup, and key development patterns for Claude Code sessions.
 
@@ -172,6 +172,23 @@ If OCR is unreachable, the app logs a warning and continues—ID scanning fails 
 - PDF template export/import (WYSIWYG)
 
 **Notable:** Rows are reordered by ▲▼ buttons only; fields drag within/between columns via SortableJS.
+
+**Image fields** accept multiple photos when the field's `multiple` option is on (`max_files`, default 5); see `FieldType::isMultiImage()`. Multi-image values are path arrays and print every image in DOCX templates (a plain `{{key}}` expands into one picture per image; a `{{key#}}` table row repeats per image).
+
+### After Event Report (system function `after_event_report`)
+
+- **Officer page:** `/after-event-reports` (`AfterEventReportController`, sidebar → Organization → After Event Form) lists the org's events that ended ≥ N days ago within the running semester (N = `AppSetting after_event.elapsed_days`, set on the Settings page by user type 2).
+- **Rules:** `app/Services/AfterEventReportService.php` (eligibility, semester window, filed status, New Event source submission lookup: Event → EventPlan → Request.payload.submission_id).
+- **Filing:** the bound form opens per event (`/forms/{route}?event=ID`); `AfterEventReportHandler` generates the document immediately (no approval). Events from an elapsed semester can't be filed.
+- **Tokens:** Step 2 offers `{{eventinfo.*}}` (event record) and `{{event.<new_event_field_key>}}` (original New Event answers), resolved by `app/Forms/AfterEventTokenData.php`.
+- **Notifications:** bell items (`NotificationBellHelper::afterEventReportNotifications`) until filed; `after-event:notify` (daily) emails each event's officials once (tracked in `after_event_report_notifications`).
+
+### Report Templates (`app/Reports`, user type 2)
+
+- **Pages:** `/admin/report-templates` (wizard editor: Data tokens → Printed template → Details; `report-template-builder.js`) and `/reports` (generate PDF/Word with "ask at generation" parameters). `/reports` is open to admins and officers; each template's "Available to" audience (`report_templates.audience`: `all` | `admins` | `officers`, default `admins`) decides who sees it (`ReportTemplate::isAvailableTo()`).
+- **Data:** `SchemaCatalog` introspects the live schema (FK + `config/reports.php` relations; deny-listed tables/columns are never exposed). `ReportDefinitionValidator` whitelists every identifier; `ReportQueryEngine` compiles definitions to bound Query Builder calls, batch-loading nested groups.
+- **Printing:** template slots are `templates` rows with `report_template_id`, edited in the same OnlyOffice draft editor (`shared/printed-template-draft.js`). `ReportDocxRenderer` expands `{{#group}} … {{/group}}` blocks (nested groups re-keyed per row as `group__N.child`) before the normal `{{key}}`/`{{key#}}` fill; `{{profile.*}}`/`{{system.*}}` are universal tokens.
+- **Seeded:** `ReportTemplateSeeder` recreates "Registered Organizations" and "Organization Officers" (run `artisan db:seed --class=ReportTemplateSeeder` on existing installs).
 
 ### Database & Seeding
 

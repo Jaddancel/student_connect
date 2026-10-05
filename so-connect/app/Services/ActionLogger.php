@@ -26,6 +26,8 @@ class ActionLogger
 
     public const CATEGORY_SETTINGS = 'settings';
 
+    public const CATEGORY_REPORTS = 'reports';
+
     /**
      * Human labels for the category filter dropdown/exports.
      *
@@ -40,6 +42,7 @@ class ActionLogger
             self::CATEGORY_FORM_BUILDER => 'Form Editing / Creation',
             self::CATEGORY_ID_TEMPLATE => 'ID Template Editing / Creation',
             self::CATEGORY_SETTINGS => 'Settings',
+            self::CATEGORY_REPORTS => 'Report Templates / Generation',
         ];
     }
 

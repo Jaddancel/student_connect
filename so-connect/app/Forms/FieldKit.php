@@ -101,6 +101,14 @@ final class FieldKit
                 'required' => [],
             ],
 
+            // The event is bound through the page context (?event=), not a
+            // field, so this kit requires no keys.
+            SystemFunction::AFTER_EVENT_REPORT => [
+                'label' => 'After Event Report fields',
+                'types' => [FieldType::COMPUTED, FieldType::TABLE_INPUT, FieldType::MULTI_IMAGE],
+                'required' => [],
+            ],
+
             // ---- Re-created legacy form kits ----
             'project_request' => [
                 'label' => 'Project Request fields',
