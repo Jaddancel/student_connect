@@ -168,6 +168,55 @@ it('caps rows in preview mode and enforces required parameters', function () {
     expect(fn () => $engine->run($required))->toThrow(ValidationException::class);
 });
 
+it('computes arithmetic over sibling value tokens, per row and at the top level', function () {
+    [$alpha, $beta] = rtFixture();
+    $definition = ['tokens' => [
+        ['kind' => 'value', 'name' => 'total_orgs', 'mode' => 'aggregate', 'from' => 'organizations', 'fn' => 'count'],
+        ['kind' => 'value', 'name' => 'doubled', 'mode' => 'compute', 'expression' => 'total_orgs * 2 + 0.5'],
+        ['kind' => 'group', 'name' => 'orgs', 'entity' => 'organizations', 'order' => [['column' => 'organization_id']], 'children' => [
+            ['kind' => 'value', 'name' => 'officer_count', 'mode' => 'aggregate', 'fn' => 'count', 'relation' => 'organization_officers',
+                'where' => [['column' => 'role', 'op' => 'in', 'value' => ['officer', 'president']]]],
+            // Declared before the token it reads: dependency order still applies.
+            ['kind' => 'value', 'name' => 'plus_one', 'mode' => 'compute', 'expression' => 'score + 1'],
+            ['kind' => 'value', 'name' => 'score', 'mode' => 'compute', 'expression' => '(officer_count + 3) * -2 % 5',
+                'format' => ['type' => 'number', 'pattern' => '1']],
+            ['kind' => 'value', 'name' => 'ratio', 'mode' => 'compute', 'expression' => 'officer_count / (officer_count - officer_count)',
+                'format' => ['fallback' => 'n/a']],
+        ]],
+    ]];
+
+    $data = app(ReportQueryEngine::class)->run($definition)['data'];
+
+    expect($data['doubled'])->toBe('4.5')
+        // Alpha has two officers: (2 + 3) * -2 % 5 is -0, which prints as 0.
+        ->and($data['orgs'][0])->toMatchArray(['officer_count' => '2', 'score' => '0.0', 'plus_one' => '1', 'ratio' => 'n/a'])
+        ->and($data['orgs'][1])->toMatchArray(['officer_count' => '1', 'score' => '-3.0', 'plus_one' => '-2']);
+});
+
+it('rejects invalid compute formulas', function (string $expression, string $message) {
+    $definition = ['tokens' => [
+        ['kind' => 'value', 'name' => 'a', 'mode' => 'aggregate', 'from' => 'organizations', 'fn' => 'count'],
+        ['kind' => 'value', 'name' => 'b', 'mode' => 'compute', 'expression' => $expression],
+        ['kind' => 'value', 'name' => 'c', 'mode' => 'compute', 'expression' => 'b + 1'],
+    ]];
+
+    try {
+        app(ReportDefinitionValidator::class)->validate($definition);
+        $this->fail('Expected a validation error.');
+    } catch (ValidationException $e) {
+        expect(implode(' ', $e->errors()['definition']))->toContain($message);
+    }
+})->with([
+    'empty' => ['', 'enter a formula'],
+    'unknown token' => ['a + nope', '"nope" is not a value token'],
+    'self reference' => ['b + 1', 'its own value'],
+    'loop' => ['c', 'in a loop'],
+    'bad character' => ['a ^ 2', 'unexpected "^"'],
+    'unclosed' => ['(a + 1', 'not closed'],
+    'dangling operator' => ['a +', 'ends unexpectedly'],
+    'function call' => ['sqrt(a)', 'unexpected "("'],
+]);
+
 // ── Renderer ─────────────────────────────────────────────────────────────
 
 it('expands nested blocks and table rows into the document', function () {

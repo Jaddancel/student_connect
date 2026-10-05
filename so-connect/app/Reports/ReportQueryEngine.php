@@ -49,11 +49,15 @@ final class ReportQueryEngine
         $this->params = $this->resolveParameters($definition['parameters'], $parameterValues, $preview);
 
         $data = [];
+        $raws = [];
         foreach ($definition['tokens'] as $token) {
-            $data[$token['name']] = $token['kind'] === 'group'
-                ? $this->topGroup($token)
-                : $this->topValue($token);
+            if ($token['kind'] === 'group') {
+                $data[$token['name']] = $this->topGroup($token);
+            } elseif ($token['mode'] !== 'compute') {
+                [$data[$token['name']], $raws[$token['name']]] = $this->topValue($token);
+            }
         }
+        $data += $this->computeTokens($definition['tokens'], $raws);
 
         return ['data' => $data, 'params' => $this->params, 'truncated' => $this->truncated];
     }
@@ -103,7 +107,8 @@ final class ReportQueryEngine
         return $this->buildItems($table, $rows, $token['children']);
     }
 
-    private function topValue(array $token): string
+    /** @return array{0: string, 1: mixed} the formatted text and the raw value */
+    private function topValue(array $token): array
     {
         $table = $token['from'];
 
@@ -111,7 +116,9 @@ final class ReportQueryEngine
             $query = DB::table($table);
             $this->applyConditions($query, $token['where']);
 
-            return $this->format($this->aggregate($query, $token['fn'], $token['column']), null, $token['column'], $token['format'], true);
+            $raw = $this->aggregate($query, $token['fn'], $token['column']);
+
+            return [$this->format($raw, null, $token['column'], $token['format'], true), $raw];
         }
 
         $primary = $this->catalog->primaryKey($table);
@@ -124,17 +131,17 @@ final class ReportQueryEngine
             }
             $raw = $query->value($token['path'][0]);
 
-            return $this->format($raw, $table, $token['path'][0], $token['format']);
+            return [$this->format($raw, $table, $token['path'][0], $token['format']), $raw];
         }
 
         $key = $query->orderBy($primary)->value($primary);
         if ($key === null) {
-            return $this->format(null, null, null, $token['format']);
+            return [$this->format(null, null, null, $token['format']), null];
         }
         [$finalTable, $finalColumn] = $this->pathTarget($table, $token['path']);
         $raw = $this->resolvePath($table, [$key], $token['path'])[(string) $key] ?? null;
 
-        return $this->format($raw, $finalTable, $finalColumn, $token['format']);
+        return [$this->format($raw, $finalTable, $finalColumn, $token['format']), $raw];
     }
 
     // ── Groups ─────────────────────────────────────────────────────────────
@@ -151,6 +158,8 @@ final class ReportQueryEngine
         $primary = (string) $this->catalog->primaryKey($table);
         $keys = $rows->pluck($primary)->map(fn ($k) => (string) $k)->all();
         $items = array_fill(0, $rows->count(), []);
+        // Raw (unformatted) value tokens per row, for compute tokens to read.
+        $raws = array_fill(0, $rows->count(), []);
 
         foreach ($children as $child) {
             if ($child['kind'] === 'group') {
@@ -162,6 +171,10 @@ final class ReportQueryEngine
                 continue;
             }
 
+            if ($child['mode'] === 'compute') {
+                continue;
+            }
+
             if ($child['mode'] === 'aggregate') {
                 $relation = $this->catalog->relation($table, $child['relation']);
                 $parentValues = $rows->pluck($relation['local'])->filter(fn ($v) => $v !== null)->unique()->values()->all();
@@ -169,6 +182,7 @@ final class ReportQueryEngine
                 foreach ($rows->values() as $i => $row) {
                     $raw = $map[(string) ($row->{$relation['local']} ?? '')] ?? ($child['fn'] === 'count' ? 0 : null);
                     $items[$i][$child['name']] = $this->format($raw, null, $child['column'], $child['format'], true);
+                    $raws[$i][$child['name']] = $raw;
                 }
 
                 continue;
@@ -178,7 +192,12 @@ final class ReportQueryEngine
             $values = $this->resolvePath($table, $keys, $child['path']);
             foreach ($keys as $i => $key) {
                 $items[$i][$child['name']] = $this->format($values[$key] ?? null, $finalTable, $finalColumn, $child['format']);
+                $raws[$i][$child['name']] = $values[$key] ?? null;
             }
+        }
+
+        foreach ($items as $i => $item) {
+            $items[$i] += $this->computeTokens($children, $raws[$i]);
         }
 
         return $items;
@@ -509,6 +528,72 @@ final class ReportQueryEngine
         }
 
         return $text !== '' ? $text : (string) ($format['fallback'] ?? '');
+    }
+
+    // ── Compute tokens ─────────────────────────────────────────────────────
+
+    /** @var array<string, array<int, mixed>> */
+    private array $expressions = [];
+
+    /**
+     * Evaluate the compute tokens among $children against the raw values of
+     * their sibling value tokens. Computes may read other computes, so they run
+     * in dependency order (the validator guarantees there is no loop).
+     *
+     * @param  array<int, array<string, mixed>>  $children
+     * @param  array<string, mixed>  $raws  sibling value token name => raw value
+     * @return array<string, string> compute token name => formatted text
+     */
+    private function computeTokens(array $children, array $raws): array
+    {
+        $pending = [];
+        foreach ($children as $child) {
+            if ($child['kind'] === 'value' && $child['mode'] === 'compute') {
+                $this->expressions[$child['expression']] ??= ReportExpression::parse($child['expression']);
+                $pending[$child['name']] = $child;
+            }
+        }
+        if ($pending === []) {
+            return [];
+        }
+
+        // Null reads as 0; anything else non-numeric leaves the result blank.
+        $numbers = [];
+        foreach ($raws as $name => $raw) {
+            if ($raw === null) {
+                $numbers[$name] = 0.0;
+            } elseif (is_bool($raw) || is_numeric($raw)) {
+                $numbers[$name] = (float) $raw;
+            }
+        }
+
+        $out = [];
+        while ($pending !== []) {
+            $progressed = false;
+            foreach ($pending as $name => $child) {
+                $ast = $this->expressions[$child['expression']];
+                if (array_intersect(ReportExpression::references($ast), array_keys($pending)) !== []) {
+                    continue;
+                }
+
+                $result = ReportExpression::evaluate($ast, $numbers);
+                $text = null;
+                if ($result !== null && is_finite($result)) {
+                    $result = round($result, 10);
+                    $text = rtrim(rtrim(sprintf('%.10F', $result), '0'), '.');
+                    $text = $text === '-0' ? '0' : $text;
+                    $numbers[$name] = $result;
+                }
+                $out[$name] = $this->format($text, null, null, $child['format'], true);
+                unset($pending[$name]);
+                $progressed = true;
+            }
+            if (! $progressed) {
+                break;
+            }
+        }
+
+        return $out;
     }
 
     // ── Caps ───────────────────────────────────────────────────────────────

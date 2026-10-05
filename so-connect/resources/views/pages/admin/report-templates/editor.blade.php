@@ -76,7 +76,7 @@
                                     selectedId === entry.token.id ? 'ring-2 ring-brand-400' : ''
                                 ]">
                                 <span class="flex-none font-mono text-[10px] font-semibold uppercase text-gray-500"
-                                    x-text="entry.token.kind === 'group' ? 'Group' : (entry.token.mode === 'aggregate' ? entry.token.fn : 'Value')"></span>
+                                    x-text="entry.token.kind === 'group' ? 'Group' : (entry.token.mode === 'aggregate' ? entry.token.fn : (entry.token.mode === 'compute' ? 'Compute' : 'Value'))"></span>
                                 <span class="min-w-0 flex-1 truncate font-mono text-sm text-gray-800 dark:text-white/90" x-text="entry.token.name || '(unnamed)'"></span>
                                 <span x-show="entry.token.kind === 'group'" class="flex-none text-[10px] text-gray-400" x-text="(entry.token.children || []).length + ' items'"></span>
                             </button>
@@ -194,7 +194,16 @@
                                 <select x-model="t.mode" class="{{ $pill }}">
                                     <option value="field">value</option>
                                     <option value="aggregate">aggregate</option>
+                                    <option value="compute">compute</option>
                                 </select>
+
+                                {{-- Compute: arithmetic over the sibling value tokens --}}
+                                <template x-if="t.mode === 'compute'">
+                                    <span class="flex flex-wrap items-center gap-2">
+                                        <input type="text" x-model="t.expression" maxlength="200" spellcheck="false"
+                                            placeholder="e.g. total_members * 100 / capacity" class="{{ $pill }} w-72" />
+                                    </span>
+                                </template>
 
                                 {{-- Field path pills --}}
                                 <template x-if="t.mode === 'field'">
@@ -252,8 +261,8 @@
                                     </span>
                                 </template>
 
-                                <span class="{{ $kw }}">From</span>
-                                <template x-if="!parentOf(t)">
+                                <span class="{{ $kw }}" x-show="t.mode !== 'compute'">From</span>
+                                <template x-if="!parentOf(t) && t.mode !== 'compute'">
                                     <select x-model="t.from" @change="t.path = []" class="{{ $pill }}">
                                         <option value="">table…</option>
                                         <template x-for="tbl in schema.tables" :key="tbl.name">
@@ -261,15 +270,35 @@
                                         </template>
                                     </select>
                                 </template>
-                                <span x-show="parentOf(t)" class="font-mono text-xs text-gray-600 dark:text-gray-300" x-text="contextTable(t) + ' (each ' + (parentOf(t)?.name || '') + ')'"></span>
+                                <span x-show="parentOf(t) && t.mode !== 'compute'" class="font-mono text-xs text-gray-600 dark:text-gray-300" x-text="contextTable(t) + ' (each ' + (parentOf(t)?.name || '') + ')'"></span>
 
                                 <span class="{{ $kw }}">As</span>
                                 <input type="text" x-model="t.name" @change="normalizeName(t)" class="{{ $pill }} w-36" />
                             </div>
 
-                            <template x-if="!parentOf(t) || t.mode === 'aggregate'">
+                            <template x-if="t.mode !== 'compute' && (!parentOf(t) || t.mode === 'aggregate')">
                                 <div>
                                     @include('pages.admin.report-templates.partials.where', ['owner' => 't'])
+                                </div>
+                            </template>
+
+                            <template x-if="t.mode === 'compute'">
+                                <div class="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                    <span>Use</span>
+                                    <template x-for="name in computeNames(t)" :key="name">
+                                        <button type="button" @click="addToExpression(t, name)"
+                                            class="rounded-md border border-gray-300 px-2 py-0.5 font-mono text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300" x-text="name"></button>
+                                    </template>
+                                    <template x-for="op in ['+', '-', '*', '/', '%', '(', ')']" :key="op">
+                                        <button type="button" @click="addToExpression(t, op)"
+                                            class="w-7 rounded-md border border-gray-300 py-0.5 font-mono text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300" x-text="op"></button>
+                                    </template>
+                                    <span x-show="!computeNames(t).length" class="text-gray-400">
+                                        Add other value tokens beside this one to calculate with them.
+                                    </span>
+                                    <span class="basis-full text-gray-400">
+                                        Numbers, the names above, <span class="font-mono">+ - * / %</span> and parentheses. Blank values count as 0; dividing by 0 prints the Else text.
+                                    </span>
                                 </div>
                             </template>
 

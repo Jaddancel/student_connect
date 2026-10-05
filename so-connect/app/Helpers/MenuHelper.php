@@ -118,7 +118,6 @@ class MenuHelper
                     ['icon' => 'charts', 'name' => 'Audit Logs',      'path' => '/admin/audit-logs'],
                     ['icon' => 'task',   'name' => 'Request Records', 'path' => '/admin/request-records'],
                     ['icon' => 'tables', 'name' => 'Database View',   'path' => '/admin/database-view'],
-                    ['icon' => 'task',   'name' => 'Waiver Review',   'path' => '/admin/waiver-review'],
                     ['icon' => 'pages',  'name' => 'Reports',         'path' => '/reports'],
                 ],
             ];

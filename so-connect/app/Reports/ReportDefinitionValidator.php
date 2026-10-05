@@ -21,6 +21,9 @@ use Illuminate\Validation\ValidationException;
  *                  fn, relation?, column?   (aggregate mode: fn over the context's has_many `relation`
  *                                            — or, at top level, over `from` itself — of `column`),
  *                  where: [cond…], format: { type, pattern?, fallback? } }
+ *   compute token (a value token with mode 'compute')
+ *                { id, kind: 'value', name, mode: 'compute', expression, format }
+ *                  expression: arithmetic over sibling value tokens' names (see {@see ReportExpression})
  *   cond         { column, op, value? | param? }
  *
  * A group's children read from the group's table ("the entity selected by the
@@ -159,7 +162,73 @@ final class ReportDefinitionValidator
                 : $this->value($token, $name, $context, $label);
         }
 
+        $this->computeReferences($out, $trail);
+
         return $out;
+    }
+
+    /**
+     * A compute token may read only the other value tokens beside it, and the
+     * chain of computes must not loop back on itself.
+     *
+     * @param  array<int, array<string, mixed>>  $tokens
+     * @param  array<int, string>  $trail
+     */
+    private function computeReferences(array &$tokens, array $trail): void
+    {
+        $values = [];
+        foreach ($tokens as $token) {
+            if ($token['kind'] === 'value') {
+                $values[$token['name']] = $token;
+            }
+        }
+
+        $graph = [];
+        foreach ($tokens as $i => $token) {
+            if ($token['kind'] !== 'value' || $token['mode'] !== 'compute') {
+                continue;
+            }
+            $label = 'Token "'.implode(' › ', array_merge($trail, [$token['name']])).'"';
+            $graph[$token['name']] = [];
+
+            try {
+                $refs = ReportExpression::references(ReportExpression::parse($token['expression']));
+            } catch (\InvalidArgumentException $e) {
+                $this->errors[] = $label.': '.$e->getMessage();
+
+                continue;
+            }
+
+            foreach ($refs as $ref) {
+                if ($ref === $token['name']) {
+                    $this->errors[] = $label.': a formula cannot use its own value.';
+                } elseif (! isset($values[$ref])) {
+                    $this->errors[] = $label.': "'.$ref.'" is not a value token in this '.($trail === [] ? 'list' : 'group').'.';
+                } else {
+                    $graph[$token['name']][] = $ref;
+                }
+            }
+        }
+
+        $state = [];
+        $visit = function (string $name) use (&$visit, &$state, $graph, $trail): void {
+            if (($state[$name] ?? 0) === 2) {
+                return;
+            }
+            if (($state[$name] ?? 0) === 1) {
+                $this->errors[] = 'Token "'.implode(' › ', array_merge($trail, [$name])).'": formulas refer to each other in a loop.';
+
+                return;
+            }
+            $state[$name] = 1;
+            foreach ($graph[$name] ?? [] as $dependency) {
+                $visit($dependency);
+            }
+            $state[$name] = 2;
+        };
+        foreach (array_keys($graph) as $name) {
+            $visit($name);
+        }
     }
 
     /**
@@ -225,9 +294,15 @@ final class ReportDefinitionValidator
             'id' => (string) ($token['id'] ?? ''),
             'kind' => 'value',
             'name' => $name,
-            'mode' => in_array($mode, ['field', 'aggregate'], true) ? $mode : 'field',
+            'mode' => in_array($mode, ['field', 'aggregate', 'compute'], true) ? $mode : 'field',
             'format' => $this->format((array) ($token['format'] ?? []), $label),
         ];
+
+        if ($normalized['mode'] === 'compute') {
+            $normalized['expression'] = trim((string) ($token['expression'] ?? ''));
+
+            return $normalized;
+        }
 
         $table = $context;
         if ($context === null) {

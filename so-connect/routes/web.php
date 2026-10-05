@@ -873,11 +873,6 @@ Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
         ->name('admin.waiver-templates.destroy');
 });
 
-// Type-2 review of scanned-waiver submissions.
-Route::get('/admin/waiver-review', [\App\Http\Controllers\Admin\WaiverReviewController::class, 'index'])
-    ->middleware(['auth', 'admin'])
-    ->name('admin.waiver-review.index');
-
 // form pages
 Route::get('/form-elements', function () {
     return view('pages.form.form-elements', ['title' => 'Form Elements']);

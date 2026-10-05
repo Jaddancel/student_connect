@@ -99,7 +99,11 @@ final class ReportPalette
                 'insert_key' => $path.'.'.$child['name'],
                 'label' => Str::headline((string) $child['name']),
                 'icon' => self::icon($child),
-                'type_label' => ($child['mode'] ?? 'field') === 'aggregate' ? strtoupper((string) ($child['fn'] ?? 'count')) : 'Value',
+                'type_label' => match ($child['mode'] ?? 'field') {
+                    'aggregate' => strtoupper((string) ($child['fn'] ?? 'count')),
+                    'compute' => 'Computed',
+                    default => 'Value',
+                },
             ], $values),
         ];
 
@@ -112,7 +116,7 @@ final class ReportPalette
 
     private static function icon(array $token): string
     {
-        if (($token['mode'] ?? 'field') === 'aggregate') {
+        if (in_array($token['mode'] ?? 'field', ['aggregate', 'compute'], true)) {
             return 'number';
         }
 

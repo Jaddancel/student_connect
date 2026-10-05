@@ -143,7 +143,7 @@ export function reportTemplateBuilder(config) {
             const target = this.insertionTarget();
             const token = {
                 id: uid(), kind: "value", name: this.uniqueName("value", target),
-                mode: "field", from: "", path: [], fn: "count", relation: "", column: "",
+                mode: "field", from: "", path: [], fn: "count", relation: "", column: "", expression: "",
                 where: [], format: { type: "text", pattern: "", fallback: "" },
             };
             target.push(token);
@@ -206,6 +206,18 @@ export function reportTemplateBuilder(config) {
                 .replace(/[^a-z0-9_]+/g, "_")
                 .replace(/_+/g, "_")
                 .replace(/^[^a-z]+/, "");
+        },
+
+        // ── compute tokens ───────────────────────────────────────────────
+        /** Sibling value tokens a formula can read (never itself). */
+        computeNames(token) {
+            return this.siblingsOf(token)
+                .filter((t) => t.kind === "value" && t !== token && t.name)
+                .map((t) => t.name);
+        },
+        addToExpression(token, text) {
+            const current = token.expression || "";
+            token.expression = current && !/[\s(]$/.test(current) ? `${current} ${text}` : `${current}${text}`;
         },
 
         // ── value paths (pills) ──────────────────────────────────────────
@@ -428,7 +440,7 @@ function normalizeDefinition(raw) {
             return {
                 id: t.id || uid(), kind: "value", name: t.name || "", mode: t.mode || "field",
                 from: t.from || "", path: t.path || [], fn: t.fn || "count", relation: t.relation || "",
-                column: t.column || "", where: (t.where || []).map(fixCond),
+                column: t.column || "", expression: t.expression || "", where: (t.where || []).map(fixCond),
                 format: { type: "text", pattern: "", fallback: "", ...(t.format || {}) },
             };
         });

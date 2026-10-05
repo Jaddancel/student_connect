@@ -68,9 +68,9 @@ against an event's expected participant/date details.
 - A participant scans their signed waiver on the relevant form; the scanner
   extracts the zone text and checks name/date/signature/stamp against what
   was expected — advisory only, it never blocks submission.
-- Admin sidebar → **Waiver Review** lists submitted waiver scans with their
-  verdict (valid / needs review / unvalidated) for a human to make the final
-  call.
+- Submitted waiver scans, with their verdict (valid / needs review /
+  unvalidated), are reviewed from the activity request review view, where a
+  human makes the final call.
 
 ## ID template zones (SuperAdmin only)
 
