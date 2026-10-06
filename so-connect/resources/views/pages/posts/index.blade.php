@@ -27,6 +27,8 @@
         $oldBody       = old('body', '');
         $oldTag        = old('tag', '');
         $oldFeatured   = old('is_featured') ? 'true' : 'false';
+        $oldImages     = array_values(array_filter((array) old('keep_images', []), 'is_string'));
+        $libraryTitles = $accomplishmentMedia->pluck('activity_title', 'file_path');
     @endphp
     <div x-data="{
         view: 'cards',
@@ -40,15 +42,15 @@
         fBody: {{ Js::from($oldBody) }},
         fTag: {{ Js::from($oldTag) }},
         fFeatured: {{ $oldFeatured }},
-        fHasImage: false,
         fHasVideo: false,
-        fImageCount: 0,
+        /* ordered image set: kept/library/gallery paths, then new uploads */
+        fImages: {{ Js::from($oldImages) }},
         uploadCount: 0,
+        maxImages: 20,
+        libraryTitles: {{ Js::from($libraryTitles) }},
         /* media picker state */
         pickerOpen: false,
         pickerSearch: '',
-        selectedLibraryPath: '',
-        selectedLibraryTitle: '',
         /* form media gallery (expands the editor modal) */
         galleryOpen: false,
         gallerySearch: '',
@@ -64,10 +66,14 @@
             });
         },
 
+        get imageTotal() {
+            return this.fImages.length + this.uploadCount;
+        },
+
         openCreate() {
             this.$refs.postForm.reset();
             this.uploadCount = 0;
-            this.fImageCount = 0;
+            this.fImages = [];
             this.editMode = false;
             this.editPostId = '';
             this.editFormAction = '{{ route('posts.store') }}';
@@ -77,11 +83,8 @@
             this.fBody = '';
             this.fTag = '';
             this.fFeatured = false;
-            this.fHasImage = false;
             this.fHasVideo = false;
             this.pickerOpen = false;
-            this.selectedLibraryPath = '';
-            this.selectedLibraryTitle = '';
             this.galleryOpen = false;
             this.gallerySearch = '';
             this.galleryOrgOnly = true;
@@ -91,7 +94,7 @@
         openEdit(post) {
             this.$refs.postForm.reset();
             this.uploadCount = 0;
-            this.fImageCount = post.image_count;
+            this.fImages = [...post.images];
             this.editMode = true;
             this.editPostId = post.post_id;
             this.editFormAction = '/posts/' + post.post_id;
@@ -101,12 +104,8 @@
             this.fBody = post.body || '';
             this.fTag = post.tag || '';
             this.fFeatured = post.is_featured;
-            this.fHasImage = !!post.image_path;
             this.fHasVideo = !!post.video_path;
             this.pickerOpen = false;
-            this.selectedLibraryPath = post.image_from_library || '';
-            const galleryMatch = this.galleryItems.find((item) => item.path === this.selectedLibraryPath);
-            this.selectedLibraryTitle = galleryMatch ? this.galleryItemTitle(galleryMatch) : '';
             this.galleryOpen = false;
             this.gallerySearch = '';
             this.galleryOrgOnly = true;
@@ -115,29 +114,43 @@
     
         closeModal() { this.modalOpen = false; },
     
-        pickLibraryImage(path, title) {
-            this.$refs.postImages.value = '';
-            this.uploadCount = 0;
-            this.selectedLibraryPath = path;
-            this.selectedLibraryTitle = title;
-            this.pickerOpen = false;
+        imagePosition(path) {
+            return this.fImages.indexOf(path) + 1;
         },
 
-        pickGalleryImage(item) {
-            this.pickLibraryImage(item.path, this.galleryItemTitle(item));
+        toggleImage(path) {
+            const at = this.fImages.indexOf(path);
+            if (at >= 0) {
+                this.fImages.splice(at, 1);
+            } else if (this.imageTotal < this.maxImages) {
+                this.fImages.push(path);
+            }
+        },
+
+        removeImage(index) {
+            this.fImages.splice(index, 1);
+        },
+
+        moveImage(index, direction) {
+            const target = index + direction;
+            if (target < 0 || target >= this.fImages.length) return;
+            [this.fImages[index], this.fImages[target]] = [this.fImages[target], this.fImages[index]];
         },
 
         galleryItemTitle(item) {
             return item.event + ' · ' + item.organization;
         },
 
-        librarySourceLabel() {
-            return this.selectedLibraryPath.startsWith('form-uploads/') ? 'From After Event gallery' : 'From library';
+        imageSource(path) {
+            if (path.startsWith('form-uploads/')) return 'After Event gallery';
+            if (path.startsWith('posts/media/accomplishment/')) return 'Accomplishment library';
+            return 'Current upload';
         },
-    
-        clearLibrarySelection() {
-            this.selectedLibraryPath = '';
-            this.selectedLibraryTitle = '';
+
+        imageTitle(path) {
+            const galleryMatch = this.galleryItems.find((item) => item.path === path);
+            if (galleryMatch) return this.galleryItemTitle(galleryMatch);
+            return this.libraryTitles[path] || path.split('/').pop();
         },
     }"
         @keydown.escape.window="modalOpen ? (galleryOpen ? (galleryOpen = false) : closeModal()) : (pickerOpen ? (pickerOpen = false) : null)"
@@ -266,9 +279,8 @@
                                 'tag' => $post->tag,
                                 'is_featured' => (bool) $post->is_featured,
                                 'image_path' => $post->image_path,
-                                'image_count' => count($post->imagePaths()),
+                                'images' => $post->imagePaths(),
                                 'video_path' => $post->video_path,
-                                'image_from_library' => \App\Models\Post::isSharedMediaPath($post->image_path) ? $post->image_path : '',
                             ];
                         @endphp
 
@@ -299,7 +311,9 @@
                                                         <circle cx="8.5" cy="8.5" r="1.5" />
                                                         <polyline points="21 15 16 10 5 21" />
                                                     </svg>
-                                                    @if (str_starts_with($post->image_path, 'posts/media/accomplishment/'))
+                                                    @if (count($post->imagePaths()) > 1)
+                                                        {{ count($post->imagePaths()) }} images
+                                                    @elseif (str_starts_with($post->image_path, 'posts/media/accomplishment/'))
                                                         Image (from accomplishment library)
                                                     @elseif (str_starts_with($post->image_path, 'form-uploads/'))
                                                         Image (from After Event gallery)
@@ -411,9 +425,8 @@
                                         'status' => $status,
                                         'is_featured' => (bool) $post->is_featured,
                                         'image_path' => $post->image_path,
-                                        'image_count' => count($post->imagePaths()),
+                                        'images' => $post->imagePaths(),
                                         'video_path' => $post->video_path,
-                                        'image_from_library' => \App\Models\Post::isSharedMediaPath($post->image_path) ? $post->image_path : '',
                                     ];
                                 @endphp
                                 <tr class="transition hover:bg-gray-50 dark:hover:bg-white/[0.02]">
@@ -615,22 +628,44 @@
                                 </button>
                             </div>
 
-                            {{-- Library selection display --}}
-                            <div x-show="selectedLibraryPath" x-cloak
-                                class="flex items-center gap-2.5 rounded-lg border border-palette-lime/40 bg-palette-lime-pale/50 px-3 py-2 dark:border-palette-lime/20 dark:bg-palette-lime/5">
-                                <img :src="'/storage/' + selectedLibraryPath"
-                                    class="h-10 w-14 shrink-0 rounded object-cover border border-gray-200" alt="">
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-xs font-semibold text-gray-700 dark:text-gray-300" x-text="librarySourceLabel()">From library</p>
-                                    <p class="truncate text-xs text-gray-500" x-text="selectedLibraryTitle"></p>
-                                </div>
-                                <button type="button" @click="clearLibrarySelection()"
-                                    class="shrink-0 text-xs text-error-500 hover:underline">Remove</button>
-                                <input type="hidden" name="image_from_library" :value="selectedLibraryPath">
-                            </div>
+                            {{-- Selected image set (order = display order; first is the cover) --}}
+                            <input type="hidden" name="image_set" value="1">
+                            <template x-for="path in fImages" :key="'keep-' + path">
+                                <input type="hidden" name="keep_images[]" :value="path">
+                            </template>
+                            <ol x-show="fImages.length" x-cloak class="space-y-1.5" aria-label="Selected images">
+                                <template x-for="(path, index) in fImages" :key="path">
+                                    <li
+                                        class="flex items-center gap-2.5 rounded-lg border border-palette-lime/40 bg-palette-lime-pale/50 px-2.5 py-1.5 dark:border-palette-lime/20 dark:bg-palette-lime/5">
+                                        <span class="w-4 shrink-0 text-center text-xs font-semibold text-gray-500"
+                                            x-text="index + 1"></span>
+                                        <img :src="'/storage/' + path" alt=""
+                                            class="h-10 w-14 shrink-0 rounded border border-gray-200 object-cover">
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                                                <span x-text="imageSource(path)"></span>
+                                                <span x-show="index === 0" class="ml-1 font-normal text-gray-500">· Cover</span>
+                                            </p>
+                                            <p class="truncate text-xs text-gray-500" x-text="imageTitle(path)"></p>
+                                        </div>
+                                        <button type="button" @click="moveImage(index, -1)" :disabled="index === 0"
+                                            :aria-label="'Move image ' + (index + 1) + ' up'"
+                                            class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 dark:hover:bg-gray-800">
+                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M18 15l-6-6-6 6" /></svg>
+                                        </button>
+                                        <button type="button" @click="moveImage(index, 1)" :disabled="index === fImages.length - 1"
+                                            :aria-label="'Move image ' + (index + 1) + ' down'"
+                                            class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 dark:hover:bg-gray-800">
+                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6" /></svg>
+                                        </button>
+                                        <button type="button" @click="removeImage(index)"
+                                            class="shrink-0 text-xs text-error-500 hover:underline">Remove</button>
+                                    </li>
+                                </template>
+                            </ol>
 
                             {{-- Upload + Library picker button side by side --}}
-                            <div x-show="!selectedLibraryPath" class="flex gap-2">
+                            <div class="flex gap-2">
                                 <label
                                     class="flex flex-1 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs transition hover:border-palette-lime hover:bg-palette-lime-pale/20 dark:border-gray-700">
                                     <svg class="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24"
@@ -640,7 +675,7 @@
                                         <polyline points="21 15 16 10 5 21" />
                                     </svg>
                                     <span class="text-gray-500 dark:text-gray-400"
-                                        x-text="uploadCount ? uploadCount + ' images selected' : (fHasImage ? 'Replace images (' + fImageCount + ')' : 'Upload images')"></span>
+                                        x-text="uploadCount ? uploadCount + ' new image' + (uploadCount === 1 ? '' : 's') + ' to add' : 'Upload images'"></span>
                                     <input type="file" name="images[]" multiple x-ref="postImages"
                                         accept="image/jpeg,image/png,image/jpg,image/webp" class="sr-only"
                                         @change="uploadCount = $event.target.files.length" />
@@ -659,7 +694,9 @@
                                     </button>
                                 @endif
                             </div>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">Select up to 20 images (4 MB each). New uploads or a different library image replace the current image set. Leave unchanged to keep existing images. A video replaces all images.</p>
+                            <p class="text-xs"
+                                :class="imageTotal > maxImages ? 'font-semibold text-error-600 dark:text-error-400' : 'text-gray-500 dark:text-gray-400'"
+                                x-text="imageTotal + ' / ' + maxImages + ' images' + (imageTotal > maxImages ? ' — remove some before saving.' : '. Pick several from the Event gallery or Library, and/or upload JPEG, PNG or WebP files (4 MB each). Uploads are added after the picked images. A video replaces all images.')"></p>
                         </div>
 
                         {{-- Video upload --}}
@@ -734,10 +771,11 @@
 
                         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
                             <template x-for="item in filteredGallery" :key="item.path">
-                                <button type="button" @click="pickGalleryImage(item)"
-                                    :aria-pressed="(selectedLibraryPath === item.path).toString()"
-                                    class="group relative overflow-hidden rounded-xl border-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-palette-lime"
-                                    :class="selectedLibraryPath === item.path ?
+                                <button type="button" @click="toggleImage(item.path)"
+                                    :disabled="!imagePosition(item.path) && imageTotal >= maxImages"
+                                    :aria-pressed="(imagePosition(item.path) > 0).toString()"
+                                    class="group relative overflow-hidden rounded-xl border-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-palette-lime disabled:cursor-not-allowed disabled:opacity-40"
+                                    :class="imagePosition(item.path) ?
                                         'border-palette-lime ring-2 ring-palette-lime/30' :
                                         'border-transparent hover:border-gray-300 dark:hover:border-gray-600'">
                                     <img :src="item.url" :alt="item.field + ' — ' + item.event" loading="lazy"
@@ -748,12 +786,9 @@
                                             'bg-success-50 text-success-700 dark:bg-success-500/20 dark:text-success-300' :
                                             'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'"
                                         x-text="item.status === 'approved' ? 'Approved' : 'Submitted'"></span>
-                                    <div x-show="selectedLibraryPath === item.path"
-                                        class="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-palette-lime text-gray-900">
-                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                            stroke-width="3">
-                                            <path d="M5 13l4 4L19 7" />
-                                        </svg>
+                                    <div x-show="imagePosition(item.path)"
+                                        class="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-palette-lime text-xs font-bold text-gray-900"
+                                        x-text="imagePosition(item.path)">
                                     </div>
                                     <div
                                         class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-gray-900/85 to-transparent px-2 pb-1.5 pt-6">
@@ -808,7 +843,7 @@
                         class="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
                         <div>
                             <h3 class="font-bold text-gray-800 dark:text-white/90">Accomplishment Library</h3>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">Select a photo from submitted
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Select one or more photos from submitted
                                 accomplishment reports</p>
                         </div>
                         <button type="button" @click="pickerOpen = false"
@@ -845,9 +880,11 @@
                                 @endphp
                                 <button type="button"
                                     x-show="pickerSearch === '' || '{{ strtolower($media->activity_title) }}'.includes(pickerSearch.toLowerCase()) || '{{ strtolower($mediaOrgName) }}'.includes(pickerSearch.toLowerCase())"
-                                    @click="pickLibraryImage('{{ $media->file_path }}', '{{ addslashes($media->activity_title) }}')"
-                                    class="group relative overflow-hidden rounded-xl border-2 border-transparent bg-gray-50 transition hover:border-brand-400 focus:border-brand-500 focus:outline-none dark:bg-gray-800"
-                                    :class="selectedLibraryPath === '{{ $media->file_path }}' ?
+                                    @click="toggleImage(@js($media->file_path))"
+                                    :disabled="!imagePosition(@js($media->file_path)) && imageTotal >= maxImages"
+                                    :aria-pressed="(imagePosition(@js($media->file_path)) > 0).toString()"
+                                    class="group relative overflow-hidden rounded-xl border-2 border-transparent bg-gray-50 transition hover:border-brand-400 focus:border-brand-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 dark:bg-gray-800"
+                                    :class="imagePosition(@js($media->file_path)) ?
                                         'border-brand-500 ring-2 ring-brand-400/30' : 'border-transparent'">
                                     <img src="{{ '/storage/' . $media->file_path }}" alt="{{ $media->activity_title }}"
                                         class="aspect-square w-full object-cover" loading="lazy">
@@ -858,13 +895,10 @@
                                             {{ $media->activity_title }}</p>
                                         <p class="text-left text-[0.65rem] text-gray-300">{{ $mediaOrgName }}</p>
                                     </div>
-                                    {{-- Selected checkmark --}}
-                                    <div x-show="selectedLibraryPath === '{{ $media->file_path }}'"
-                                        class="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 shadow">
-                                        <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24"
-                                            stroke="currentColor" stroke-width="3">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                        </svg>
+                                    {{-- Selection order badge --}}
+                                    <div x-show="imagePosition(@js($media->file_path))"
+                                        class="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-[10px] font-bold text-white shadow"
+                                        x-text="imagePosition(@js($media->file_path))">
                                     </div>
                                 </button>
                             @endforeach
@@ -887,9 +921,10 @@
                                 class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400">
                                 Cancel
                             </button>
-                            <button type="button" @click="pickerOpen = false" :disabled="!selectedLibraryPath"
-                                class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed">
-                                Use Selected Photo
+                            <button type="button" @click="pickerOpen = false"
+                                class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
+                                x-text="'Done (' + fImages.length + ' selected)'">
+                                Done
                             </button>
                         </div>
                     </div>

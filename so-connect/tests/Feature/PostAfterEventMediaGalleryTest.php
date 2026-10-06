@@ -243,3 +243,80 @@ it('keeps accepting accomplishment library images', function () {
         ])
         ->assertSessionHasNoErrors();
 });
+
+it('publishes several gallery and library picks followed by uploads, in order', function () {
+    $org = galleryOrganization('Gallery Org');
+    $form = galleryReportForm();
+    $first = galleryFile('form-uploads/after-event-report/first.jpg');
+    $second = galleryFile('form-uploads/after-event-report/second.jpg');
+    gallerySubmission($form, $org, ['photos' => [$first, $second]], 'approved');
+    AccomplishmentMedia::query()->create([
+        'organization_id' => $org, 'file_path' => 'posts/media/accomplishment/library.jpg',
+        'activity_title' => 'Outreach', 'submitted_at' => now(),
+    ]);
+
+    $this->actingAs(recordsUser(2))
+        ->post(route('posts.store'), [
+            'organization' => $org, 'title' => 'Multi', 'excerpt' => 'Many photos', 'image_set' => 1,
+            'keep_images' => [$second, 'posts/media/accomplishment/library.jpg', $first],
+            'images' => [UploadedFile::fake()->image('upload.jpg')],
+        ])
+        ->assertSessionHasNoErrors();
+
+    $paths = Post::query()->where('title', 'Multi')->sole()->imagePaths();
+    expect($paths)->toHaveCount(4)
+        ->and(array_slice($paths, 0, 3))->toBe([$second, 'posts/media/accomplishment/library.jpg', $first])
+        ->and($paths[3])->toStartWith('posts/images/');
+});
+
+it('reorders, removes, and adds images on edit without deleting shared files', function () {
+    $org = galleryOrganization('Gallery Org');
+    $form = galleryReportForm();
+    $shared = galleryFile('form-uploads/after-event-report/shared.jpg');
+    $added = galleryFile('form-uploads/after-event-report/added.jpg');
+    gallerySubmission($form, $org, ['photos' => [$shared, $added]], 'approved');
+    $owned = galleryFile('posts/images/owned.jpg');
+    $removed = galleryFile('posts/images/removed.jpg');
+
+    $post = Post::query()->create([
+        'organization' => $org, 'title' => 'Edit', 'excerpt' => 'Edit me',
+        'image_path' => $shared, 'image_paths' => [$shared, $owned, $removed],
+    ]);
+    $fields = ['organization' => $org, 'title' => 'Edit', 'excerpt' => 'Edit me', 'image_set' => 1];
+
+    $this->actingAs(recordsUser(2))
+        ->patch(route('posts.update', $post->post_id), $fields + ['keep_images' => [$owned, $added, $shared]])
+        ->assertSessionHasNoErrors();
+
+    expect($post->fresh()->imagePaths())->toBe([$owned, $added, $shared])
+        ->and($post->fresh()->image_path)->toBe($owned);
+    Storage::disk('public')->assertMissing($removed);
+    Storage::disk('public')->assertExists([$owned, $shared, $added]);
+
+    $this->patch(route('posts.update', $post->post_id), $fields)->assertSessionHasNoErrors();
+    expect($post->fresh()->imagePaths())->toBe([]);
+    Storage::disk('public')->assertMissing($owned);
+    Storage::disk('public')->assertExists([$shared, $added]);
+});
+
+it('rejects ineligible, duplicate, or too many picked images', function () {
+    $org = galleryOrganization('Gallery Org');
+    $form = galleryReportForm();
+    $approved = galleryFile('form-uploads/after-event-report/approved.jpg');
+    $rejected = galleryFile('form-uploads/after-event-report/rejected.jpg');
+    gallerySubmission($form, $org, ['photo' => $approved], 'approved');
+    gallerySubmission($form, $org, ['photo' => $rejected], 'rejected');
+    $fields = ['organization' => $org, 'title' => 'Bad', 'excerpt' => 'Bad picks', 'image_set' => 1];
+    $admin = recordsUser(2);
+
+    $this->actingAs($admin)->post(route('posts.store'), $fields + ['keep_images' => [$approved, $rejected]])
+        ->assertSessionHasErrors('keep_images.1');
+    $this->post(route('posts.store'), $fields + ['keep_images' => [$approved, $approved]])
+        ->assertSessionHasErrors('keep_images.0');
+    $this->post(route('posts.store'), $fields + [
+        'keep_images' => [$approved],
+        'images' => array_map(fn ($i) => UploadedFile::fake()->image("photo-$i.jpg"), range(1, 20)),
+    ])->assertSessionHasErrors('images');
+
+    expect(Post::query()->count())->toBe(0);
+});

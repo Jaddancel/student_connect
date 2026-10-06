@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class PostController extends Controller
 {
@@ -65,12 +66,9 @@ class PostController extends Controller
             'body'               => ['nullable', 'string'],
             'tag'                => ['nullable', 'string', 'max:60'],
             'is_featured'        => ['nullable', 'boolean'],
-            'image'              => ['nullable', 'file', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
-            'images'             => ['nullable', 'array', 'max:20'],
-            'images.*'           => ['required', 'file', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
-            'video'              => ['nullable', 'file', 'mimes:mp4,webm,mov,avi', 'max:102400'],
-            'image_from_library' => $this->libraryImageRules(null),
+            ...$this->mediaRules(null),
         ]);
+        $this->ensureImageLimit($request, $data);
 
         $post = new Post;
         $post->organization = $data['organization'];
@@ -100,12 +98,9 @@ class PostController extends Controller
             'body'               => ['nullable', 'string'],
             'tag'                => ['nullable', 'string', 'max:60'],
             'is_featured'        => ['nullable', 'boolean'],
-            'image'              => ['nullable', 'file', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
-            'images'             => ['nullable', 'array', 'max:20'],
-            'images.*'           => ['required', 'file', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
-            'video'              => ['nullable', 'file', 'mimes:mp4,webm,mov,avi', 'max:102400'],
-            'image_from_library' => $this->libraryImageRules($post),
+            ...$this->mediaRules($post),
         ]);
+        $this->ensureImageLimit($request, $data);
 
         $post->organization = $data['organization'];
         $post->title        = $data['title'];
@@ -142,9 +137,36 @@ class PostController extends Controller
         return redirect()->route('posts.index')->with('success', 'Post deleted.');
     }
 
+    private const MAX_IMAGES = 20;
+
+    private function mediaRules(?Post $post): array
+    {
+        return [
+            'image'              => ['nullable', 'file', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
+            'images'             => ['nullable', 'array', 'max:'.self::MAX_IMAGES],
+            'images.*'           => ['required', 'file', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
+            'video'              => ['nullable', 'file', 'mimes:mp4,webm,mov,avi', 'max:102400'],
+            'image_from_library' => $this->libraryImageRules($post),
+            'image_set'          => ['nullable', 'boolean'],
+            'keep_images'        => ['nullable', 'array', 'max:'.self::MAX_IMAGES],
+            'keep_images.*'      => ['distinct', ...$this->libraryImageRules($post)],
+        ];
+    }
+
+    private function ensureImageLimit(Request $request, array $data): void
+    {
+        $total = count($data['keep_images'] ?? []) + count($request->file('images', []));
+
+        if ($request->boolean('image_set') && $total > self::MAX_IMAGES) {
+            throw ValidationException::withMessages([
+                'images' => 'A post can have at most '.self::MAX_IMAGES.' images.',
+            ]);
+        }
+    }
+
     /**
      * A library pick must be media the editor actually offers: an
-     * accomplishment library copy, an eligible form upload, or the image the
+     * accomplishment library copy, an eligible form upload, or an image the
      * post already uses.
      */
     private function libraryImageRules(?Post $post): array
@@ -156,7 +178,7 @@ class PostController extends Controller
             function (string $attribute, mixed $value, \Closure $fail) use ($post) {
                 $path = (string) $value;
 
-                $allowed = ($post !== null && $post->image_path === $path)
+                $allowed = ($post !== null && in_array($path, $post->imagePaths(), true))
                     || AccomplishmentMedia::query()->where('file_path', $path)->exists()
                     || app(AfterEventMediaGallery::class)->allows($path);
 
@@ -183,6 +205,17 @@ class PostController extends Controller
             $post->video_path = $this->storeFile($request->file('video'), 'posts/videos');
             $post->image_path = null;
             $post->image_paths = [];
+        } elseif ($request->boolean('image_set')) {
+            $uploads = array_map(fn ($file) => $this->storeFile($file, 'posts/images'), $request->file('images', []));
+            $paths = array_values(array_unique([...($data['keep_images'] ?? []), ...$uploads]));
+
+            if ($paths !== $oldImages) {
+                $post->image_paths = $paths;
+                $post->image_path = $paths[0] ?? null;
+                if ($paths !== []) {
+                    $post->video_path = null;
+                }
+            }
         } elseif ($request->hasFile('images') || $request->hasFile('image')) {
             $files = $request->hasFile('images') ? $request->file('images') : [$request->file('image')];
             $paths = array_map(fn ($file) => $this->storeFile($file, 'posts/images'), $files);
