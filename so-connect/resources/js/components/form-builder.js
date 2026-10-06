@@ -48,6 +48,8 @@ export function formBuilder(config) {
         // Sidebar icon key (see MenuHelper::iconNames); '' falls back to the
         // default forms glyph.
         icon: config.data.icon || "",
+        // Listed in the officer sidebar's "Organization Forms" group.
+        show_in_sidebar: config.data.show_in_sidebar !== false,
         // Optional cap on accepted (approved) submissions per semester,
         // across all organizations; disabled = unlimited.
         submission_limit_enabled: !!config.data.semester_submission_limit,
@@ -1525,6 +1527,7 @@ export function formBuilder(config) {
                 route_name: this.route_name,
                 system_function: this.system_function || null,
                 icon: this.icon || null,
+                show_in_sidebar: !!this.show_in_sidebar,
                 semester_submission_limit: this.submission_limit_enabled
                     ? parseInt(this.semester_submission_limit, 10) || null
                     : null,

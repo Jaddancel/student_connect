@@ -745,6 +745,17 @@
                     </div>
 
                     <div>
+                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <input type="checkbox" x-model="show_in_sidebar"
+                                class="h-4 w-4 rounded border-gray-300 text-brand-500" />
+                            Show on sidebar
+                        </label>
+                        <p class="mt-1 text-xs text-gray-400">
+                            List this form under "Organization Forms" in officers' sidebar. When off, it is still available from the Forms page.
+                        </p>
+                    </div>
+
+                    <div>
                         <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Route name (URL slug)</label>
                         <input type="text" x-model="route_name" @input="routeTouched = true"
                             class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 font-mono text-xs dark:border-gray-700 dark:text-white/90" />

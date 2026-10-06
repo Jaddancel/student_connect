@@ -39,6 +39,7 @@ class Form extends Model
         'is_published',
         'route_name',
         'icon',
+        'show_in_sidebar',
         'semester_submission_limit',
         'system_function',
         'field_kit',
@@ -51,6 +52,7 @@ class Form extends Model
         return [
             'is_active' => 'boolean',
             'is_published' => 'boolean',
+            'show_in_sidebar' => 'boolean',
             'semester_submission_limit' => 'integer',
             'sidebar_group' => 'array',
             'layout' => 'array',

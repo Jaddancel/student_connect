@@ -190,11 +190,13 @@ class MenuHelper
                 ],
             ];
 
-            // Every published form is listed (see Form::scopeDirectoryEligible);
-            // each links to its online renderer page.
+            // Every published form is listed (see Form::scopeDirectoryEligible)
+            // unless the builder unticked "Show on sidebar"; each links to its
+            // online renderer page.
             $publishedForms = \App\Models\Form::whereNotNull('route_name')
                 ->where('is_published', true)
                 ->where('is_active', true)
+                ->where('show_in_sidebar', true)
                 // Filed per event from the After Event Form page only.
                 ->where(fn ($query) => $query->whereNull('system_function')
                     ->orWhere('system_function', '!=', \App\Forms\SystemFunction::AFTER_EVENT_REPORT))
