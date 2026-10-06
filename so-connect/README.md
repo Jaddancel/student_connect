@@ -234,7 +234,16 @@ Update your `.env` for production:
 APP_ENV=production
 APP_DEBUG=false
 APP_URL=https://yourdomain.com
+
+# Production mail is sent through Gmail SMTP (MAIL_MAILER is ignored).
+# Create an App Password at https://myaccount.google.com/apppasswords
+# (requires 2-Step Verification on the account).
+GMAIL_USERNAME=your.account@gmail.com
+GMAIL_APP_PASSWORD="abcd efgh ijkl mnop"
 ```
+
+After changing these values, run `php artisan config:cache` and restart the queue worker
+(`php artisan queue:restart`) so queued mail picks up the new mailer.
 
 ## 🧪 Testing
 

@@ -14,7 +14,11 @@ return [
     |
     */
 
-    'default' => env('MAIL_MAILER', 'log'),
+    // Production always sends through a real provider (Gmail by default) so a
+    // .env copied from local can never route live mail into Mailhog.
+    'default' => env('APP_ENV', 'production') === 'production'
+        ? env('MAIL_PRODUCTION_MAILER', 'gmail')
+        : env('MAIL_MAILER', 'log'),
 
     /*
     |--------------------------------------------------------------------------
@@ -46,6 +50,19 @@ return [
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,
+            'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
+        ],
+
+        // Requires a Google account with 2-Step Verification and an App Password
+        // (https://myaccount.google.com/apppasswords). Port 587 uses STARTTLS.
+        'gmail' => [
+            'transport' => 'smtp',
+            'scheme' => env('GMAIL_SCHEME', 'smtp'),
+            'host' => env('GMAIL_HOST', 'smtp.gmail.com'),
+            'port' => env('GMAIL_PORT', 587),
+            'username' => env('GMAIL_USERNAME'),
+            'password' => env('GMAIL_APP_PASSWORD'),
+            'timeout' => 30,
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 
@@ -110,8 +127,12 @@ return [
     |
     */
 
+    // Gmail rewrites any From address that isn't the account (or a verified
+    // alias), so production defaults to the authenticated Gmail address.
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
+        'address' => env('APP_ENV', 'production') === 'production'
+            ? env('GMAIL_FROM_ADDRESS', env('GMAIL_USERNAME', env('MAIL_FROM_ADDRESS', 'hello@example.com')))
+            : env('MAIL_FROM_ADDRESS', 'hello@example.com'),
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
