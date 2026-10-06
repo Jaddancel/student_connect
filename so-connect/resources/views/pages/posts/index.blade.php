@@ -47,6 +47,20 @@
         pickerSearch: '',
         selectedLibraryPath: '',
         selectedLibraryTitle: '',
+        /* form media gallery (expands the editor modal) */
+        galleryOpen: false,
+        gallerySearch: '',
+        galleryOrgOnly: true,
+        galleryItems: {{ Js::from($afterEventMediaGallery) }},
+
+        get filteredGallery() {
+            const term = this.gallerySearch.trim().toLowerCase();
+            return this.galleryItems.filter((item) => {
+                if (this.galleryOrgOnly && String(item.organization_id) !== String(this.fOrg)) return false;
+                if (term === '') return true;
+                return [item.event, item.field, item.organization].some((v) => (v || '').toLowerCase().includes(term));
+            });
+        },
 
         openCreate() {
             this.editMode = false;
@@ -63,6 +77,9 @@
             this.pickerOpen = false;
             this.selectedLibraryPath = '';
             this.selectedLibraryTitle = '';
+            this.galleryOpen = false;
+            this.gallerySearch = '';
+            this.galleryOrgOnly = true;
             this.modalOpen = true;
         },
 
@@ -80,7 +97,11 @@
             this.fHasVideo = !!post.video_path;
             this.pickerOpen = false;
             this.selectedLibraryPath = post.image_from_library || '';
-            this.selectedLibraryTitle = '';
+            const galleryMatch = this.galleryItems.find((item) => item.path === this.selectedLibraryPath);
+            this.selectedLibraryTitle = galleryMatch ? this.galleryItemTitle(galleryMatch) : '';
+            this.galleryOpen = false;
+            this.gallerySearch = '';
+            this.galleryOrgOnly = true;
             this.modalOpen = true;
         },
     
@@ -91,13 +112,26 @@
             this.selectedLibraryTitle = title;
             this.pickerOpen = false;
         },
+
+        pickGalleryImage(item) {
+            this.selectedLibraryPath = item.path;
+            this.selectedLibraryTitle = this.galleryItemTitle(item);
+        },
+
+        galleryItemTitle(item) {
+            return item.event + ' · ' + item.organization;
+        },
+
+        librarySourceLabel() {
+            return this.selectedLibraryPath.startsWith('form-uploads/') ? 'From After Event gallery' : 'From library';
+        },
     
         clearLibrarySelection() {
             this.selectedLibraryPath = '';
             this.selectedLibraryTitle = '';
         },
     }"
-        @keydown.escape.window="modalOpen ? closeModal() : (pickerOpen ? (pickerOpen = false) : null)"
+        @keydown.escape.window="modalOpen ? (galleryOpen ? (galleryOpen = false) : closeModal()) : (pickerOpen ? (pickerOpen = false) : null)"
         class="min-w-0 space-y-6">
 
         {{-- ── Gradient stripe ── --}}
@@ -224,12 +258,7 @@
                                 'is_featured' => (bool) $post->is_featured,
                                 'image_path' => $post->image_path,
                                 'video_path' => $post->video_path,
-                                'image_from_library' => str_starts_with(
-                                    (string) $post->image_path,
-                                    'posts/media/accomplishment/',
-                                )
-                                    ? $post->image_path
-                                    : '',
+                                'image_from_library' => \App\Models\Post::isSharedMediaPath($post->image_path) ? $post->image_path : '',
                             ];
                         @endphp
 
@@ -262,6 +291,8 @@
                                                     </svg>
                                                     @if (str_starts_with($post->image_path, 'posts/media/accomplishment/'))
                                                         Image (from accomplishment library)
+                                                    @elseif (str_starts_with($post->image_path, 'form-uploads/'))
+                                                        Image (from After Event gallery)
                                                     @else
                                                         Image
                                                     @endif
@@ -371,12 +402,7 @@
                                         'is_featured' => (bool) $post->is_featured,
                                         'image_path' => $post->image_path,
                                         'video_path' => $post->video_path,
-                                        'image_from_library' => str_starts_with(
-                                            (string) $post->image_path,
-                                            'posts/media/accomplishment/',
-                                        )
-                                            ? $post->image_path
-                                            : '',
+                                        'image_from_library' => \App\Models\Post::isSharedMediaPath($post->image_path) ? $post->image_path : '',
                                     ];
                                 @endphp
                                 <tr class="transition hover:bg-gray-50 dark:hover:bg-white/[0.02]">
@@ -465,7 +491,8 @@
 
             <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" @click="closeModal()"></div>
 
-            <div class="relative z-10 flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+            <div class="relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl transition-[max-width] duration-300 dark:border-gray-700 dark:bg-gray-900"
+                :class="galleryOpen ? 'h-[92vh] max-w-6xl' : 'max-w-lg'"
                 x-transition:enter="transition ease-out duration-200"
                 x-transition:enter-start="opacity-0 scale-95 translate-y-4"
                 x-transition:enter-end="opacity-100 scale-100 translate-y-0"
@@ -490,7 +517,9 @@
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto">
+                <div class="flex min-h-0 flex-1 flex-col lg:flex-row">
+                <div class="min-h-0 flex-1 overflow-y-auto"
+                    :class="galleryOpen ? 'lg:w-[32rem] lg:flex-none lg:border-r lg:border-gray-100 dark:lg:border-gray-800' : ''">
                     <form id="post-modal-form" method="POST" enctype="multipart/form-data" :action="editFormAction"
                         class="space-y-3 px-5 py-3">
                         @csrf
@@ -554,7 +583,26 @@
 
                         {{-- ── IMAGE SECTION ── --}}
                         <div class="space-y-1.5">
-                            <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Image</p>
+                            <div class="flex items-center justify-between gap-2">
+                                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Image</p>
+                                <button type="button" @click="galleryOpen = !galleryOpen"
+                                    :aria-expanded="galleryOpen.toString()"
+                                    class="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition"
+                                    :class="galleryOpen ?
+                                        'border-palette-lime bg-palette-lime-pale/60 text-gray-800 dark:bg-palette-lime/10 dark:text-white/90' :
+                                        'border-gray-200 text-gray-600 hover:border-palette-lime hover:bg-palette-lime-pale/30 dark:border-gray-700 dark:text-gray-300'">
+                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                        stroke-width="2">
+                                        <rect x="3" y="3" width="7" height="7" rx="1" />
+                                        <rect x="14" y="3" width="7" height="7" rx="1" />
+                                        <rect x="3" y="14" width="7" height="7" rx="1" />
+                                        <rect x="14" y="14" width="7" height="7" rx="1" />
+                                    </svg>
+                                    <span x-text="galleryOpen ? 'Hide gallery' : 'Event gallery'"></span>
+                                    <span class="rounded-full bg-gray-100 px-1.5 text-[10px] font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                                        x-text="filteredGallery.length"></span>
+                                </button>
+                            </div>
 
                             {{-- Library selection display --}}
                             <div x-show="selectedLibraryPath" x-cloak
@@ -562,7 +610,7 @@
                                 <img :src="'/storage/' + selectedLibraryPath"
                                     class="h-10 w-14 shrink-0 rounded object-cover border border-gray-200" alt="">
                                 <div class="flex-1 min-w-0">
-                                    <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">From library</p>
+                                    <p class="text-xs font-semibold text-gray-700 dark:text-gray-300" x-text="librarySourceLabel()">From library</p>
                                     <p class="truncate text-xs text-gray-500" x-text="selectedLibraryTitle"></p>
                                 </div>
                                 <button type="button" @click="clearLibrarySelection()"
@@ -621,6 +669,93 @@
                             </label>
                         </div>
                     </form>
+                </div>
+
+                {{-- ── FORM MEDIA GALLERY (expanded modal) ── --}}
+                <section x-show="galleryOpen" x-cloak aria-label="After Event media gallery"
+                    class="flex min-h-0 flex-1 flex-col border-t border-gray-100 dark:border-gray-800 lg:border-t-0">
+                    <div class="flex shrink-0 items-start justify-between gap-3 px-5 pt-4">
+                        <div>
+                            <h4 class="text-sm font-bold text-gray-800 dark:text-white/90">After Event gallery</h4>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Photos from After Event Reports that
+                                were approved, or filed without an approval step.</p>
+                        </div>
+                        <button type="button" @click="galleryOpen = false" title="Collapse gallery"
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                stroke-width="2.5">
+                                <path d="M15 18l-6-6 6-6" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="flex shrink-0 flex-wrap items-center gap-3 px-5 py-3">
+                        <label
+                            class="flex h-9 min-w-[12rem] flex-1 items-center gap-2 rounded-lg border border-gray-300 px-3 focus-within:border-palette-lime dark:border-gray-700">
+                            <svg class="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="7" />
+                                <path d="M21 21l-4.35-4.35" />
+                            </svg>
+                            <input type="search" x-model="gallerySearch" placeholder="Search event, field, or organization"
+                                class="w-full border-0 bg-transparent p-0 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-0 dark:text-white/90" />
+                        </label>
+                        <label class="flex cursor-pointer items-center gap-2 whitespace-nowrap text-xs text-gray-600 dark:text-gray-400">
+                            <input type="checkbox" x-model="galleryOrgOnly"
+                                class="h-4 w-4 rounded border-gray-300 text-palette-lime focus:ring-palette-lime/30" />
+                            Posting organization only
+                        </label>
+                    </div>
+
+                    <div class="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+                        <template x-if="galleryItems.length === 0">
+                            <p class="py-12 text-center text-sm text-gray-400 dark:text-gray-500">No After Event Report photos are
+                                available yet.</p>
+                        </template>
+                        <template x-if="galleryItems.length > 0 && filteredGallery.length === 0">
+                            <p class="py-12 text-center text-sm text-gray-400 dark:text-gray-500"
+                                x-text="galleryOrgOnly && gallerySearch.trim() === '' ?
+                                    'This organization has no After Event Report photos yet. Untick “Posting organization only” to browse all organizations.' :
+                                    'No media match these filters.'">
+                            </p>
+                        </template>
+
+                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                            <template x-for="item in filteredGallery" :key="item.path">
+                                <button type="button" @click="pickGalleryImage(item)"
+                                    :aria-pressed="(selectedLibraryPath === item.path).toString()"
+                                    class="group relative overflow-hidden rounded-xl border-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-palette-lime"
+                                    :class="selectedLibraryPath === item.path ?
+                                        'border-palette-lime ring-2 ring-palette-lime/30' :
+                                        'border-transparent hover:border-gray-300 dark:hover:border-gray-600'">
+                                    <img :src="item.url" :alt="item.field + ' — ' + item.event" loading="lazy"
+                                        class="aspect-square w-full bg-gray-100 object-cover dark:bg-gray-800">
+                                    <span
+                                        class="absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                                        :class="item.status === 'approved' ?
+                                            'bg-success-50 text-success-700 dark:bg-success-500/20 dark:text-success-300' :
+                                            'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'"
+                                        x-text="item.status === 'approved' ? 'Approved' : 'Submitted'"></span>
+                                    <div x-show="selectedLibraryPath === item.path"
+                                        class="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-palette-lime text-gray-900">
+                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                            stroke-width="3">
+                                            <path d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                    <div
+                                        class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-gray-900/85 to-transparent px-2 pb-1.5 pt-6">
+                                        <p class="truncate text-xs font-semibold text-white" x-text="item.event"></p>
+                                        <p class="truncate text-[10px] text-white/80" x-text="item.organization"></p>
+                                        <p class="truncate text-[10px] text-white/60"
+                                            x-text="item.submitted_at ? new Date(item.submitted_at).toLocaleDateString() : ''">
+                                        </p>
+                                    </div>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                </section>
                 </div>
 
                 <div

@@ -13,7 +13,7 @@ it('submits only the selected semester from the scoring filter', function () {
         'vacation_days' => 30,
     ]);
 
-    $response = $this->actingAs(recordsUser(1))
+    $response = $this->actingAs(recordsUser(2))
         ->get(route('admin.scoring.index', ['semester_id' => $semester->semester_id]))
         ->assertOk()
         ->assertViewHas('selectedSemester', $semester);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AccomplishmentMedia;
 use App\Models\Post;
+use App\Services\AfterEventMediaGallery;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -11,7 +12,7 @@ use Illuminate\Support\Str;
 
 class PostController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, AfterEventMediaGallery $gallery)
     {
         // Load all organizations (admin sees everything)
         $orgs = DB::table('organizations as o')
@@ -51,6 +52,7 @@ class PostController extends Controller
             'filterOrg'           => $request->org ?? 'all',
             'search'              => $request->search ?? '',
             'accomplishmentMedia' => $accomplishmentMedia,
+            'afterEventMediaGallery'    => $gallery->items(),
         ]);
     }
 
@@ -65,7 +67,7 @@ class PostController extends Controller
             'is_featured'        => ['nullable', 'boolean'],
             'image'              => ['nullable', 'file', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
             'video'              => ['nullable', 'file', 'mimes:mp4,webm,mov,avi', 'max:102400'],
-            'image_from_library' => ['nullable', 'string', 'max:500'],
+            'image_from_library' => $this->libraryImageRules(null),
         ]);
 
         $post = new Post;
@@ -109,7 +111,7 @@ class PostController extends Controller
             'is_featured'        => ['nullable', 'boolean'],
             'image'              => ['nullable', 'file', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
             'video'              => ['nullable', 'file', 'mimes:mp4,webm,mov,avi', 'max:102400'],
-            'image_from_library' => ['nullable', 'string', 'max:500'],
+            'image_from_library' => $this->libraryImageRules($post),
         ]);
 
         $post->organization = $data['organization'];
@@ -125,15 +127,12 @@ class PostController extends Controller
         }
 
         if ($request->hasFile('image')) {
-            if ($post->image_path) {
-                Storage::disk('public')->delete($post->image_path);
-            }
+            $this->deleteOwnedFile($post->image_path);
             $post->image_path = $this->storeFile($request->file('image'), 'posts/images');
             $post->video_path = null;
         } elseif (! empty($data['image_from_library'])) {
-            // Only delete old file if it's not a shared library file
-            if ($post->image_path && ! str_starts_with($post->image_path, 'posts/media/accomplishment/')) {
-                Storage::disk('public')->delete($post->image_path);
+            if ($post->image_path !== $data['image_from_library']) {
+                $this->deleteOwnedFile($post->image_path);
             }
             $post->image_path = $data['image_from_library'];
             $post->video_path = null;
@@ -156,10 +155,7 @@ class PostController extends Controller
     {
         $post = Post::where('post_id', $postId)->firstOrFail();
 
-        // Don't delete shared accomplishment library images when deleting a post
-        if ($post->image_path && ! str_starts_with($post->image_path, 'posts/media/accomplishment/')) {
-            Storage::disk('public')->delete($post->image_path);
-        }
+        $this->deleteOwnedFile($post->image_path);
         if ($post->video_path) {
             Storage::disk('public')->delete($post->video_path);
         }
@@ -167,6 +163,38 @@ class PostController extends Controller
         $post->delete();
 
         return redirect()->route('posts.index')->with('success', 'Post deleted.');
+    }
+
+    /**
+     * A library pick must be media the editor actually offers: an
+     * accomplishment library copy, an eligible form upload, or the image the
+     * post already uses.
+     */
+    private function libraryImageRules(?Post $post): array
+    {
+        return [
+            'nullable',
+            'string',
+            'max:500',
+            function (string $attribute, mixed $value, \Closure $fail) use ($post) {
+                $path = (string) $value;
+
+                $allowed = ($post !== null && $post->image_path === $path)
+                    || AccomplishmentMedia::query()->where('file_path', $path)->exists()
+                    || app(AfterEventMediaGallery::class)->allows($path);
+
+                if (! $allowed) {
+                    $fail('The selected library image is no longer available.');
+                }
+            },
+        ];
+    }
+
+    private function deleteOwnedFile(?string $path): void
+    {
+        if ($path && ! Post::isSharedMediaPath($path)) {
+            Storage::disk('public')->delete($path);
+        }
     }
 
     private function storeFile($file, string $dir): string
