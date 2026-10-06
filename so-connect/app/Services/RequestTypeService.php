@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Forms\SystemFunction;
 use App\Models\Form;
 use App\Models\RequestType;
 
@@ -21,6 +22,31 @@ class RequestTypeService
                 'is_active' => true,
             ]
         );
+    }
+
+    /**
+     * Link a form to its own request type, or unlink it when its system
+     * function is handled by a dedicated queue (those never get one).
+     */
+    public function syncForm(Form $form, ?int $userId = null): void
+    {
+        $excepted = in_array((string) $form->system_function, [
+            SystemFunction::SIGN_UP,
+            SystemFunction::NEW_EVENT,
+            SystemFunction::NEW_WORKPLAN,
+            SystemFunction::NEW_ORGANIZATION_REGISTRATION,
+            SystemFunction::AFTER_EVENT_REPORT,
+        ], true);
+
+        if ($excepted) {
+            if ($form->request_type_id !== null) {
+                $form->forceFill(['request_type_id' => null])->save();
+            }
+
+            return;
+        }
+
+        $this->resolveFormType($form, $userId);
     }
 
     /**

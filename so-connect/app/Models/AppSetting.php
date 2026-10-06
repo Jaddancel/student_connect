@@ -55,4 +55,9 @@ class AppSetting extends Model
 
         Cache::forget(self::cacheKey($key));
     }
+
+    public static function forgetCached(string $key): void
+    {
+        Cache::forget(self::cacheKey($key));
+    }
 }

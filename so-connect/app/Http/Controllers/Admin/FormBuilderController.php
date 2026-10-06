@@ -514,21 +514,7 @@ class FormBuilderController extends Controller
      */
     private function dispatchManualSchema(Form $form): void
     {
-        try {
-            foreach (app(FormPrintTemplateService::class)->activeTemplates($form) as $template) {
-                $template->forceFill([
-                    'manual_schema_status' => 'pending',
-                    'manual_schema_error' => null,
-                ])->save();
-
-                \App\Jobs\GenerateTemplateManualSchema::dispatch(
-                    (int) $template->getKey(),
-                    (int) $template->version,
-                );
-            }
-        } catch (\Throwable $throwable) {
-            report($throwable);
-        }
+        app(FormPrintTemplateService::class)->queueManualSchemas($form);
     }
 
     private function manualSchemaStatus(Form $form): ?array
@@ -643,23 +629,7 @@ class FormBuilderController extends Controller
      */
     private function syncRequestType(Form $form, ?int $userId): void
     {
-        $excepted = in_array((string) $form->system_function, [
-            SystemFunction::SIGN_UP,
-            SystemFunction::NEW_EVENT,
-            SystemFunction::NEW_WORKPLAN,
-            SystemFunction::NEW_ORGANIZATION_REGISTRATION,
-            SystemFunction::AFTER_EVENT_REPORT,
-        ], true);
-
-        if ($excepted) {
-            if ($form->request_type_id !== null) {
-                $form->forceFill(['request_type_id' => null])->save();
-            }
-
-            return;
-        }
-
-        app(\App\Services\RequestTypeService::class)->resolveFormType($form, $userId);
+        app(\App\Services\RequestTypeService::class)->syncForm($form, $userId);
     }
 
     /**

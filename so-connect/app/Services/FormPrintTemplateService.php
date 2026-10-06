@@ -750,6 +750,29 @@ class FormPrintTemplateService
         return FormTemplate::query()->findOrFail($ids[0]);
     }
 
+    /**
+     * Queue a fresh manual-filling schema for each of the form's active
+     * templates (after their documents changed).
+     */
+    public function queueManualSchemas(Form $form): void
+    {
+        try {
+            foreach ($this->activeTemplates($form) as $template) {
+                $template->forceFill([
+                    'manual_schema_status' => 'pending',
+                    'manual_schema_error' => null,
+                ])->save();
+
+                \App\Jobs\GenerateTemplateManualSchema::dispatch(
+                    (int) $template->getKey(),
+                    (int) $template->version,
+                );
+            }
+        } catch (\Throwable $throwable) {
+            report($throwable);
+        }
+    }
+
     private function pathFor(Form $form): string
     {
         $directory = trim((string) config('documents.templates_directory', 'form-templates'), '/');

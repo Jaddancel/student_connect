@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Services\ConfigBackup\ConfigExporter;
+use App\Services\ConfigBackup\ConfigImporter;
 use App\Support\SqlDumpGuard;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
@@ -12,26 +14,53 @@ use Symfony\Component\Process\Process;
 use ZipArchive;
 
 /**
- * Database backup + restore over spatie/laravel-backup. Backups are DB-only zip
- * archives on the local "backups" disk; restore extracts the SQL dump from a
- * chosen (or uploaded) archive and pipes it into mysql (taking a safety backup
- * first).
+ * Backup + restore for two backup types, stored as zip archives on the local
+ * "backups" disk:
  *
- * Restore is destructive — it replaces the current database — so it is only
- * reachable from the super-admin BackupController.
+ *  - Database backups (spatie/laravel-backup, DB-only): restore extracts the
+ *    SQL dump and replaces the whole database.
+ *  - Configuration backups (ConfigExporter, "config-" prefix): settings,
+ *    forms, report templates, Step 2 templates and tally configuration.
+ *    Restore merges them in (ConfigImporter) without deleting anything.
+ *
+ * Configuration archives live in a sibling "<name>-config" directory because
+ * spatie's backup:clean scans "<name>/" recursively and would prune them.
+ * Every restore takes a safety backup of the same type first. Only reachable
+ * from the super-admin BackupController.
  */
 class BackupService
 {
+    public const TYPE_DATABASE = 'database';
+
+    public const TYPE_CONFIGURATION = 'configuration';
+
+    public const TYPES = [self::TYPE_DATABASE, self::TYPE_CONFIGURATION];
+
+    private const CONFIG_PREFIX = 'config-';
+
+    public function __construct(private readonly ConfigExporter $exporter, private readonly ConfigImporter $importer) {}
+
     /** Subdirectory (on the backups disk) spatie writes archives into. */
     private function directory(): string
     {
         return (string) config('backup.backup.name', config('app.name', 'laravel-backup'));
     }
 
-    /** Subdirectory (inside the backup directory) holding archived backups. */
-    private function archiveDirectory(): string
+    private function directoryFor(string $type, bool $archived = false): string
     {
-        return $this->directory().'/archive';
+        $dir = $type === self::TYPE_CONFIGURATION ? $this->directory().'-config' : $this->directory();
+
+        return $archived ? $dir.'/archive' : $dir;
+    }
+
+    public static function typeOf(string $filename): string
+    {
+        return str_starts_with(basename($filename), self::CONFIG_PREFIX) ? self::TYPE_CONFIGURATION : self::TYPE_DATABASE;
+    }
+
+    private function relative(string $filename, bool $archived): string
+    {
+        return $this->directoryFor(self::typeOf($filename), $archived).'/'.basename($filename);
     }
 
     private function disk()
@@ -40,59 +69,100 @@ class BackupService
     }
 
     /**
-     * @return array<int,array{name:string, size:int, last_modified:int}>
+     * Active backups of both types, newest first.
+     *
+     * @return array<int,array{name:string, type:string, size:int, last_modified:int}>
      */
     public function list(): array
     {
-        return $this->listIn($this->directory());
+        return $this->listBoth(false);
     }
 
     /**
-     * Archived backups live in a subdirectory, so list() (which is
+     * Archived backups live in an "archive" subdirectory, so list() (which is
      * non-recursive) never mixes them into the active set.
      *
-     * @return array<int,array{name:string, size:int, last_modified:int}>
+     * @return array<int,array{name:string, type:string, size:int, last_modified:int}>
      */
     public function listArchived(): array
     {
-        return $this->listIn($this->archiveDirectory());
+        return $this->listBoth(true);
     }
 
     /**
-     * @return array<int,array{name:string, size:int, last_modified:int}>
+     * @return array<int,array{name:string, type:string, size:int, last_modified:int}>
      */
-    private function listIn(string $dir): array
+    private function listBoth(bool $archived): array
     {
-        if (! $this->disk()->exists($dir)) {
-            return [];
-        }
-
-        return collect($this->disk()->files($dir))
-            ->filter(fn (string $path) => str_ends_with($path, '.zip'))
-            ->map(fn (string $path) => [
-                'name' => basename($path),
-                'size' => $this->disk()->size($path),
-                'last_modified' => $this->disk()->lastModified($path),
-            ])
+        return collect(self::TYPES)
+            ->flatMap(fn (string $type) => $this->listIn($this->directoryFor($type, $archived), $type))
             ->sortByDesc('last_modified')
             ->values()
             ->all();
     }
 
     /**
-     * Run a DB-only backup now. Returns the name of the archive it produced, or
-     * null if the new file could not be identified.
+     * @return array<int,array{name:string, type:string, size:int, last_modified:int}>
      */
-    public function create(): ?string
+    private function listIn(string $dir, string $type): array
     {
-        $before = collect($this->list())->pluck('name')->all();
+        if (! $this->disk()->exists($dir)) {
+            return [];
+        }
+
+        return collect($this->disk()->files($dir))
+            ->filter(fn (string $path) => str_ends_with($path, '.zip') && self::typeOf($path) === $type)
+            ->map(fn (string $path) => [
+                'name' => basename($path),
+                'type' => $type,
+                'size' => $this->disk()->size($path),
+                'last_modified' => $this->disk()->lastModified($path),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Run a backup of the given type now. Returns the name of the archive it
+     * produced, or null if the new file could not be identified.
+     */
+    public function create(string $type = self::TYPE_DATABASE): ?string
+    {
+        if ($type === self::TYPE_CONFIGURATION) {
+            return $this->createConfiguration();
+        }
+
+        $dir = $this->directoryFor(self::TYPE_DATABASE);
+        $before = collect($this->listIn($dir, self::TYPE_DATABASE))->pluck('name')->all();
 
         Artisan::call('backup:run', [
             '--only-db' => true,
             '--disable-notifications' => true,
         ]);
 
-        return collect($this->list())->pluck('name')->diff($before)->first();
+        return collect($this->listIn($dir, self::TYPE_DATABASE))->pluck('name')->diff($before)->first();
+    }
+
+    private function createConfiguration(): string
+    {
+        $dir = $this->directoryFor(self::TYPE_CONFIGURATION);
+        $this->disk()->makeDirectory($dir);
+
+        $stamp = now()->format('Y-m-d-H-i-s');
+        $name = self::CONFIG_PREFIX.$stamp.'.zip';
+        for ($i = 2; $this->disk()->exists($dir.'/'.$name); $i++) {
+            $name = self::CONFIG_PREFIX.$stamp.'-'.$i.'.zip';
+        }
+
+        $path = $this->disk()->path($dir.'/'.$name);
+        try {
+            $this->exporter->export($path);
+        } catch (\Throwable $e) {
+            @unlink($path);
+            throw $e;
+        }
+
+        return $name;
     }
 
     /**
@@ -101,7 +171,7 @@ class BackupService
      */
     public function path(string $filename, bool $archived = false): string
     {
-        $relative = ($archived ? $this->archiveDirectory() : $this->directory()).'/'.basename($filename);
+        $relative = $this->relative($filename, $archived);
         if (! $this->disk()->exists($relative)) {
             throw new RuntimeException('Backup not found.');
         }
@@ -111,7 +181,7 @@ class BackupService
 
     public function delete(string $filename, bool $archived = false): void
     {
-        $relative = ($archived ? $this->archiveDirectory() : $this->directory()).'/'.basename($filename);
+        $relative = $this->relative($filename, $archived);
         if ($this->disk()->exists($relative)) {
             $this->disk()->delete($relative);
         }
@@ -135,8 +205,8 @@ class BackupService
 
     private function move(string $filename, bool $fromArchive): void
     {
-        $from = ($fromArchive ? $this->archiveDirectory() : $this->directory()).'/'.basename($filename);
-        $to = ($fromArchive ? $this->directory() : $this->archiveDirectory()).'/'.basename($filename);
+        $from = $this->relative($filename, $fromArchive);
+        $to = $this->relative($filename, ! $fromArchive);
 
         if (! $this->disk()->exists($from)) {
             throw new RuntimeException('Backup not found.');
@@ -147,29 +217,61 @@ class BackupService
     }
 
     /**
-     * Restore the database from a stored backup. Takes a safety backup, extracts
-     * the SQL dump and pipes it into mysql. Throws on any failure so the caller
-     * can surface it without leaving a half-applied state.
+     * Restore from a stored backup, by its type. Throws on any failure so the
+     * caller can surface it without leaving a half-applied state.
      *
-     * Returns the name of the safety backup taken of the pre-restore state, so
-     * the caller can tell the user about the archive that just appeared.
+     * Returns the type, the name of the safety backup taken first (so the
+     * caller can explain the archive that just appeared) and, for
+     * configuration restores, a summary of what was created/updated.
+     *
+     * @return array{type:string, safety:?string, summary:?array}
      */
-    public function restore(string $filename): ?string
+    public function restore(string $filename): array
     {
-        return $this->restoreFromArchive($this->path($filename));
+        $path = $this->path($filename);
+
+        return self::typeOf($filename) === self::TYPE_CONFIGURATION
+            ? $this->restoreConfiguration($path)
+            : $this->restoreFromArchive($path);
     }
 
     /**
-     * Restore the database from an uploaded backup archive (e.g. one previously
-     * downloaded from this page). Uploaded dumps are untrusted, so they are
-     * screened for mysql client commands before anything is written.
+     * Restore from an uploaded backup archive (e.g. one previously downloaded
+     * from this page). The type is detected from the archive itself. Uploaded
+     * SQL dumps are untrusted, so they are screened for mysql client commands
+     * before anything is written.
+     *
+     * @return array{type:string, safety:?string, summary:?array}
      */
-    public function restoreFromUpload(UploadedFile $file): ?string
+    public function restoreFromUpload(UploadedFile $file): array
     {
-        return $this->restoreFromArchive((string) $file->getRealPath(), untrusted: true);
+        $path = (string) $file->getRealPath();
+
+        return ConfigImporter::isConfigArchive($path)
+            ? $this->restoreConfiguration($path)
+            : $this->restoreFromArchive($path, untrusted: true);
     }
 
-    private function restoreFromArchive(string $archivePath, bool $untrusted = false): ?string
+    /**
+     * @return array{type:string, safety:string, summary:array}
+     */
+    private function restoreConfiguration(string $archivePath): array
+    {
+        // Reject a bad archive before writing anything (incl. the safety backup).
+        $this->importer->validate($archivePath);
+        $safety = $this->createConfiguration();
+
+        return [
+            'type' => self::TYPE_CONFIGURATION,
+            'safety' => $safety,
+            'summary' => $this->importer->import($archivePath),
+        ];
+    }
+
+    /**
+     * @return array{type:string, safety:string, summary:null}
+     */
+    private function restoreFromArchive(string $archivePath, bool $untrusted = false): array
     {
         // 1. Extract (and, for uploads, screen) the SQL dump first, so a bad
         //    archive fails before we have written anything (including a
@@ -201,7 +303,7 @@ class BackupService
             @unlink($sqlPath);
         }
 
-        return $safety;
+        return ['type' => self::TYPE_DATABASE, 'safety' => $safety, 'summary' => null];
     }
 
     /**
