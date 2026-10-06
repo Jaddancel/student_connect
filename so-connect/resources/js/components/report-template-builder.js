@@ -277,7 +277,7 @@ export function reportTemplateBuilder(config) {
         addParameter() {
             const param = {
                 name: this.uniqueName("param", this.definition.parameters),
-                label: "", type: "entity", entity: "", display: [], required: false, context: "",
+                label: "", type: "entity", entity: "", display: [], required: false, context: "", default: "",
             };
             this.definition.parameters.push(param);
             this.selectParam(param);
@@ -458,7 +458,7 @@ function normalizeDefinition(raw) {
     definition.tokens = fix(definition.tokens);
     definition.parameters = (definition.parameters || []).map((p) => ({
         name: p.name || "", label: p.label || "", type: p.type || "text", entity: p.entity || "",
-        display: p.display || [], required: !!p.required, context: p.context || "",
+        display: p.display || [], required: !!p.required, context: p.context || "", default: p.default || "",
     }));
     return definition;
 }

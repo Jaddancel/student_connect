@@ -3,6 +3,7 @@
 namespace App\Reports;
 
 use App\Forms\DocxTemplateData;
+use App\Helpers\FormTemplateHelper;
 use App\Models\Organization;
 use App\Models\Template;
 use App\Models\User;
@@ -66,7 +67,8 @@ final class ReportDocxRenderer
 
         try {
             $processor = new ReportTemplateProcessor($source);
-            $processor->setMainPart($this->expandBlocks($processor->mainPart(), $groups));
+            $xml = $this->expandRows($this->expandBlocks($processor->mainPart(), $groups), $groups);
+            $processor->setMainPart($this->fillValues($xml, $values, array_keys($universal['images'])));
             $processor->saveAs($expanded);
         } finally {
             DocxTemplateProcessor::resetMacroChars();
@@ -207,6 +209,118 @@ final class ReportDocxRenderer
         }
 
         return $dom->saveXML();
+    }
+
+    /**
+     * Repeat every table row whose `{{P.child#}}` tokens all belong to one
+     * group P, once per row of P, re-keying its tokens to that row
+     * (`{{P__i.child}}`). This is what cloneRow would do, but in one pass:
+     * PhpWord re-scans the whole document per placeholder, which large reports
+     * cannot afford. Rows it cannot attribute to a single known group (e.g. an
+     * across-all-rows path, or a nested table) are left to cloneRow.
+     *
+     * @param  array<string, array<int, array<string, mixed>>>  $groups
+     */
+    public function expandRows(string $xml, array $groups): string
+    {
+        if (! str_contains($xml, '#}}')) {
+            return $xml;
+        }
+
+        $dom = new \DOMDocument;
+        $dom->preserveWhiteSpace = true;
+        if (! @$dom->loadXML($xml)) {
+            return $xml;
+        }
+        $xpath = new \DOMXPath($dom);
+        $xpath->registerNamespace('w', self::W_NS);
+
+        $tableRows = [];
+        foreach ($xpath->query('//w:t[contains(., "#}}")]') ?: [] as $text) {
+            for ($node = $text->parentNode; $node !== null; $node = $node->parentNode) {
+                if ($node instanceof \DOMElement && $node->localName === 'tr' && $node->namespaceURI === self::W_NS) {
+                    if (! in_array($node, $tableRows, true)) {
+                        $tableRows[] = $node;
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        foreach ($tableRows as $tableRow) {
+            if (($xpath->query('.//w:tbl', $tableRow)?->length ?? 0) > 0
+                || ! preg_match_all('/\{\{([A-Za-z0-9_.]+)\.[A-Za-z0-9_]+#\}\}/', $tableRow->textContent, $matches)) {
+                continue;
+            }
+            $paths = array_unique($matches[1]);
+            $path = $paths[array_key_first($paths)];
+            if (count($paths) !== 1 || ! array_key_exists($path, $groups)) {
+                continue;
+            }
+
+            $pattern = '/\{\{'.preg_quote($path, '/').'\.([A-Za-z0-9_.]+?)#?\}\}/';
+            $rows = $groups[$path];
+            if ($rows === []) {
+                // Like cloneRow: one row, its values blank.
+                $this->rewriteTexts($xpath, $tableRow, $pattern, fn () => '');
+
+                continue;
+            }
+
+            foreach (array_keys($rows) as $i) {
+                $clone = $tableRow->cloneNode(true);
+                $rowPath = $path.self::INDEX_SEPARATOR.($i + 1);
+                $this->rewriteTexts($xpath, $clone, $pattern, fn (array $m) => '{{'.$rowPath.'.'.$m[1].'}}');
+                $tableRow->parentNode?->insertBefore($clone, $tableRow);
+            }
+            $tableRow->parentNode?->removeChild($tableRow);
+        }
+
+        return $dom->saveXML();
+    }
+
+    /**
+     * Fill every `{{key}}` whose value is a single line of text in one pass,
+     * leaving lists, multi-line values, pictures and unknown keys to
+     * {@see DocxTemplateService::populate()}. Keys match the way populate
+     * matches them.
+     *
+     * @param  array<string, mixed>  $values
+     * @param  array<int, string>  $skip  keys populate must handle (pictures)
+     */
+    public function fillValues(string $xml, array $values, array $skip = []): string
+    {
+        $skipped = array_flip(array_map(fn ($key) => FormTemplateHelper::normalizeFieldKey((string) $key), $skip));
+        $text = [];
+        foreach ($values as $key => $value) {
+            $normalized = FormTemplateHelper::normalizeFieldKey((string) $key);
+            if (is_string($value) && ! str_contains($value, "\n") && ! isset($skipped[$normalized])) {
+                $text[$normalized] = $value;
+            }
+        }
+
+        return (string) preg_replace_callback('/\{\{([A-Za-z0-9_.]+)\}\}/', function (array $m) use ($text) {
+            $key = FormTemplateHelper::normalizeFieldKey($m[1]);
+
+            return array_key_exists($key, $text)
+                ? htmlspecialchars($text[$key], ENT_QUOTES | ENT_XML1, 'UTF-8')
+                : $m[0];
+        }, $xml);
+    }
+
+    /**
+     * @param  callable(array<int, string>): string  $replace
+     */
+    private function rewriteTexts(\DOMXPath $xpath, \DOMNode $node, string $pattern, callable $replace): void
+    {
+        foreach ($xpath->query('.//w:t', $node) ?: [] as $text) {
+            $value = $text->textContent;
+            $rewritten = preg_replace_callback($pattern, $replace, $value);
+            if ($rewritten !== null && $rewritten !== $value) {
+                $text->textContent = $rewritten;
+            }
+        }
     }
 
     /**

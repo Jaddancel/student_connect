@@ -44,6 +44,7 @@
                         <thead class="text-xs uppercase tracking-wide text-gray-400">
                             <tr>
                                 <th class="pb-2">Backup</th>
+                                <th class="pb-2">Type</th>
                                 <th class="pb-2">Size</th>
                                 <th class="pb-2">Created</th>
                                 <th class="pb-2 text-right">Actions</th>
@@ -53,6 +54,7 @@
                             @foreach ($archived as $backup)
                                 <tr>
                                     <td class="py-3 font-mono text-xs text-gray-700 dark:text-gray-300">{{ $backup['name'] }}</td>
+                                    <td class="py-3"><x-admin.backup-type-badge :type="$backup['type']" /></td>
                                     <td class="py-3 text-gray-500 dark:text-gray-400">{{ number_format($backup['size'] / 1024, 1) }} KB</td>
                                     <td class="py-3 text-gray-500 dark:text-gray-400">{{ \Illuminate\Support\Carbon::createFromTimestamp($backup['last_modified'])->diffForHumans() }}</td>
                                     <td class="py-3">

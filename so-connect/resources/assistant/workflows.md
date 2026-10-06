@@ -111,3 +111,28 @@ student ID photo:
 4. This is unrelated to **Waiver Templates** above — ID templates read
    government/school IDs for signup prefill; waiver templates read signed
    consent forms.
+
+## Backups & restore (SuperAdmin only)
+
+SuperAdmin → **Backups** (`/superadmin/backups`, also linked from Settings)
+keeps two kinds of backup, shown with a Type badge:
+
+- **Database backup** — the entire database. Restoring one *replaces* the
+  whole database. Automatic backups are always this type and run on the
+  interval set in Settings.
+- **Configuration backup** — only settings, forms (with fields), reports,
+  Step 2 printed templates and tally (scoring) configurations. Anything tied
+  to a particular organization (and who created/edited items) is left blank.
+  Restoring one *merges* it in: matching items are updated, missing ones are
+  added, nothing is deleted. Items that reference a form missing from this
+  system (e.g. a tally rule) are reported after the restore.
+
+How to:
+
+1. **Back up now** → choose *Database backup* or *Configuration backup*.
+2. **Restore** on a row restores that backup; **Restore from file** uploads a
+   previously downloaded `.zip` (the type is detected automatically).
+   Every restore first takes a safety backup of the same type, which appears
+   in the list.
+3. Select rows to **Archive** or **Delete** several at once; archived backups
+   live on the **Archived** tab and can be unarchived.

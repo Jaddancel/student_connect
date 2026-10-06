@@ -377,52 +377,14 @@ class OrganizationScoringController extends Controller
         ]);
     }
 
-    /**
-     * Auto-tallied instances per criterion, sourced entirely from admin-authored
-     * block triggers (Scoring Rules editor). A criterion with no enabled rule
-     * tallies 0: the legacy hardcoded "built-in behavior" was retired when
-     * scoring moved to the block-programming feature, so every tally is now
-     * defined by the blocks or not at all.
-     */
     private function computeAutoInstances(int $organizationId, Semester $semester): array
     {
-        $auto = array_fill_keys(\App\Services\Scoring\ScoringCatalog::keys(), 0);
-
-        foreach (app(\App\Services\Scoring\ScoringRuleEngine::class)->instancesFor($organizationId, $semester) as $key => $value) {
-            if (array_key_exists($key, $auto)) {
-                $auto[$key] = (int) $value;
-            }
-        }
-
-        return $auto;
+        return app(\App\Services\Scoring\ScoreCalculator::class)->autoInstances($organizationId, $semester);
     }
 
     private function computeScores(array $payload): array
     {
-        $get = fn (string $key): int => max(0, (int) ($payload[$key] ?? 0));
-
-        // Weighted sums per category, clamped by each category's cap. The
-        // catalog seeds the exact weights/caps this method used to hardcode,
-        // so existing scores recompute identically.
-        $categories = \App\Services\Scoring\ScoringCatalog::categories();
-        $sums = array_fill_keys(array_keys($categories), 0);
-
-        foreach (\App\Services\Scoring\ScoringCatalog::criteria() as $key => $meta) {
-            $category = $meta['category'];
-            if (array_key_exists($category, $sums)) {
-                $sums[$category] += $get($key) * $meta['weight'];
-            }
-        }
-
-        $scores = [];
-        $total = 0;
-        foreach ($categories as $categoryKey => $meta) {
-            $scores[$categoryKey] = min($meta['cap'], $sums[$categoryKey]);
-            $total += $scores[$categoryKey];
-        }
-        $scores['total'] = $total;
-
-        return $scores;
+        return app(\App\Services\Scoring\ScoreCalculator::class)->scores($payload);
     }
 
     private function normalizePayload(array $payload): array

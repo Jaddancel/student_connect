@@ -42,6 +42,7 @@ class ReportController extends Controller
                         if ($parameter['type'] === 'entity') {
                             $parameter['options'] = $engine->parameterOptions($parameter);
                         }
+                        $parameter['selected'] = (string) ($engine->parameterDefault($parameter) ?? '');
                         $parameters[] = $parameter;
                     }
                     $valid = true;

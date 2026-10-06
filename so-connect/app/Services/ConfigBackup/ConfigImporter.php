@@ -508,20 +508,29 @@ class ConfigImporter
                 continue;
             }
 
+            $row = ScoringRule::query()->firstOrNew(['criterion_id' => $criterionId]);
+            $created = ! $row->exists;
+
             $trigger = $rule['trigger'];
             $enabled = (bool) ($rule['enabled'] ?? true);
             if (isset($trigger['when']) && is_array($trigger['when']) && array_key_exists('form', $trigger['when'])) {
-                $form = FormRef::find($trigger['when']['form']);
-                if ($form === null) {
-                    $this->warnings[] = "Tally rule for \"{$rule['criterion_key']}\" was disabled; form \"".FormRef::label($trigger['when']['form']).'" does not exist here.';
-                    $enabled = false;
+                $ref = $trigger['when']['form'];
+                if ($ref === null) {
+                    // The rule's form was already gone where the backup was
+                    // taken; keep whatever this system currently points at.
+                    $formId = (int) ($row->trigger['when']['form_id'] ?? 0);
+                } else {
+                    $form = FormRef::find($ref);
+                    if ($form === null) {
+                        $this->warnings[] = "Tally rule for \"{$rule['criterion_key']}\" was disabled; form \"".FormRef::label($ref).'" does not exist here.';
+                        $enabled = false;
+                    }
+                    $formId = (int) ($form?->getKey() ?? 0);
                 }
-                $trigger['when']['form_id'] = (int) ($form?->getKey() ?? 0);
+                $trigger['when']['form_id'] = $formId;
                 unset($trigger['when']['form']);
             }
 
-            $row = ScoringRule::query()->firstOrNew(['criterion_id' => $criterionId]);
-            $created = ! $row->exists;
             $row->fill([
                 'workspace' => $rule['workspace'] ?? null,
                 'trigger' => $trigger,

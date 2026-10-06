@@ -13,8 +13,9 @@ use PhpOffice\PhpWord\Element\Section;
 /**
  * Recreates the two formerly hardcoded admin reports — "Registered
  * Organizations" and "Organization Officers" — plus the "Financial Report"
- * as report templates (token definition + printed .docx). Idempotent:
- * existing templates with the same name are left untouched.
+ * and the "Organization Scoring Report" as report templates (token definition
+ * + printed .docx). Idempotent: existing templates with the same name are
+ * left untouched.
  */
 class ReportTemplateSeeder extends Seeder
 {
@@ -51,6 +52,11 @@ class ReportTemplateSeeder extends Seeder
     {
         $text = fn (string $fallback = '') => ['type' => 'text', 'pattern' => null, 'fallback' => $fallback];
         $money = ['type' => 'number', 'pattern' => '2', 'fallback' => '0.00'];
+        $count = ['type' => 'number', 'pattern' => null, 'fallback' => '0'];
+        $field = fn (string $id, string $name, array $path, array $format) => [
+            'id' => $id, 'kind' => 'value', 'name' => $name, 'mode' => 'field', 'path' => $path, 'format' => $format,
+        ];
+        $forSemester = [['column' => 'semester_id', 'op' => '=', 'param' => 'semester']];
 
         return [
             'Registered Organizations' => [
@@ -231,6 +237,109 @@ class ReportTemplateSeeder extends Seeder
                     $adviser->addText('Adviser', ['size' => 9]);
                 },
             ],
+
+            'Organization Scoring Report' => [
+                'description' => 'Every organization\'s scoring sheet for a semester — each category and criterion with its points per instance, instances and points — followed by the overall ranking. Verified scores print as saved; the rest print their live tally.',
+                'icon' => 'tables',
+                'definition' => [
+                    'parameters' => [[
+                        'name' => 'semester', 'label' => 'Semester', 'type' => 'entity',
+                        'entity' => 'semesters', 'display' => ['name'], 'required' => true,
+                        'default' => 'current_semester',
+                    ]],
+                    'tokens' => [
+                        [
+                            'id' => 'semester_name', 'kind' => 'value', 'name' => 'semester_name', 'mode' => 'field',
+                            'from' => 'semesters', 'path' => ['name'],
+                            'where' => [['column' => 'semester_id', 'op' => '=', 'param' => 'semester']],
+                            'format' => $text('—'),
+                        ],
+                        [
+                            'id' => 'organization_count', 'kind' => 'value', 'name' => 'organization_count', 'mode' => 'aggregate',
+                            'from' => 'scoring_results', 'fn' => 'count', 'column' => null, 'where' => $forSemester, 'format' => $count,
+                        ],
+                        [
+                            'id' => 'orgs', 'kind' => 'group', 'name' => 'orgs', 'entity' => 'scoring_results', 'where' => $forSemester,
+                            'order' => [['column' => 'organization_type', 'dir' => 'asc'], ['column' => 'organization_name', 'dir' => 'asc']],
+                            'limit' => null,
+                            'children' => [
+                                $field('so_name', 'name', ['organization_name'], $text('Unknown Organization')),
+                                $field('so_type', 'type', ['organization_type'], $text('—')),
+                                $field('so_total', 'total', ['total_score'], $count),
+                                $field('so_max', 'max_score', ['max_score'], $count),
+                                $field('so_rank', 'rank', ['rank'], $text('—')),
+                                $field('so_verified', 'verified', ['verified'], $text('No')),
+                                [
+                                    'id' => 'so_categories', 'kind' => 'group', 'name' => 'categories', 'relation' => 'scoring_result_categories',
+                                    'where' => [], 'order' => [['column' => 'sort_order', 'dir' => 'asc']], 'limit' => null,
+                                    'children' => [
+                                        $field('sc_label', 'label', ['category_label'], $text()),
+                                        $field('sc_cap', 'cap', ['cap'], $count),
+                                        $field('sc_points', 'points', ['points'], $count),
+                                        $field('sc_score', 'score', ['score'], $count),
+                                        [
+                                            'id' => 'sc_criteria', 'kind' => 'group', 'name' => 'criteria', 'relation' => 'scoring_result_criteria',
+                                            'where' => [], 'order' => [['column' => 'sort_order', 'dir' => 'asc']], 'limit' => null,
+                                            'children' => [
+                                                $field('sk_label', 'label', ['criterion_label'], $text()),
+                                                $field('sk_ppi', 'points_per_instance', ['points_per_instance'], $count),
+                                                $field('sk_instances', 'instances', ['instances'], $count),
+                                                $field('sk_points', 'points', ['points'], $count),
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        [
+                            'id' => 'ranking', 'kind' => 'group', 'name' => 'ranking', 'entity' => 'scoring_results', 'where' => $forSemester,
+                            'order' => [['column' => 'rank', 'dir' => 'asc'], ['column' => 'organization_name', 'dir' => 'asc']],
+                            'limit' => null,
+                            'children' => [
+                                $field('sr_rank', 'rank', ['rank'], $text('—')),
+                                $field('sr_name', 'name', ['organization_name'], $text('Unknown Organization')),
+                                $field('sr_type', 'type', ['organization_type'], $text('—')),
+                                $field('sr_total', 'total', ['total_score'], $count),
+                            ],
+                        ],
+                    ],
+                ],
+                'layout' => function (Section $section) {
+                    $section->addText('Organization Scoring Report', ['bold' => true, 'size' => 18]);
+                    $section->addText('{{semester_name}}', ['bold' => true, 'size' => 12]);
+                    $section->addText('Generated {{system.current_datetime}} · {{organization_count}} organizations', ['size' => 9, 'color' => '6B7280']);
+                    $section->addText('Verified scores print as saved; unverified organizations print their live tally from the scoring rules.', ['size' => 9, 'color' => '6B7280']);
+                    $section->addTextBreak();
+
+                    $section->addText('{{#orgs}}');
+                    $section->addText('{{orgs.name}}', ['bold' => true, 'size' => 14, 'color' => '111827']);
+                    $section->addText('{{orgs.type}}  ·  Total Score: {{orgs.total}} / {{orgs.max_score}}  ·  Rank: {{orgs.rank}}  ·  Verified: {{orgs.verified}}', ['size' => 9, 'color' => '6B7280']);
+                    $section->addText('{{#orgs.categories}}');
+                    $section->addText('{{orgs.categories.label}}  —  Score: {{orgs.categories.score}} / {{orgs.categories.cap}}', ['bold' => true, 'size' => 11], ['spaceBefore' => 160]);
+                    $table = self::table($section);
+                    $widths = [5200, 1500, 1200, 1200];
+                    self::row($table, ['Criterion', 'Points per Instance', 'Instances', 'Points'], true, $widths);
+                    self::row($table, [
+                        '{{orgs.categories.criteria.label#}}',
+                        '{{orgs.categories.criteria.points_per_instance#}}',
+                        '{{orgs.categories.criteria.instances#}}',
+                        '{{orgs.categories.criteria.points#}}',
+                    ], false, $widths);
+                    self::row($table, ['Category subtotal (capped at {{orgs.categories.cap}})', '', '{{orgs.categories.points}}', '{{orgs.categories.score}}'], true, $widths);
+                    $section->addText('{{/orgs.categories}}');
+                    $section->addText('Total Score: {{orgs.total}} / {{orgs.max_score}}', ['bold' => true, 'size' => 11], ['spaceBefore' => 160]);
+                    $section->addPageBreak();
+                    $section->addText('{{/orgs}}');
+
+                    $section->addText('Overall Ranking', ['bold' => true, 'size' => 16]);
+                    $section->addText('{{semester_name}} · highest to lowest total score', ['size' => 9, 'color' => '6B7280']);
+                    $section->addTextBreak();
+                    $table = self::table($section);
+                    $widths = [900, 4700, 2300, 1200];
+                    self::row($table, ['Rank', 'Organization', 'Organization Type', 'Total Score'], true, $widths);
+                    self::row($table, ['{{ranking.rank#}}', '{{ranking.name#}}', '{{ranking.type#}}', '{{ranking.total#}}'], false, $widths);
+                },
+            ],
         ];
     }
 
@@ -254,12 +363,13 @@ class ReportTemplateSeeder extends Seeder
 
     /**
      * @param  array<int, string>  $cells
+     * @param  array<int, int>  $widths  twips per cell
      */
-    private static function row(\PhpOffice\PhpWord\Element\Table $table, array $cells, bool $heading = false): void
+    private static function row(\PhpOffice\PhpWord\Element\Table $table, array $cells, bool $heading = false, array $widths = []): void
     {
         $table->addRow();
-        foreach ($cells as $cell) {
-            $table->addCell(null, $heading ? ['bgColor' => 'F3F4F6'] : [])
+        foreach ($cells as $i => $cell) {
+            $table->addCell($widths[$i] ?? null, $heading ? ['bgColor' => 'F3F4F6'] : [])
                 ->addText($cell, ['bold' => $heading, 'size' => $heading ? 9 : 10]);
         }
     }

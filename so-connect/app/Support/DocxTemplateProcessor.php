@@ -99,6 +99,20 @@ class DocxTemplateProcessor extends TemplateProcessor
     }
 
     /**
+     * PhpWord blanks any falsy value, so a "0" would print as nothing; only
+     * null/empty values are blank here.
+     *
+     * @param  mixed  $subject
+     * @return string
+     */
+    protected static function ensureUtf8Encoded($subject)
+    {
+        return $subject === null || $subject === false || $subject === ''
+            ? ''
+            : \PhpOffice\PhpWord\Shared\Text::toUTF8((string) $subject);
+    }
+
+    /**
      * Restore PhpWord's process-wide defaults — the delimiters are static, so
      * leaving them switched would leak into unrelated later use.
      */

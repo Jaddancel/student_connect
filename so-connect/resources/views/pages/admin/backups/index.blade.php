@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-    <x-common.page-breadcrumb pageTitle="Database Backups" />
+    <x-common.page-breadcrumb pageTitle="Backups" />
 
     <div class="mx-auto max-w-4xl space-y-6">
         <nav class="flex gap-1 rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -20,6 +20,14 @@
                 {{ session('success') }}
             </div>
         @endif
+        @if (session('restore_warnings'))
+            <div class="rounded-xl border border-warning-300 bg-warning-50 px-4 py-3 text-sm text-warning-700 dark:border-warning-500/40 dark:bg-warning-500/10 dark:text-orange-400">
+                <p class="font-medium">Some items could not be fully restored:</p>
+                <ul class="mt-1 list-disc pl-5">
+                    @foreach (session('restore_warnings') as $warning)<li>{{ $warning }}</li>@endforeach
+                </ul>
+            </div>
+        @endif
         @if ($errors->any())
             <div class="rounded-xl border border-error-300 bg-error-50 px-4 py-3 text-sm text-error-700 dark:border-error-500/40 dark:bg-error-500/10 dark:text-error-400">
                 @foreach ($errors->all() as $error)<p>{{ $error }}</p>@endforeach
@@ -29,19 +37,32 @@
         <section class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Database backups</h2>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Automatic backups run every {{ $intervalHours }} hour{{ $intervalHours === 1 ? '' : 's' }}.
-                        You can also back up now, download a dump, or restore the database from one.
-                    </p>
+                    <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Backups</h2>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                    <form method="POST" action="{{ route('superadmin.backups.store') }}">
+                    <form method="POST" action="{{ route('superadmin.backups.store') }}" class="relative"
+                        x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
                         @csrf
-                        <button type="submit"
-                            class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600">
+                        <button type="button" @click="open = ! open" :aria-expanded="open" aria-haspopup="menu"
+                            class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600">
                             Back up now
+                            <svg class="h-4 w-4 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
                         </button>
+                        <div x-show="open" x-cloak x-transition.origin.top.left role="menu"
+                            class="absolute left-0 z-30 mt-2 w-72 rounded-xl border border-gray-200 bg-white p-1.5 shadow-theme-lg dark:border-gray-700 dark:bg-gray-900">
+                            <button type="submit" name="type" value="{{ \App\Services\BackupService::TYPE_DATABASE }}" role="menuitem"
+                                class="block w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-white/5">
+                                <span class="block text-sm font-medium text-gray-800 dark:text-white/90">Database backup</span>
+                                <span class="block text-xs text-gray-500 dark:text-gray-400">The entire database.</span>
+                            </button>
+                            <button type="submit" name="type" value="{{ \App\Services\BackupService::TYPE_CONFIGURATION }}" role="menuitem"
+                                class="block w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-white/5">
+                                <span class="block text-sm font-medium text-gray-800 dark:text-white/90">Configuration backup</span>
+                                <span class="block text-xs text-gray-500 dark:text-gray-400">Settings, forms, reports, printed templates and tally configurations.</span>
+                            </button>
+                        </div>
                     </form>
                     <button type="button" x-data @click="$dispatch('open-restore-file-modal')"
                         class="rounded-lg border border-warning-300 px-4 py-2 text-sm font-semibold text-warning-600 hover:bg-warning-50 dark:border-warning-500/40 dark:hover:bg-warning-500/10">
@@ -93,6 +114,7 @@
                                         @change="selected = $event.target.checked ? [...all] : []">
                                 </th>
                                 <th class="pb-2">Backup</th>
+                                <th class="pb-2">Type</th>
                                 <th class="pb-2">Size</th>
                                 <th class="pb-2">Created</th>
                                 <th class="pb-2 text-right">Actions</th>
@@ -107,6 +129,7 @@
                                             class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-700">
                                     </td>
                                     <td class="py-3 font-mono text-xs text-gray-700 dark:text-gray-300">{{ $backup['name'] }}</td>
+                                    <td class="py-3"><x-admin.backup-type-badge :type="$backup['type']" /></td>
                                     <td class="py-3 text-gray-500 dark:text-gray-400">{{ number_format($backup['size'] / 1024, 1) }} KB</td>
                                     <td class="py-3 text-gray-500 dark:text-gray-400">{{ \Illuminate\Support\Carbon::createFromTimestamp($backup['last_modified'])->diffForHumans() }}</td>
                                     <td class="py-3">
@@ -114,7 +137,9 @@
                                             <a href="{{ route('superadmin.backups.download', $backup['name']) }}"
                                                 class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Download</a>
                                             <form method="POST" action="{{ route('superadmin.backups.restore', $backup['name']) }}"
-                                                onsubmit="return confirm('Restore the database from this backup? The current database will be replaced (a safety backup is taken first).');">
+                                                onsubmit="return confirm(@js($backup['type'] === \App\Services\BackupService::TYPE_CONFIGURATION
+                                                    ? 'Restore the configuration from this backup? Matching settings, forms, reports, printed templates and tally configurations will be updated and missing ones added; nothing is deleted (a safety configuration backup is taken first).'
+                                                    : 'Restore the database from this backup? The current database will be replaced (a safety backup is taken first).'));">
                                                 @csrf
                                                 <button type="submit"
                                                     class="rounded-lg border border-warning-300 px-3 py-1.5 text-xs font-medium text-warning-600 hover:bg-warning-50 dark:border-warning-500/40">Restore</button>
@@ -163,6 +188,9 @@
             <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Restore from file</h3>
             <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
                 The current database will be replaced; a safety backup is taken first.
+            </p>
+            <p class="mt-2 text-xs text-gray-400">
+                Configuration backups are detected automatically and merged in instead: matching items are updated, missing ones added, and nothing is deleted.
             </p>
 
             <label for="backup_file" class="mt-5 block text-sm font-medium text-gray-700 dark:text-gray-300">

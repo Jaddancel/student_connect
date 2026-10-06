@@ -21,7 +21,9 @@ class AutoBackup extends Command
     public function handle(BackupService $backups): int
     {
         $intervalHours = max(1, (int) AppSetting::get('backup.interval_hours', 24));
-        $latest = $backups->list()[0]['last_modified'] ?? null;
+        // Only database backups count: a manual configuration backup must not
+        // postpone the scheduled database one.
+        $latest = collect($backups->list())->firstWhere('type', BackupService::TYPE_DATABASE)['last_modified'] ?? null;
 
         if (! $this->option('force') && $latest !== null) {
             $elapsedHours = (now()->timestamp - $latest) / 3600;

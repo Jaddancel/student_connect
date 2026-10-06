@@ -104,7 +104,7 @@ final class ReportQueryEngine
         $table = $token['entity'];
         $primary = (string) $this->catalog->primaryKey($table);
 
-        $query = $this->catalog->query($table)->select($this->selectColumns($table, $token['children']));
+        $query = $this->catalog->query($table, null, $this->filtersOf($token['where']))->select($this->selectColumns($table, $token['children']));
         $this->applyConditions($query, $token['where']);
         $this->applyOrder($query, $token['order'], $primary);
         $cap = $this->cap($token['limit']);
@@ -121,7 +121,7 @@ final class ReportQueryEngine
         $table = $token['from'];
 
         if ($token['mode'] === 'aggregate') {
-            $query = $this->catalog->query($table);
+            $query = $this->catalog->query($table, null, $this->filtersOf($token['where']));
             $this->applyConditions($query, $token['where']);
 
             $raw = $this->aggregate($query, $token['fn'], $token['column']);
@@ -130,7 +130,7 @@ final class ReportQueryEngine
         }
 
         $primary = $this->catalog->primaryKey($table);
-        $query = $this->catalog->query($table);
+        $query = $this->catalog->query($table, null, $this->filtersOf($token['where']));
         $this->applyConditions($query, $token['where']);
 
         if ($primary === null || count($token['path']) === 1) {
@@ -235,7 +235,7 @@ final class ReportQueryEngine
 
         $rows = collect();
         foreach (array_chunk($parentValues, 1000) as $chunk) {
-            $query = $this->catalog->query($table)->select($columns)->whereIn($relation['foreign'], $chunk);
+            $query = $this->catalog->query($table, null, [$relation['foreign'] => $chunk])->select($columns)->whereIn($relation['foreign'], $chunk);
             $this->applyConditions($query, $token['where']);
             $this->applyOrder($query, $token['order'], $primary);
             $rows = $rows->merge($query->limit((int) config('reports.max_rows', 5000) + 1)->get());
@@ -275,7 +275,7 @@ final class ReportQueryEngine
     {
         $map = [];
         foreach (array_chunk($parentValues, 1000) as $chunk) {
-            $query = $this->catalog->query($relation['table'])->whereIn($relation['foreign'], $chunk);
+            $query = $this->catalog->query($relation['table'], null, [$relation['foreign'] => $chunk])->whereIn($relation['foreign'], $chunk);
             $this->applyConditions($query, $token['where']);
             $grammar = $query->getGrammar();
             $expression = $token['fn'] === 'count' && $token['column'] === null
@@ -325,7 +325,7 @@ final class ReportQueryEngine
 
         $out = [];
         foreach (array_chunk(array_values(array_unique($keys)), 1000) as $chunk) {
-            $query = $this->catalog->query($table, 't0')->whereIn('t0.'.$primary, $chunk);
+            $query = $this->catalog->query($table, 't0', [$primary => $chunk])->whereIn('t0.'.$primary, $chunk);
             $alias = 't0';
             $current = $table;
             foreach ($relations as $i => $segment) {
@@ -419,6 +419,37 @@ final class ReportQueryEngine
         }
     }
 
+    /**
+     * The `=` / `in` conditions as column => allowed values (parameters
+     * resolved, unset ones skipped), for derived sources to narrow by.
+     *
+     * @param  array<int, array<string, mixed>>  $conditions
+     * @return array<string, array<int, mixed>>
+     */
+    private function filtersOf(array $conditions): array
+    {
+        $filters = [];
+        foreach ($conditions as $condition) {
+            if (! in_array($condition['op'], ['=', 'in'], true)) {
+                continue;
+            }
+            if (isset($condition['param'])) {
+                $value = $this->params[$condition['param']] ?? null;
+                if ($value === null || $value === '' || $value === []) {
+                    continue;
+                }
+            } else {
+                $value = $condition['value'] ?? '';
+            }
+            $values = $condition['op'] === 'in' ? $this->list($value) : [$this->scalar($value)];
+            $filters[$condition['column']] = isset($filters[$condition['column']])
+                ? array_values(array_intersect($filters[$condition['column']], $values))
+                : $values;
+        }
+
+        return $filters;
+    }
+
     private function applyOrder(Builder $query, array $order, string $primary): void
     {
         foreach ($order as $clause) {
@@ -464,6 +495,9 @@ final class ReportQueryEngine
 
             $raw = $values[$parameter['name']] ?? null;
             $raw = is_string($raw) ? trim($raw) : $raw;
+            if (($raw === null || $raw === '') && isset($parameter['default'])) {
+                $raw = $this->parameterDefault($parameter);
+            }
 
             if ($raw === null || $raw === '') {
                 if ($parameter['required'] && ! $preview) {
@@ -486,6 +520,19 @@ final class ReportQueryEngine
         }
 
         return $resolved;
+    }
+
+    /**
+     * The value a parameter takes when left blank.
+     *
+     * @param  array<string, mixed>  $parameter  a normalized parameter
+     */
+    public function parameterDefault(array $parameter): mixed
+    {
+        return match ($parameter['default'] ?? null) {
+            ReportDefinitionValidator::DEFAULT_CURRENT_SEMESTER => \App\Models\Semester::current()?->getKey(),
+            default => null,
+        };
     }
 
     /**

@@ -53,6 +53,7 @@ return [
     // Columns whose stored code prints as a label: "table.column" => [class, method].
     'enums' => [
         'organizations.organization_type' => [\App\Enums\OrganizationType::class, 'label'],
+        'scoring_results.organization_type' => [\App\Enums\OrganizationType::class, 'label'],
     ],
 
     // Table-input fields of forms, exposed as read-only tables (see

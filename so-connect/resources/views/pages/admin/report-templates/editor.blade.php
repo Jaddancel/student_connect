@@ -340,7 +340,7 @@
                             <template x-if="p.type === 'entity'">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="{{ $kw }}">Pick from</span>
-                                    <select x-model="p.entity" @change="p.display = []; loadParamOptions(p)" class="{{ $pill }}">
+                                    <select x-model="p.entity" @change="p.display = []; if (p.entity !== 'semesters') p.default = ''; loadParamOptions(p)" class="{{ $pill }}">
                                         <option value="">table…</option>
                                         <template x-for="tbl in schema.tables" :key="tbl.name">
                                             <option :value="tbl.name" x-text="tbl.name" :selected="tbl.name === p.entity"></option>
@@ -350,6 +350,11 @@
                                         <input type="checkbox" :checked="p.context === 'active_organization'"
                                             @change="p.context = $event.target.checked ? 'active_organization' : ''; if ($event.target.checked) p.required = true" />
                                         use the organization selected in the session (never asked)
+                                    </label>
+                                    <label x-show="p.entity === 'semesters'" class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
+                                        <input type="checkbox" :checked="p.default === 'current_semester'"
+                                            @change="p.default = $event.target.checked ? 'current_semester' : ''" />
+                                        default to the current semester
                                     </label>
                                     <span class="{{ $kw }}">Showing</span>
                                     <template x-for="pill in paramDisplayPills(p)" :key="pill.index + pill.table">
@@ -394,7 +399,7 @@
                                 <span x-text="param.label || param.name"></span>
                                 <template x-if="param.type === 'entity' && param.context !== 'active_organization'">
                                     <select x-model="preview.params[param.name]" @change="runPreview()" class="ml-1 h-8 rounded-lg border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700">
-                                        <option value="">(any)</option>
+                                        <option value="" x-text="param.default === 'current_semester' ? '(current semester)' : '(any)'"></option>
                                         <template x-for="opt in (paramOptions[param.name] || [])" :key="opt.value">
                                             <option :value="opt.value" x-text="opt.label"></option>
                                         </template>

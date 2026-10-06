@@ -30,9 +30,12 @@ final class SchemaCatalog
 
     private FormTableSources $formTables;
 
-    public function __construct(?FormTableSources $formTables = null)
+    private ScoringTableSources $scoringTables;
+
+    public function __construct(?FormTableSources $formTables = null, ?ScoringTableSources $scoringTables = null)
     {
         $this->formTables = $formTables ?? new FormTableSources;
+        $this->scoringTables = $scoringTables ?? new ScoringTableSources;
     }
 
     /**
@@ -45,19 +48,24 @@ final class SchemaCatalog
         }
 
         // Form-table sources follow the live form definitions, so they are
-        // merged in after the (cached) schema introspection.
-        return $this->tables = $this->withFormTables(
+        // merged in after the (cached) schema introspection, as are the
+        // scoring tables.
+        return $this->tables = $this->scoringTables->merge($this->withFormTables(
             Cache::remember($this->cacheKey(), now()->addHours(12), fn () => $this->introspect()),
-        );
+        ));
     }
 
     /**
-     * A query builder over a table, aliased when asked. Form-table sources
-     * are derived tables (see {@see FormTableSources}).
+     * A query builder over a table, aliased when asked. Form-table and scoring
+     * sources are derived tables (see {@see FormTableSources},
+     * {@see ScoringTableSources}).
+     *
+     * @param  array<string, array<int, mixed>>  $filters  column => values the caller
+     *                                                     will also filter by, so a derived source may compute less
      */
-    public function query(string $table, ?string $alias = null): Builder
+    public function query(string $table, ?string $alias = null, array $filters = []): Builder
     {
-        $sql = $this->formTables->sql($table);
+        $sql = $this->formTables->sql($table) ?? $this->scoringTables->sql($table, $filters);
         if ($sql === null) {
             return DB::table($alias !== null ? $table.' as '.$alias : $table);
         }
@@ -67,7 +75,7 @@ final class SchemaCatalog
 
     public function isVirtual(string $table): bool
     {
-        return $this->formTables->has($table);
+        return $this->formTables->has($table) || $this->scoringTables->has($table);
     }
 
     public function forget(): void

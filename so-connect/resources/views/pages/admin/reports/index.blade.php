@@ -129,7 +129,7 @@
                                                 class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
                                                 <option value="">{{ $parameter['required'] ? 'Choose…' : 'All' }}</option>
                                                 @foreach ($parameter['options'] ?? [] as $option)
-                                                    <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                                                    <option value="{{ $option['value'] }}" @selected($option['value'] === $parameter['selected'])>{{ $option['label'] }}</option>
                                                 @endforeach
                                             </select>
                                         @else

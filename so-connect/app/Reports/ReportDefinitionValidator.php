@@ -10,7 +10,8 @@ use Illuminate\Validation\ValidationException;
  * Shape (stored on report_templates.definition):
  *
  *   parameters: [{ name, label, type: entity|text|number|date, entity?, display?: [path…], required,
- *                  context?: 'active_organization' (organizations entity: the session's selected organization) }]
+ *                  context?: 'active_organization' (organizations entity: the session's selected organization),
+ *                  default?: 'current_semester' (semesters entity: used when left blank) }]
  *   tokens:     [token…]
  *
  *   group token  { id, kind: 'group', name,
@@ -49,6 +50,9 @@ final class ReportDefinitionValidator
 
     /** An organizations parameter filled from the organization selected in the session, never asked. */
     public const CONTEXT_ACTIVE_ORGANIZATION = 'active_organization';
+
+    /** A semesters parameter that is the current semester unless another is picked. */
+    public const DEFAULT_CURRENT_SEMESTER = 'current_semester';
 
     private const NAME_PATTERN = '/^[a-z][a-z0-9_]*$/';
 
@@ -135,6 +139,13 @@ final class ReportDefinitionValidator
                             $normalized['required'] = true;
                         } else {
                             $this->errors[] = $label.': only an organizations parameter can use the selected organization.';
+                        }
+                    }
+                    if (($param['default'] ?? null) === self::DEFAULT_CURRENT_SEMESTER) {
+                        if ($entity === 'semesters') {
+                            $normalized['default'] = self::DEFAULT_CURRENT_SEMESTER;
+                        } else {
+                            $this->errors[] = $label.': only a semesters parameter can default to the current semester.';
                         }
                     }
                 }

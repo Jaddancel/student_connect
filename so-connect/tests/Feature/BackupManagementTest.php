@@ -114,7 +114,7 @@ it('unarchives a backup via the unarchive action and audits it', function () {
 
 it('runs a backup via the store action and audits it', function () {
     $this->mock(BackupService::class, function ($mock) {
-        $mock->shouldReceive('create')->once();
+        $mock->shouldReceive('create')->once()->with(BackupService::TYPE_DATABASE);
     });
 
     $this->actingAs(recordsUser(1))
@@ -126,7 +126,8 @@ it('runs a backup via the store action and audits it', function () {
 
 it('restores from a backup via the restore action and audits it', function () {
     $this->mock(BackupService::class, function ($mock) {
-        $mock->shouldReceive('restore')->once()->with('b1.zip');
+        $mock->shouldReceive('restore')->once()->with('b1.zip')
+            ->andReturn(['type' => BackupService::TYPE_DATABASE, 'safety' => 'safety.zip', 'summary' => null]);
     });
 
     $this->actingAs(recordsUser(1))
@@ -157,7 +158,8 @@ it('restores from an uploaded backup file and audits it', function () {
     $upload = backupZipUpload("SELECT 1;\n");
 
     $this->mock(BackupService::class, function ($mock) {
-        $mock->shouldReceive('restoreFromUpload')->once()->andReturn('safety.zip');
+        $mock->shouldReceive('restoreFromUpload')->once()
+            ->andReturn(['type' => BackupService::TYPE_DATABASE, 'safety' => 'safety.zip', 'summary' => null]);
     });
 
     $this->actingAs(recordsUser(1))

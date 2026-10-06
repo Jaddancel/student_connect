@@ -99,7 +99,9 @@ class FormPrintTemplateService
             throw new RuntimeException('Refusing to save an empty printed template.');
         }
 
-        Storage::disk($this->disk())->put((string) $template->docx_path, $contents);
+        if (! Storage::disk($this->disk())->put((string) $template->docx_path, $contents)) {
+            throw new RuntimeException('Could not store the printed template (is the storage directory writable?).');
+        }
 
         $template->forceFill([
             'version' => (int) ($template->version ?? 1) + 1,

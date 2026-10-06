@@ -8,6 +8,7 @@ use App\Services\BackupService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -25,10 +26,9 @@ class BackupController extends Controller
     public function index(): View
     {
         return view('pages.admin.backups.index', [
-            'title' => 'Database Backups',
+            'title' => 'Backups',
             'backups' => $this->backups->list(),
             'archivedCount' => count($this->backups->listArchived()),
-            'intervalHours' => (int) \App\Models\AppSetting::get('backup.interval_hours', 24),
         ]);
     }
 
@@ -40,17 +40,27 @@ class BackupController extends Controller
         ]);
     }
 
-    public function store(): RedirectResponse
+    public function store(Request $request): RedirectResponse
     {
+        $type = $request->validate([
+            'type' => ['sometimes', Rule::in(BackupService::TYPES)],
+        ])['type'] ?? BackupService::TYPE_DATABASE;
+        $config = $type === BackupService::TYPE_CONFIGURATION;
+
         try {
-            $this->backups->create();
+            $name = $this->backups->create($type);
         } catch (\Throwable $e) {
             return back()->withErrors(['backup' => 'Backup failed: '.$e->getMessage()]);
         }
 
-        ActionLogger::log(ActionLogger::CATEGORY_SETTINGS, 'backup_created', 'Created a database backup');
+        ActionLogger::log(
+            ActionLogger::CATEGORY_SETTINGS,
+            $config ? 'config_backup_created' : 'backup_created',
+            $config ? 'Created a configuration backup' : 'Created a database backup',
+            array_filter(['file' => $name, 'type' => $type]),
+        );
 
-        return back()->with('success', 'Backup created.');
+        return back()->with('success', $config ? 'Configuration backup created.' : 'Database backup created.');
     }
 
     public function download(Request $request, string $filename): BinaryFileResponse
@@ -140,21 +150,12 @@ class BackupController extends Controller
     public function restore(string $filename): RedirectResponse
     {
         try {
-            $safety = $this->backups->restore($filename);
+            $result = $this->backups->restore($filename);
         } catch (\Throwable $e) {
             return back()->withErrors(['restore' => 'Restore failed: '.$e->getMessage()]);
         }
 
-        ActionLogger::log(ActionLogger::CATEGORY_SETTINGS, 'backup_restored', 'Restored the database from '.$filename, ['file' => $filename]);
-
-        // The safety snapshot shows up as a brand-new archive in the list; say so
-        // explicitly, otherwise it reads as a backup nobody asked for.
-        $message = 'Database restored from '.$filename.'.';
-        $message .= $safety
-            ? ' A safety backup of the previous state was saved as '.$safety.'.'
-            : ' A safety backup of the previous state was saved first.';
-
-        return back()->with('success', $message);
+        return $this->restored($result, $filename, $filename);
     }
 
     /**
@@ -174,18 +175,73 @@ class BackupController extends Controller
         $name = basename($file->getClientOriginalName());
 
         try {
-            $safety = $this->backups->restoreFromUpload($file);
+            $result = $this->backups->restoreFromUpload($file);
         } catch (\Throwable $e) {
             return back()->withErrors(['restore' => 'Restore failed: '.$e->getMessage()]);
         }
 
-        ActionLogger::log(ActionLogger::CATEGORY_SETTINGS, 'backup_restored', 'Restored the database from uploaded file '.$name, ['file' => $name, 'source' => 'upload']);
+        return $this->restored($result, 'uploaded file '.$name, $name, upload: true);
+    }
 
-        $message = 'Database restored from uploaded file '.$name.'.';
-        $message .= $safety
-            ? ' A safety backup of the previous state was saved as '.$safety.'.'
+    /**
+     * Audit a finished restore and flash what happened.
+     *
+     * @param  array{type:string, safety:?string, summary:?array}  $result
+     */
+    private function restored(array $result, string $source, string $file, bool $upload = false): RedirectResponse
+    {
+        $config = $result['type'] === BackupService::TYPE_CONFIGURATION;
+
+        ActionLogger::log(
+            ActionLogger::CATEGORY_SETTINGS,
+            $config ? 'config_backup_restored' : 'backup_restored',
+            ($config ? 'Merged the configuration from ' : 'Restored the database from ').$source,
+            array_filter(['file' => $file, 'source' => $upload ? 'upload' : null, 'type' => $result['type'], 'summary' => $result['summary']]),
+        );
+
+        // The safety snapshot shows up as a brand-new archive in the list; say so
+        // explicitly, otherwise it reads as a backup nobody asked for.
+        $safety = $result['safety']
+            ? ' A safety backup of the previous state was saved as '.$result['safety'].'.'
             : ' A safety backup of the previous state was saved first.';
 
-        return back()->with('success', $message);
+        if (! $config) {
+            return back()->with('success', 'Database restored from '.$source.'.'.$safety);
+        }
+
+        $summary = (array) $result['summary'];
+        $response = back()->with('success', 'Configuration merged from '.$source.': '.self::describeCounts($summary).'.'.$safety);
+
+        return ($summary['warnings'] ?? []) !== []
+            ? $response->with('restore_warnings', $summary['warnings'])
+            : $response;
+    }
+
+    /**
+     * @param  array{created?: array<string,int>, updated?: array<string,int>}  $summary
+     */
+    private static function describeCounts(array $summary): string
+    {
+        $labels = [
+            'settings' => 'setting', 'forms' => 'form', 'fields' => 'field', 'templates' => 'printed template',
+            'report_templates' => 'report', 'scoring_categories' => 'tally category',
+            'scoring_criteria' => 'tally criterion', 'scoring_rules' => 'tally rule',
+        ];
+
+        $parts = [];
+        foreach (['created', 'updated'] as $bucket) {
+            $items = [];
+            foreach ($labels as $key => $label) {
+                $n = (int) ($summary[$bucket][$key] ?? 0);
+                if ($n > 0) {
+                    $items[] = $n.' '.($n === 1 ? $label : ($label === 'tally criterion' ? 'tally criteria' : $label.'s'));
+                }
+            }
+            if ($items !== []) {
+                $parts[] = $bucket.' '.implode(', ', $items);
+            }
+        }
+
+        return $parts === [] ? 'nothing to change' : implode('; ', $parts);
     }
 }
