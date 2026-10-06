@@ -11,12 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('officers', function (Blueprint $table) {
-            $table->id('officer_id');
+        Schema::create('organization_officers', function (Blueprint $table) {
+            $table->id('org_officer_id');
             $table->string('role');
+            $table->unsignedBigInteger('organization')->nullable();
             $table->unsignedBigInteger('yearterm')->nullable();
             $table->unsignedBigInteger('member')->nullable();
-            $table->timestamps();
+            $table->timestamp('registered_at')->nullable();
+            $table->timestamp('reassigned_at')->nullable();
         });
     }
 

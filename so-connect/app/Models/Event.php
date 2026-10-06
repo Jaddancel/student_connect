@@ -24,7 +24,7 @@ class Event extends Model
 
     public function detailOfEvent()
     {
-        return $this->hasOne(EventDetail::class, 'event_detail', 'event_detail_id');
+        return $this->belongsTo(EventDetail::class, 'event_detail', 'event_detail_id');
     }
 
     public function organizationOfEvent()
@@ -34,6 +34,6 @@ class Event extends Model
 
     public function creator()
     {
-        return $this->belongsTo(Officer::class, 'author', 'officer_id');
+        return $this->belongsTo(Officer::class, 'author', 'organization_officer_id');
     }
 }

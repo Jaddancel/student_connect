@@ -21,10 +21,16 @@
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
-        <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="DB_CONNECTION" value="mysql"/>
+        <!-- Sail runs Laravel and MySQL in separate Docker services, so the
+             test suite must connect to the MySQL service name rather than the
+             local loopback interface inside the app container. -->
+        <env name="DB_HOST" value="mysql"/>
+        <!-- Isolated test DB (auto-created by Sail's create-testing-database.sh
+             and covered by its `testing%` grant) so `artisan test` never wipes
+             the dev `so_connect` database. -->
+        <env name="DB_DATABASE" value="testing"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

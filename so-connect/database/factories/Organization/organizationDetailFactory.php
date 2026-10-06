@@ -2,15 +2,15 @@
 
 namespace Database\Factories\Organization;
 
-use App\Models\Organization\organizationDetail;
+use App\Models\Organization\OrganizationDetail;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<organizationDetail>
+ * @extends Factory<OrganizationDetail>
  */
 class organizationDetailFactory extends Factory
 {
-    protected $model = organizationDetail::class;
+    protected $model = OrganizationDetail::class;
 
     /**
      * Define the model's default state.
@@ -20,9 +20,9 @@ class organizationDetailFactory extends Factory
     public function definition(): array
     {
         return [
-            'organization_name' => $this->faker->company(),
-            'organization_initials' => $this->faker->lexify('???'),
-            'president' => null,
+            'name' => $this->faker->company(),
+            'detail_text' => $this->faker->paragraph(),
+            'initials' => strtoupper($this->faker->lexify('???')),
         ];
     }
 
@@ -31,7 +31,7 @@ class organizationDetailFactory extends Factory
         return $this->state(function (array $attributes) {
             return [
                 // pick a random organization name from a predefined list
-                'organization_name' => $this->faker->randomElement([
+                'name' => $this->faker->randomElement([
                     'Buklod-Lahi',
                     'Ecological and Solid Waste Management Society',
                     '3D Sighters',
@@ -57,7 +57,6 @@ class organizationDetailFactory extends Factory
                     'United Ilocandia',
                     'Venerable Knight Veterinarians/Venerable Lady Veterinarians',
                 ]),
-                'president' => null,
             ];
         });
     }

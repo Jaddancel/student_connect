@@ -2,10 +2,12 @@
 
 namespace Database\Factories;
 
+use App\Models\Event;
+use App\Models\Event\EventDetail;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Event>
+ * @extends Factory<Event>
  */
 class EventFactory extends Factory
 {
@@ -17,7 +19,9 @@ class EventFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'organization' => null,
+            'creator' => null,
+            'event_detail' => EventDetail::factory()->create()->getKey(),
         ];
     }
 }

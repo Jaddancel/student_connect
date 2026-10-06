@@ -2,17 +2,24 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Approval extends Model
 {
+    use HasFactory;
+
     protected $table = 'approvals';
+
+    protected $primaryKey = 'approval_id';
 
     protected $fillable = [
         'approved_at',
         'request',
         'admin',
+        'stage',
         'is_rejected',
+        'rejection_reason',
     ];
 
     protected function casts(): array
@@ -27,11 +34,11 @@ class Approval extends Model
 
     public function adminThatApproved()
     {
-        return $this->hasOne(Officer::class, 'admin', 'officer_id');
+        return $this->belongsTo(Officer::class, 'admin', 'org_officer_id');
     }
 
-    public function membershipApproval()
+    public function officerApproval()
     {
-        return $this->belongsTo(Member::class, 'approval', 'approval_id');
+        return $this->hasOne(Officer::class, 'approval', 'approval_id');
     }
 }

@@ -2,10 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Models\Request;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Request>
+ * @extends Factory<Request>
  */
 class RequestFactory extends Factory
 {
@@ -17,7 +18,14 @@ class RequestFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'action' => null,
+            'requested_at' => now(),
+            'user' => null,
+            'action_type' => null,
+            'request_type_id' => null,
+            'organization_id' => null,
+            'requested_by' => null,
+            'payload' => [],
         ];
     }
 }

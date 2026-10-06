@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('last_name');
             $table->string('middle_name');
             $table->string('occupation');
+            $table->unsignedBigInteger('address')->nullable();
             $table->timestamps();
         });
     }

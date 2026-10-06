@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 class Register extends Controller
@@ -15,15 +16,24 @@ class Register extends Controller
     public function __invoke(Request $request)
     {
         $incomingFields = $request->validate([
-            'user_email' => ['required', 'min:3', Rule::unique('users', 'user_email')],
-            'user_password' => ['required', 'min:6'],
+            'fname' => ['required', 'string', 'max:255'],
+            'lname' => ['required', 'string', 'max:255'],
+            'user_email' => ['required', 'email', 'max:255', Rule::unique('users', 'user_email')],
+            'user_password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
-        $incomingFields['user_password'] = bcrypt($incomingFields['user_password']);
-        $loggedUser = User::create($incomingFields);
+        $loggedUser = User::create([
+            'user_email' => $incomingFields['user_email'],
+            'user_password' => $incomingFields['user_password'],
+            'user_type' => 3,
+        ]);
 
-        auth()->guard()->login($loggedUser);
+        Auth::login($loggedUser);
+        $request->session()->regenerate();
 
-        return redirect('/profile/create');
+        return redirect('/profile/create')->withInput([
+            'fname' => $incomingFields['fname'],
+            'lname' => $incomingFields['lname'],
+        ]);
     }
 }

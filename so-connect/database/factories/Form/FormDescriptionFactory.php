@@ -2,10 +2,11 @@
 
 namespace Database\Factories\Form;
 
+use App\Models\Form\FormDescription;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Form\FormDescription>
+ * @extends Factory<FormDescription>
  */
 class FormDescriptionFactory extends Factory
 {
@@ -17,7 +18,14 @@ class FormDescriptionFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'form_id' => null,
+            'field_key' => fake()->unique()->lexify('field_????'),
+            'field_label' => fake()->words(3, true),
+            'field_type' => 'text',
+            'is_required' => false,
+            'field_order' => 0,
+            'placeholder_hint' => null,
+            'field_options' => null,
         ];
     }
 }

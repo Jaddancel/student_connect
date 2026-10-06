@@ -12,7 +12,7 @@ class EventDetail extends Model
     /** @use HasFactory<EventDetailFactory> */
     use HasFactory;
 
-    protected $table = 'events';
+    protected $table = 'event_details';
 
     protected $primaryKey = 'event_detail_id';
 
@@ -31,12 +31,11 @@ class EventDetail extends Model
 
     public $timestamps = false;
 
-    public function casts()
+    protected function casts(): array
     {
         return [
-            'start_time' => 'dateTime',
-            'end_time' => 'dateTime',
-            'desc_text' => 'text',
+            'start_time' => 'datetime',
+            'end_time' => 'datetime',
         ];
     }
 }

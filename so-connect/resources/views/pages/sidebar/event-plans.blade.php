@@ -1,0 +1,126 @@
+@extends('layouts.app')
+
+@section('content')
+    <x-common.page-breadcrumb pageTitle="Event Plans" />
+
+    @if (session('success'))
+        <div class="mb-5 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-700 dark:border-success-500/20 dark:bg-success-500/10 dark:text-success-400">
+            {{ session('success') }}
+        </div>
+    @endif
+
+    @if ($errors->any())
+        <div class="mb-5 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-400">
+            {{ $errors->first() }}
+        </div>
+    @endif
+
+    <div class="space-y-8">
+
+        {{-- Workplan Section --}}
+        <x-workplan-section
+            :workplans="$workplans ?? []"
+            :activeSemester="$activeSemester ?? null"
+            :orgNames="$orgNames ?? []"
+            :personNames="$personNames ?? []"
+        />
+
+        {{-- Activities awaiting the decision that admits them to the workplan --}}
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Awaiting Admin Approval</h3>
+                <span class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-400">
+                    {{ $grouped['in_workplan']->count() }}
+                </span>
+            </div>
+
+            @if ($grouped['in_workplan']->isEmpty())
+                <p class="text-sm text-gray-500 dark:text-gray-400">No activities are awaiting admin approval.</p>
+            @else
+                <div class="space-y-1">
+                    @foreach ($grouped['in_workplan'] as $plan)
+                        <x-event-plan-card :plan="$plan" :personNames="$personNames" :orgNames="$orgNames" status="pending" />
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
+        {{-- Event Item Requests Pending Admin Review --}}
+        @if ($grouped['pending']->isNotEmpty())
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Pending Admin Review</h3>
+                <span class="inline-flex items-center rounded-full bg-warning-50 px-2.5 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-500/15 dark:text-warning-400">
+                    {{ $grouped['pending']->count() }}
+                </span>
+            </div>
+            <div class="space-y-1">
+                @foreach ($grouped['pending'] as $plan)
+                    <x-event-plan-card :plan="$plan" :personNames="$personNames" :orgNames="$orgNames" status="pending" />
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        {{-- Approved Events --}}
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Approved Events</h3>
+                <span class="inline-flex items-center rounded-full bg-success-50 px-2.5 py-0.5 text-xs font-medium text-success-700 dark:bg-success-500/15 dark:text-success-400">
+                    {{ $grouped['approved']->count() }}
+                </span>
+            </div>
+
+            @if ($grouped['approved']->isEmpty())
+                <p class="text-sm text-gray-500 dark:text-gray-400">No approved event plans.</p>
+            @else
+                <div class="space-y-1">
+                    @foreach ($grouped['approved'] as $plan)
+                        <x-event-plan-card
+                            :plan="$plan"
+                            :personNames="$personNames"
+                            :orgNames="$orgNames"
+                            status="approved"
+                            :hasPendingEventRequest="in_array((int) $plan->event_plan_id, $pendingEventRequestParentIds ?? [], true)"
+                        />
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
+        {{-- Rejected Events --}}
+        @if ($grouped['rejected']->isNotEmpty())
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Rejected Events</h3>
+                <span class="inline-flex items-center rounded-full bg-error-50 px-2.5 py-0.5 text-xs font-medium text-error-700 dark:bg-error-500/15 dark:text-error-400">
+                    {{ $grouped['rejected']->count() }}
+                </span>
+            </div>
+            <div class="space-y-1">
+                @foreach ($grouped['rejected'] as $plan)
+                    <x-event-plan-card :plan="$plan" :personNames="$personNames" :orgNames="$orgNames" status="rejected" />
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        {{-- Junked Events --}}
+        @if ($grouped['junked']->isNotEmpty())
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Junked Events</h3>
+                <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                    {{ $grouped['junked']->count() }}
+                </span>
+            </div>
+            <div class="space-y-1">
+                @foreach ($grouped['junked'] as $plan)
+                    <x-event-plan-card :plan="$plan" :personNames="$personNames" :orgNames="$orgNames" status="junked" />
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+    </div>
+@endsection

@@ -1,0 +1,647 @@
+@extends('layouts.app')
+
+@section('content')
+    <x-common.page-breadcrumb pageTitle="Profile Match Requests" />
+
+    <div class="space-y-4">
+        <div id="superadmin-profile-feedback" class="hidden rounded-lg px-4 py-3 text-sm"></div>
+
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <div class="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Pending Profile Requests</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        Review pending profile requests and attach either the suggested match or a manually searched
+                        profile.
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-2" x-data="superadminProfileTools()">
+                    <span
+                        class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                        {{ $rows->count() }} total
+                    </span>
+
+                    <div class="relative">
+                        <button type="button"
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                            aria-label="Open profile tools menu" title="Profile tools"
+                            @click="toggleMenu()">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                                aria-hidden="true">
+                                <circle cx="12" cy="5" r="1.75" fill="currentColor" />
+                                <circle cx="12" cy="12" r="1.75" fill="currentColor" />
+                                <circle cx="12" cy="19" r="1.75" fill="currentColor" />
+                            </svg>
+                        </button>
+
+                        <div x-show="open" x-cloak @click.outside="closeMenu()"
+                            class="absolute right-0 z-40 mt-2 w-72 space-y-2 rounded-xl border border-gray-200 bg-white p-3 shadow-xl dark:border-gray-700 dark:bg-gray-900"
+                            x-transition>
+                            <button type="button"
+                                class="w-full rounded-lg bg-success-600 px-3 py-2 text-left text-xs font-medium text-white transition hover:bg-success-700 disabled:opacity-60"
+                                :disabled="runningAutoAccept" @click="autoAcceptSuggested()"
+                                x-text="runningAutoAccept ? 'Auto-accepting...' : 'Auto-accept all suggested matches'"></button>
+
+                            <label
+                                class="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-700 dark:border-gray-700 dark:text-gray-300">
+                                <input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-brand-600"
+                                    x-model="excludeAssociatedProfiles" @change="updateFilterSetting()">
+                                <span>Hide profiles already linked to users</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (session('status'))
+                <div
+                    class="mb-4 rounded-lg border border-success-300 bg-success-50 px-4 py-3 text-sm text-success-700 dark:border-success-500/40 dark:bg-success-500/10 dark:text-success-400">
+                    {{ session('status') }}
+                </div>
+            @endif
+
+            @if ($rows->isEmpty())
+                <p class="text-sm text-gray-500 dark:text-gray-400">No pending profile match requests right now.</p>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr class="border-b border-gray-100 dark:border-gray-800">
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Request
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Submitted Name
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Suggested Match
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Status
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Action
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($rows as $row)
+                                <tr class="border-b border-gray-100 align-top dark:border-gray-800"
+                                    id="profile-request-row-{{ $row['request_id'] }}">
+                                    <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                        <p class="font-medium">#{{ $row['request_id'] }}</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                                            {{ $row['requester_email'] }}
+                                        </p>
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            {{ \Illuminate\Support\Carbon::parse($row['requested_at'])->format('M d, Y h:i A') }}
+                                        </p>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                        {{ $row['submitted_name'] !== '' ? $row['submitted_name'] : 'Unknown Name' }}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                        @if ($row['suggested_profile'])
+                                            <p class="font-medium">{{ $row['suggested_profile']['name'] }}</p>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                                {{ $row['suggested_profile']['occupation'] }} · Profile
+                                                #{{ $row['suggested_profile']['profile_id'] }}
+                                            </p>
+                                            @if ($row['suggested_profile']['has_user'])
+                                                <p class="mt-1 text-xs text-warning-700 dark:text-warning-400">
+                                                    This profile is already linked to a user.
+                                                </p>
+                                            @endif
+                                        @else
+                                            <span class="text-xs text-gray-500 dark:text-gray-400">No close match found.</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3 text-sm">
+                                        <span
+                                            class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $row['status'] === 'approved' ? 'bg-success-100 text-success-700 dark:bg-success-500/15 dark:text-success-400' : ($row['status'] === 'rejected' ? 'bg-error-100 text-error-700 dark:bg-error-500/15 dark:text-error-400' : 'bg-warning-100 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400') }}">
+                                            {{ $row['status_label'] }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm">
+                                        @if ($row['can_decide'])
+                                            <div x-data="profileRequestDecision({{ $row['request_id'] }}, {{ $row['suggested_profile_id'] > 0 ? $row['suggested_profile_id'] : 'null' }})"
+                                                class="space-y-2">
+                                                <button type="button"
+                                                    class="inline-flex items-center rounded-lg border border-brand-300 px-3 py-2 text-xs font-medium text-brand-700 transition hover:bg-brand-50 dark:border-brand-500/30 dark:text-brand-400"
+                                                    @click="openModal()">
+                                                    Review Request
+                                                </button>
+
+                                                <div x-show="showModal" x-cloak
+                                                    class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 px-4 py-6"
+                                                    @click.self="closeModal()" @keydown.escape.window="closeModal()">
+                                                    <div class="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+                                                        x-transition>
+                                                        <div class="mb-4 flex items-start justify-between gap-3">
+                                                            <div>
+                                                                <h4 class="text-base font-semibold text-gray-800 dark:text-white/90">
+                                                                    Review Profile Request #{{ $row['request_id'] }}</h4>
+                                                                <p class="text-xs text-gray-500 dark:text-gray-400">Search profiles and
+                                                                    choose the best match before approving.</p>
+                                                            </div>
+                                                            <button type="button"
+                                                                class="rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                                                                @click="closeModal()">
+                                                                Close
+                                                            </button>
+                                                        </div>
+
+                                                        @if ($row['suggested_profile'])
+                                                            <button type="button"
+                                                                class="mb-3 inline-flex items-center rounded-lg border border-brand-300 px-2.5 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-50 dark:border-brand-500/30 dark:text-brand-400"
+                                                                @click="setSelectedProfile({{ $row['suggested_profile']['profile_id'] }}, '{{ addslashes($row['suggested_profile']['name']) }}')">
+                                                                Use Suggested Match: {{ $row['suggested_profile']['name'] }}
+                                                            </button>
+                                                        @endif
+
+                                                        <div class="mb-3 flex flex-col gap-2 sm:flex-row">
+                                                            <input type="text" x-model="query" @keydown.enter.prevent="searchProfiles()"
+                                                                placeholder="Search profiles by name"
+                                                                class="dark:bg-dark-900 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90" />
+                                                            <button type="button"
+                                                                class="inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-brand-700 disabled:opacity-60"
+                                                                :disabled="searching" @click="searchProfiles()"
+                                                                x-text="searching ? 'Searching...' : 'Search'"></button>
+                                                        </div>
+
+                                                        <p x-show="searchError" x-text="searchError"
+                                                            class="mb-2 text-xs text-error-600 dark:text-error-400"></p>
+
+                                                        <div
+                                                            class="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-gray-700">
+                                                            <template x-if="results.length === 0">
+                                                                <p class="px-2 py-1 text-xs text-gray-500 dark:text-gray-400">No
+                                                                    profiles found.</p>
+                                                            </template>
+
+                                                            <template x-for="result in results" :key="result.profile_id">
+                                                                <button type="button"
+                                                                    class="flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-xs text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800"
+                                                                    @click="setSelectedProfile(result.profile_id, result.name)">
+                                                                    <span x-text="result.name"></span>
+                                                                    <span class="text-gray-500 dark:text-gray-400"
+                                                                        x-text="' #' + result.profile_id"></span>
+                                                                </button>
+                                                            </template>
+                                                        </div>
+
+                                                        <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                                                            Selected:
+                                                            <span class="font-medium text-gray-700 dark:text-gray-300"
+                                                                x-text="selectedLabel"></span>
+                                                        </p>
+
+                                                        <div class="mt-4 flex items-center gap-2">
+                                                            <button type="button"
+                                                                class="inline-flex items-center rounded-lg bg-success-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-success-700"
+                                                                @click="submitDecision('approve')">
+                                                                Approve
+                                                            </button>
+                                                            <button type="button"
+                                                                class="inline-flex items-center rounded-lg bg-error-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-error-700"
+                                                                @click="submitDecision('reject')">
+                                                                Reject
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @else
+                                            <span class="text-xs text-gray-500 dark:text-gray-400">No action required</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+
+        {{-- New Officer Account Creation Requests (action_type=12) --}}
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <div class="mb-4">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">New Officer Account Requests</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    Review new officer submissions approved by admin. Assign an address to complete account creation.
+                </p>
+            </div>
+
+            @if ($newOfficerRows->isEmpty())
+                <p class="text-sm text-gray-500 dark:text-gray-400">No pending officer account requests.</p>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr class="border-b border-gray-100 dark:border-gray-800">
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Name</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Email</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Organization</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Submitted</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($newOfficerRows as $row)
+                                <tr class="border-b border-gray-100 align-top dark:border-gray-800"
+                                    id="officer-request-row-{{ $row['request_id'] }}">
+                                    <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                        <p class="font-medium">{{ $row['name'] }}</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $row['position'] }}</p>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{{ $row['email'] }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{{ $row['organization_name'] }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                        {{ \Illuminate\Support\Carbon::parse($row['requested_at'])->format('M d, Y') }}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm">
+                                        <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $row['status'] === 'approved' ? 'bg-success-100 text-success-700 dark:bg-success-500/15 dark:text-success-400' : ($row['status'] === 'rejected' ? 'bg-error-100 text-error-700 dark:bg-error-500/15 dark:text-error-400' : 'bg-warning-100 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400') }}">
+                                            {{ $row['status_label'] }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm">
+                                        @if ($row['can_decide'])
+                                            <div x-data="officerAccountDecision({{ $row['request_id'] }}, @js($row))">
+                                                <button type="button"
+                                                    class="inline-flex items-center rounded-lg border border-brand-300 px-3 py-2 text-xs font-medium text-brand-700 transition hover:bg-brand-50 dark:border-brand-500/30 dark:text-brand-400"
+                                                    @click="openModal()">
+                                                    Review
+                                                </button>
+
+                                                <div x-show="showModal" x-cloak
+                                                    class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 px-4 py-6"
+                                                    @click.self="closeModal()" @keydown.escape.window="closeModal()">
+                                                    <div class="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+                                                        x-transition>
+                                                        <div class="mb-4 flex items-start justify-between gap-3">
+                                                            <h4 class="text-base font-semibold text-gray-800 dark:text-white/90">
+                                                                New Officer Account — Request #{{ $row['request_id'] }}
+                                                            </h4>
+                                                            <button type="button"
+                                                                class="rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                                                                @click="closeModal()">Close</button>
+                                                        </div>
+
+                                                        <dl class="mb-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                                                            <div><dt class="text-gray-500">Name</dt><dd class="font-medium text-gray-800 dark:text-gray-200">{{ $row['name'] }}</dd></div>
+                                                            <div><dt class="text-gray-500">Email</dt><dd class="font-medium text-gray-800 dark:text-gray-200">{{ $row['email'] }}</dd></div>
+                                                            <div><dt class="text-gray-500">Organization</dt><dd class="font-medium text-gray-800 dark:text-gray-200">{{ $row['organization_name'] }}</dd></div>
+                                                            <div><dt class="text-gray-500">Position</dt><dd class="font-medium text-gray-800 dark:text-gray-200">{{ $row['position'] }}</dd></div>
+                                                            <div><dt class="text-gray-500">Contact</dt><dd class="font-medium text-gray-800 dark:text-gray-200">{{ $row['contact_number'] }}</dd></div>
+                                                            <div><dt class="text-gray-500">Age / Sex</dt><dd class="font-medium text-gray-800 dark:text-gray-200">{{ $row['age'] }} / {{ $row['sex'] }}</dd></div>
+                                                            <div class="col-span-2"><dt class="text-gray-500">Course / Year</dt><dd class="font-medium text-gray-800 dark:text-gray-200">{{ $row['course'] }} - {{ $row['year_level'] }}</dd></div>
+                                                        </dl>
+
+                                                        <p class="mb-3 text-xs font-semibold text-gray-700 dark:text-gray-300">Assign Address</p>
+                                                        <div class="grid grid-cols-2 gap-3">
+                                                            <input type="text" x-model="country" placeholder="Country *"
+                                                                class="dark:bg-dark-900 h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90" />
+                                                            <input type="text" x-model="province" placeholder="Province *"
+                                                                class="dark:bg-dark-900 h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90" />
+                                                            <input type="text" x-model="town" placeholder="Town / City *"
+                                                                class="dark:bg-dark-900 h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90" />
+                                                            <input type="text" x-model="barangay" placeholder="Barangay *"
+                                                                class="dark:bg-dark-900 h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90" />
+                                                        </div>
+
+                                                        <p x-show="errorMsg" x-text="errorMsg" class="mt-2 text-xs text-error-600 dark:text-error-400"></p>
+
+                                                        <div class="mt-4 flex items-center gap-2">
+                                                            <button type="button"
+                                                                class="inline-flex items-center rounded-lg bg-success-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-success-700 disabled:opacity-60"
+                                                                :disabled="submitting"
+                                                                @click="submitDecision('approve')"
+                                                                x-text="submitting ? 'Processing...' : 'Approve & Create Account'"></button>
+                                                            <button type="button"
+                                                                class="inline-flex items-center rounded-lg bg-error-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-error-700 disabled:opacity-60"
+                                                                :disabled="submitting"
+                                                                @click="submitDecision('reject')">Reject</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @else
+                                            <span class="text-xs text-gray-500 dark:text-gray-400">No action required</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+    </div>
+@endsection
+
+@push('scripts')
+    <script>
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            const feedback = document.getElementById('superadmin-profile-feedback');
+            const seedProfiles = @json($seedProfiles);
+            const profileSearchEndpoint = @json(route('superadmin.profiles.search'));
+            const autoAcceptSuggestedEndpoint = @json(route('superadmin.profile-requests.auto-accept-suggested'));
+            const profileRequestDecisionBaseEndpoint = @json(url('/superadmin/profile-requests'));
+            const profileFilterStorageKey = 'superadminProfileExcludeAssociated';
+
+            const readExcludeAssociatedSetting = () => {
+                return window.localStorage.getItem(profileFilterStorageKey) === '1';
+            };
+
+            const writeExcludeAssociatedSetting = (enabled) => {
+                window.localStorage.setItem(profileFilterStorageKey, enabled ? '1' : '0');
+            };
+
+            const setFeedback = (message, type = 'success') => {
+                if (!feedback) {
+                    return;
+                }
+
+                feedback.classList.remove('hidden', 'border', 'border-success-300', 'border-error-300',
+                    'bg-success-50', 'bg-error-50', 'text-success-700', 'text-error-700');
+
+                if (type === 'error') {
+                    feedback.classList.add('border', 'border-error-300', 'bg-error-50', 'text-error-700');
+                } else {
+                    feedback.classList.add('border', 'border-success-300', 'bg-success-50', 'text-success-700');
+                }
+
+                feedback.textContent = message;
+            };
+
+            window.superadminProfileTools = () => ({
+                open: false,
+                runningAutoAccept: false,
+                excludeAssociatedProfiles: readExcludeAssociatedSetting(),
+
+                toggleMenu() {
+                    this.open = !this.open;
+                },
+
+                closeMenu() {
+                    this.open = false;
+                },
+
+                updateFilterSetting() {
+                    writeExcludeAssociatedSetting(this.excludeAssociatedProfiles);
+
+                    setFeedback(this.excludeAssociatedProfiles ?
+                        'Filter enabled: linked profiles will be hidden from search results.' :
+                        'Filter disabled: linked profiles can appear in search results.');
+
+                    window.dispatchEvent(new CustomEvent('superadmin-profile-filter-updated', {
+                        detail: {
+                            excludeAssociatedProfiles: this.excludeAssociatedProfiles,
+                        },
+                    }));
+                },
+
+                async autoAcceptSuggested() {
+                    this.closeMenu();
+
+                    if (this.runningAutoAccept) {
+                        return;
+                    }
+
+                    const confirmation = window.confirm(this.excludeAssociatedProfiles ?
+                        'Auto-accept all pending requests with suggested matches, while skipping profiles already linked to users?' :
+                        'Auto-accept all pending requests with suggested matches?');
+
+                    if (!confirmation) {
+                        return;
+                    }
+
+                    this.runningAutoAccept = true;
+
+                    try {
+                        const response = await fetch(autoAcceptSuggestedEndpoint, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Accept: 'application/json',
+                                'X-CSRF-TOKEN': csrfToken,
+                            },
+                            body: JSON.stringify({
+                                exclude_associated: this.excludeAssociatedProfiles ? 1 : 0,
+                            }),
+                        });
+
+                        const payload = await response.json().catch(() => ({}));
+
+                        if (!response.ok) {
+                            throw new Error(payload?.message || 'Unable to run auto-accept.');
+                        }
+
+                        setFeedback(payload?.message || 'Auto-accept completed successfully.');
+                        window.location.reload();
+                    } catch (error) {
+                        setFeedback(error instanceof Error ? error.message : 'Unable to run auto-accept.', 'error');
+                    } finally {
+                        this.runningAutoAccept = false;
+                    }
+                },
+            });
+
+            window.profileRequestDecision = (requestId, initialProfileId = null) => ({
+                requestId,
+                query: '',
+                searching: false,
+                showModal: false,
+                searchError: '',
+                excludeAssociatedProfiles: readExcludeAssociatedSetting(),
+                rawResults: [...seedProfiles],
+                results: [],
+                selectedProfileId: initialProfileId,
+                selectedLabel: initialProfileId ? `Profile #${initialProfileId}` : 'None',
+
+                init() {
+                    this.results = this.applyAssociationFilter(this.rawResults);
+
+                    window.addEventListener('superadmin-profile-filter-updated', () => {
+                        this.excludeAssociatedProfiles = readExcludeAssociatedSetting();
+
+                        if (this.showModal) {
+                            this.results = this.applyAssociationFilter(this.rawResults);
+                        }
+                    });
+                },
+
+                applyAssociationFilter(items) {
+                    if (!this.excludeAssociatedProfiles) {
+                        return [...items];
+                    }
+
+                    return items.filter((item) => item?.has_user !== true);
+                },
+
+                openModal() {
+                    this.showModal = true;
+                    this.searchError = '';
+                    this.excludeAssociatedProfiles = readExcludeAssociatedSetting();
+                    this.rawResults = [...seedProfiles];
+                    this.results = this.applyAssociationFilter(this.rawResults);
+                },
+
+                closeModal() {
+                    this.showModal = false;
+                    this.searchError = '';
+                },
+
+                setSelectedProfile(profileId, label) {
+                    this.selectedProfileId = profileId;
+                    this.selectedLabel = label || `Profile #${profileId}`;
+                },
+
+                async searchProfiles() {
+                    this.searching = true;
+                    this.searchError = '';
+                    this.excludeAssociatedProfiles = readExcludeAssociatedSetting();
+
+                    const searchParams = new URLSearchParams({
+                        q: this.query,
+                        limit: '15',
+                        exclude_associated: this.excludeAssociatedProfiles ? '1' : '0',
+                    });
+
+                    try {
+                        const response = await fetch(`${profileSearchEndpoint}?${searchParams.toString()}`, {
+                            headers: {
+                                Accept: 'application/json',
+                            },
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Failed to search profiles.');
+                        }
+
+                        const payload = await response.json();
+                        this.rawResults = Array.isArray(payload?.data) ? payload.data : [];
+                        this.results = this.applyAssociationFilter(this.rawResults);
+                    } catch (error) {
+                        this.rawResults = [];
+                        this.results = [];
+                        this.searchError = error instanceof Error ? error.message : 'Failed to search profiles.';
+                    } finally {
+                        this.searching = false;
+                    }
+                },
+
+                async submitDecision(decision) {
+                    const row = document.getElementById(`profile-request-row-${this.requestId}`);
+                    row?.classList.add('opacity-60');
+
+                    try {
+                        const response = await fetch(`${profileRequestDecisionBaseEndpoint}/${this.requestId}/decision`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Accept: 'application/json',
+                                'X-CSRF-TOKEN': csrfToken,
+                            },
+                            body: JSON.stringify({
+                                decision,
+                                profile_id: this.selectedProfileId,
+                            }),
+                        });
+
+                        const payload = await response.json().catch(() => ({}));
+
+                        if (!response.ok) {
+                            throw new Error(payload?.message || 'Unable to submit decision.');
+                        }
+
+                        setFeedback(payload?.message || 'Decision submitted successfully.');
+                        this.closeModal();
+                        window.location.reload();
+                    } catch (error) {
+                        setFeedback(error instanceof Error ? error.message : 'Unable to submit decision.', 'error');
+                        row?.classList.remove('opacity-60');
+                    }
+                },
+            });
+
+            const officerAccountDecisionBaseEndpoint = @json(url('/superadmin/officer-account-requests'));
+
+            window.officerAccountDecision = (requestId, row) => ({
+                requestId,
+                row,
+                showModal: false,
+                submitting: false,
+                country: '',
+                province: '',
+                town: '',
+                barangay: '',
+                errorMsg: '',
+
+                openModal() {
+                    this.showModal = true;
+                    this.errorMsg = '';
+                },
+
+                closeModal() {
+                    this.showModal = false;
+                    this.errorMsg = '';
+                },
+
+                async submitDecision(decision) {
+                    if (decision === 'approve' && (!this.country || !this.province || !this.town || !this.barangay)) {
+                        this.errorMsg = 'All address fields are required to approve.';
+                        return;
+                    }
+
+                    this.submitting = true;
+                    this.errorMsg = '';
+
+                    const rowEl = document.getElementById(`officer-request-row-${this.requestId}`);
+                    rowEl?.classList.add('opacity-60');
+
+                    try {
+                        const body = { decision };
+                        if (decision === 'approve') {
+                            body.country  = this.country;
+                            body.province = this.province;
+                            body.town     = this.town;
+                            body.barangay = this.barangay;
+                        }
+
+                        const response = await fetch(`${officerAccountDecisionBaseEndpoint}/${this.requestId}/decision`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Accept: 'application/json',
+                                'X-CSRF-TOKEN': csrfToken,
+                            },
+                            body: JSON.stringify(body),
+                        });
+
+                        const payload = await response.json().catch(() => ({}));
+
+                        if (!response.ok) {
+                            throw new Error(payload?.message || 'Unable to submit decision.');
+                        }
+
+                        setFeedback(payload?.message || 'Decision submitted successfully.');
+                        this.closeModal();
+                        window.location.reload();
+                    } catch (error) {
+                        this.errorMsg = error instanceof Error ? error.message : 'Unable to submit decision.';
+                        rowEl?.classList.remove('opacity-60');
+                    } finally {
+                        this.submitting = false;
+                    }
+                },
+            });
+        </script>
+@endpush

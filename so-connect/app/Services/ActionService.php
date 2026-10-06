@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\FormTemplateHelper;
 use App\Models\Request;
 
 class ActionService
@@ -13,21 +14,19 @@ class ActionService
         // In a real application, you would look up the action by code and perform the necessary logic.
         switch ($code) {
             case 0:
-                $this->createMembershipRequest($command, $code);
-                break;
+                return $this->createMembershipRequest($command, $code);
             case 1:
-                $this->createEventRequest($command, $code);
-                break;
+            case 2:
+                return $this->createEventRequest($command, $code);
             default:
-                // code...
-                break;
+                return null;
         }
     }
 
     protected function createMembershipRequest($command, $code)
     {
         // For creation of membership request in organizations, sans college organizations.
-        Request::create([
+        return Request::create([
             'action' => $command['organization_id'].'|'.$command['user_id'],
             'action_type' => $code,
         ]);
@@ -36,14 +35,16 @@ class ActionService
     protected function createEventRequest($command, $code)
     {
         // For creation of event request in organizations, sans college organizations.
-        Request::create([
+        return Request::create([
             'action' => $command['organization_id'].'|'.
             $command['user_id'].'|'.
             $command['event_name'].'|'.
             $command['event_start_time'].'|'.
             $command['event_end_time'].'|'.
-            ($command['event_desc_text'] ?? ''),
+            ($command['event_desc_text'] ?? '').'|'.
+            ($command['event_location'] ?? ''),
             'action_type' => $code,
+            'user' => $command['user_id'] ?? null,
         ]);
     }
 
@@ -88,8 +89,14 @@ class ActionService
     protected function createFormUploadRequest($command, $code)
     {
         Request::create([
-            // TODO: Create action for form uploads.
+            'action' => FormTemplateHelper::encodeFormUploadAction(
+                (int) ($command['organization_id'] ?? 0),
+                (int) ($command['form_id'] ?? 0),
+                (int) ($command['template_id'] ?? 0),
+                (int) ($command['user_id'] ?? 0),
+            ),
             'action_type' => $code,
+            'user' => $command['user_id'] ?? null,
         ]);
     }
 

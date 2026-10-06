@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Approval;
 use App\Models\Event;
 use App\Models\Event\eventDetails;
-use App\Models\Member;
 use App\Models\Request as RequestModel;
 use Illuminate\Support\Facades\DB;
 
@@ -23,16 +22,9 @@ class ApprovalService
 
             [$organizationId, $userId] = $this->parseMembershipRequestAction($membershipRequest->action);
 
-            Member::updateOrCreate(
-                [
-                    'organization' => $organizationId,
-                    'user' => $userId,
-                    'role' => 'member',
-                ],
-                [
-                    'approval_id' => $approval->approval_id,
-                    'member_since' => now(),
-                ]
+            DB::table('organization_officers')->updateOrInsert(
+                ['organization' => $organizationId, 'user' => $userId],
+                ['role' => 'member', 'member_since' => now(), 'registered_at' => now(), 'reassigned_at' => now()]
             );
 
             return $approval;
@@ -69,16 +61,8 @@ class ApprovalService
                 'event_location' => null,
             ]);
 
-            $approverMembership = Member::where('user', $adminId)
-                ->where('organization', $organizationId)
-                ->first();
-
-            if (! $approverMembership) {
-                throw new \InvalidArgumentException('Approver must be a member of the organization to approve this event request.');
-            }
-
             Event::create([
-                'creator' => $approverMembership->member_id,
+                'creator' => $adminId,
                 'event_detail' => $eventDetail->event_detail_id,
                 'organization' => $organizationId,
             ]);

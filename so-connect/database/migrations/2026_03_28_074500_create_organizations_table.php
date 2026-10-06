@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id('organization_id');
             $table->unsignedInteger('organization_type');
             $table->unsignedBigInteger('detail')->nullable();
-            $table->unsignedBigInteger('officer')->nullable();
             $table->timestamps();
         });
     }

@@ -15,13 +15,17 @@ class Officer extends Model
 
     use HasFactory;
 
-    protected $table = 'officers';
+    protected $table = 'organization_officers';
 
-    protected $primaryKey = 'officer_id';
+    protected $primaryKey = 'org_officer_id';
 
     protected $fillable = [
         'role',
-        'member',
+        'position',
+        'organization',
+        'user',
+        'approval',
+        'member_since',
         'yearterm',
     ];
 
@@ -30,17 +34,23 @@ class Officer extends Model
         return [
             self::CREATED_AT => 'datetime',
             self::UPDATED_AT => 'datetime',
+            'member_since' => 'datetime',
         ];
     }
 
-    public function member()
+    public function user()
     {
-        return $this->hasMany(Member::class, 'member', 'member_id');
+        return $this->belongsTo(User::class, 'user', 'user_id');
     }
 
-    public function organizationOfOfficer()
+    public function organization()
     {
-        return $this->belongsToMany(Organization::class, 'officer', 'officer_id');
+        return $this->belongsTo(Organization::class, 'organization', 'organization_id');
+    }
+
+    public function approval()
+    {
+        return $this->belongsTo(Approval::class, 'approval', 'approval_id');
     }
 
     public function yearTerm()
@@ -50,11 +60,21 @@ class Officer extends Model
 
     public function evaluations()
     {
-        return $this->hasMany(Evaluation::class, 'author', 'officer_id');
+        return $this->hasMany(Evaluation::class, 'author', 'org_officer_id');
     }
 
     public function createdEvents()
     {
         return $this->hasMany(Event::class, 'author', 'officer_id');
+    }
+
+    public function approvals()
+    {
+        return $this->hasMany(Approval::class, 'admin', 'org_officer_id');
+    }
+
+    public function president()
+    {
+        return $this->hasOne(President::class, 'officer', 'org_officer_id');
     }
 }
