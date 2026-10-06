@@ -106,6 +106,8 @@ final class ReportGenerator
             }
         }
 
-        return null;
+        $sessionOrganization = $params[ReportDefinitionValidator::SESSION_ORGANIZATION] ?? null;
+
+        return $sessionOrganization !== null ? Organization::query()->find((int) $sessionOrganization) : null;
     }
 }

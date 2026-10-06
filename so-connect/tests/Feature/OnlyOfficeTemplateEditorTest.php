@@ -435,6 +435,25 @@ it('tags palette tokens with a field-type icon and category group', function () 
         ->and($tokens['profile.org_name']['group'])->toBe('Organization');
 });
 
+it('limits a photo-set token to one placement per document', function () {
+    $form = editorForm();
+    $form->fields()->create([
+        'field_key' => 'photos', 'field_label' => 'Photos', 'field_type' => 'multi-image', 'field_order' => 1,
+    ]);
+    $form->fields()->create([
+        'field_key' => 'cover', 'field_label' => 'Cover', 'field_type' => 'image', 'field_order' => 2,
+    ]);
+
+    $template = app(FormPrintTemplateService::class)->resolve($form);
+    $token = editorToken($template, 'plugin');
+
+    $html = $this->get(route('onlyoffice.plugin', ['form' => $form, 'token' => $token]))->assertOk()->getContent();
+    $tokens = collect(paletteTokens($html))->keyBy('key');
+
+    expect($tokens['photos']['limit'])->toBe(1)
+        ->and($tokens['cover'])->not->toHaveKey('limit');
+});
+
 it('emits an activity-table token that inserts a table with column children', function () {
     $form = editorForm();
     $form->fields()->create([

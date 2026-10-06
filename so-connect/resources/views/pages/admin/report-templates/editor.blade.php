@@ -346,6 +346,11 @@
                                             <option :value="tbl.name" x-text="tbl.name" :selected="tbl.name === p.entity"></option>
                                         </template>
                                     </select>
+                                    <label x-show="p.entity === 'organizations'" class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
+                                        <input type="checkbox" :checked="p.context === 'active_organization'"
+                                            @change="p.context = $event.target.checked ? 'active_organization' : ''; if ($event.target.checked) p.required = true" />
+                                        use the organization selected in the session (never asked)
+                                    </label>
                                     <span class="{{ $kw }}">Showing</span>
                                     <template x-for="pill in paramDisplayPills(p)" :key="pill.index + pill.table">
                                         <span class="flex items-center gap-1">
@@ -387,7 +392,7 @@
                         <template x-for="param in definition.parameters" :key="'pv-' + param.name">
                             <label class="text-xs text-gray-500">
                                 <span x-text="param.label || param.name"></span>
-                                <template x-if="param.type === 'entity'">
+                                <template x-if="param.type === 'entity' && param.context !== 'active_organization'">
                                     <select x-model="preview.params[param.name]" @change="runPreview()" class="ml-1 h-8 rounded-lg border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700">
                                         <option value="">(any)</option>
                                         <template x-for="opt in (paramOptions[param.name] || [])" :key="opt.value">
@@ -395,7 +400,7 @@
                                         </template>
                                     </select>
                                 </template>
-                                <template x-if="param.type !== 'entity'">
+                                <template x-if="param.type !== 'entity' && param.context !== 'active_organization'">
                                     <input :type="param.type === 'date' ? 'date' : (param.type === 'number' ? 'number' : 'text')" x-model="preview.params[param.name]" @change="runPreview()"
                                         class="ml-1 h-8 rounded-lg border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700" />
                                 </template>

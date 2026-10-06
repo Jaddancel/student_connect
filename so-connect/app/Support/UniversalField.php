@@ -75,6 +75,7 @@ final class UniversalField
             'adviser'       => ['label' => 'Adviser',                'type' => FieldType::SELECT, 'source' => 'org', 'group' => 'organization'],
             'org_president'  => ['label' => 'Organization President', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_auditor'    => ['label' => 'Organization Auditor',   'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
+            'org_treasurer'  => ['label' => 'Organization Treasurer', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_secretary'  => ['label' => 'Organization Secretary', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_category'   => ['label' => 'Organization Category',  'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_president_signature' => ['label' => 'Organization President Signature', 'type' => FieldType::SIGNATURE, 'source' => 'org', 'group' => 'organization'],

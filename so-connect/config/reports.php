@@ -55,6 +55,29 @@ return [
         'organizations.organization_type' => [\App\Enums\OrganizationType::class, 'label'],
     ],
 
+    // Table-input fields of forms, exposed as read-only tables (see
+    // App\Reports\FormTableSources). Each row of the field is a table row.
+    //  - form:  the source form, by `route_name` or bound `system_function`;
+    //  - field: the table-input field key;
+    //  - scope: `latest_approved` (each organization's latest approved
+    //           submission) or `current_semester` (every submission filed for
+    //           an event of the running semester, approved or not).
+    // Sources whose form or field is missing are simply not offered.
+    'form_tables' => [
+        'organization_funds' => [
+            'label' => 'Organization Funds (latest approved Organization Fund Form)',
+            'form' => ['route_name' => 'organization-fund-form'],
+            'field' => 'funds_table',
+            'scope' => 'latest_approved',
+        ],
+        'event_expenses' => [
+            'label' => 'Event Expenses (After Event Report submissions, current semester)',
+            'form' => ['system_function' => 'after_event_report'],
+            'field' => 'expenses_table',
+            'scope' => 'current_semester',
+        ],
+    ],
+
     // Engine guards.
     'max_rows' => (int) env('REPORTS_MAX_ROWS', 5000),
     'preview_rows' => 10,

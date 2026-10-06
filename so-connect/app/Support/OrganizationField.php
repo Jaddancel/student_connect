@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 
 /**
  * Resolves the organization-scoped universal fields (`org_name`,
- * `org_president`, `org_auditor`, `org_secretary`, `adviser`) that
+ * `org_president`, `org_treasurer`, `org_auditor`, `org_secretary`, `adviser`) that
  * {@see UniversalField} declares but cannot read off a profile. Values come
  * from the submitter's organization: its registered name for `org_name`,
  * current officeholders for the role fields and their saved profile signatures,
@@ -94,6 +94,7 @@ final class OrganizationField
         $officer = match ($key) {
             'org_president' => self::officerByRole($organization, 'president'),
             'org_auditor' => self::officerByPosition($organization, 'auditor'),
+            'org_treasurer' => self::officerByPosition($organization, 'treasurer'),
             'org_secretary' => self::officerByPosition($organization, 'secretary'),
             default => null,
         };

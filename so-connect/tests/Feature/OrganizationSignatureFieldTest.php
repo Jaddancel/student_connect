@@ -193,3 +193,18 @@ it('prints missing stored signature files blank rather than as paths', function 
     );
     expect($html)->not->toContain('<img', 'signatures/missing.png', 'data-universal');
 });
+
+it('resolves the organization treasurer name from the selected organization', function () {
+    $organization = recordsOrganization('Treasury');
+    $other = recordsOrganization('Elsewhere');
+
+    $treasurer = recordsUser(3, ['first_name' => 'Tess', 'middle_name' => '', 'last_name' => 'Urer']);
+    Officer::query()->create(['organization' => $organization->getKey(), 'user' => $treasurer->getKey(), 'role' => 'officer', 'position' => 'Treasurer']);
+    $foreign = recordsUser(3, ['first_name' => 'Fay', 'middle_name' => '', 'last_name' => 'Other']);
+    Officer::query()->create(['organization' => $other->getKey(), 'user' => $foreign->getKey(), 'role' => 'officer', 'position' => 'Treasurer']);
+
+    expect(UniversalField::get('org_treasurer')['source'])->toBe('org')
+        ->and(OrganizationField::value($organization, 'org_treasurer'))->toBe('Tess Urer')
+        ->and(OrganizationField::value($other, 'org_treasurer'))->toBe('Fay Other')
+        ->and(OrganizationField::value(recordsOrganization('Empty'), 'org_treasurer'))->toBeNull();
+});

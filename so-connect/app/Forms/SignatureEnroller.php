@@ -27,7 +27,7 @@ class SignatureEnroller
     /** Universal keys that name a person who might sign. */
     private const NAME_KEYS = [
         'first_name', 'middle_name', 'last_name',
-        'adviser', 'org_president', 'org_auditor', 'org_secretary',
+        'adviser', 'org_president', 'org_treasurer', 'org_auditor', 'org_secretary',
     ];
 
     /** The parts of a person's name, in the order they read. */

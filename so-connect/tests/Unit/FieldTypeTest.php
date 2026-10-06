@@ -54,6 +54,12 @@ it('offers the table field in every form palette', function () {
         ->and(FieldType::isSpecial(FieldType::TABLE_INPUT))->toBeFalse();
 });
 
+it('offers the photo set field in every form palette', function () {
+    expect(FieldType::paletteCatalog())->toHaveKey(FieldType::MULTI_IMAGE)
+        ->and(FieldType::catalog()[FieldType::MULTI_IMAGE]['group'])->toBe('media')
+        ->and(FieldType::isSpecial(FieldType::MULTI_IMAGE))->toBeFalse();
+});
+
 it('offers the search field in the palette', function () {
     expect(FieldType::paletteCatalog())->toHaveKey(FieldType::SEARCH)
         ->and(FieldType::isValid(FieldType::SEARCH))->toBeTrue()

@@ -57,7 +57,7 @@ class DocxTemplateData
 
             if (in_array($type, [FieldType::IMAGE, FieldType::SIGNATURE, FieldType::MULTI_IMAGE], true)) {
                 $raw = SubmissionPresenter::raw($payload, $key);
-                $path = FieldType::isMultiImage($type, $options)
+                $path = FieldType::isMultiImage($type)
                     ? $this->imagePaths($raw, $disk)
                     : $this->firstImagePath($raw, $disk);
 

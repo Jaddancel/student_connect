@@ -70,6 +70,36 @@
         };
     }
 
+    // How many more times a token may be placed in the current document;
+    // Infinity when it carries no `limit`.
+    function remaining(token, current) {
+        var limit = Number(token.limit) || 0;
+        if (limit <= 0) return Infinity;
+        return Math.max(0, limit - usage(token, current, [], null).here);
+    }
+
+    // Limited tokens placed more often than allowed in the current document.
+    function overLimit(tokens, current) {
+        return tokens.filter(function (token) {
+            var limit = Number(token.limit) || 0;
+            return limit > 0 && usage(token, current, [], null).here > limit;
+        });
+    }
+
+    // Suggestions minus limited tokens with no placements left: replacing an
+    // unknown token with one would push it over its limit.
+    function placeableSuggestions(key, tokens, current) {
+        var exhausted = Object.create(null);
+        tokens.forEach(function (token) {
+            if (remaining(token, current) === 0) {
+                exhausted[token.key] = true;
+                exhausted[token.key + '#'] = true;
+            }
+        });
+        var pool = tokens.filter(function (token) { return !exhausted[token.key]; });
+        return suggestions(key, pool).filter(function (candidate) { return !exhausted[candidate]; });
+    }
+
     // Serialized by callCommand: all dependencies must come from Api or Asc.scope.
     function editorCommand() {
         var args = Asc.scope.fieldTokenRequest;
@@ -292,5 +322,8 @@
         }
     }
 
-    root.FieldTokenTools = { catalog: catalog, knownKeys: knownKeys, distance: distance, suggestions: suggestions, usage: usage, editorCommand: editorCommand };
+    root.FieldTokenTools = {
+        catalog: catalog, knownKeys: knownKeys, distance: distance, suggestions: suggestions, usage: usage,
+        remaining: remaining, overLimit: overLimit, placeableSuggestions: placeableSuggestions, editorCommand: editorCommand,
+    };
 })(globalThis);

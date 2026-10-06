@@ -490,7 +490,9 @@ class FormPrintTemplateController extends Controller
      * field_type/field_options off each.
      *
      * @param  iterable<int, object{field_key: string, field_label: string, field_type: string, field_options: array}>  $fields
-     * @return array<int, array{key: string, label: string, icon: string, group: string}>
+     * A token with a `limit` may be placed at most that many times per document.
+     *
+     * @return array<int, array{key: string, label: string, icon: string, group: string, limit?: int}>
      */
     private function tokensFor(iterable $fields, ?string $kit = null): array
     {
@@ -519,6 +521,13 @@ class FormPrintTemplateController extends Controller
                 'icon' => (string) ($meta['icon'] ?? 'text'),
                 'group' => $group,
             ];
+
+            // A photo set lays its images out across the cells of the one table
+            // row its token sits in, so the palette lets it be placed only once
+            // per document.
+            if ((string) $field->field_type === FieldType::MULTI_IMAGE) {
+                $token['limit'] = 1;
+            }
 
             // The Activity Table inserts a whole table (heading labels + one
             // `{{key.col#}}` token per cell) rather than a single token, so it

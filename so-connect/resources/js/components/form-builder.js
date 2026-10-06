@@ -436,7 +436,6 @@ export function formBuilder(config) {
             if (type === "age") return { min: 0, max: 150, step: 1 };
             if (type === "static-text") return { content: "Static text…" };
             if (type === "password") return { min: 8 };
-            if (type === "image") return { multiple: false, max_files: 5 };
             if (type === "multi-image") return { max_files: 5 };
             if (type === "computed") return { formula: "sum", args: [] };
             if (type === "activity-table") return { columns: [] };

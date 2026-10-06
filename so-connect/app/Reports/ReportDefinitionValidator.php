@@ -9,7 +9,8 @@ use Illuminate\Validation\ValidationException;
  *
  * Shape (stored on report_templates.definition):
  *
- *   parameters: [{ name, label, type: entity|text|number|date, entity?, display?: [path…], required }]
+ *   parameters: [{ name, label, type: entity|text|number|date, entity?, display?: [path…], required,
+ *                  context?: 'active_organization' (organizations entity: the session's selected organization) }]
  *   tokens:     [token…]
  *
  *   group token  { id, kind: 'group', name,
@@ -39,6 +40,15 @@ final class ReportDefinitionValidator
     public const FORMATS = ['text', 'date', 'datetime', 'time', 'title', 'upper', 'lower', 'number'];
 
     public const PARAM_TYPES = ['entity', 'text', 'number', 'date'];
+
+    /**
+     * A WHERE value (`param`) meaning "the organization selected in the
+     * session": offered on organization columns, never asked.
+     */
+    public const SESSION_ORGANIZATION = '@session_organization';
+
+    /** An organizations parameter filled from the organization selected in the session, never asked. */
+    public const CONTEXT_ACTIVE_ORGANIZATION = 'active_organization';
 
     private const NAME_PATTERN = '/^[a-z][a-z0-9_]*$/';
 
@@ -119,6 +129,14 @@ final class ReportDefinitionValidator
                     }
                     $normalized['entity'] = $entity;
                     $normalized['display'] = $display;
+                    if (($param['context'] ?? null) === self::CONTEXT_ACTIVE_ORGANIZATION) {
+                        if ($entity === 'organizations') {
+                            $normalized['context'] = self::CONTEXT_ACTIVE_ORGANIZATION;
+                            $normalized['required'] = true;
+                        } else {
+                            $this->errors[] = $label.': only an organizations parameter can use the selected organization.';
+                        }
+                    }
                 }
             }
 
@@ -428,7 +446,12 @@ final class ReportDefinitionValidator
             $normalized = ['column' => $column, 'op' => $op];
             if (! in_array($op, ['is_null', 'not_null'], true)) {
                 $param = trim((string) ($cond['param'] ?? ''));
-                if ($param !== '') {
+                if ($param === self::SESSION_ORGANIZATION) {
+                    if (! $this->isOrganizationColumn($table, $column)) {
+                        $this->errors[] = $label.': "'.$column.'" of "'.$table.'" is not an organization column, so it cannot use the selected organization.';
+                    }
+                    $normalized['param'] = $param;
+                } elseif ($param !== '') {
                     if (! isset($this->parameters[$param])) {
                         $this->errors[] = $label.': WHERE asks for an undefined parameter "'.$param.'".';
                     }
@@ -444,6 +467,22 @@ final class ReportDefinitionValidator
         }
 
         return $out;
+    }
+
+    /** The organizations primary key, or a column referencing it. */
+    private function isOrganizationColumn(string $table, string $column): bool
+    {
+        if ($table === 'organizations') {
+            return $this->catalog->primaryKey($table) === $column;
+        }
+
+        foreach ($this->catalog->tables()[$table]['relations'] ?? [] as $relation) {
+            if ($relation['type'] === 'belongs_to' && $relation['table'] === 'organizations' && $relation['local'] === $column) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

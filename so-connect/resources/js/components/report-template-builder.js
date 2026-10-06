@@ -262,6 +262,13 @@ export function reportTemplateBuilder(config) {
         addOrder(token) {
             token.order.push({ column: "", dir: "asc" });
         },
+        /** The organizations key, or a column referencing it: it can take the session's organization. */
+        isOrganizationColumn(tableName, column) {
+            const table = this.table(tableName);
+            if (!table || !column) return false;
+            if (tableName === "organizations") return table.primary === column;
+            return (table.relations || []).some((r) => r.type === "belongs_to" && r.table === "organizations" && r.local === column);
+        },
         needsValue(op) {
             return !["is_null", "not_null"].includes(op);
         },
@@ -270,7 +277,7 @@ export function reportTemplateBuilder(config) {
         addParameter() {
             const param = {
                 name: this.uniqueName("param", this.definition.parameters),
-                label: "", type: "entity", entity: "", display: [], required: false,
+                label: "", type: "entity", entity: "", display: [], required: false, context: "",
             };
             this.definition.parameters.push(param);
             this.selectParam(param);
@@ -451,7 +458,7 @@ function normalizeDefinition(raw) {
     definition.tokens = fix(definition.tokens);
     definition.parameters = (definition.parameters || []).map((p) => ({
         name: p.name || "", label: p.label || "", type: p.type || "text", entity: p.entity || "",
-        display: p.display || [], required: !!p.required,
+        display: p.display || [], required: !!p.required, context: p.context || "",
     }));
     return definition;
 }

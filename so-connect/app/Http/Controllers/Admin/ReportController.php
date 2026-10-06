@@ -24,9 +24,21 @@ class ReportController extends Controller
         $reports = ReportTemplate::availableTo($request->user())
             ->map(function (ReportTemplate $report) use ($engine, $validator) {
                 $parameters = [];
+                $contextNotice = null;
                 try {
                     $definition = $validator->validate((array) $report->definition);
+                    $notice = fn () => ($organization = $engine->activeOrganization()) !== null
+                        ? 'For '.$organization['name'].' (your selected organization).'
+                        : 'Select an organization in the organization switcher to generate this report.';
+                    if ($engine->usesActiveOrganization($definition)) {
+                        $contextNotice = $notice();
+                    }
                     foreach ($definition['parameters'] as $parameter) {
+                        if (($parameter['context'] ?? null) === ReportDefinitionValidator::CONTEXT_ACTIVE_ORGANIZATION) {
+                            $contextNotice = $notice();
+
+                            continue;
+                        }
                         if ($parameter['type'] === 'entity') {
                             $parameter['options'] = $engine->parameterOptions($parameter);
                         }
@@ -37,7 +49,7 @@ class ReportController extends Controller
                     $valid = false;
                 }
 
-                return ['model' => $report, 'parameters' => $parameters, 'valid' => $valid];
+                return ['model' => $report, 'parameters' => $parameters, 'valid' => $valid, 'notice' => $contextNotice];
             });
 
         return view('pages.admin.reports.index', [

@@ -5,6 +5,7 @@ namespace App\Reports;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -47,6 +48,13 @@ final class ReportQueryEngine
         $this->preview = $preview;
         $this->truncated = false;
         $this->params = $this->resolveParameters($definition['parameters'], $parameterValues, $preview);
+        if ($this->usesActiveOrganization($definition)) {
+            $active = $this->activeOrganization();
+            if ($active === null && ! $preview) {
+                throw ValidationException::withMessages(['parameters' => ['Select an organization in the organization switcher first.']]);
+            }
+            $this->params[ReportDefinitionValidator::SESSION_ORGANIZATION] = $active['id'] ?? null;
+        }
 
         $data = [];
         $raws = [];
@@ -76,7 +84,7 @@ final class ReportQueryEngine
             return [];
         }
 
-        $keys = DB::table($table)->orderBy($primary)->limit(1000)->pluck($primary)->all();
+        $keys = $this->catalog->query($table)->orderBy($primary)->limit(1000)->pluck($primary)->all();
         $display = (array) ($parameter['display'] ?? []);
         $labels = $display !== [] ? $this->resolvePath($table, $keys, $display) : [];
 
@@ -96,7 +104,7 @@ final class ReportQueryEngine
         $table = $token['entity'];
         $primary = (string) $this->catalog->primaryKey($table);
 
-        $query = DB::table($table)->select($this->selectColumns($table, $token['children']));
+        $query = $this->catalog->query($table)->select($this->selectColumns($table, $token['children']));
         $this->applyConditions($query, $token['where']);
         $this->applyOrder($query, $token['order'], $primary);
         $cap = $this->cap($token['limit']);
@@ -113,7 +121,7 @@ final class ReportQueryEngine
         $table = $token['from'];
 
         if ($token['mode'] === 'aggregate') {
-            $query = DB::table($table);
+            $query = $this->catalog->query($table);
             $this->applyConditions($query, $token['where']);
 
             $raw = $this->aggregate($query, $token['fn'], $token['column']);
@@ -122,7 +130,7 @@ final class ReportQueryEngine
         }
 
         $primary = $this->catalog->primaryKey($table);
-        $query = DB::table($table);
+        $query = $this->catalog->query($table);
         $this->applyConditions($query, $token['where']);
 
         if ($primary === null || count($token['path']) === 1) {
@@ -227,7 +235,7 @@ final class ReportQueryEngine
 
         $rows = collect();
         foreach (array_chunk($parentValues, 1000) as $chunk) {
-            $query = DB::table($table)->select($columns)->whereIn($relation['foreign'], $chunk);
+            $query = $this->catalog->query($table)->select($columns)->whereIn($relation['foreign'], $chunk);
             $this->applyConditions($query, $token['where']);
             $this->applyOrder($query, $token['order'], $primary);
             $rows = $rows->merge($query->limit((int) config('reports.max_rows', 5000) + 1)->get());
@@ -267,7 +275,7 @@ final class ReportQueryEngine
     {
         $map = [];
         foreach (array_chunk($parentValues, 1000) as $chunk) {
-            $query = DB::table($relation['table'])->whereIn($relation['foreign'], $chunk);
+            $query = $this->catalog->query($relation['table'])->whereIn($relation['foreign'], $chunk);
             $this->applyConditions($query, $token['where']);
             $grammar = $query->getGrammar();
             $expression = $token['fn'] === 'count' && $token['column'] === null
@@ -317,7 +325,7 @@ final class ReportQueryEngine
 
         $out = [];
         foreach (array_chunk(array_values(array_unique($keys)), 1000) as $chunk) {
-            $query = DB::table($table.' as t0')->whereIn('t0.'.$primary, $chunk);
+            $query = $this->catalog->query($table, 't0')->whereIn('t0.'.$primary, $chunk);
             $alias = 't0';
             $current = $table;
             foreach ($relations as $i => $segment) {
@@ -444,6 +452,16 @@ final class ReportQueryEngine
         $resolved = [];
         $errors = [];
         foreach ($parameters as $parameter) {
+            if (($parameter['context'] ?? null) === ReportDefinitionValidator::CONTEXT_ACTIVE_ORGANIZATION) {
+                $active = $this->activeOrganization();
+                if ($active === null && ! $preview) {
+                    $errors[] = 'Select an organization in the organization switcher first.';
+                }
+                $resolved[$parameter['name']] = $active['id'] ?? null;
+
+                continue;
+            }
+
             $raw = $values[$parameter['name']] ?? null;
             $raw = is_string($raw) ? trim($raw) : $raw;
 
@@ -468,6 +486,60 @@ final class ReportQueryEngine
         }
 
         return $resolved;
+    }
+
+    /**
+     * Whether any WHERE condition of a (validated) definition filters on the
+     * organization selected in the session.
+     *
+     * @param  array{parameters: array<int, array<string,mixed>>, tokens: array<int, array<string,mixed>>}  $definition
+     */
+    public function usesActiveOrganization(array $definition): bool
+    {
+        $walk = function (array $tokens) use (&$walk): bool {
+            foreach ($tokens as $token) {
+                foreach ((array) ($token['where'] ?? []) as $condition) {
+                    if (($condition['param'] ?? null) === ReportDefinitionValidator::SESSION_ORGANIZATION) {
+                        return true;
+                    }
+                }
+                if (($token['kind'] ?? null) === 'group' && $walk((array) ($token['children'] ?? []))) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        return $walk($definition['tokens']);
+    }
+
+    /**
+     * The organization the signed-in user has selected for this session
+     * (`active_organization_id`, set by the organization switcher). Non-admins
+     * must belong to it.
+     *
+     * @return array{id: int, name: string}|null
+     */
+    public function activeOrganization(): ?array
+    {
+        $id = (int) session('active_organization_id', 0);
+        $user = Auth::user();
+        if ($id <= 0 || $user === null) {
+            return null;
+        }
+
+        if ((int) $user->user_type !== 2
+            && ! DB::table('organization_officers')->where('user', (int) $user->getKey())->where('organization', $id)->exists()) {
+            return null;
+        }
+
+        $organization = DB::table('organizations as o')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->where('o.organization_id', $id)
+            ->first(['o.organization_id', 'od.name']);
+
+        return $organization === null ? null : ['id' => $id, 'name' => (string) ($organization->name ?? 'Unknown Organization')];
     }
 
     private function dateOrNull(string $raw): ?string

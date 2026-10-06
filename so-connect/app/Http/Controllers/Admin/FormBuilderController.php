@@ -381,7 +381,6 @@ class FormBuilderController extends Controller
             'fields.*.field_options.max' => ['nullable', 'numeric'],
             'fields.*.field_options.step' => ['nullable', 'numeric'],
             'fields.*.field_options.accept' => ['nullable', 'string', 'max:255'],
-            'fields.*.field_options.multiple' => ['nullable', 'boolean'],
             // Date/time autofill-with-now toggle.
             'fields.*.field_options.autofill_now' => ['nullable', 'boolean'],
             // Same-row date-derived number calculations (e.g. birthday -> age).
@@ -769,7 +768,9 @@ class FormBuilderController extends Controller
     }
 
     /**
-     * Keep image upload options as predictable scalars when persisted.
+     * Keep image upload options as predictable scalars when persisted. An
+     * image field holds exactly one picture (any legacy `multiple` flag is
+     * dropped); only a photo set takes several, capped by `max_files`.
      *
      * @param  array<int,array<string,mixed>>  $fields
      * @return array<int,array<string,mixed>>
@@ -783,11 +784,12 @@ class FormBuilderController extends Controller
             }
 
             $options = (array) ($field['field_options'] ?? []);
-            $maxFiles = (int) ($options['max_files'] ?? 5);
-            $options['max_files'] = max(1, min(10, $maxFiles));
 
             if ($type === FieldType::IMAGE) {
-                $options['multiple'] = filter_var($options['multiple'] ?? false, FILTER_VALIDATE_BOOL);
+                unset($options['multiple'], $options['max_files']);
+            } else {
+                $maxFiles = (int) ($options['max_files'] ?? 5);
+                $options['max_files'] = max(1, min(10, $maxFiles));
             }
 
             $fields[$i]['field_options'] = $options;

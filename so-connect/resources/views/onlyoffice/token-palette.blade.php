@@ -80,6 +80,8 @@
             transition: border-color .12s, background-color .12s;
         }
         .token:hover { border-color: var(--brand-400); background: var(--brand-50); }
+        .token:disabled { cursor: not-allowed; opacity: .6; }
+        .token:disabled:hover { border-color: var(--line); background: #fff; }
         .token:focus-visible { outline: none; border-color: var(--brand-400); box-shadow: 0 0 0 3px rgba(34, 197, 94, .18); }
         .token .icon, .token-card .icon {
             flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
@@ -117,6 +119,7 @@
         .token.child { padding: 6px 8px; }
         .usage { display: block; font-size: 10px; color: #6b7280; margin-top: 3px; }
         .usage.used { color: #15803d; }
+        .usage.limit { color: #a16207; }
         .status { flex: 0 0 auto; margin: 0 0 8px; font-size: 11px; color: #6b7280; }
         .status.warning { color: #a16207; }
     </style>
@@ -130,7 +133,7 @@
 
     <script id="token-data" type="application/json">@json($tokens)</script>
     <script id="usage-data" type="application/json">@json(['url' => $usageUrl, 'documentId' => $documentId, 'adapterUrl' => asset('js/field-token-tools.js')])</script>
-    <script src="{{ asset('js/field-token-tools.js') }}"></script>
+    <script src="{{ asset('js/field-token-tools.js') }}?v={{ @filemtime(public_path('js/field-token-tools.js')) ?: '1' }}"></script>
 
     @verbatim
     <script type="text/javascript">
@@ -156,8 +159,14 @@
             var commandRunning = false;
 
             function updateStatus() {
-                checkingStatus.classList.toggle('warning', !!(scanError || usageError || unknownCount));
-                checkingStatus.textContent = scanError || usageError || (unknownCount
+                var over = tools.overLimit(tokens, currentUsage);
+                var limitWarning = over.length
+                    ? over.map(function (token) {
+                        return '"' + token.label + '" may be placed only ' + token.limit + ' time(s); remove the extra copies.';
+                    }).join(' ')
+                    : '';
+                checkingStatus.classList.toggle('warning', !!(scanError || usageError || unknownCount || limitWarning));
+                checkingStatus.textContent = scanError || usageError || limitWarning || (unknownCount
                     ? unknownCount + ' unknown token(s). Right-click a token for suggestions.'
                     : 'Tokens checked. Usage updates as you edit.');
             }
@@ -227,6 +236,11 @@
                 if (usage.elsewhere.length) labels.push('Used in other DOCX (' + usage.elsewhere.length + ')');
                 badge.textContent = labels.join(' / ') || 'Not used';
                 badge.title = usage.elsewhere.join(', ');
+                if (tools.remaining(token, currentUsage) === 0) {
+                    badge.className += ' limit';
+                    badge.textContent = 'Limit reached (' + token.limit + ' per document)'
+                        + (usage.elsewhere.length ? ' / Used in other DOCX (' + usage.elsewhere.length + ')' : '');
+                }
                 return badge;
             }
 
@@ -396,6 +410,10 @@
                 } else {
                     button.appendChild(icon);
                     button.appendChild(text);
+                    if (tools.remaining(token, currentUsage) === 0) {
+                        button.disabled = true;
+                        button.title = 'Already placed in this document. Delete it there to place it elsewhere.';
+                    }
                     button.addEventListener('click', function () { insert(token); });
                 }
                 wrap.appendChild(button);
@@ -463,6 +481,11 @@
 
             function insert(token, action) {
                 action = action || token.insert;
+                // Re-checked here as the rendered button can lag the 1s scan.
+                if (tools.remaining(token, currentUsage) === 0) {
+                    render(search.value);
+                    return;
+                }
                 if (action === 'table') {
                     insertTable(token);
                     return;
@@ -477,8 +500,14 @@
                 }
                 // PasteText drops the token at the cursor. Community Edition
                 // exposes this to plugins even though the host page has no
-                // equivalent.
-                window.Asc.plugin.executeMethod('PasteText', [placeholder(token.key)]);
+                // equivalent. A limited token is counted as placed straight
+                // away, so a quick second click can't slip in before the scan.
+                window.Asc.plugin.executeMethod('PasteText', [placeholder(token.key)], scan);
+                if (token.limit) {
+                    currentUsage = Object.assign({}, currentUsage);
+                    currentUsage[token.key] = (currentUsage[token.key] || 0) + 1;
+                    render(search.value);
+                }
             }
 
             // Build a real Word table: a heading row of column labels and a data
@@ -604,7 +633,7 @@
                         updateStatus();
                     }
                     if (result.target) {
-                        items = tools.suggestions(result.target.key, tokens).map(function (key, index) {
+                        items = tools.placeableSuggestions(result.target.key, tokens, currentUsage).map(function (key, index) {
                             var id = 'field-token-replace-' + index;
                             var original = result.target.text;
                             window.Asc.plugin.attachContextMenuClickEvent(id, function () {

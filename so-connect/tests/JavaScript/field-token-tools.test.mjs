@@ -39,6 +39,24 @@ test('distinguishes live current-document usage from other documents', () => {
     assert.deepEqual(tools.usage(tokens[2], { 'expenses.amount#': 1, 'expenses.total#': 2 }, documents, 'one'), { here: 3, elsewhere: ['Other'] });
 });
 
+test('limits placements of tokens that carry a limit', () => {
+    const photos = { key: 'photos', label: 'Photos', limit: 1 };
+    const pool = [...tokens, photos];
+
+    assert.equal(tools.remaining(tokens[0], { full_name: 5 }), Infinity);
+    assert.equal(tools.remaining(photos, {}), 1);
+    assert.equal(tools.remaining(photos, { photos: 1 }), 0);
+    assert.equal(tools.remaining(photos, { 'photos#': 1 }), 0);
+    assert.equal(tools.remaining(photos, { photos: 2 }), 0);
+
+    assert.deepEqual(tools.overLimit(pool, { photos: 1, full_name: 3 }), []);
+    assert.deepEqual(tools.overLimit(pool, { photos: 1, 'photos#': 1 }), [photos]);
+
+    assert.equal(tools.placeableSuggestions('photo', pool, {})[0], 'photos');
+    assert.ok(!tools.placeableSuggestions('photo', pool, { photos: 1 }).includes('photos'));
+    assert.ok(!tools.placeableSuggestions('photo#', pool, { photos: 1 }).includes('photos#'));
+});
+
 test('unknown scanning includes punctuation and blanks, but ignores incomplete tokens', () => {
     const text = '{{full_name}} {{full_name}} {{full-name}} {{}} {{ email }} {{constructor}} {{unfinished';
     const api = { GetVersion: () => 'future-version' };

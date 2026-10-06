@@ -469,7 +469,7 @@ class FormRenderController extends Controller
             }
 
             $options = (array) ($field->field_options ?? []);
-            if (FieldType::isMultiImage($type, $options)) {
+            if (FieldType::isMultiImage($type)) {
                 $paths = [];
                 foreach ((array) $request->file($key, []) as $file) {
                     if ($file !== null) {

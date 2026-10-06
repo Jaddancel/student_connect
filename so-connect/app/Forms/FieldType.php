@@ -148,6 +148,7 @@ final class FieldType
             self::SIGNATURE   => ['label' => 'Signature',   'icon' => 'signature', 'group' => 'media'],
             self::IMAGE       => ['label' => 'Image',       'icon' => 'image',     'group' => 'media'],
             self::FILE        => ['label' => 'File',        'icon' => 'file',      'group' => 'media'],
+            self::MULTI_IMAGE => ['label' => 'Photo set',   'icon' => 'image',     'group' => 'media'],
             self::HEADING     => ['label' => 'Section',     'icon' => 'heading',   'group' => 'layout'],
             self::STATIC_TEXT => ['label' => 'Static text', 'icon' => 'static',    'group' => 'layout'],
 
@@ -161,7 +162,6 @@ final class FieldType
             self::WAIVER_SCAN     => ['label' => 'Waiver scan',         'icon' => 'image',     'group' => 'special'],
             self::WORKPLAN_EVENTS => ['label' => 'Approved events',     'icon' => 'checkbox',  'group' => 'special'],
             self::COMPUTED        => ['label' => 'Computed value',      'icon' => 'number',    'group' => 'special'],
-            self::MULTI_IMAGE     => ['label' => 'Photo set',           'icon' => 'image',     'group' => 'special'],
             self::EVENT_SELECT      => ['label' => 'Event picker',         'icon' => 'select',    'group' => 'special'],
             self::WORKPLAN_SELECT   => ['label' => 'Workplan picker',      'icon' => 'select',    'group' => 'special'],
             self::ACTIVITY_TABLE    => ['label' => 'Activity Table',       'icon' => 'table',     'group' => 'special'],
@@ -252,18 +252,12 @@ final class FieldType
     }
 
     /**
-     * Whether a field stores multiple uploaded image paths.
-     *
-     * @param  array<string,mixed>  $options
+     * Whether a field stores multiple uploaded image paths. Only a photo set
+     * does — an image field always holds a single picture.
      */
-    public static function isMultiImage(string $type, array $options = []): bool
+    public static function isMultiImage(string $type): bool
     {
-        if ($type === self::MULTI_IMAGE) {
-            return true;
-        }
-
-        return $type === self::IMAGE
-            && filter_var($options['multiple'] ?? false, FILTER_VALIDATE_BOOL);
+        return $type === self::MULTI_IMAGE;
     }
 
     public static function isOptioned(string $type): bool
@@ -422,15 +416,6 @@ final class FieldType
                 break;
 
             case self::IMAGE:
-                if (self::isMultiImage($type, $options)) {
-                    $rules[] = 'array';
-                    if ($required) {
-                        $rules[] = 'min:1';
-                    }
-                    $rules[] = 'max:'.(int) ($options['max_files'] ?? 5);
-                    break;
-                }
-                // no break
             case self::FILE:
                 // Files are handled separately as uploads; the presence rule
                 // still applies. The type allowlist is enforced server-side
@@ -550,11 +535,6 @@ final class FieldType
             case self::WORKPLAN_EVENTS:
                 return ['*' => ['integer', 'exists:event_plans,event_plan_id']];
 
-            case self::IMAGE:
-                if (! self::isMultiImage($type, $options)) {
-                    return [];
-                }
-                // no break
             case self::MULTI_IMAGE:
                 return ['*' => [
                     'file',

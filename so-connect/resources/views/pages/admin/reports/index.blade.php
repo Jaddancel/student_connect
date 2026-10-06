@@ -116,6 +116,9 @@
                         @else
                             <form method="GET" action="{{ route('reports.generate', $report) }}" data-report="{{ $report->name }}"
                                 @submit.prevent="generate($event)" class="mt-5 space-y-3">
+                                @if ($entry['notice'])
+                                    <p class="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600 dark:bg-white/[0.03] dark:text-gray-400">{{ $entry['notice'] }}</p>
+                                @endif
                                 @foreach ($entry['parameters'] as $parameter)
                                     <div>
                                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">

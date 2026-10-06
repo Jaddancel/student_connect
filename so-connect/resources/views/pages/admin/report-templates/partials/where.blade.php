@@ -23,6 +23,9 @@
                 <span class="flex items-center gap-1">
                     <select x-model="c.param" class="{{ $pill }}">
                         <option value="">value</option>
+                        <template x-if="isOrganizationColumn(conditionTable({{ $owner }}), c.column)">
+                            <option value="@@session_organization" :selected="c.param === '@session_organization'">selected organization (session)</option>
+                        </template>
                         <template x-for="param in definition.parameters" :key="param.name">
                             <option :value="param.name" x-text="'ask: ' + param.name" :selected="param.name === c.param"></option>
                         </template>

@@ -2,6 +2,7 @@
 
 namespace App\Reports;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -27,6 +28,13 @@ final class SchemaCatalog
     /** @var array<string, array<string, mixed>>|null */
     private ?array $tables = null;
 
+    private FormTableSources $formTables;
+
+    public function __construct(?FormTableSources $formTables = null)
+    {
+        $this->formTables = $formTables ?? new FormTableSources;
+    }
+
     /**
      * @return array<string, array{name:string, label:string, primary:?string, columns:array<string, array{name:string,label:string,type:string,enum:bool}>, relations:array<string, array{name:string,label:string,type:string,table:string,local:string,foreign:string}>}>
      */
@@ -36,7 +44,30 @@ final class SchemaCatalog
             return $this->tables;
         }
 
-        return $this->tables = Cache::remember($this->cacheKey(), now()->addHours(12), fn () => $this->introspect());
+        // Form-table sources follow the live form definitions, so they are
+        // merged in after the (cached) schema introspection.
+        return $this->tables = $this->withFormTables(
+            Cache::remember($this->cacheKey(), now()->addHours(12), fn () => $this->introspect()),
+        );
+    }
+
+    /**
+     * A query builder over a table, aliased when asked. Form-table sources
+     * are derived tables (see {@see FormTableSources}).
+     */
+    public function query(string $table, ?string $alias = null): Builder
+    {
+        $sql = $this->formTables->sql($table);
+        if ($sql === null) {
+            return DB::table($alias !== null ? $table.' as '.$alias : $table);
+        }
+
+        return DB::query()->fromRaw('('.$sql[0].') as `'.str_replace('`', '', $alias ?? $table).'`', $sql[1]);
+    }
+
+    public function isVirtual(string $table): bool
+    {
+        return $this->formTables->has($table);
     }
 
     public function forget(): void
@@ -110,6 +141,57 @@ final class SchemaCatalog
             'columns' => array_values($table['columns']),
             'relations' => array_values($table['relations']),
         ], $this->tables()));
+    }
+
+    /**
+     * Add the form-table sources and their relations to the organization and
+     * the submission they come from.
+     *
+     * @param  array<string, array<string, mixed>>  $tables
+     * @return array<string, array<string, mixed>>
+     */
+    private function withFormTables(array $tables): array
+    {
+        $this->formTables = new FormTableSources;
+
+        foreach ($this->formTables->tables() as $name => $table) {
+            if (isset($tables[$name])) {
+                continue;
+            }
+
+            foreach ([
+                ['organization', 'organizations', 'organization_id', 'organization_id'],
+                ['submission', 'form_submissions', 'submission_id', 'form_submission_id'],
+            ] as [$relation, $parent, $local, $foreign]) {
+                if (! isset($tables[$parent]['columns'][$foreign])) {
+                    continue;
+                }
+                $table['relations'][$relation] = [
+                    'name' => $relation,
+                    'label' => Str::headline($relation).' ('.Str::headline($parent).')',
+                    'type' => 'belongs_to',
+                    'table' => $parent,
+                    'local' => $local,
+                    'foreign' => $foreign,
+                ];
+                $tables[$parent]['relations'][$name] = [
+                    'name' => $name,
+                    'label' => $table['label'],
+                    'type' => 'has_many',
+                    'table' => $name,
+                    'local' => $foreign,
+                    'foreign' => $local,
+                ];
+                ksort($tables[$parent]['relations']);
+            }
+
+            ksort($table['relations']);
+            $tables[$name] = $table;
+        }
+
+        ksort($tables);
+
+        return $tables;
     }
 
     private function cacheKey(): string

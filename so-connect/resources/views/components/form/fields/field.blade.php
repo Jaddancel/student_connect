@@ -193,8 +193,10 @@
 
             @case(FieldType::IMAGE)
             @case(FieldType::FILE)
+            @case(FieldType::MULTI_IMAGE)
                 @php
-                    $isMultipleImage = FieldType::isMultiImage($type, $opts);
+                    // Only a photo set takes several pictures; an image field holds one.
+                    $isMultipleImage = FieldType::isMultiImage($type);
                     $maxFiles = (int) ($opts['max_files'] ?? 5);
                 @endphp
                 <div x-data="{ previews: [], previewUrls: [], error: '', clearPreviews() {
@@ -489,13 +491,6 @@
 
             @case(FieldType::TABLE_INPUT)
                 @include('components.form.fields.table-input', ['field' => $field, 'key' => $key, 'opts' => $opts, 'special' => $special ?? []])
-                @break
-
-            @case(FieldType::MULTI_IMAGE)
-                @php $maxFiles = (int) ($opts['max_files'] ?? 5); @endphp
-                <input type="file" id="{{ $key }}" name="{{ $key }}[]" accept="image/jpeg,image/png,image/heic" multiple
-                    class="dark:bg-dark-900 shadow-theme-xs w-full rounded-lg border bg-transparent text-sm text-gray-500 file:mr-4 file:border-0 file:bg-brand-50 file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-brand-600 dark:border-gray-700 {{ $errors->has($key) ? 'border-error-500' : 'border-gray-300' }}" />
-                <p class="mt-1 text-xs text-gray-400">Up to {{ $maxFiles }} photos (JPEG, PNG or HEIC).</p>
                 @break
 
             @case(FieldType::COMPUTED)
