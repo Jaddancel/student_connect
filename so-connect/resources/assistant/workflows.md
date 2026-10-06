@@ -69,7 +69,14 @@ Rules** is where scoring itself is configured:
    `<condition on its fields>`, then add `<N>` instance(s)" to that criterion.
 2. A criterion with an enabled trigger uses the rule's own tally instead of
    its built-in behavior; disabling the trigger reverts to the built-in count.
-3. Admins can also add brand-new **custom criteria** alongside the built-in
+3. A trigger on the **After Event Report** form counts every filed report (it
+   has no approval step) and can also test the fields of the New Event
+   submission that created the reported event — they appear in the variable
+   picker under "New Event (linked event)".
+4. List fields (text lists, tables, photo sets) are marked "(rows)" in the
+   variable picker: comparing one (e.g. "Faculty Advisers ≥ 2") compares its
+   number of rows, and "one instance per row of" adds one per row.
+5. Admins can also add brand-new **custom criteria** alongside the built-in
    ones.
 
 ## Waiver review

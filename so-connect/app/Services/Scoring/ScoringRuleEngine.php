@@ -2,10 +2,12 @@
 
 namespace App\Services\Scoring;
 
+use App\Forms\SystemFunction;
 use App\Helpers\FormTemplateHelper;
 use App\Models\Profile;
 use App\Models\ScoringRule;
 use App\Models\Semester;
+use App\Services\AfterEventReportService;
 use App\Support\UniversalField;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +18,8 @@ use Illuminate\Support\Facades\Schema;
  * Evaluates admin-authored scoring triggers (see {@see TriggerValidator} for
  * the AST grammar) over an organization's APPROVED records for a semester:
  * approved event plans, and approved submissions of whichever forms the rules
- * watch. Returns instance counts per criterion key — the same "tally" numbers
+ * watch (After Event reports have no approval step, so every filed report
+ * counts). Returns instance counts per criterion key — the same "tally" numbers
  * the legacy hardcoded conditions produce, so the scoring controller can
  * overlay them criterion-by-criterion.
  */
@@ -134,9 +137,11 @@ class ScoringRuleEngine
     /**
      * Approved submissions of one form in the semester (approval = the
      * submission's document-generation request was approved — the same
-     * linkage the legacy engine uses).
+     * linkage the legacy engine uses). After Event reports skip approval, so
+     * every filed one counts, carrying the values of the New Event submission
+     * that created its event (`new_event:<key>` variables).
      *
-     * @return Collection<int,array{values:array<string,mixed>, user_id:int}>
+     * @return Collection<int,array{values:array<string,mixed>, user_id:int, linked_values?:array<string,mixed>}>
      */
     private function approvedSubmissions(int $formId, int $organizationId, $start, $end): Collection
     {
@@ -148,11 +153,15 @@ class ScoringRuleEngine
             ->where('fs.form_id', $formId)
             ->where('fs.organization_id', $organizationId)
             ->whereBetween('fs.submitted_at', [$start, $end])
-            ->select(['fs.form_submission_id', 'fs.submitted_by', 'fs.payload'])
+            ->select(['fs.form_submission_id', 'fs.submitted_by', 'fs.payload', 'fs.event_id'])
             ->get();
 
         if ($submissions->isEmpty()) {
             return collect();
+        }
+
+        if ($formId === (int) (SystemFunction::form(SystemFunction::AFTER_EVENT_REPORT)?->getKey() ?? 0)) {
+            return $this->filedAfterEventReports($submissions);
         }
 
         $submissionIds = $submissions->pluck('form_submission_id')->map(fn ($id) => (int) $id)->all();
@@ -174,6 +183,32 @@ class ScoringRuleEngine
                 'values' => is_string($s->payload) ? (json_decode($s->payload, true) ?: []) : (array) $s->payload,
                 'user_id' => (int) ($s->submitted_by ?? 0),
             ])
+            ->values();
+    }
+
+    /**
+     * @param  Collection<int,object>  $submissions
+     * @return Collection<int,array{values:array<string,mixed>, user_id:int, linked_values:array<string,mixed>}>
+     */
+    private function filedAfterEventReports(Collection $submissions): Collection
+    {
+        $service = app(AfterEventReportService::class);
+        $linked = [];
+
+        return $submissions
+            ->map(function ($s) use ($service, &$linked) {
+                $eventId = (int) ($s->event_id ?? 0);
+                if ($eventId > 0 && ! array_key_exists($eventId, $linked)) {
+                    $payload = $service->sourceSubmission($eventId)?->payload;
+                    $linked[$eventId] = is_string($payload) ? (json_decode($payload, true) ?: []) : (array) ($payload ?? []);
+                }
+
+                return [
+                    'values' => is_string($s->payload) ? (json_decode($s->payload, true) ?: []) : (array) $s->payload,
+                    'user_id' => (int) ($s->submitted_by ?? 0),
+                    'linked_values' => $eventId > 0 ? $linked[$eventId] : [],
+                ];
+            })
             ->values();
     }
 
@@ -296,7 +331,7 @@ class ScoringRuleEngine
                     $value = json_decode($value, true) ?? [];
                 }
 
-                return count(array_filter((array) $value, fn ($v) => trim((string) (is_scalar($v) ? $v : json_encode($v))) !== ''));
+                return $this->rowCount((array) $value);
             })(),
             default => 0,
         };
@@ -304,7 +339,9 @@ class ScoringRuleEngine
 
     /**
      * Resolve a `prefix:key` variable against a record. `field:`/`plan:` read
-     * the record's own values; `universal:` reads the acting user's profile.
+     * the record's own values; `new_event:` reads the linked New Event
+     * submission (After Event reports); `universal:` reads the acting user's
+     * profile.
      *
      * @param  array{values:array<string,mixed>, user_id:int}  $record
      */
@@ -314,6 +351,10 @@ class ScoringRuleEngine
 
         if ($prefix === 'field' || $prefix === 'plan') {
             return $record['values'][$key] ?? null;
+        }
+
+        if ($prefix === 'new_event') {
+            return $record['linked_values'][$key] ?? null;
         }
 
         if ($prefix === 'universal') {
@@ -356,8 +397,23 @@ class ScoringRuleEngine
         return $normalize($left) === $normalize($right);
     }
 
+    /**
+     * Non-blank rows of a list value (text list, table, multi-image, …).
+     *
+     * @param  array<int|string,mixed>  $rows
+     */
+    private function rowCount(array $rows): int
+    {
+        return count(array_filter($rows, fn ($v) => trim((string) (is_scalar($v) ? $v : json_encode($v))) !== ''));
+    }
+
     private function numeric(mixed $value): float
     {
+        // A list compares (and divides) by its number of rows, so
+        // "Faculty Advisers ≥ 2" means "at least two advisers listed".
+        if (is_array($value)) {
+            return (float) $this->rowCount($value);
+        }
         if (is_numeric($value)) {
             return (float) $value;
         }

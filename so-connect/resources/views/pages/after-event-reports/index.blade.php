@@ -10,12 +10,40 @@
             </div>
         @endif
 
-        @if ($errors->any())
+        @php
+            $alreadyFiledKey = \App\Services\AfterEventReportService::ERROR_ALREADY_FILED;
+            $alreadyFiled = $errors->first($alreadyFiledKey);
+            $otherErrors = collect($errors->getMessages())->except($alreadyFiledKey)->flatten();
+        @endphp
+
+        @if ($otherErrors->isNotEmpty())
             <div class="rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
-                @foreach ($errors->all() as $error)
+                @foreach ($otherErrors as $error)
                     <p>{{ $error }}</p>
                 @endforeach
             </div>
+        @endif
+
+        @if ($alreadyFiled)
+            <x-ui.modal :isOpen="true" class="max-w-[440px]" role="alertdialog" aria-modal="true"
+                aria-labelledby="after-event-already-filed-title" data-testid="after-event-already-filed">
+                <div class="p-6">
+                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-error-50 dark:bg-error-500/10">
+                        <svg class="h-6 w-6 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M12 9v3.75m0 3.75h.008v.008H12v-.008zM10.29 3.86l-8.18 14.18A1.5 1.5 0 003.42 20.5h17.16a1.5 1.5 0 001.31-2.46L13.71 3.86a1.5 1.5 0 00-2.42 0z" />
+                        </svg>
+                    </div>
+                    <h3 id="after-event-already-filed-title" class="text-lg font-semibold text-gray-800 dark:text-white/90">Report already filed</h3>
+                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ $alreadyFiled }}</p>
+                    <div class="mt-6 flex justify-end">
+                        <button type="button" @click="open = false"
+                            class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">
+                            OK
+                        </button>
+                    </div>
+                </div>
+            </x-ui.modal>
         @endif
 
         @unless ($enabled)

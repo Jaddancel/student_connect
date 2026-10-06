@@ -161,6 +161,14 @@
 
             @case(FieldType::NUMBER)
             @case(FieldType::AGE)
+                @php
+                    // A plain number field starts at its configured minimum; computed
+                    // (table-sum) fields take their value from the table instead.
+                    if ($type === FieldType::NUMBER && ($old === '' || $old === null) && empty($opts['calculate_from'])
+                        && isset($opts['min']) && is_numeric($opts['min'])) {
+                        $old = $opts['min'];
+                    }
+                @endphp
                 <input type="number" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder }}"
                     @if (! empty($opts['calculate_from'])) data-calculate-from="{{ $opts['calculate_from'] }}" @endif
                     {{-- Only acts when the source is a table on this page (see tableColumnSumField). --}}

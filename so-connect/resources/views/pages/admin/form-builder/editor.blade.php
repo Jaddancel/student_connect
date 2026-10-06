@@ -75,7 +75,7 @@
             <div class="col-span-12 space-y-5 lg:col-span-3">
                 <div class="rounded-2xl border border-gray-200 bg-palette-surface p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
                     <h3 class="mb-1 text-sm font-semibold text-gray-800 dark:text-white/90">Field palette</h3>
-                    <p class="mb-3 text-[11px] text-gray-400">Click to add, or drag onto the canvas to place a new row.</p>
+                    <p class="mb-3 text-[11px] text-gray-400">Click to add (into the selected row, if any), or drag onto the canvas to place a new row.</p>
                     <div class="grid grid-cols-2 gap-2" x-init="wirePalette($el)">
                         <template x-for="(meta, type) in fieldPalette" :key="type">
                             <button type="button" @click="addField(type)"
@@ -158,6 +158,15 @@
                                                                 <span class="shrink-0 text-gray-300" title="Drag to reorder">⠿</span>
                                                                 <span class="truncate" x-text="field(key)?.field_label"></span>
                                                                 <span x-show="field(key)?.is_required" class="text-error-500" title="Required">*</span>
+                                                                {{-- Conditional-visibility indicator: a sharp (almond) eye. --}}
+                                                                <span x-show="field(key)?.field_options?.visible_when" x-cloak
+                                                                    data-visibility-indicator
+                                                                    class="shrink-0 text-brand-500" :title="visibilityHint(key)" :aria-label="visibilityHint(key)" role="img">
+                                                                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="miter" stroke-miterlimit="10" aria-hidden="true">
+                                                                        <path d="M1.5 12 Q12 2.5 22.5 12 Q12 21.5 1.5 12 Z" />
+                                                                        <circle cx="12" cy="12" r="3.25" fill="currentColor" stroke="none" />
+                                                                    </svg>
+                                                                </span>
                                                             </div>
                                                             <div class="text-[10px] uppercase tracking-wide text-gray-400" x-text="field(key)?.field_type"></div>
                                                             {{-- Activity table: preview the selected columns right on the card. --}}
@@ -583,7 +592,7 @@
                                             class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                                             <option value="" x-text="conditionSources(f.field_key).length === 0 ? '— no other fields in this row —' : '— when this field… —'"></option>
                                             <template x-for="c in conditionSources(f.field_key)" :key="c.field_key">
-                                                <option :value="c.field_key" x-text="c.field_label"></option>
+                                                <option :value="c.field_key" x-text="c.field_label" :selected="c.field_key === f.field_options.visible_when.field"></option>
                                             </template>
                                         </select>
                                         <select x-model="f.field_options.visible_when.op"
@@ -610,7 +619,7 @@
                                                             <option value="">— choose an option —</option>
                                                         </template>
                                                         <template x-for="opt in conditionValueChoices(conditionController(f))" :key="opt.value">
-                                                            <option :value="opt.value" x-text="opt.label"></option>
+                                                            <option :value="opt.value" x-text="opt.label" :selected="String(opt.value) === String(f.field_options.visible_when.value ?? '')"></option>
                                                         </template>
                                                     </select>
                                                 </template>

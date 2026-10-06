@@ -1045,3 +1045,32 @@ it('stores a calculate-from table mapping with its column', function () {
     $this->actingAs($admin)->postJson(route('admin.form-builder.store'), $payload('column-sum-2', 'cash; drop'))
         ->assertUnprocessable()->assertJsonValidationErrors('fields.1.field_options.calculate_column');
 });
+
+it('prefills a number field with its minimum unless a value is already present', function () {
+    $officer = makeOfficerUser();
+    $form = Form::create([
+        'name' => 'Min Number', 'route_name' => 'min-number', 'is_active' => true, 'is_published' => true,
+        'layout' => ['rows' => [['columns' => [['span' => 12, 'fields' => ['attendees', 'budget', 'free', 'cash_total']]]]]],
+        'pdf_template' => ['html' => '<p>x</p>', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ]);
+    foreach ([
+        ['field_key' => 'attendees', 'field_type' => 'number', 'field_options' => ['min' => 15]],
+        ['field_key' => 'budget', 'field_type' => 'number', 'field_options' => ['min' => '']],
+        ['field_key' => 'free', 'field_type' => 'number'],
+        ['field_key' => 'cash_total', 'field_type' => 'number', 'field_options' => ['min' => 5, 'calculate_from' => 'funds', 'calculate_column' => 'cash']],
+    ] as $i => $f) {
+        FormDescription::create($f + ['form_id' => $form->id, 'field_label' => ucfirst($f['field_key']), 'is_required' => false, 'field_order' => $i + 1]);
+    }
+
+    $html = $this->actingAs($officer)->get(route('forms.render', 'min-number'))->assertOk()->getContent();
+    $valueOf = fn (string $html, string $key) => preg_match('/<input type="number" id="'.$key.'" name="'.$key.'" value="([^"]*)"/', $html, $m) ? $m[1] : null;
+
+    expect($valueOf($html, 'attendees'))->toBe('15')
+        ->and($valueOf($html, 'budget'))->toBe('')
+        ->and($valueOf($html, 'free'))->toBe('')
+        ->and($valueOf($html, 'cash_total'))->toBe('');
+
+    $this->withSession(['_old_input' => ['attendees' => '42']]);
+    $html = $this->actingAs($officer)->get(route('forms.render', 'min-number'))->getContent();
+    expect($valueOf($html, 'attendees'))->toBe('42');
+});

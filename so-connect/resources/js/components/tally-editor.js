@@ -11,6 +11,9 @@
  * enabled}; the server re-validates the AST (TriggerValidator), so the contract
  * with ScoringRuleEngine is unchanged.
  */
+const LIST_FIELD_TYPES = ['text-list', 'table-input', 'multi-image', 'workplan-events'];
+const NUMBER_TYPES = ['number', 'age', 'computed'];
+
 export function tallyEditor(config) {
     return {
         saveUrl: config.saveUrl,
@@ -31,14 +34,32 @@ export function tallyEditor(config) {
         },
 
         // ---- variable catalog for the current source/form ----
+        get selectedForm() {
+            return this.variables.forms.find((f) => String(f.id) === String(this.formId)) || null;
+        },
+
+        /** The New Event form linked to the selected (After Event) form, if any. */
+        get linkedForm() {
+            const form = this.source === 'form_submission' ? this.selectedForm : null;
+            if (!form || !form.linked_form_id) return null;
+            return this.variables.forms.find((f) => String(f.id) === String(form.linked_form_id)) || null;
+        },
+
         get variableGroups() {
             const groups = [];
             if (this.source === 'form_submission') {
-                const form = this.variables.forms.find((f) => String(f.id) === String(this.formId));
+                const form = this.selectedForm;
                 if (form) {
                     groups.push({
                         label: form.name,
-                        items: form.fields.map((fld) => ({ value: `field:${fld.key}`, label: fld.label })),
+                        items: form.fields.map((fld) => ({ value: `field:${fld.key}`, label: this.fieldLabel(fld) })),
+                    });
+                }
+                const linked = this.linkedForm;
+                if (linked) {
+                    groups.push({
+                        label: `${linked.name} (linked event)`,
+                        items: linked.fields.map((fld) => ({ value: `new_event:${fld.key}`, label: this.fieldLabel(fld) })),
                     });
                 }
             } else {
@@ -54,11 +75,56 @@ export function tallyEditor(config) {
             return groups;
         },
 
-        /** The field definition behind a `field:<key>` variable (for option pickers). */
+        /**
+         * Variables for the "Then add" picker. "One instance per count of"
+         * divides a number, so it offers only number variables (keeping a
+         * previously saved non-number pick visible so it isn't silently lost).
+         */
+        get addVariableGroups() {
+            if (this.add.kind !== 'floor_div') return this.variableGroups;
+            const numeric = new Set(this.numberVariableKeys());
+            const groups = this.variableGroups
+                .map((g) => ({ ...g, items: g.items.filter((it) => numeric.has(it.value) || it.value === this.add.var) }))
+                .filter((g) => g.items.length);
+            return groups;
+        },
+
+        numberVariableKeys() {
+            const keys = [];
+            const fields = (form, prefix) => (form ? form.fields : [])
+                .filter((fld) => NUMBER_TYPES.includes(fld.type))
+                .forEach((fld) => keys.push(`${prefix}:${fld.key}`));
+            if (this.source === 'form_submission') {
+                fields(this.selectedForm, 'field');
+                fields(this.linkedForm, 'new_event');
+            } else {
+                this.variables.plan.filter((p) => p.type === 'number').forEach((p) => keys.push(`plan:${p.key}`));
+            }
+            this.variables.universal.filter((u) => NUMBER_TYPES.includes(u.type)).forEach((u) => keys.push(`universal:${u.key}`));
+            return keys;
+        },
+
+        /**
+         * Picker label for a form field. List fields (text list, table, images)
+         * are flagged: comparing them (≥, <, …) or dividing them uses their row
+         * count, and "one instance per row of" counts their rows.
+         */
+        fieldLabel(fld) {
+            return LIST_FIELD_TYPES.includes(fld.type) ? `${fld.label} (rows)` : fld.label;
+        },
+
+        /** The field definition behind a `field:<key>` / `new_event:<key>` variable (for option pickers). */
         varDef(varKey) {
-            if (!varKey || !varKey.startsWith('field:')) return null;
-            const key = varKey.slice('field:'.length);
-            const form = this.variables.forms.find((f) => String(f.id) === String(this.formId));
+            if (!varKey) return null;
+            let form = null;
+            let key = '';
+            if (varKey.startsWith('field:')) {
+                form = this.selectedForm;
+                key = varKey.slice('field:'.length);
+            } else if (varKey.startsWith('new_event:')) {
+                form = this.linkedForm;
+                key = varKey.slice('new_event:'.length);
+            }
             return form ? form.fields.find((fld) => fld.key === key) || null : null;
         },
 
@@ -199,6 +265,11 @@ export function tallyEditor(config) {
             return Number.isNaN(n) || String(n) !== String(value).trim() ? value : n;
         },
 
+        usesVarPrefix(prefix) {
+            const inGroup = (group) => group.children.some((c) => (c.kind === 'group' ? inGroup(c) : (c.var || '').startsWith(prefix)));
+            return inGroup(this.root) || (this.add.kind !== 'const' && (this.add.var || '').startsWith(prefix));
+        },
+
         // ---- persistence ----
         async save() {
             this.error = '';
@@ -209,6 +280,14 @@ export function tallyEditor(config) {
             }
             if ((this.add.kind === 'floor_div' || this.add.kind === 'count_list') && !this.add.var) {
                 this.error = 'Pick the variable for the "add" amount.';
+                return;
+            }
+            if (this.add.kind === 'floor_div' && !(parseFloat(this.add.divisor) > 0)) {
+                this.error = 'The number to divide by must be greater than 0.';
+                return;
+            }
+            if (!this.linkedForm && this.usesVarPrefix('new_event:')) {
+                this.error = 'Linked New Event fields can only be used when the trigger watches the After Event form.';
                 return;
             }
 

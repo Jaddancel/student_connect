@@ -3,12 +3,15 @@
 namespace App\Forms\Handlers;
 
 use App\Forms\FieldType;
+use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Services\AfterEventReportService;
 use App\Services\DocumentGenerationService;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -17,6 +20,8 @@ use Illuminate\Validation\ValidationException;
  * event (carried as the hidden `after_event_event_id` input the renderer adds
  * for `?event=`). Unlike the other system functions there is no approval step —
  * the printed document is generated right away and the event is marked filed.
+ * An event takes exactly one report: a second attempt is sent back to the
+ * After Event Form page with an "already filed" dialog.
  */
 class AfterEventReportHandler implements SystemFunctionHandler
 {
@@ -26,17 +31,37 @@ class AfterEventReportHandler implements SystemFunctionHandler
 
     public function validatePayload(Form $form, array $payload, Request $request): void
     {
-        $this->afterEvents->assertFileable($request->user(), $this->eventId($request));
+        try {
+            $this->afterEvents->assertFileable($request->user(), $this->eventId($request));
+        } catch (ValidationException $exception) {
+            $this->redirectIfAlreadyFiled($exception);
+            throw $exception;
+        }
     }
 
     public function handle(Form $form, FormSubmission $submission, array $payload, Request $request): RedirectResponse
     {
-        $event = $this->afterEvents->assertFileable($request->user(), $this->eventId($request));
+        $eventId = $this->eventId($request);
 
-        $submission->forceFill([
-            'event_id' => (int) $event['event_id'],
-            'organization_id' => (int) $event['organization_id'],
-        ])->save();
+        try {
+            $event = DB::transaction(function () use ($request, $eventId, $submission) {
+                // Serialise concurrent filings for one event so only the first claims it.
+                Event::query()->whereKey($eventId)->lockForUpdate()->first();
+
+                $event = $this->afterEvents->assertFileable($request->user(), $eventId, (int) $submission->getKey());
+
+                $submission->forceFill([
+                    'event_id' => (int) $event['event_id'],
+                    'organization_id' => (int) $event['organization_id'],
+                ])->save();
+
+                return $event;
+            });
+        } catch (ValidationException $exception) {
+            $this->discard($form, $submission);
+            $this->redirectIfAlreadyFiled($exception);
+            throw $exception;
+        }
 
         try {
             app(DocumentGenerationService::class)->generateAllFromSubmission(
@@ -56,6 +81,19 @@ class AfterEventReportHandler implements SystemFunctionHandler
         return redirect()
             ->route('after-event-reports.index')
             ->with('success', 'After-event report for "'.$event['name'].'" filed. Its document is ready.');
+    }
+
+    /**
+     * A duplicate report goes back to the After Event Form page, which shows
+     * the error as a dialog, instead of back to the form.
+     */
+    private function redirectIfAlreadyFiled(ValidationException $exception): void
+    {
+        if (array_key_exists(AfterEventReportService::ERROR_ALREADY_FILED, $exception->errors())) {
+            throw new HttpResponseException(
+                redirect()->route('after-event-reports.index')->withErrors($exception->errors())
+            );
+        }
     }
 
     private function eventId(Request $request): int

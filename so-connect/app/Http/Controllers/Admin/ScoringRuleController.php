@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Forms\SystemFunction;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
 use App\Models\ScoringCriterion;
@@ -219,13 +220,20 @@ class ScoringRuleController extends Controller
 
     /**
      * Every variable the block editor can offer: each form page's fields
-     * (`field:<key>`), the universal fields (`universal:<key>`), and the
+     * (`field:<key>`), the linked New Event fields of an After Event form
+     * (`new_event:<key>`), the universal fields (`universal:<key>`), and the
      * event-plan columns (`plan:<key>`).
      *
      * @return array<string,mixed>
      */
     private function variablesPayload(): array
     {
+        // An After Event submission belongs to an event created from a New Event
+        // submission, so its triggers may also read that submission's fields
+        // (`new_event:<key>`).
+        $afterEventFormId = (int) (SystemFunction::form(SystemFunction::AFTER_EVENT_REPORT)?->getKey() ?? 0);
+        $newEventFormId = (int) (SystemFunction::form(SystemFunction::NEW_EVENT)?->getKey() ?? 0);
+
         $forms = Form::query()
             ->with('fields')
             ->orderBy('name')
@@ -233,6 +241,9 @@ class ScoringRuleController extends Controller
             ->map(fn (Form $form) => [
                 'id' => (int) $form->getKey(),
                 'name' => $form->name,
+                'linked_form_id' => $afterEventFormId > 0 && $newEventFormId > 0 && (int) $form->getKey() === $afterEventFormId
+                    ? $newEventFormId
+                    : null,
                 'fields' => $form->fields
                     ->filter(fn ($f) => ! \App\Forms\FieldType::isPresentational($f->field_type))
                     ->map(fn ($f) => [

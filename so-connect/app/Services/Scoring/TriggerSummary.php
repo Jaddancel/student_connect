@@ -78,7 +78,7 @@ final class TriggerSummary
     {
         return match ($add['kind'] ?? null) {
             'const' => ((int) ($add['value'] ?? 1)).' instance(s)',
-            'floor_div' => '1 instance per '.(string) ($add['divisor'] ?? 1).' of '.self::varLabel((string) ($add['var'] ?? '')),
+            'floor_div' => '1 instance per count of '.self::varLabel((string) ($add['var'] ?? '')).' divided by '.(string) ($add['divisor'] ?? 1),
             'count_list' => '1 instance per row of '.self::varLabel((string) ($add['var'] ?? '')),
             default => 'nothing',
         };
@@ -91,6 +91,9 @@ final class TriggerSummary
             $meta = UniversalField::get($key);
 
             return $meta['label'] ?? $key;
+        }
+        if (str_starts_with($var, 'new_event:')) {
+            return 'New Event '.substr($var, strlen('new_event:'));
         }
         // field:<key> / plan:<key> — the bare key reads clearly enough.
         $parts = explode(':', $var, 2);

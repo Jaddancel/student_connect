@@ -2,6 +2,7 @@
 
 namespace App\Services\Scoring;
 
+use App\Forms\SystemFunction;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -20,6 +21,8 @@ use Illuminate\Validation\ValidationException;
  *             | {kind: floor_div, var, divisor: number > 0}
  *             | {kind: count_list, var}
  *   var      := "field:<key>" | "universal:<key>" | "plan:<column>"
+ *             | "new_event:<key>" (After Event form triggers only — reads the
+ *               New Event submission that created the reported event)
  */
 class TriggerValidator
 {
@@ -31,6 +34,8 @@ class TriggerValidator
 
     private const MAX_DEPTH = 6;
 
+    private bool $usesNewEventVars = false;
+
     /**
      * @param  array<string,mixed>  $trigger
      *
@@ -38,6 +43,8 @@ class TriggerValidator
      */
     public function validate(array $trigger): void
     {
+        $this->usesNewEventVars = false;
+
         $when = $trigger['when'] ?? null;
         if (! is_array($when) || ! in_array($when['source'] ?? null, self::SOURCES, true)) {
             $this->fail('The rule must start with a "when" block (form submission or event plan).');
@@ -67,6 +74,13 @@ class TriggerValidator
                 || $this->fail('A "count rows" add needs a list variable.'),
             default => $this->fail('Unknown "add" kind.'),
         };
+
+        if ($this->usesNewEventVars) {
+            $afterEventFormId = (int) (SystemFunction::form(SystemFunction::AFTER_EVENT_REPORT)?->getKey() ?? 0);
+            if ($when['source'] !== 'form_submission' || $afterEventFormId <= 0 || (int) $when['form_id'] !== $afterEventFormId) {
+                $this->fail('Linked New Event fields can only be used when the trigger watches the After Event form.');
+            }
+        }
     }
 
     /**
@@ -116,8 +130,14 @@ class TriggerValidator
 
     private function validateVar(mixed $var): bool
     {
-        return is_string($var)
-            && preg_match('/^(field|universal|plan):[A-Za-z0-9_]{1,100}$/', $var) === 1;
+        if (! is_string($var) || preg_match('/^(field|universal|plan|new_event):[A-Za-z0-9_]{1,100}$/', $var) !== 1) {
+            return false;
+        }
+        if (str_starts_with($var, 'new_event:')) {
+            $this->usesNewEventVars = true;
+        }
+
+        return true;
     }
 
     private function fail(string $message): never

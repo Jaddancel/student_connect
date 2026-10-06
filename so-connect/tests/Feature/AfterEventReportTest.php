@@ -94,18 +94,19 @@ function aeForm(): Form
 /** The New Event form + a submission/request/plan chain that created $event. */
 function aeNewEventSource(Event $event, User $submitter, string $title): FormSubmission
 {
-    $form = Form::query()->create([
+    $form = Form::query()->firstOrCreate(['route_name' => 'new-event'], [
         'name' => 'New Event',
-        'route_name' => 'new-event',
         'system_function' => SystemFunction::NEW_EVENT,
         'is_active' => true,
         'is_published' => true,
     ]);
-    foreach (['title' => 'text', 'event_location' => 'text'] as $key => $type) {
-        FormDescription::query()->create([
-            'form_id' => $form->id, 'field_key' => $key, 'field_label' => ucfirst($key),
-            'field_type' => $type, 'is_required' => false, 'field_order' => 1,
-        ]);
+    if ($form->wasRecentlyCreated) {
+        foreach (['title' => 'text', 'event_location' => 'text'] as $key => $type) {
+            FormDescription::query()->create([
+                'form_id' => $form->id, 'field_key' => $key, 'field_label' => ucfirst($key),
+                'field_type' => $type, 'is_required' => false, 'field_order' => 1,
+            ]);
+        }
     }
     $submission = FormSubmission::query()->create([
         'form_id' => $form->id,
@@ -231,11 +232,12 @@ it('generates the report immediately with New Event tokens and marks the event f
         ->assertSee('Filed')
         ->assertSee('View document');
 
-    // A second filing for the same event is refused.
+    // A second filing for the same event is refused with the already-filed dialog.
     $this->actingAs($officer)->post(route('forms.render.submit', $form->route_name), [
         'summary' => 'Again',
         AfterEventReportHandler::EVENT_INPUT => $event->getKey(),
-    ])->assertSessionHasErrors('form');
+    ])->assertRedirect(route('after-event-reports.index'))
+        ->assertSessionHasErrors(AfterEventReportService::ERROR_ALREADY_FILED);
     expect(FormSubmission::query()->where('form_id', $form->id)->count())->toBe(1);
 });
 
@@ -312,4 +314,146 @@ it('offers New Event form tokens in the after-event palette', function () {
     $keys = array_column($tokens, 'key');
     expect($keys)->toContain('eventinfo.name', 'event.title', 'event.event_location')
         ->and($keys)->not->toContain('event.profile.first_name');
+});
+
+/** A criterion with an enabled trigger watching the After Event form. */
+function aeScoringRule(array $trigger): \App\Models\ScoringCriterion
+{
+    $criterion = \App\Models\ScoringCriterion::query()->create([
+        'key' => 'custom_after_event_'.bin2hex(random_bytes(3)),
+        'category_key' => 'cat1',
+        'label' => 'After event filed',
+        'weight' => 5,
+        'sort_order' => 1000,
+        'is_system' => false,
+        'is_active' => true,
+    ]);
+    \App\Models\ScoringRule::query()->create([
+        'criterion_id' => $criterion->getKey(),
+        'trigger' => $trigger,
+        'enabled' => true,
+    ]);
+
+    return $criterion;
+}
+
+it('tallies filed after-event reports by the fields of their linked New Event submission', function () {
+    $form = aeForm();
+    $org = recordsOrganization('After Org');
+    $officer = aeOfficial((int) $org->getKey());
+
+    foreach (['Leadership Seminar' => 'It went well.', 'Sports Fest' => 'Fun.'] as $title => $summary) {
+        $event = aeEvent((int) $org->getKey(), $title, now()->subDays(5));
+        aeNewEventSource($event, $officer, $title);
+        FormSubmission::query()->create([
+            'form_id' => $form->id,
+            'organization_id' => $org->getKey(),
+            'event_id' => $event->getKey(),
+            'submitted_by' => $officer->getKey(),
+            'payload' => ['summary' => $summary],
+            'submitted_at' => now(),
+        ]);
+    }
+
+    $trigger = [
+        'when' => ['source' => 'form_submission', 'form_id' => $form->id, 'status' => 'approved'],
+        'if' => ['op' => 'contains', 'left' => ['var' => 'new_event:title'], 'right' => ['value' => 'seminar']],
+        'then' => ['add' => ['kind' => 'const', 'value' => 1]],
+    ];
+    (new \App\Services\Scoring\TriggerValidator)->validate($trigger);
+    $criterion = aeScoringRule($trigger);
+    $all = aeScoringRule(array_merge($trigger, ['if' => null]));
+
+    $instances = app(\App\Services\Scoring\ScoringRuleEngine::class)
+        ->instancesFor((int) $org->getKey(), Semester::query()->sole());
+
+    expect($instances[$criterion->key])->toBe(1)
+        ->and($instances[$all->key])->toBe(2)
+        ->and(\App\Services\Scoring\TriggerSummary::text($trigger))->toContain('New Event title contains seminar');
+});
+
+it('rejects linked New Event variables on triggers that do not watch the After Event form', function () {
+    aeForm();
+    $other = Form::query()->create(['name' => 'Other', 'route_name' => 'other', 'is_active' => true, 'is_published' => true]);
+
+    $trigger = [
+        'when' => ['source' => 'form_submission', 'form_id' => $other->id],
+        'if' => ['op' => 'not_empty', 'left' => ['var' => 'new_event:title']],
+        'then' => ['add' => ['kind' => 'const', 'value' => 1]],
+    ];
+
+    expect(fn () => (new \App\Services\Scoring\TriggerValidator)->validate($trigger))
+        ->toThrow(\Illuminate\Validation\ValidationException::class, 'Linked New Event fields');
+});
+
+it('sends a second report for an already-filed event back to the index with an error dialog', function () {
+    Mail::fake();
+    $form = aeForm();
+    $org = recordsOrganization('After Org');
+    $officer = aeOfficial((int) $org->getKey());
+    $event = aeEvent((int) $org->getKey(), 'Due Seminar', now()->subDays(5));
+    aeNewEventSource($event, $officer, 'Leadership Seminar');
+    $captured = [];
+    aeMockDocx($captured);
+
+    $submit = fn () => $this->actingAs($officer)->post(route('forms.render.submit', $form->route_name), [
+        'summary' => 'It went well.',
+        AfterEventReportHandler::EVENT_INPUT => $event->getKey(),
+    ]);
+
+    $submit()->assertRedirect(route('after-event-reports.index'))->assertSessionHasNoErrors();
+    $submit()->assertRedirect(route('after-event-reports.index'))
+        ->assertSessionHasErrors(AfterEventReportService::ERROR_ALREADY_FILED);
+
+    expect(FormSubmission::query()->where('form_id', $form->id)->count())->toBe(1);
+
+    $this->actingAs($officer)->get(route('after-event-reports.index'))
+        ->assertOk()
+        ->assertSee('data-testid="after-event-already-filed"', false)
+        ->assertSee('Report already filed')
+        ->assertSee('already been filed for “Due Seminar”', false);
+});
+
+it('discards a racing duplicate report that slipped past validation', function () {
+    $form = aeForm();
+    $org = recordsOrganization('After Org');
+    $officer = aeOfficial((int) $org->getKey());
+    $event = aeEvent((int) $org->getKey(), 'Due Seminar', now()->subDays(5));
+
+    $existing = FormSubmission::query()->create([
+        'form_id' => $form->id, 'organization_id' => $org->getKey(), 'event_id' => $event->getKey(),
+        'submitted_by' => $officer->getKey(), 'payload' => ['summary' => 'First'], 'submitted_at' => now(),
+    ]);
+    $late = FormSubmission::query()->create([
+        'form_id' => $form->id, 'organization_id' => $org->getKey(),
+        'submitted_by' => $officer->getKey(), 'payload' => ['summary' => 'Second'], 'submitted_at' => now(),
+    ]);
+
+    $request = \Illuminate\Http\Request::create('/', 'POST', [AfterEventReportHandler::EVENT_INPUT => $event->getKey()]);
+    $request->setUserResolver(fn () => $officer);
+
+    try {
+        app(AfterEventReportHandler::class)->handle($form, $late, ['summary' => 'Second'], $request);
+        $this->fail('Expected the duplicate to be redirected.');
+    } catch (\Illuminate\Http\Exceptions\HttpResponseException $exception) {
+        expect($exception->getResponse()->getTargetUrl())->toBe(route('after-event-reports.index'));
+    }
+
+    expect(FormSubmission::query()->whereKey($late->getKey())->exists())->toBeFalse()
+        ->and(FormSubmission::query()->whereKey($existing->getKey())->exists())->toBeTrue();
+});
+
+it('shows the already-filed dialog when opening the form for a filed event', function () {
+    $form = aeForm();
+    $org = recordsOrganization('After Org');
+    $officer = aeOfficial((int) $org->getKey());
+    $event = aeEvent((int) $org->getKey(), 'Due Seminar', now()->subDays(5));
+    FormSubmission::query()->create([
+        'form_id' => $form->id, 'organization_id' => $org->getKey(), 'event_id' => $event->getKey(),
+        'submitted_by' => $officer->getKey(), 'payload' => ['summary' => 'First'], 'submitted_at' => now(),
+    ]);
+
+    $this->actingAs($officer)->get(route('forms.render', ['routeName' => $form->route_name, 'event' => $event->getKey()]))
+        ->assertRedirect(route('after-event-reports.index'))
+        ->assertSessionHasErrors(AfterEventReportService::ERROR_ALREADY_FILED);
 });

@@ -418,8 +418,22 @@ export function formBuilder(config) {
             );
             this.selectKey(f.field_key);
         },
-        /** Palette click-to-add: append a new field row at the end. */
+        /**
+         * Palette click-to-add: into the selected row when one is selected
+         * (its first empty column, else its last column), otherwise onto a
+         * new row at the end.
+         */
         addField(type) {
+            const rowIndex = this.selectedRow
+                ? this.rows.findIndex((r) => r._id === this.selectedRow)
+                : -1;
+            const row = rowIndex >= 0 ? this.rows[rowIndex] : null;
+            if (row && row.columns.length) {
+                const empty = row.columns.findIndex((c) => c.fields.length === 0);
+                const colIndex = empty >= 0 ? empty : row.columns.length - 1;
+                this.addFieldToColumn(type, rowIndex, colIndex, null);
+                return;
+            }
             this.addFieldAtRow(type, null);
         },
 
@@ -588,6 +602,23 @@ export function formBuilder(config) {
             } else if (f.field_options.visible_when) {
                 delete f.field_options.visible_when;
             }
+        },
+        /** Tooltip for a field card's visibility-condition indicator. */
+        visibilityHint(key) {
+            const cond = this.field(key)?.field_options?.visible_when;
+            if (!cond) return "";
+            const source = cond.field ? this.field(cond.field)?.field_label || cond.field : "(no field chosen)";
+            const ops = {
+                equals: "equals",
+                not_equals: "does not equal",
+                contains: "contains",
+                filled: "is filled in",
+                empty: "is empty",
+            };
+            const choices = cond.field ? this.conditionValueChoices(this.field(cond.field)) : null;
+            const shown = (choices || []).find((o) => String(o.value) === String(cond.value ?? ""))?.label ?? cond.value ?? "";
+            const value = ["filled", "empty"].includes(cond.op) ? "" : ` “${shown}”`;
+            return `Conditionally visible — shown only when ${source} ${ops[cond.op] || cond.op}${value}`;
         },
         /** Keys of the fields sharing a row with the given field (self excluded). */
         /** Other fields stacked in the same layout column as `fieldKey`. */

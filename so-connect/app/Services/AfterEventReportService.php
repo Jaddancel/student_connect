@@ -31,6 +31,9 @@ class AfterEventReportService
 
     public const DEFAULT_ELAPSED_DAYS = 3;
 
+    /** Validation error key for "this event already has a report". */
+    public const ERROR_ALREADY_FILED = 'already_filed';
+
     public function elapsedDays(): int
     {
         return max(0, (int) AppSetting::get(self::SETTING_ELAPSED_DAYS, self::DEFAULT_ELAPSED_DAYS));
@@ -193,14 +196,34 @@ class AfterEventReportService
     }
 
     /**
+     * Whether the event has an after-event report other than $exceptSubmissionId
+     * (the in-flight submission, which may already carry the event id).
+     */
+    public function hasOtherReport(int $eventId, ?int $exceptSubmissionId = null): bool
+    {
+        $form = $this->form();
+        if ($form === null) {
+            return false;
+        }
+
+        return FormSubmission::query()
+            ->where('form_id', (int) $form->getKey())
+            ->where('event_id', $eventId)
+            ->when($exceptSubmissionId, fn ($query) => $query->whereKeyNot($exceptSubmissionId))
+            ->exists();
+    }
+
+    /**
      * Throw a user-facing validation error unless the user may file the
-     * after-event report for this event right now. Returns the event row.
+     * after-event report for this event right now. Returns the event row. An
+     * already-reported event fails under {@see ERROR_ALREADY_FILED}; pass the
+     * in-flight submission's id so it does not count as that earlier report.
      *
      * @return array<string, mixed>
      *
      * @throws ValidationException
      */
-    public function assertFileable(?User $user, int $eventId): array
+    public function assertFileable(?User $user, int $eventId, ?int $exceptSubmissionId = null): array
     {
         $fail = fn (string $message) => throw ValidationException::withMessages(['form' => $message]);
 
@@ -224,8 +247,10 @@ class AfterEventReportService
             $fail('This event is not open for an after-event report. Reports open '
                 .$this->elapsedDays().' day(s) after an event ends, and close when its semester ends.');
         }
-        if ($row['filed']) {
-            $fail('An after-event report has already been filed for this event.');
+        if ($row['filed'] && $this->hasOtherReport($eventId, $exceptSubmissionId)) {
+            throw ValidationException::withMessages([
+                self::ERROR_ALREADY_FILED => 'An after-event report has already been filed for “'.$row['name'].'”. Only one report can be filed per event.',
+            ]);
         }
 
         return $row;

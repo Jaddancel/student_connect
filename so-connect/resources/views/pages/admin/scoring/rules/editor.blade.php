@@ -54,11 +54,16 @@
                     class="h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                     <option value="">— choose a form —</option>
                     <template x-for="f in variables.forms" :key="f.id">
-                        <option :value="f.id" x-text="f.name"></option>
+                        <option :value="f.id" x-text="f.name" :selected="String(f.id) === String(formId)"></option>
                     </template>
                 </select>
-                <span>is <strong>approved</strong>,</span>
+                <span>is <strong x-text="linkedForm ? 'filed' : 'approved'">approved</strong>,</span>
             </div>
+            <p x-show="linkedForm" x-cloak class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                After-event reports need no approval — every filed report counts. Fields of the
+                <span x-text="linkedForm?.name"></span> submission that created the reported event are available
+                under “<span x-text="linkedForm ? linkedForm.name + ' (linked event)' : ''"></span>” in the variable picker.
+            </p>
         </div>
 
         {{-- IF (condition groups) --}}
@@ -89,7 +94,7 @@
                                     <template x-for="g in variableGroups" :key="g.label">
                                         <optgroup :label="g.label">
                                             <template x-for="it in g.items" :key="it.value">
-                                                <option :value="it.value" x-text="it.label"></option>
+                                                <option :value="it.value" x-text="it.label" :selected="it.value === child.var"></option>
                                             </template>
                                         </optgroup>
                                     </template>
@@ -110,7 +115,7 @@
                                             <select x-model="child.value" class="h-9 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                                                 <option value="">— value —</option>
                                                 <template x-for="opt in optionsFor(child)" :key="opt.value">
-                                                    <option :value="opt.value" x-text="opt.label"></option>
+                                                    <option :value="opt.value" x-text="opt.label" :selected="String(opt.value) === String(child.value)"></option>
                                                 </template>
                                             </select>
                                         </template>
@@ -144,7 +149,7 @@
                                             <template x-for="g in variableGroups" :key="g.label">
                                                 <optgroup :label="g.label">
                                                     <template x-for="it in g.items" :key="it.value">
-                                                        <option :value="it.value" x-text="it.label"></option>
+                                                        <option :value="it.value" x-text="it.label" :selected="it.value === gc.var"></option>
                                                     </template>
                                                 </optgroup>
                                             </template>
@@ -160,7 +165,7 @@
                                                 <template x-if="optionsFor(gc)">
                                                     <select x-model="gc.value" class="h-9 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                                                         <option value="">— value —</option>
-                                                        <template x-for="opt in optionsFor(gc)" :key="opt.value"><option :value="opt.value" x-text="opt.label"></option></template>
+                                                        <template x-for="opt in optionsFor(gc)" :key="opt.value"><option :value="opt.value" x-text="opt.label" :selected="String(opt.value) === String(gc.value)"></option></template>
                                                     </select>
                                                 </template>
                                                 <template x-if="!optionsFor(gc)">
@@ -190,7 +195,7 @@
                 <span class="font-semibold">Then add</span>
                 <select x-model="add.kind" class="h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                     <option value="const">a fixed number of</option>
-                    <option value="floor_div">one instance per amount of</option>
+                    <option value="floor_div">one instance per count of</option>
                     <option value="count_list">one instance per row of</option>
                 </select>
                 <template x-if="add.kind === 'const'">
@@ -200,26 +205,27 @@
                 <template x-if="add.kind !== 'const'">
                     <select x-model="add.var" class="h-9 min-w-[10rem] rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                         <option value="">— variable —</option>
-                        <template x-for="g in variableGroups" :key="g.label">
+                        <template x-for="g in addVariableGroups" :key="g.label">
                             <optgroup :label="g.label">
-                                <template x-for="it in g.items" :key="it.value"><option :value="it.value" x-text="it.label"></option></template>
+                                <template x-for="it in g.items" :key="it.value"><option :value="it.value" x-text="it.label" :selected="it.value === add.var"></option></template>
                             </optgroup>
                         </template>
                     </select>
                 </template>
                 <template x-if="add.kind === 'floor_div'">
-                    <span class="flex items-center gap-2">÷
-                        <input type="number" min="1" x-model.number="add.divisor"
-                            class="h-9 w-20 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                    <span class="flex items-center gap-2">divided by
+                        <input type="number" min="1" step="any" x-model.number="add.divisor"
+                            class="h-9 w-24 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                     </span>
                 </template>
-                <span>instance(s).</span>
+                <span x-text="add.kind === 'floor_div' ? '.' : 'instance(s).'">instance(s).</span>
             </div>
         </div>
 
         <p class="text-xs text-gray-400 dark:text-gray-500">
             Only <strong>approved</strong> records in the scored semester are tallied — a rejected request
-            sends the submitter back to the form and never counts.
+            sends the submitter back to the form and never counts. After-event reports have no approval
+            step, so every report filed in the scored semester is tallied.
         </p>
     </div>
 @endsection
