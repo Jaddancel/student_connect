@@ -101,10 +101,36 @@
         .post-card {
             transition: transform 0.25s ease, box-shadow 0.25s ease;
         }
+
+        .post-viewer {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            max-width: none;
+            height: 100dvh;
+            max-height: none;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            background: #000;
+        }
+
+        .post-viewer::backdrop { background: #000; }
+        .post-viewer-layout { display: grid; grid-template-columns: minmax(0, 1fr) 24rem; height: 100%; }
+        .post-viewer-media { position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; padding: 4rem 0; background: #000; }
+        .post-viewer-details { min-height: 0; overflow-y: auto; padding: 1.5rem; }
+        .post-viewer-control { z-index: 1; display: flex; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; border-radius: 50%; background: #303030; color: #fff; cursor: pointer; }
+        .post-viewer-control:hover { background: #505050; }
+        .post-viewer-control:focus-visible { outline: 3px solid #6ee7b7; outline-offset: 3px; }
+        .post-viewer-close { position: absolute; top: 1rem; left: 1rem; }
+        @media (max-width: 767px) {
+            .post-viewer-layout { grid-template-columns: 1fr; grid-template-rows: minmax(0, 58fr) minmax(0, 42fr); }
+            .post-viewer-details { padding: 1.25rem; }
+        }
     </style>
 </head>
 
-<body>
+<body x-data="postViewer">
     <header
         class="sticky top-0 z-30 border-b border-emerald-100/80 bg-white/85 backdrop-blur dark:border-emerald-900/40 dark:bg-[#0d1613]/85">
         <div class="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
@@ -220,7 +246,24 @@
             @else
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach ($posts as $post)
+                        @php
+                            $postDate = $post->published_at ?? $post->created_at;
+                            $viewerPost = [
+                                'id' => $post->post_id,
+                                'title' => $post->title,
+                                'excerpt' => $post->excerpt,
+                                'body' => $post->body,
+                                'tag' => $post->tag,
+                                'featured' => (bool) $post->is_featured,
+                                'date' => $postDate?->format('F j, Y \a\t g:i A'),
+                                'dateIso' => $postDate?->toIso8601String(),
+                                'images' => array_map(fn ($path) => '/storage/' . $path, $post->imagePaths()),
+                                'video' => $post->video_path ? '/storage/' . $post->video_path : null,
+                            ];
+                        @endphp
                         <article
+                            data-post-id="{{ $post->post_id }}"
+                            @click="if (!$event.target.closest('video, button')) openPost({{ Js::from($viewerPost) }}, $el.querySelector('[data-open-post]'))"
                             class="post-card relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-[color:var(--card-bg)] shadow-sm dark:border-slate-700">
 
                             {{-- Media --}}
@@ -279,6 +322,16 @@
                                 </div>
                             </div>
 
+                            <button type="button" data-open-post
+                                @click.stop="openPost({{ Js::from($viewerPost) }}, $el)"
+                                aria-label="View post: {{ $post->title }}"
+                                class="mx-5 mb-5 rounded-lg border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-emerald-600 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-900/30">
+                                View post
+                                @if (count($post->imagePaths()) > 1)
+                                    <span class="ml-2 text-xs">({{ count($post->imagePaths()) }} images)</span>
+                                @endif
+                            </button>
+
                             {{-- Hover overlay --}}
                             <div
                                 class="card-overlay pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[2px] dark:bg-[#0d1613]/70">
@@ -293,6 +346,7 @@
             @endif
         </section>
     </main>
+    @include('landingPage.partials.post-viewer')
 </body>
 
 </html>

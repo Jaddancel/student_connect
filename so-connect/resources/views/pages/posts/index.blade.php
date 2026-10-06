@@ -42,6 +42,8 @@
         fFeatured: {{ $oldFeatured }},
         fHasImage: false,
         fHasVideo: false,
+        fImageCount: 0,
+        uploadCount: 0,
         /* media picker state */
         pickerOpen: false,
         pickerSearch: '',
@@ -63,6 +65,9 @@
         },
 
         openCreate() {
+            this.$refs.postForm.reset();
+            this.uploadCount = 0;
+            this.fImageCount = 0;
             this.editMode = false;
             this.editPostId = '';
             this.editFormAction = '{{ route('posts.store') }}';
@@ -84,6 +89,9 @@
         },
 
         openEdit(post) {
+            this.$refs.postForm.reset();
+            this.uploadCount = 0;
+            this.fImageCount = post.image_count;
             this.editMode = true;
             this.editPostId = post.post_id;
             this.editFormAction = '/posts/' + post.post_id;
@@ -108,14 +116,15 @@
         closeModal() { this.modalOpen = false; },
     
         pickLibraryImage(path, title) {
+            this.$refs.postImages.value = '';
+            this.uploadCount = 0;
             this.selectedLibraryPath = path;
             this.selectedLibraryTitle = title;
             this.pickerOpen = false;
         },
 
         pickGalleryImage(item) {
-            this.selectedLibraryPath = item.path;
-            this.selectedLibraryTitle = this.galleryItemTitle(item);
+            this.pickLibraryImage(item.path, this.galleryItemTitle(item));
         },
 
         galleryItemTitle(item) {
@@ -257,6 +266,7 @@
                                 'tag' => $post->tag,
                                 'is_featured' => (bool) $post->is_featured,
                                 'image_path' => $post->image_path,
+                                'image_count' => count($post->imagePaths()),
                                 'video_path' => $post->video_path,
                                 'image_from_library' => \App\Models\Post::isSharedMediaPath($post->image_path) ? $post->image_path : '',
                             ];
@@ -401,6 +411,7 @@
                                         'status' => $status,
                                         'is_featured' => (bool) $post->is_featured,
                                         'image_path' => $post->image_path,
+                                        'image_count' => count($post->imagePaths()),
                                         'video_path' => $post->video_path,
                                         'image_from_library' => \App\Models\Post::isSharedMediaPath($post->image_path) ? $post->image_path : '',
                                     ];
@@ -520,7 +531,7 @@
                 <div class="flex min-h-0 flex-1 flex-col lg:flex-row">
                 <div class="min-h-0 flex-1 overflow-y-auto"
                     :class="galleryOpen ? 'lg:w-[32rem] lg:flex-none lg:border-r lg:border-gray-100 dark:lg:border-gray-800' : ''">
-                    <form id="post-modal-form" method="POST" enctype="multipart/form-data" :action="editFormAction"
+                    <form id="post-modal-form" x-ref="postForm" method="POST" enctype="multipart/form-data" :action="editFormAction"
                         class="space-y-3 px-5 py-3">
                         @csrf
                         <input type="hidden" name="_method" :value="editMode ? 'PATCH' : ''">
@@ -584,7 +595,7 @@
                         {{-- ── IMAGE SECTION ── --}}
                         <div class="space-y-1.5">
                             <div class="flex items-center justify-between gap-2">
-                                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Image</p>
+                                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Images</p>
                                 <button type="button" @click="galleryOpen = !galleryOpen"
                                     :aria-expanded="galleryOpen.toString()"
                                     class="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition"
@@ -629,10 +640,10 @@
                                         <polyline points="21 15 16 10 5 21" />
                                     </svg>
                                     <span class="text-gray-500 dark:text-gray-400"
-                                        x-text="fHasImage ? 'Replace image' : 'Upload image'"></span>
-                                    <input type="file" name="image"
+                                        x-text="uploadCount ? uploadCount + ' images selected' : (fHasImage ? 'Replace images (' + fImageCount + ')' : 'Upload images')"></span>
+                                    <input type="file" name="images[]" multiple x-ref="postImages"
                                         accept="image/jpeg,image/png,image/jpg,image/webp" class="sr-only"
-                                        @change="fHasImage = $event.target.files.length > 0" />
+                                        @change="uploadCount = $event.target.files.length" />
                                 </label>
                                 @if ($accomplishmentMedia->isNotEmpty())
                                     <button type="button" @click="pickerOpen = true"
@@ -648,6 +659,7 @@
                                     </button>
                                 @endif
                             </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Select up to 20 images (4 MB each). New uploads or a different library image replace the current image set. Leave unchanged to keep existing images. A video replaces all images.</p>
                         </div>
 
                         {{-- Video upload --}}

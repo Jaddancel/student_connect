@@ -66,6 +66,8 @@ class PostController extends Controller
             'tag'                => ['nullable', 'string', 'max:60'],
             'is_featured'        => ['nullable', 'boolean'],
             'image'              => ['nullable', 'file', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
+            'images'             => ['nullable', 'array', 'max:20'],
+            'images.*'           => ['required', 'file', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
             'video'              => ['nullable', 'file', 'mimes:mp4,webm,mov,avi', 'max:102400'],
             'image_from_library' => $this->libraryImageRules(null),
         ]);
@@ -80,18 +82,7 @@ class PostController extends Controller
         $post->is_featured  = $request->boolean('is_featured');
         $post->published_at = now();
 
-        if ($request->hasFile('image')) {
-            $post->image_path = $this->storeFile($request->file('image'), 'posts/images');
-            $post->video_path = null;
-        } elseif (! empty($data['image_from_library'])) {
-            $post->image_path = $data['image_from_library'];
-            $post->video_path = null;
-        }
-
-        if ($request->hasFile('video')) {
-            $post->video_path = $this->storeFile($request->file('video'), 'posts/videos');
-            $post->image_path = null;
-        }
+        $this->replaceMedia($post, $request, $data);
 
         $post->save();
 
@@ -110,6 +101,8 @@ class PostController extends Controller
             'tag'                => ['nullable', 'string', 'max:60'],
             'is_featured'        => ['nullable', 'boolean'],
             'image'              => ['nullable', 'file', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
+            'images'             => ['nullable', 'array', 'max:20'],
+            'images.*'           => ['required', 'file', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
             'video'              => ['nullable', 'file', 'mimes:mp4,webm,mov,avi', 'max:102400'],
             'image_from_library' => $this->libraryImageRules($post),
         ]);
@@ -126,25 +119,7 @@ class PostController extends Controller
             $post->published_at = now();
         }
 
-        if ($request->hasFile('image')) {
-            $this->deleteOwnedFile($post->image_path);
-            $post->image_path = $this->storeFile($request->file('image'), 'posts/images');
-            $post->video_path = null;
-        } elseif (! empty($data['image_from_library'])) {
-            if ($post->image_path !== $data['image_from_library']) {
-                $this->deleteOwnedFile($post->image_path);
-            }
-            $post->image_path = $data['image_from_library'];
-            $post->video_path = null;
-        }
-
-        if ($request->hasFile('video')) {
-            if ($post->video_path) {
-                Storage::disk('public')->delete($post->video_path);
-            }
-            $post->video_path = $this->storeFile($request->file('video'), 'posts/videos');
-            $post->image_path = null;
-        }
+        $this->replaceMedia($post, $request, $data);
 
         $post->save();
 
@@ -155,7 +130,9 @@ class PostController extends Controller
     {
         $post = Post::where('post_id', $postId)->firstOrFail();
 
-        $this->deleteOwnedFile($post->image_path);
+        foreach ($post->imagePaths() as $path) {
+            $this->deleteOwnedFile($path);
+        }
         if ($post->video_path) {
             Storage::disk('public')->delete($post->video_path);
         }
@@ -194,6 +171,35 @@ class PostController extends Controller
     {
         if ($path && ! Post::isSharedMediaPath($path)) {
             Storage::disk('public')->delete($path);
+        }
+    }
+
+    private function replaceMedia(Post $post, Request $request, array $data): void
+    {
+        $oldImages = $post->imagePaths();
+        $oldVideo = $post->video_path;
+
+        if ($request->hasFile('video')) {
+            $post->video_path = $this->storeFile($request->file('video'), 'posts/videos');
+            $post->image_path = null;
+            $post->image_paths = [];
+        } elseif ($request->hasFile('images') || $request->hasFile('image')) {
+            $files = $request->hasFile('images') ? $request->file('images') : [$request->file('image')];
+            $paths = array_map(fn ($file) => $this->storeFile($file, 'posts/images'), $files);
+            $post->image_paths = $paths;
+            $post->image_path = $paths[0];
+            $post->video_path = null;
+        } elseif (! empty($data['image_from_library']) && $data['image_from_library'] !== $post->image_path) {
+            $post->image_path = $data['image_from_library'];
+            $post->image_paths = [$data['image_from_library']];
+            $post->video_path = null;
+        }
+
+        foreach (array_diff($oldImages, $post->imagePaths()) as $path) {
+            $this->deleteOwnedFile($path);
+        }
+        if ($oldVideo && $oldVideo !== $post->video_path) {
+            Storage::disk('public')->delete($oldVideo);
         }
     }
 

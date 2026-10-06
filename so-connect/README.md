@@ -3,6 +3,25 @@
 **TailAdmin Laravel** is a modern, production-ready admin dashboard template powered by **Laravel 12**, **Tailwind CSS v4**, **Alpine.js**, and a clean, modular architecture. TailAdmin is one of the most popular Tailwind CSS dashboard now also available for Larvael. It’s designed for building fast, scalable admin panels, CRM dashboards, SaaS backends, and any data-driven application where clarity and performance matter.
 ![TailAdmin - Next.js Dashboard Preview](./tailadmin-laravel.png)
 
+## Organization post viewer
+
+Click a post card or **View post** in an organization's feed to open a full-screen
+viewer. Images appear individually on a black stage, with the organization,
+publication date, title, and full description in the right-hand panel (below the
+image on mobile). Use the on-screen arrows or Left/Right arrow keys to cycle through
+attachments; Escape or the close button returns to the feed. Posts without media
+still display their full text, and video posts retain playback controls.
+
+In the Posts editor, select up to 20 JPEG, PNG, or WebP images, each at most 4 MB.
+The first image remains the thumbnail. New uploads or a different library image
+replace the existing image set; text-only edits preserve it. A video replaces the
+image set. Shared library files are never deleted when a post is replaced or
+removed. Existing single-image posts work without backfilling.
+
+Deploy with `php artisan migrate` and `npm run build`. Targeted checks:
+`php artisan test tests/Feature/PostImageViewerTest.php tests/Feature/PostAfterEventMediaGalleryTest.php`
+and `node --test tests/js/post-viewer.test.js`.
+
 ## Quick Links
 
 - [✨ Get TailAdmin Laravel](https://tailadmin.com/laravel)

@@ -20,6 +20,7 @@ class Post extends Model
         'body',
         'tag',
         'image_path',
+        'image_paths',
         'video_path',
         'is_featured',
         'published_at',
@@ -29,7 +30,16 @@ class Post extends Model
     protected $casts = [
         'is_featured' => 'bool',
         'published_at' => 'datetime',
+        'image_paths' => 'array',
     ];
+
+    public function imagePaths(): array
+    {
+        return array_values(array_unique(array_filter([
+            $this->image_path,
+            ...($this->image_paths ?? []),
+        ])));
+    }
 
     /**
      * Image paths a post borrows from a shared library (accomplishment copies
