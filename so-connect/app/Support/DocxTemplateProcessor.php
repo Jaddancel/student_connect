@@ -64,6 +64,40 @@ class DocxTemplateProcessor extends TemplateProcessor
         }
     }
 
+    public function macro(string $name): string
+    {
+        return self::$macroOpeningChars.$name.self::$macroClosingChars;
+    }
+
+    /**
+     * Rewrite the main document part, every header and every footer.
+     *
+     * @param  callable(string): string  $transform
+     */
+    public function transformParts(callable $transform): void
+    {
+        $this->tempDocumentMainPart = $transform($this->tempDocumentMainPart);
+
+        foreach ($this->tempDocumentHeaders as $index => $xml) {
+            $this->tempDocumentHeaders[$index] = $transform($xml);
+        }
+
+        foreach ($this->tempDocumentFooters as $index => $xml) {
+            $this->tempDocumentFooters[$index] = $transform($xml);
+        }
+    }
+
+    /**
+     * Raw contents of a package part as stored in the template (e.g.
+     * `word/styles.xml`), or null when the part is absent.
+     */
+    public function packagePart(string $name): ?string
+    {
+        $contents = $this->zipClass->getFromName($name);
+
+        return is_string($contents) ? $contents : null;
+    }
+
     /**
      * Restore PhpWord's process-wide defaults — the delimiters are static, so
      * leaving them switched would leak into unrelated later use.

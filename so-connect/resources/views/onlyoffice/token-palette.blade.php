@@ -80,21 +80,32 @@
             transition: border-color .12s, background-color .12s;
         }
         .token:hover { border-color: var(--brand-400); background: var(--brand-50); }
+        .token:disabled { cursor: not-allowed; opacity: .6; }
+        .token:disabled:hover { border-color: var(--line); background: #fff; }
         .token:focus-visible { outline: none; border-color: var(--brand-400); box-shadow: 0 0 0 3px rgba(34, 197, 94, .18); }
-        .token .icon {
+        .token .icon, .token-card .icon {
             flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
             width: 26px; height: 26px; border-radius: 7px;
             background: var(--brand-50); color: var(--brand-500);
         }
         .token:hover .icon { background: #fff; }
-        .token .icon svg { display: block; }
-        .token .text { min-width: 0; }
-        .token .label { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .token .key {
+        .token .icon svg, .token-card .icon svg { display: block; }
+        .token .text, .token-card .text { min-width: 0; }
+        .token .label, .token-card .label { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .token .key, .token-card .key {
             display: block; font-family: ui-monospace, Menlo, Consolas, monospace;
             font-size: 11px; color: var(--muted);
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
+        .token-card { margin-bottom: 5px; padding: 8px 9px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 9px; }
+        .token-card .head { display: flex; align-items: center; gap: 9px; }
+        .token-card .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .action-btn {
+            flex: 1 1 0; padding: 5px 8px; font: inherit; font-size: 12px; font-weight: 500; color: var(--ink);
+            background: #fff; border: 1px solid var(--line); border-radius: 7px; cursor: pointer;
+        }
+        .action-btn:hover { border-color: var(--brand-400); background: var(--brand-50); }
+        .action-btn:focus-visible { outline: none; border-color: var(--brand-400); box-shadow: 0 0 0 3px rgba(34, 197, 94, .18); }
         .empty { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
         /* Activity-table column children: an indented, collapsible list under
            the parent table token. */
@@ -108,12 +119,13 @@
         .token.child { padding: 6px 8px; }
         .usage { display: block; font-size: 10px; color: #6b7280; margin-top: 3px; }
         .usage.used { color: #15803d; }
+        .usage.limit { color: #a16207; }
         .status { flex: 0 0 auto; margin: 0 0 8px; font-size: 11px; color: #6b7280; }
         .status.warning { color: #a16207; }
     </style>
 </head>
 <body data-form-id="{{ $formId ?? '' }}">
-    <p class="hint">Place the cursor in the document, then click a field to insert its token. A Table field inserts a table that prints one row per entry at generation time.</p>
+    <p class="hint">Place the cursor in the document, then click a field to insert its token. A Table field can be placed as a table (one row per entry) or as a chart built from its rows and columns at generation time.</p>
     <input type="text" id="search" class="search" placeholder="Search fields…" autocomplete="off">
     <p id="checking-status" class="status" role="status">Checking token usage...</p>
     <div id="list"></div>
@@ -121,7 +133,7 @@
 
     <script id="token-data" type="application/json">@json($tokens)</script>
     <script id="usage-data" type="application/json">@json(['url' => $usageUrl, 'documentId' => $documentId, 'adapterUrl' => asset('js/field-token-tools.js')])</script>
-    <script src="{{ asset('js/field-token-tools.js') }}"></script>
+    <script src="{{ asset('js/field-token-tools.js') }}?v={{ @filemtime(public_path('js/field-token-tools.js')) ?: '1' }}"></script>
 
     @verbatim
     <script type="text/javascript">
@@ -147,14 +159,27 @@
             var commandRunning = false;
 
             function updateStatus() {
-                checkingStatus.classList.toggle('warning', !!(scanError || usageError || unknownCount));
-                checkingStatus.textContent = scanError || usageError || (unknownCount
+                var over = tools.overLimit(tokens, currentUsage);
+                var limitWarning = over.length
+                    ? over.map(function (token) {
+                        return '"' + token.label + '" may be placed only ' + token.limit + ' time(s); remove the extra copies.';
+                    }).join(' ')
+                    : '';
+                checkingStatus.classList.toggle('warning', !!(scanError || usageError || unknownCount || limitWarning));
+                checkingStatus.textContent = scanError || usageError || limitWarning || (unknownCount
                     ? unknownCount + ' unknown token(s). Right-click a token for suggestions.'
                     : 'Tokens checked. Usage updates as you edit.');
             }
 
             function command(action, extra, callback) {
-                commandQueue.push({ request: Object.assign({ action: action, known: known, adapterUrl: usageData.adapterUrl }, extra || {}), callback: callback });
+                var request = Object.assign({ action: action, known: known, adapterUrl: usageData.adapterUrl }, extra || {});
+                enqueue(tools.editorCommand, false, function () { window.Asc.scope.fieldTokenRequest = request; }, callback);
+            }
+
+            // `recalc` re-lays out the document afterwards — needed when the
+            // command inserts content, skipped for the read-only token scans.
+            function enqueue(fn, recalc, prepare, callback) {
+                commandQueue.push({ fn: fn, recalc: recalc, prepare: prepare, callback: callback });
                 runNextCommand();
             }
 
@@ -163,8 +188,8 @@
                 if (commandRunning || !commandQueue.length) return;
                 commandRunning = true;
                 var next = commandQueue.shift();
-                window.Asc.scope.fieldTokenRequest = next.request;
-                window.Asc.plugin.callCommand(tools.editorCommand, false, false, function (result) {
+                next.prepare();
+                window.Asc.plugin.callCommand(next.fn, false, next.recalc, function (result) {
                     commandRunning = false;
                     next.callback(result || { error: 'The editor did not respond to token checking.' });
                     runNextCommand();
@@ -211,6 +236,11 @@
                 if (usage.elsewhere.length) labels.push('Used in other DOCX (' + usage.elsewhere.length + ')');
                 badge.textContent = labels.join(' / ') || 'Not used';
                 badge.title = usage.elsewhere.join(', ');
+                if (tools.remaining(token, currentUsage) === 0) {
+                    badge.className += ' limit';
+                    badge.textContent = 'Limit reached (' + token.limit + ' per document)'
+                        + (usage.elsewhere.length ? ' / Used in other DOCX (' + usage.elsewhere.length + ')' : '');
+                }
                 return badge;
             }
 
@@ -322,14 +352,18 @@
                 empty.hidden = shown !== 0;
             }
 
+            // Button text for each way a palette card can be placed.
+            var ACTION_LABELS = { table: 'New table', chart: 'New chart', block: 'New repeating block' };
+
             // One parent token row, plus (for table tokens that have been
             // inserted, or whose columns match the filter) its column children.
             function tokenRow(token, needle) {
                 var wrap = document.createElement('div');
 
-                var button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'token';
+                var actions = token.actions || [];
+                var button = document.createElement(actions.length ? 'div' : 'button');
+                if (!actions.length) button.type = 'button';
+                button.className = actions.length ? 'token-card' : 'token';
 
                 var icon = document.createElement('span');
                 icon.className = 'icon';
@@ -349,13 +383,39 @@
                 var key = document.createElement('span');
                 key.className = 'key';
                 key.textContent = (token.insert === 'table') ? 'Inserts a table' : placeholder(token.key);
+                if (actions.length) key.textContent = 'Repeats for every row';
 
                 text.appendChild(label);
                 text.appendChild(key);
                 text.appendChild(usageLabel(token));
-                button.appendChild(icon);
-                button.appendChild(text);
-                button.addEventListener('click', function () { insert(token); });
+
+                if (actions.length) {
+                    var head = document.createElement('div');
+                    head.className = 'head';
+                    head.appendChild(icon);
+                    head.appendChild(text);
+                    button.appendChild(head);
+
+                    var bar = document.createElement('div');
+                    bar.className = 'actions';
+                    actions.forEach(function (action) {
+                        var b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'action-btn';
+                        b.textContent = ACTION_LABELS[action] || action;
+                        b.addEventListener('click', function () { insert(token, action); });
+                        bar.appendChild(b);
+                    });
+                    button.appendChild(bar);
+                } else {
+                    button.appendChild(icon);
+                    button.appendChild(text);
+                    if (tools.remaining(token, currentUsage) === 0) {
+                        button.disabled = true;
+                        button.title = 'Already placed in this document. Delete it there to place it elsewhere.';
+                    }
+                    button.addEventListener('click', function () { insert(token); });
+                }
                 wrap.appendChild(button);
 
                 if (hasChildren && (state.inserted[token.key] || tools.usage(token, currentUsage, documents, usageData.documentId).here
@@ -399,7 +459,10 @@
                         l.textContent = child.label;
                         var k = document.createElement('span');
                         k.className = 'key';
-                        k.textContent = placeholder(child.key + '#');
+                        // Report-group children insert their plain key (for use
+                        // inside a repeating block); table columns insert `key#`.
+                        var childKey = child.insert_key || (child.key + '#');
+                        k.textContent = placeholder(childKey);
                         t.appendChild(l);
                         t.appendChild(k);
                         t.appendChild(usageLabel(child));
@@ -407,7 +470,7 @@
                         b.appendChild(t);
                         // A single-cell repair: drop just this column's repeating token.
                         b.addEventListener('click', function () {
-                            window.Asc.plugin.executeMethod('PasteText', [placeholder(child.key + '#')]);
+                            window.Asc.plugin.executeMethod('PasteText', [placeholder(childKey)]);
                         });
                         box.appendChild(b);
                     });
@@ -416,15 +479,35 @@
                 return box;
             }
 
-            function insert(token) {
-                if (token.insert === 'table') {
+            function insert(token, action) {
+                action = action || token.insert;
+                // Re-checked here as the rendered button can lag the 1s scan.
+                if (tools.remaining(token, currentUsage) === 0) {
+                    render(search.value);
+                    return;
+                }
+                if (action === 'table') {
                     insertTable(token);
+                    return;
+                }
+                if (action === 'chart') {
+                    insertChart(token);
+                    return;
+                }
+                if (action === 'block') {
+                    insertBlock(token);
                     return;
                 }
                 // PasteText drops the token at the cursor. Community Edition
                 // exposes this to plugins even though the host page has no
-                // equivalent.
-                window.Asc.plugin.executeMethod('PasteText', [placeholder(token.key)]);
+                // equivalent. A limited token is counted as placed straight
+                // away, so a quick second click can't slip in before the scan.
+                window.Asc.plugin.executeMethod('PasteText', [placeholder(token.key)], scan);
+                if (token.limit) {
+                    currentUsage = Object.assign({}, currentUsage);
+                    currentUsage[token.key] = (currentUsage[token.key] || 0) + 1;
+                    render(search.value);
+                }
             }
 
             // Build a real Word table: a heading row of column labels and a data
@@ -459,6 +542,72 @@
                 render(search.value);
             }
 
+            // A Table field as a native chart. Its data sheet holds repeating
+            // column tokens — the category column labels each bar, every
+            // series is a number column — and generation expands them into one
+            // spreadsheet row per table entry (DocxChartFiller). The chart type,
+            // style and series can then be changed with the editor's own chart
+            // tools.
+            function insertChart(token) {
+                var chart = token.chart || {};
+                var series = chart.series || [];
+                if (!series.length) return;
+                var spec = {
+                    title: chart.title || token.label,
+                    category: chart.category ? placeholder(chart.category + '#') : '',
+                    series: series.map(function (key) { return placeholder(key + '#'); }),
+                };
+                enqueue(insertChartCommand, true, function () { window.Asc.scope.fieldTokenChart = spec; }, function (result) {
+                    if (result.error) {
+                        scanError = result.error;
+                        updateStatus();
+                        return;
+                    }
+                    state.inserted[token.key] = true;
+                    state.expanded[token.key] = true;
+                    persist();
+                    render(search.value);
+                    scan();
+                });
+            }
+
+            // Serialized by callCommand: all dependencies must come from Api or Asc.scope.
+            function insertChartCommand() {
+                var spec = Asc.scope.fieldTokenChart;
+                try {
+                    // Placeholder bar heights so the preview isn't empty; real
+                    // values arrive at generation.
+                    var values = spec.series.map(function (name, i) { return [3 + (i % 3)]; });
+                    var chart = Api.CreateChart('bar', values, spec.series, [spec.category], 5486400, 3200400, 24);
+                    if (!chart) return { error: 'The editor could not create the chart.' };
+                    chart.SetTitle(spec.title, 13);
+                    chart.SetLegendPos('bottom');
+                    var paragraph = Api.CreateParagraph();
+                    paragraph.AddDrawing(chart);
+                    Api.GetDocument().InsertContent([paragraph]);
+                    return { inserted: true };
+                } catch (error) {
+                    return { error: 'Inserting the chart failed: ' + error.message };
+                }
+            }
+
+            // A report group's repeating block: an opening marker paragraph, a
+            // body paragraph seeded with the group's values, and a closing
+            // marker paragraph. Everything between the markers repeats per row.
+            function insertBlock(token) {
+                var body = (token.children || []).map(function (c) {
+                    return escapeHtml(placeholder(c.insert_key || c.key));
+                }).join(' — ');
+                var html = '<p>' + escapeHtml(placeholder('#' + token.key)) + '</p>'
+                    + '<p>' + (body || '&nbsp;') + '</p>'
+                    + '<p>' + escapeHtml(placeholder('/' + token.key)) + '</p>';
+                window.Asc.plugin.executeMethod('PasteHtml', [html]);
+                state.inserted[token.key] = true;
+                state.expanded[token.key] = true;
+                persist();
+                render(search.value);
+            }
+
             search.addEventListener('input', function () {
                 render(search.value);
             });
@@ -484,7 +633,7 @@
                         updateStatus();
                     }
                     if (result.target) {
-                        items = tools.suggestions(result.target.key, tokens).map(function (key, index) {
+                        items = tools.placeableSuggestions(result.target.key, tokens, currentUsage).map(function (key, index) {
                             var id = 'field-token-replace-' + index;
                             var original = result.target.text;
                             window.Asc.plugin.attachContextMenuClickEvent(id, function () {

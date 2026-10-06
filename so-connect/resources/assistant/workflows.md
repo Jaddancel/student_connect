@@ -10,7 +10,8 @@ describe the step without linking it.
 1. Admin sidebar → **Form Builder** → *New Form*. Build the canvas: drag
    fields from the left palette into rows/columns, set each field's label and
    type, and optionally map it to a **universal field** so scans or profile
-   data can prefill it.
+   data can prefill it. A **Table** field takes admin-defined columns; the
+   person filling the form adds as many rows as they need.
 2. Field keys generate from the label automatically and freeze once the form
    is first saved — renaming the label later does not change the key.
 3. Optionally bind the form to a **system function** (Sign Up, New Event, New
@@ -23,6 +24,20 @@ describe the step without linking it.
 5. Published forms appear to officers/presidents under **Organization
    Forms** (or as the bound system function's entry point). Admins author and
    review forms; they don't fill them out themselves.
+
+### Officer signatures in printed templates
+
+Step 2 of both Form Builder and Report Template Builder offers **Organization
+President Signature**, **Organization Treasurer Signature**, **Organization
+Auditor Signature**, and **Organization Secretary Signature** under
+**Organization**. These universal tokens insert the current position holder's
+saved profile signature as an image; they do not require a signature field in
+Step 1. Positions marked **Others** are excluded.
+
+Forms resolve signatures from the submission's organization; reports use the
+organization selected for generation. The latest officer/president assignment
+for each position is used. If that officer has no saved signature (or the
+image file is missing), the token prints blank.
 
 ## Request approve/decline lifecycle
 
@@ -68,9 +83,9 @@ against an event's expected participant/date details.
 - A participant scans their signed waiver on the relevant form; the scanner
   extracts the zone text and checks name/date/signature/stamp against what
   was expected — advisory only, it never blocks submission.
-- Admin sidebar → **Waiver Review** lists submitted waiver scans with their
-  verdict (valid / needs review / unvalidated) for a human to make the final
-  call.
+- Submitted waiver scans, with their verdict (valid / needs review /
+  unvalidated), are reviewed from the activity request review view, where a
+  human makes the final call.
 
 ## ID template zones (SuperAdmin only)
 

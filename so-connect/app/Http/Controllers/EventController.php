@@ -305,6 +305,7 @@ class EventController extends Controller
         ];
 
         $form = \App\Forms\SystemFunction::formOrFail(\App\Forms\SystemFunction::NEW_EVENT);
+        \App\Forms\SemesterSubmissionLimit::assertOpen($form);
 
         $submission = \App\Models\FormSubmission::query()->create([
             'form_id'         => (int) $form->getKey(),

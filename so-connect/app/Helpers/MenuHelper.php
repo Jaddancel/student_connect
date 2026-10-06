@@ -106,6 +106,7 @@ class MenuHelper
                 'items' => [
                     ['icon' => 'pages',    'name' => 'Posts',              'path' => '/posts'],
                     ['icon' => 'forms',    'name' => 'Form Builder',       'path' => '/admin/form-builder'],
+                    ['icon' => 'pages',    'name' => 'Report Templates',   'path' => '/admin/report-templates'],
                     ['icon' => 'calendar', 'name' => 'Semester Management', 'path' => '/admin/semesters'],
                     ['icon' => 'pages',    'name' => 'Waiver Templates',   'path' => '/admin/waiver-templates'],
                 ],
@@ -117,8 +118,7 @@ class MenuHelper
                     ['icon' => 'charts', 'name' => 'Audit Logs',      'path' => '/admin/audit-logs'],
                     ['icon' => 'task',   'name' => 'Request Records', 'path' => '/admin/request-records'],
                     ['icon' => 'tables', 'name' => 'Database View',   'path' => '/admin/database-view'],
-                    ['icon' => 'task',   'name' => 'Waiver Review',   'path' => '/admin/waiver-review'],
-                    ['icon' => 'pages',  'name' => 'Reports',         'path' => '/admin/reports'],
+                    ['icon' => 'pages',  'name' => 'Reports',         'path' => '/reports'],
                 ],
             ];
 
@@ -180,6 +180,13 @@ class MenuHelper
                 'title' => 'Organization',
                 'items' => [
                     ['icon' => 'calendar', 'name' => 'Event Plans',          'path' => '/event-plans'],
+                    ['icon' => 'pages',    'name' => 'Reports',          'path' => '/reports'],
+                    [
+                        'icon' => 'forms',
+                        'name' => 'After Event Form',
+                        'path' => '/after-event-reports',
+                        'badge' => self::afterEventBadge($user),
+                    ],
                 ],
             ];
 
@@ -188,6 +195,9 @@ class MenuHelper
             $publishedForms = \App\Models\Form::whereNotNull('route_name')
                 ->where('is_published', true)
                 ->where('is_active', true)
+                // Filed per event from the After Event Form page only.
+                ->where(fn ($query) => $query->whereNull('system_function')
+                    ->orWhere('system_function', '!=', \App\Forms\SystemFunction::AFTER_EVENT_REPORT))
                 ->orderBy('name')
                 ->get(['id', 'name', 'route_name', 'icon']);
 
@@ -213,6 +223,25 @@ class MenuHelper
         }
 
         return $menuGroups;
+    }
+
+    /**
+     * Unfiled after-event reports across the official's organizations.
+     */
+    private static function afterEventBadge(User $user): int
+    {
+        try {
+            $service = app(\App\Services\AfterEventReportService::class);
+            if (! $service->enabled()) {
+                return 0;
+            }
+
+            return $service->unfiledEvents(
+                OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey())
+            )->count();
+        } catch (\Throwable) {
+            return 0;
+        }
     }
 
     private static function getAdminRequestBadges(): array

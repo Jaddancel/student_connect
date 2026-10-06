@@ -23,9 +23,11 @@ class NotificationBellHelper
         $eventNotifications = self::upcomingEventNotifications($user, $hours);
         $semesterWarnings = self::semesterWarningNotifications($user);
         $documentNotifications = self::newDocumentNotifications($user, $hours);
+        $afterEventNotifications = self::afterEventReportNotifications($user);
 
         return collect()
             ->merge($semesterWarnings->all())
+            ->merge($afterEventNotifications->all())
             ->merge($requestNotifications->all())
             ->merge($eventNotifications->all())
             ->merge($documentNotifications->all())
@@ -85,6 +87,48 @@ class NotificationBellHelper
             'created_at' => now()->toDateTimeString(),
             'link' => route('admin.semesters.index'),
         ]]);
+    }
+
+    /**
+     * One persistent item per due, unfiled after-event report in the
+     * official's organizations (stays until the report is filed), warning that
+     * it can't be filed once the current semester ends.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public static function afterEventReportNotifications(User $user): Collection
+    {
+        if ((int) $user->user_type !== 3) {
+            return collect();
+        }
+
+        $service = app(\App\Services\AfterEventReportService::class);
+        if (! $service->enabled()) {
+            return collect();
+        }
+
+        $organizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
+        $elapsedDays = $service->elapsedDays();
+
+        return $service->unfiledEvents($organizationIds)
+            ->map(function (array $event) use ($elapsedDays) {
+                $deadline = $event['deadline']
+                    ? 'by '.$event['deadline']->format('F j, Y').' (when the current semester ends)'
+                    : 'before the current semester ends';
+
+                return [
+                    'id' => 'after-event-'.$event['event_id'],
+                    'kind' => 'report',
+                    'title' => 'After Event Report Due',
+                    'description' => 'File the after-event report for "'.$event['name'].'" ('.$event['organization_name'].'). '
+                        .'It must be filed '.$deadline.' — it cannot be filed after that.',
+                    'name' => $event['name'],
+                    'created_at' => $event['finished_at']->copy()->addDays($elapsedDays)->toDateTimeString(),
+                    'organization_id' => $event['organization_id'],
+                    'link' => route('after-event-reports.index'),
+                ];
+            })
+            ->values();
     }
 
     /**

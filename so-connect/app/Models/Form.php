@@ -39,6 +39,7 @@ class Form extends Model
         'is_published',
         'route_name',
         'icon',
+        'semester_submission_limit',
         'system_function',
         'field_kit',
         'layout',
@@ -50,6 +51,7 @@ class Form extends Model
         return [
             'is_active' => 'boolean',
             'is_published' => 'boolean',
+            'semester_submission_limit' => 'integer',
             'sidebar_group' => 'array',
             'layout' => 'array',
             'pdf_template' => 'array',
@@ -138,7 +140,9 @@ class Form extends Model
      */
     public function scopeDirectoryEligible(Builder $query): Builder
     {
-        return $query;
+        // The After Event Report is filed per event from its own page.
+        return $query->where(fn (Builder $q) => $q->whereNull('system_function')
+            ->orWhere('system_function', '!=', \App\Forms\SystemFunction::AFTER_EVENT_REPORT));
     }
 
     public function organization(): BelongsTo

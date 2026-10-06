@@ -396,6 +396,7 @@ class EventPlanController extends Controller
             ];
 
             $form = \App\Forms\SystemFunction::formOrFail(\App\Forms\SystemFunction::NEW_EVENT);
+            \App\Forms\SemesterSubmissionLimit::assertOpen($form);
 
             $submission = FormSubmission::query()->create([
                 'form_id'         => (int) $form->getKey(),

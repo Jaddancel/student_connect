@@ -171,7 +171,7 @@ class ManualFormSessionService
                 $disk,
             );
 
-            $docxPath = $this->docx->populate($template, $built['values'], $built['images']);
+            $docxPath = $this->docx->populate($template, $built['values'], $built['images'], $built['tables']);
             $pdfAbsolute = $this->docx->toPdf($docxPath);
 
             Storage::disk($disk)->put($pdfRelative, File::get($pdfAbsolute));

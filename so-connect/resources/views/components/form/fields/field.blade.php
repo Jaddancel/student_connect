@@ -163,6 +163,11 @@
             @case(FieldType::AGE)
                 <input type="number" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder }}"
                     @if (! empty($opts['calculate_from'])) data-calculate-from="{{ $opts['calculate_from'] }}" @endif
+                    {{-- Only acts when the source is a table on this page (see tableColumnSumField). --}}
+                    @if ($type === FieldType::NUMBER && ! empty($opts['calculate_from']) && ! empty($opts['calculate_column']))
+                        x-data="tableColumnSumField({ source: @js((string) $opts['calculate_from']), column: @js((string) $opts['calculate_column']) })"
+                        x-effect="sync()"
+                    @endif
                     @isset($opts['min']) min="{{ $opts['min'] }}" @endisset
                     @isset($opts['max']) max="{{ $opts['max'] }}" @endisset
                     step="{{ $opts['step'] ?? ($type === FieldType::AGE ? '1' : 'any') }}"
@@ -188,27 +193,54 @@
 
             @case(FieldType::IMAGE)
             @case(FieldType::FILE)
-                <div x-data="{ preview: null, previewUrl: null, updatePreview(event) {
-                        const file = event.target.files && event.target.files[0];
-                        if (this.previewUrl) URL.revokeObjectURL(this.previewUrl);
-                        this.previewUrl = file && file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
-                        this.preview = this.previewUrl;
+            @case(FieldType::MULTI_IMAGE)
+                @php
+                    // Only a photo set takes several pictures; an image field holds one.
+                    $isMultipleImage = FieldType::isMultiImage($type);
+                    $maxFiles = (int) ($opts['max_files'] ?? 5);
+                @endphp
+                <div x-data="{ previews: [], previewUrls: [], error: '', clearPreviews() {
+                        this.previewUrls.forEach((url) => URL.revokeObjectURL(url));
+                        this.previewUrls = [];
+                        this.previews = [];
+                    }, updatePreview(event) {
+                        const files = Array.from(event.target.files || []);
+                        this.clearPreviews();
+                        this.error = '';
+                        if (@js($isMultipleImage) && files.length > @js($maxFiles)) {
+                            this.error = `Choose up to ${@js($maxFiles)} images.`;
+                            event.target.value = '';
+                            return;
+                        }
+                        this.previewUrls = files
+                            .filter((file) => file.type.startsWith('image/'))
+                            .map((file) => URL.createObjectURL(file));
+                        this.previews = this.previewUrls;
                     } }">
-                    <input type="file" id="{{ $key }}" name="{{ $key }}"
+                    <input type="file" id="{{ $key }}" name="{{ $isMultipleImage ? $key.'[]' : $key }}"
                         accept="{{ FieldType::uploadAcceptAttribute($type, $opts) }}"
+                        @if ($isMultipleImage) multiple @endif
                         @change="updatePreview($event)"
                         class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 dark:focus:border-brand-800 w-full rounded-lg border bg-transparent text-sm text-gray-500 file:mr-4 file:border-0 file:bg-brand-50 file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-brand-600 dark:border-gray-700 {{ $errors->has($key) ? 'border-error-500' : 'border-gray-300' }}" />
-                    <template x-if="preview">
-                        <button type="button" @click="$store.lightbox.show(preview, @js($field->field_label))"
-                            class="group mt-3 block cursor-zoom-in overflow-hidden rounded-lg border border-gray-200 bg-white p-1 transition hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700"
-                            title="Click to view full size">
-                            <img :src="preview" alt="{{ $field->field_label }} preview"
-                                class="h-32 w-48 object-contain transition group-hover:scale-[1.02]" />
-                        </button>
+                    <p x-show="error" x-text="error" class="mt-1 text-xs text-error-500"></p>
+                    <template x-if="previews.length">
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <template x-for="(preview, index) in previews" :key="preview">
+                                <button type="button" @click="$store.lightbox.show(preview, @js($field->field_label))"
+                                    class="group block cursor-zoom-in overflow-hidden rounded-lg border border-gray-200 bg-white p-1 transition hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700"
+                                    title="Click to view full size">
+                                    <img :src="preview" :alt="@js($field->field_label).' preview '+(index + 1)"
+                                        class="h-32 w-48 object-contain transition group-hover:scale-[1.02]" />
+                                </button>
+                            </template>
+                        </div>
                     </template>
                 </div>
                 <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
                     Allowed: {{ strtoupper(implode(', ', array_diff(FieldType::effectiveUploadExtensions($type, $opts), ['jpg', 'heif']))) }}
+                    @if ($isMultipleImage)
+                        ; up to {{ $maxFiles }} images
+                    @endif
                 </p>
                 @break
 
@@ -459,13 +491,6 @@
 
             @case(FieldType::TABLE_INPUT)
                 @include('components.form.fields.table-input', ['field' => $field, 'key' => $key, 'opts' => $opts, 'special' => $special ?? []])
-                @break
-
-            @case(FieldType::MULTI_IMAGE)
-                @php $maxFiles = (int) ($opts['max_files'] ?? 5); @endphp
-                <input type="file" id="{{ $key }}" name="{{ $key }}[]" accept="image/jpeg,image/png,image/heic" multiple
-                    class="dark:bg-dark-900 shadow-theme-xs w-full rounded-lg border bg-transparent text-sm text-gray-500 file:mr-4 file:border-0 file:bg-brand-50 file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-brand-600 dark:border-gray-700 {{ $errors->has($key) ? 'border-error-500' : 'border-gray-300' }}" />
-                <p class="mt-1 text-xs text-gray-400">Up to {{ $maxFiles }} photos (JPEG, PNG or HEIC).</p>
                 @break
 
             @case(FieldType::COMPUTED)

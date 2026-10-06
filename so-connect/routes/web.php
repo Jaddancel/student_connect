@@ -128,6 +128,8 @@ Route::middleware('auth')->group(function () {
         ->name('settings.password');
     Route::post('/settings/notify-days', [\App\Http\Controllers\SettingsController::class, 'updateNotifyDays'])
         ->name('settings.notify-days');
+    Route::post('/settings/after-event-days', [\App\Http\Controllers\SettingsController::class, 'updateAfterEventDays'])
+        ->name('settings.after-event-days');
     Route::post('/settings/accreditation-conditions', [\App\Http\Controllers\SettingsController::class, 'updateAccreditationConditions'])
         ->name('settings.accreditation-conditions');
     Route::post('/settings/backup-interval', [\App\Http\Controllers\SettingsController::class, 'updateBackupInterval'])
@@ -304,6 +306,23 @@ Route::middleware(['auth', 'officer.or.admin'])->group(function () {
         ->whereNumber('workplan_id')
         ->name('workplans.finalize');
 });
+
+// Reports: generated from the admin-authored report templates. Open to admins
+// and organization officers; each template's audience narrows who sees it.
+Route::middleware(['auth', 'officer.or.admin'])->group(function () {
+    // Old admin-only URL.
+    Route::redirect('/admin/reports', '/reports');
+    Route::get('/reports', [\App\Http\Controllers\Admin\ReportController::class, 'index'])
+        ->name('reports.index');
+    Route::get('/reports/{reportTemplate}/generate', [\App\Http\Controllers\Admin\ReportController::class, 'generate'])
+        ->whereNumber('reportTemplate')
+        ->name('reports.generate');
+});
+
+// After Event Form: officials list concluded events and file their reports.
+Route::get('/after-event-reports', [\App\Http\Controllers\AfterEventReportController::class, 'index'])
+    ->middleware('auth')
+    ->name('after-event-reports.index');
 
 // Generic WYSIWYG-builder form renderer. Registered AFTER the literal /forms/*
 // routes above so bespoke forms keep their dedicated pages; this catches any
@@ -536,13 +555,31 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/database-view/officers/export/xlsx', [DatabaseViewController::class, 'exportOfficersXlsx'])
         ->name('admin.database-view.officers.export.xlsx');
 
-    // PDF reports — registered organizations and officers per organization.
-    Route::get('/admin/reports', [\App\Http\Controllers\Admin\OrganizationReportController::class, 'index'])
-        ->name('admin.reports.index');
-    Route::get('/admin/reports/organizations', [\App\Http\Controllers\Admin\OrganizationReportController::class, 'organizations'])
-        ->name('admin.reports.organizations');
-    Route::get('/admin/reports/officers', [\App\Http\Controllers\Admin\OrganizationReportController::class, 'officers'])
-        ->name('admin.reports.officers');
+
+    // Report Templates (wizard editor, see app/Reports).
+    Route::get('/admin/report-templates', [\App\Http\Controllers\Admin\ReportTemplateController::class, 'index'])
+        ->name('admin.report-templates.index');
+    Route::get('/admin/report-templates/create', [\App\Http\Controllers\Admin\ReportTemplateController::class, 'create'])
+        ->name('admin.report-templates.create');
+    Route::get('/admin/report-templates/schema', [\App\Http\Controllers\Admin\ReportTemplateController::class, 'schema'])
+        ->name('admin.report-templates.schema');
+    Route::post('/admin/report-templates/preview', [\App\Http\Controllers\Admin\ReportTemplateController::class, 'preview'])
+        ->name('admin.report-templates.preview');
+    Route::post('/admin/report-templates/parameter-options', [\App\Http\Controllers\Admin\ReportTemplateController::class, 'parameterOptions'])
+        ->name('admin.report-templates.parameter-options');
+    Route::post('/admin/report-templates/draft/sync', [\App\Http\Controllers\Admin\ReportTemplateController::class, 'syncDraft'])
+        ->name('admin.report-templates.draft.sync');
+    Route::post('/admin/report-templates', [\App\Http\Controllers\Admin\ReportTemplateController::class, 'store'])
+        ->name('admin.report-templates.store');
+    Route::get('/admin/report-templates/{reportTemplate}/edit', [\App\Http\Controllers\Admin\ReportTemplateController::class, 'edit'])
+        ->whereNumber('reportTemplate')
+        ->name('admin.report-templates.edit');
+    Route::put('/admin/report-templates/{reportTemplate}', [\App\Http\Controllers\Admin\ReportTemplateController::class, 'update'])
+        ->whereNumber('reportTemplate')
+        ->name('admin.report-templates.update');
+    Route::delete('/admin/report-templates/{reportTemplate}', [\App\Http\Controllers\Admin\ReportTemplateController::class, 'destroy'])
+        ->whereNumber('reportTemplate')
+        ->name('admin.report-templates.destroy');
 
     Route::get('/admin/officers/create', [AdminOfficerCreationController::class, 'create'])
         ->name('admin.officers.create');
@@ -835,11 +872,6 @@ Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
     Route::delete('/admin/waiver-templates/{waiverTemplate}', [\App\Http\Controllers\Admin\WaiverTemplateController::class, 'destroy'])
         ->name('admin.waiver-templates.destroy');
 });
-
-// Type-2 review of scanned-waiver submissions.
-Route::get('/admin/waiver-review', [\App\Http\Controllers\Admin\WaiverReviewController::class, 'index'])
-    ->middleware(['auth', 'admin'])
-    ->name('admin.waiver-review.index');
 
 // form pages
 Route::get('/form-elements', function () {

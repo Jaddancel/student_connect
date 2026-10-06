@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Forms\AfterEventTokenData;
+use App\Forms\FieldKit;
 use App\Forms\FieldType;
+use App\Forms\SystemFunction;
 use App\Helpers\FormTemplateHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
@@ -434,7 +437,7 @@ class FormPrintTemplateController extends Controller
         $template = $this->authorizeToken($request, $form, self::PURPOSE_PLUGIN, $token);
 
         $response = response()->view('onlyoffice.token-palette', [
-            'tokens' => $this->tokensFor($form->fields()->orderBy('field_order')->orderBy('id')->get()),
+            'tokens' => $this->tokensFor($form->fields()->orderBy('field_order')->orderBy('id')->get(), FieldKit::forForm($form)),
             // The plugin SDK is served by the Document Server, and this page
             // runs in the browser, so it needs the public URL.
             'sdkBase' => $onlyOffice->publicUrl(),
@@ -487,9 +490,11 @@ class FormPrintTemplateController extends Controller
      * field_type/field_options off each.
      *
      * @param  iterable<int, object{field_key: string, field_label: string, field_type: string, field_options: array}>  $fields
-     * @return array<int, array{key: string, label: string, icon: string, group: string}>
+     * A token with a `limit` may be placed at most that many times per document.
+     *
+     * @return array<int, array{key: string, label: string, icon: string, group: string, limit?: int}>
      */
-    private function tokensFor(iterable $fields): array
+    private function tokensFor(iterable $fields, ?string $kit = null): array
     {
         $catalog = FieldType::catalog();
 
@@ -517,6 +522,13 @@ class FormPrintTemplateController extends Controller
                 'group' => $group,
             ];
 
+            // A photo set lays its images out across the cells of the one table
+            // row its token sits in, so the palette lets it be placed only once
+            // per document.
+            if ((string) $field->field_type === FieldType::MULTI_IMAGE) {
+                $token['limit'] = 1;
+            }
+
             // The Activity Table inserts a whole table (heading labels + one
             // `{{key.col#}}` token per cell) rather than a single token, so it
             // carries an `insert:'table'` marker and its columns as children.
@@ -536,12 +548,14 @@ class FormPrintTemplateController extends Controller
             // A Table field inserts a table the same way: a heading row of
             // column labels and a data row of `{{key.col#}}` tokens that repeat
             // per submitted row. Its sub-fields are its declared columns plus
-            // any per-row computed column (row_total).
+            // any per-row computed column (row_total). When it has a number
+            // column it can instead be placed as a chart (see chartSpec()).
             if ((string) $field->field_type === FieldType::TABLE_INPUT) {
                 $options = (array) ($field->field_options ?? []);
+                $columns = FieldType::tableColumns($options);
                 $token['insert'] = 'table';
                 $token['children'] = [];
-                foreach (FieldType::tableColumns($options) as $column) {
+                foreach ($columns as $column) {
                     $token['children'][] = [
                         'key' => $key.'.'.$column['key'],
                         'label' => (string) $column['label'],
@@ -549,16 +563,20 @@ class FormPrintTemplateController extends Controller
                         'type_label' => FieldType::label((string) $column['type']),
                     ];
                 }
-                $rowTotal = (array) ($options['row_total'] ?? []);
-                $rowTotalKey = trim((string) ($rowTotal['key'] ?? ''));
-                $rowTotalMultiply = array_filter(array_map('strval', (array) ($rowTotal['multiply'] ?? [])));
-                if ($rowTotalKey !== '' && count($rowTotalMultiply) >= 2) {
+                $rowTotal = FieldType::tableRowTotal($options);
+                if ($rowTotal !== null) {
                     $token['children'][] = [
-                        'key' => $key.'.'.$rowTotalKey,
-                        'label' => (string) ($rowTotal['label'] ?? $rowTotalKey),
+                        'key' => $key.'.'.$rowTotal['key'],
+                        'label' => $rowTotal['label'],
                         'icon' => (string) ($catalog[FieldType::NUMBER]['icon'] ?? 'number'),
                         'type_label' => FieldType::label(FieldType::NUMBER),
                     ];
+                }
+
+                $chart = $this->chartSpec($key, $token['label'], $columns, $rowTotal['key'] ?? null);
+                if ($chart !== null) {
+                    $token['actions'] = ['table', 'chart'];
+                    $token['chart'] = $chart;
                 }
             }
 
@@ -580,6 +598,13 @@ class FormPrintTemplateController extends Controller
             }
         }
 
+        // The After Event Report prints the concluded event's own details and
+        // its original New Event form answers (`{{event.*}}`), resolved at
+        // generation time by AfterEventTokenData.
+        if ($kit === SystemFunction::AFTER_EVENT_REPORT) {
+            array_push($tokens, ...AfterEventTokenData::paletteTokens(fn (iterable $f) => $this->tokensFor($f)));
+        }
+
         // Universal tokens, grouped by source: profile fields, then org fields.
         // The icon reuses the FieldType catalog via the universal field's type.
         foreach (['profile' => 'Profile', 'org' => 'Organization'] as $source => $label) {
@@ -599,6 +624,37 @@ class FormPrintTemplateController extends Controller
         }
 
         return $tokens;
+    }
+
+    /**
+     * How the palette's "New chart" button lays out a Table field: the first
+     * non-number column labels each row (the category), and the per-row total
+     * — or, without one, every number column — is plotted as a series. Each is
+     * a repeating `{{key.col#}}` token in the chart's data sheet, which
+     * {@see \App\Support\DocxChartFiller} expands into one row per entry at
+     * generation. Null when the table has nothing numeric to plot.
+     *
+     * @param  array<int, array{key: string, label: string, type: string, required: bool}>  $columns
+     * @return array{title: string, category: ?string, series: array<int, string>}|null
+     */
+    private function chartSpec(string $key, string $label, array $columns, ?string $rowTotalKey): ?array
+    {
+        $category = null;
+        $numbers = [];
+        foreach ($columns as $column) {
+            if ($column['type'] === FieldType::NUMBER) {
+                $numbers[] = $key.'.'.$column['key'];
+            } elseif ($category === null) {
+                $category = $key.'.'.$column['key'];
+            }
+        }
+
+        $series = $rowTotalKey !== null ? [$key.'.'.$rowTotalKey] : $numbers;
+        if ($series === []) {
+            return null;
+        }
+
+        return ['title' => $label, 'category' => $category, 'series' => $series];
     }
 
     // ── Non-persistent Step-2 drafts ────────────────────────────────────────
@@ -630,6 +686,7 @@ class FormPrintTemplateController extends Controller
             'fields.*.field_label' => ['nullable', 'string', 'max:255'],
             'fields.*.field_type' => ['required', 'string', 'max:64'],
             'fields.*.field_options' => ['nullable', 'array'],
+            'kit' => ['nullable', 'string', 'max:64'],
         ]);
 
         $draftId = $validated['draft_id'] ?? (string) Str::uuid();
@@ -658,6 +715,16 @@ class FormPrintTemplateController extends Controller
             'field_options' => (array) ($f['field_options'] ?? []),
         ], $validated['fields']);
 
+        // An existing form's draft opens on its saved template (legacy HTML is
+        // migrated on first use); only brand-new forms start blank.
+        $form = isset($validated['form_id'])
+            ? Form::query()->find((int) $validated['form_id'])
+            : null;
+
+        // The kit decides kit-only palette groups (e.g. the After Event
+        // Report's New Event tokens): a saved form's own kit wins.
+        $kit = FieldKit::forForm($form) ?? (FieldKit::has((string) ($validated['kit'] ?? '')) ? (string) $validated['kit'] : null);
+
         $templates->writeDraft(
             $draftId,
             isset($validated['form_id']) ? (int) $validated['form_id'] : null,
@@ -665,13 +732,8 @@ class FormPrintTemplateController extends Controller
             $fields,
             $version,
             (int) $request->user()->getKey(),
+            ['kit' => $kit],
         );
-
-        // An existing form's draft opens on its saved template (legacy HTML is
-        // migrated on first use); only brand-new forms start blank.
-        $form = isset($validated['form_id'])
-            ? Form::query()->find((int) $validated['form_id'])
-            : null;
         $templates->ensureDraftSlots($draftId, $name, $form, (int) $request->user()->getKey());
 
         return response()->json([
@@ -684,7 +746,7 @@ class FormPrintTemplateController extends Controller
         ]);
     }
 
-    private function slotResponses(string $draftId, FormPrintTemplateService $templates): array
+    public function slotResponses(string $draftId, FormPrintTemplateService $templates): array
     {
         return array_map(fn ($slot) => [
             'id' => $slot['id'],
@@ -1076,7 +1138,9 @@ class FormPrintTemplateController extends Controller
         abort_if($draft === null, 404);
 
         $response = response()->view('onlyoffice.token-palette', [
-            'tokens' => $this->tokensFor(FieldTokenSource::fromDraft((array) $draft['fields'])),
+            'tokens' => isset($draft['tokens']) && is_array($draft['tokens'])
+                ? $draft['tokens']
+                : $this->tokensFor(FieldTokenSource::fromDraft((array) $draft['fields']), $draft['kit'] ?? null),
             'sdkBase' => $onlyOffice->publicUrl(),
             // Namespaced so the palette's localStorage never collides with a
             // real form's (int) id.

@@ -4,6 +4,7 @@ import Alpine from "alpinejs";
 import Collapse from "@alpinejs/collapse";
 import ApexCharts from "apexcharts";
 import { formBuilder } from "./components/form-builder";
+import { reportTemplateBuilder } from "./components/report-template-builder";
 import { signatureField } from "./components/signature-field";
 import { signatureImageField } from "./components/signature-image-field";
 import { idTemplateEditor } from "./components/id-template-editor";
@@ -19,7 +20,7 @@ import { searchSelectField } from "./components/search-select-field";
 import { assistantChat } from "./components/assistant-chat";
 import { manualFormStart, manualScanUploader } from "./components/manual-form";
 import { registerAgeAutofill } from "./components/age-autofill";
-import { computedField } from "./components/computed-field";
+import { computedField, tableColumnSumField } from "./components/computed-field";
 
 // flatpickr
 import flatpickr from "flatpickr";
@@ -34,6 +35,7 @@ window.FullCalendar = Calendar;
 
 Alpine.plugin(Collapse);
 Alpine.data("formBuilder", formBuilder);
+Alpine.data("reportTemplateBuilder", reportTemplateBuilder);
 Alpine.data("signatureField", signatureField);
 Alpine.data("signatureImageField", signatureImageField);
 Alpine.data("idTemplateEditor", idTemplateEditor);
@@ -48,6 +50,7 @@ Alpine.data("assistantChat", assistantChat);
 Alpine.data("manualFormStart", manualFormStart);
 Alpine.data("manualScanUploader", manualScanUploader);
 Alpine.data("computedField", computedField);
+Alpine.data("tableColumnSumField", tableColumnSumField);
 
 // Shared by table-input fields (tableSums) and `computed` fields
 // (computedValues) so a computed field can live-recompute from either without

@@ -319,9 +319,9 @@ final class PdfTemplateRenderer
 
     /**
      * Build the DOM node(s) that replace a single universal token, resolving the
-     * value off the submitter's profile. Image-typed universal fields (photos)
-     * render as an <img>; everything else renders as text. Missing profile or
-     * value degrades to an empty text node.
+     * value off the submitter's profile or organization. Image and signature
+     * universal fields render as an <img>; everything else renders as text.
+     * Missing profile or value degrades to an empty text node.
      *
      * @return array<int,\DOMNode>
      */
@@ -335,7 +335,7 @@ final class PdfTemplateRenderer
         }
 
         $meta = UniversalField::get($key);
-        if ($meta !== null && $meta['type'] === FieldType::IMAGE) {
+        if ($meta !== null && in_array($meta['type'], [FieldType::IMAGE, FieldType::SIGNATURE], true)) {
             $uri = SubmissionPresenter::imageDataUris(['__u' => $value], '__u', $disk);
             if ($uri !== []) {
                 $img = $dom->createElement('img');

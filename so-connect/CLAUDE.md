@@ -1,6 +1,6 @@
 # Student Connect Platform — Project Context
 
-**Last updated:** 2026-07-29
+**Last updated:** 2026-10-05
 
 This file documents the project architecture, Docker setup, and key development patterns for Claude Code sessions.
 
@@ -172,6 +172,25 @@ If OCR is unreachable, the app logs a warning and continues—ID scanning fails 
 - PDF template export/import (WYSIWYG)
 
 **Notable:** Rows are reordered by ▲▼ buttons only; fields drag within/between columns via SortableJS.
+
+**Image fields** accept multiple photos when the field's `multiple` option is on (`max_files`, default 5); see `FieldType::isMultiImage()`. Multi-image values are path arrays and print every image in DOCX templates (a plain `{{key}}` expands into one picture per image; a `{{key#}}` table row repeats per image).
+
+**Table fields** (`table-input`, a Basic palette type on every form) take admin-defined columns (text/number/date/event) plus an optional per-row total (`row_total`: an `op` of multiply/add/subtract/divide applied left to right across the columns listed in `row_total.multiply` — the legacy name for its operand list; no `op` means multiply; see `FieldType::tableRowTotal()`/`applyRowTotal()`, recomputed server-side by `FieldCompute`). A **Number** field stacked in the same layout column as a Table can set *Calculate from* → that table plus a **Column** (`calculate_from` + `calculate_column`, one of `FieldCompute::summableColumns()`: number columns or the row total): it becomes the read-only total of that column across every row, live via `tableColumnSumField` (`formCompute.tableSums`) and recomputed at submit by `FieldCompute::apply()`. Date sources (same row) still mean "full years since".; the answerer adds rows freely. In Step 2 the token card offers **New table** (a heading row + a `{{key.col#}}` row cloned per entry) or, when the table has a number column, **New chart** — a native OnlyOffice chart whose data sheet holds the column tokens (category = first non-number column; series = the row total, else every number column). At generation `App\Support\DocxChartFiller` rewrites each token chart so its embedded workbook is the table (header row of labels, one row per entry) and its series/category caches point at those columns; the chart type and styling can be changed with OnlyOffice's own chart tools.
+
+### After Event Report (system function `after_event_report`)
+
+- **Officer page:** `/after-event-reports` (`AfterEventReportController`, sidebar → Organization → After Event Form) lists the org's events that ended ≥ N days ago within the running semester (N = `AppSetting after_event.elapsed_days`, set on the Settings page by user type 2).
+- **Rules:** `app/Services/AfterEventReportService.php` (eligibility, semester window, filed status, New Event source submission lookup: Event → EventPlan → Request.payload.submission_id).
+- **Filing:** the bound form opens per event (`/forms/{route}?event=ID`); `AfterEventReportHandler` generates the document immediately (no approval). Events from an elapsed semester can't be filed.
+- **Tokens:** Step 2 offers `{{eventinfo.*}}` (event record) and `{{event.<new_event_field_key>}}` (original New Event answers), resolved by `app/Forms/AfterEventTokenData.php`.
+- **Notifications:** bell items (`NotificationBellHelper::afterEventReportNotifications`) until filed; `after-event:notify` (daily) emails each event's officials once (tracked in `after_event_report_notifications`).
+
+### Report Templates (`app/Reports`, user type 2)
+
+- **Pages:** `/admin/report-templates` (wizard editor: Data tokens → Printed template → Details; `report-template-builder.js`) and `/reports` (generate PDF/Word with "ask at generation" parameters). `/reports` is open to admins and officers; each template's "Available to" audience (`report_templates.audience`: `all` | `admins` | `officers`, default `admins`) decides who sees it (`ReportTemplate::isAvailableTo()`).
+- **Data:** `SchemaCatalog` introspects the live schema (FK + `config/reports.php` relations; deny-listed tables/columns are never exposed). `ReportDefinitionValidator` whitelists every identifier; `ReportQueryEngine` compiles definitions to bound Query Builder calls, batch-loading nested groups. A value token's `mode` is `field`, `aggregate` or `compute`; compute holds an `expression` (numbers, sibling value-token names, `+ - * / %`, parentheses) parsed and evaluated by `ReportExpression` (no `eval`), run after its siblings in dependency order; blank reads as 0 and divide-by-zero prints the Else text.
+- **Printing:** template slots are `templates` rows with `report_template_id`, edited in the same OnlyOffice draft editor (`shared/printed-template-draft.js`). `ReportDocxRenderer` expands `{{#group}} … {{/group}}` blocks (nested groups re-keyed per row as `group__N.child`) before the normal `{{key}}`/`{{key#}}` fill; `{{profile.*}}`/`{{system.*}}` are universal tokens.
+- **Seeded:** `ReportTemplateSeeder` recreates "Registered Organizations" and "Organization Officers" (run `artisan db:seed --class=ReportTemplateSeeder` on existing installs).
 
 ### Database & Seeding
 

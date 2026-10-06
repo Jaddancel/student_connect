@@ -40,6 +40,21 @@ revisions). It rescans the open document every second and refreshes sibling
 usage every five seconds. Table parents aggregate their column tokens; column
 badges report individual usage. Usage is document-derived, not insertion history.
 
+A Photo set token may be placed only once per document: once the open DOCX
+holds it, its palette entry is disabled ("Limit reached"), right-click
+suggestions skip it, and extra copies (pasted or typed) raise a panel warning.
+
+Picture tokens size to the table cell they sit in. A single image (image
+upload, signature, profile/organization signature) belongs alone in a one-row,
+one-column table and is fitted, aspect ratio kept, to the cell's grid width and
+row height less the cell margins (cell `tcMar`, else table/table-style
+`tblCellMar`, else Word's 0.19 cm inset). Only exact row heights, or "at least"
+heights of 1 cm or more, bound the height; shorter rows grow to fit. A Photo set
+belongs in a one-row table whose columns are the picture slots: its images fill
+the token's cell and the cells after it, and the row is cloned (keeping widths,
+height and margins) whenever the columns run out. Outside a table, pictures
+keep the default 200×120 px bound.
+
 Unknown, complete `{{...}}` placeholders receive a yellow, non-printing underline.
 Right-click inside one to see up to five closest assigned tokens, ranked by
 case-insensitive edit distance; choosing one replaces only that occurrence,

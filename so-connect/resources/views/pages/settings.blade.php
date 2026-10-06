@@ -85,6 +85,32 @@
                 </form>
             </section>
 
+            {{-- ===================== After event reports (type 2) ===================== --}}
+            <section class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">After Event Reports</h2>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    How long after an event ends before it appears on the officials' After Event Form page and they are notified (bell and email) to file its report.
+                </p>
+
+                <form method="POST" action="{{ route('settings.after-event-days') }}" class="mt-6 flex flex-wrap items-end gap-4">
+                    @csrf
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                            Days after an event ends
+                        </label>
+                        <input type="number" name="after_event_days" min="0" max="180" value="{{ old('after_event_days', $afterEventElapsedDays) }}"
+                            class="h-11 w-32 rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90" />
+                        @error('after_event_days')
+                            <p class="mt-1 text-xs text-error-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <button type="submit"
+                        class="h-11 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600">
+                        Save
+                    </button>
+                </form>
+            </section>
+
             {{-- ======================= Administrator: accreditation (type 2) ============ --}}
             <section class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Accreditation conditions</h2>

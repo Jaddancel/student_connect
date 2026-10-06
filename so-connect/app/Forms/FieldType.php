@@ -139,6 +139,8 @@ final class FieldType
             self::TIME        => ['label' => 'Time',        'icon' => 'date',      'group' => 'basic'],
             self::DATETIME    => ['label' => 'Date + Time', 'icon' => 'date',      'group' => 'basic'],
             self::TEXT_LIST   => ['label' => 'Text list',   'icon' => 'paragraph', 'group' => 'basic'],
+            // Admin-declared columns; the answerer adds as many rows as needed.
+            self::TABLE_INPUT => ['label' => 'Table',       'icon' => 'table',     'group' => 'basic'],
             self::SELECT      => ['label' => 'Dropdown',    'icon' => 'select',    'group' => 'choice'],
             self::SEARCH      => ['label' => 'Search bar',  'icon' => 'select',    'group' => 'choice'],
             self::RADIO       => ['label' => 'Radio',       'icon' => 'radio',     'group' => 'choice'],
@@ -146,6 +148,7 @@ final class FieldType
             self::SIGNATURE   => ['label' => 'Signature',   'icon' => 'signature', 'group' => 'media'],
             self::IMAGE       => ['label' => 'Image',       'icon' => 'image',     'group' => 'media'],
             self::FILE        => ['label' => 'File',        'icon' => 'file',      'group' => 'media'],
+            self::MULTI_IMAGE => ['label' => 'Photo set',   'icon' => 'image',     'group' => 'media'],
             self::HEADING     => ['label' => 'Section',     'icon' => 'heading',   'group' => 'layout'],
             self::STATIC_TEXT => ['label' => 'Static text', 'icon' => 'static',    'group' => 'layout'],
 
@@ -158,9 +161,7 @@ final class FieldType
             self::ID_SCAN         => ['label' => 'ID scan',             'icon' => 'image',     'group' => 'special'],
             self::WAIVER_SCAN     => ['label' => 'Waiver scan',         'icon' => 'image',     'group' => 'special'],
             self::WORKPLAN_EVENTS => ['label' => 'Approved events',     'icon' => 'checkbox',  'group' => 'special'],
-            self::TABLE_INPUT     => ['label' => 'Table',               'icon' => 'select',    'group' => 'special'],
             self::COMPUTED        => ['label' => 'Computed value',      'icon' => 'number',    'group' => 'special'],
-            self::MULTI_IMAGE     => ['label' => 'Photo set',           'icon' => 'image',     'group' => 'special'],
             self::EVENT_SELECT      => ['label' => 'Event picker',         'icon' => 'select',    'group' => 'special'],
             self::WORKPLAN_SELECT   => ['label' => 'Workplan picker',      'icon' => 'select',    'group' => 'special'],
             self::ACTIVITY_TABLE    => ['label' => 'Activity Table',       'icon' => 'table',     'group' => 'special'],
@@ -248,6 +249,15 @@ final class FieldType
     public static function isFileLike(string $type): bool
     {
         return in_array($type, self::fileLike(), true);
+    }
+
+    /**
+     * Whether a field stores multiple uploaded image paths. Only a photo set
+     * does — an image field always holds a single picture.
+     */
+    public static function isMultiImage(string $type): bool
+    {
+        return $type === self::MULTI_IMAGE;
     }
 
     public static function isOptioned(string $type): bool
@@ -528,7 +538,7 @@ final class FieldType
             case self::MULTI_IMAGE:
                 return ['*' => [
                     'file',
-                    'mimes:'.implode(',', self::allowedUploadExtensions(self::IMAGE)),
+                    'mimes:'.implode(',', self::effectiveUploadExtensions(self::IMAGE, $options)),
                     'max:'.(int) ($options['max_kb'] ?? 5120),
                 ]];
 
@@ -578,6 +588,65 @@ final class FieldType
         }
 
         return $columns;
+    }
+
+    /** Operations a table's per-row total can apply across its chosen columns. */
+    public const ROW_TOTAL_OPS = ['multiply', 'add', 'subtract', 'divide'];
+
+    /**
+     * The normalised per-row computed column of a table-input field, or null
+     * when none is configured (fewer than two operand columns).
+     *
+     * `row_total.multiply` holds the operand column keys in order — the name
+     * predates `row_total.op`, so a total without an op still multiplies. The
+     * key falls back to `row_total` when left blank.
+     *
+     * @param  array<string,mixed>  $options
+     * @return array{key:string,label:string,op:string,columns:array<int,string>}|null
+     */
+    public static function tableRowTotal(array $options): ?array
+    {
+        $rowTotal = (array) ($options['row_total'] ?? []);
+        $columns = array_values(array_filter(
+            array_map(fn ($column) => trim((string) $column), (array) ($rowTotal['multiply'] ?? [])),
+            fn (string $column) => $column !== '',
+        ));
+        if (count($columns) < 2) {
+            return null;
+        }
+
+        $op = (string) ($rowTotal['op'] ?? '');
+        $key = trim((string) ($rowTotal['key'] ?? ''));
+        $label = trim((string) ($rowTotal['label'] ?? ''));
+
+        return [
+            'key' => $key !== '' ? $key : 'row_total',
+            'label' => $label !== '' ? $label : 'Total',
+            'op' => in_array($op, self::ROW_TOTAL_OPS, true) ? $op : 'multiply',
+            'columns' => $columns,
+        ];
+    }
+
+    /**
+     * Apply a row-total operation left to right (`a − b − c`, `a ÷ b ÷ c`).
+     * Dividing by zero yields 0 rather than an error, matching the live form.
+     *
+     * @param  array<int,float>  $values
+     */
+    public static function applyRowTotal(string $op, array $values): float
+    {
+        $values = array_values($values);
+        $result = (float) ($values[0] ?? 0);
+        foreach (array_slice($values, 1) as $value) {
+            $result = match ($op) {
+                'add' => $result + $value,
+                'subtract' => $result - $value,
+                'divide' => $value == 0.0 ? 0.0 : $result / $value,
+                default => $result * $value,
+            };
+        }
+
+        return $result;
     }
 
     /**

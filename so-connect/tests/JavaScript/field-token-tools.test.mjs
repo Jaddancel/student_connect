@@ -39,6 +39,24 @@ test('distinguishes live current-document usage from other documents', () => {
     assert.deepEqual(tools.usage(tokens[2], { 'expenses.amount#': 1, 'expenses.total#': 2 }, documents, 'one'), { here: 3, elsewhere: ['Other'] });
 });
 
+test('limits placements of tokens that carry a limit', () => {
+    const photos = { key: 'photos', label: 'Photos', limit: 1 };
+    const pool = [...tokens, photos];
+
+    assert.equal(tools.remaining(tokens[0], { full_name: 5 }), Infinity);
+    assert.equal(tools.remaining(photos, {}), 1);
+    assert.equal(tools.remaining(photos, { photos: 1 }), 0);
+    assert.equal(tools.remaining(photos, { 'photos#': 1 }), 0);
+    assert.equal(tools.remaining(photos, { photos: 2 }), 0);
+
+    assert.deepEqual(tools.overLimit(pool, { photos: 1, full_name: 3 }), []);
+    assert.deepEqual(tools.overLimit(pool, { photos: 1, 'photos#': 1 }), [photos]);
+
+    assert.equal(tools.placeableSuggestions('photo', pool, {})[0], 'photos');
+    assert.ok(!tools.placeableSuggestions('photo', pool, { photos: 1 }).includes('photos'));
+    assert.ok(!tools.placeableSuggestions('photo#', pool, { photos: 1 }).includes('photos#'));
+});
+
 test('unknown scanning includes punctuation and blanks, but ignores incomplete tokens', () => {
     const text = '{{full_name}} {{full_name}} {{full-name}} {{}} {{ email }} {{constructor}} {{unfinished';
     const api = { GetVersion: () => 'future-version' };
@@ -53,6 +71,24 @@ test('unknown scanning includes punctuation and blanks, but ignores incomplete t
     assert.equal(result.current.constructor, 1);
     assert.equal(result.unknown, 4);
     assert.match(result.error, /require ONLYOFFICE 9\.4\.0/);
+});
+
+test('counts table-chart column tokens from series names and categories once per chart', () => {
+    const series = (name, category) => ({ getSeriesName: () => name, getCatName: () => category });
+    const api = { GetVersion: () => 'future-version' };
+    const document = {
+        Document: { GetApi: () => api },
+        GetAllParagraphs: () => [],
+        GetAllCharts: () => [
+            { Chart: { getAllSeries: () => [series('{{expenses.amount#}}', '{{expenses.item#}}'), series('{{expenses.total#}}', '{{expenses.item#}}')] } },
+            { Chart: { getAllSeries: () => [series('Sales', '1')] } },
+        ],
+    };
+    globalThis.Api = { GetDocument: () => document };
+    globalThis.Asc = { scope: { fieldTokenRequest: { action: 'scan', known: tools.knownKeys(tokens) } } };
+    const result = tools.editorCommand();
+    assert.deepEqual({ ...result.current }, { 'expenses.amount#': 1, 'expenses.total#': 1, 'expenses.item#': 1 });
+    assert.equal(result.unknown, 0);
 });
 
 test('replacement refuses stale tokens rather than overwriting unrelated text', () => {

@@ -83,7 +83,7 @@ class ManualDraftPayloadBuilder
             // Uploaded files/signatures/photos entered up front are kept in the
             // session's own temp area so they restore on resume.
             if (FieldType::isFileLike($type) || $type === FieldType::MULTI_IMAGE) {
-                $stored = $this->storeUploads($request, $key, $sessionId, $type === FieldType::MULTI_IMAGE);
+                $stored = $this->storeUploads($request, $key, $sessionId, FieldType::isMultiImage($type));
                 if ($stored !== null) {
                     $payload[$key] = $stored;
                     $uploads[$key] = $stored;

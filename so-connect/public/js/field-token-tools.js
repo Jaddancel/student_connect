@@ -20,6 +20,9 @@
         tokens.forEach(function (token) {
             keys.push(token.key);
             (token.children || []).forEach(function (child) { keys.push(child.key + '#'); });
+            // Extra literal keys a token owns, e.g. a report group's
+            // `#group` / `/group` block markers.
+            (token.known || []).forEach(function (key) { keys.push(key); });
         });
         return Array.from(new Set(keys));
     }
@@ -65,6 +68,36 @@
                 return String(doc.id) !== String(documentId) && doc.keys.some(function (key) { return keys.includes(key); });
             }).map(function (doc) { return doc.name; }),
         };
+    }
+
+    // How many more times a token may be placed in the current document;
+    // Infinity when it carries no `limit`.
+    function remaining(token, current) {
+        var limit = Number(token.limit) || 0;
+        if (limit <= 0) return Infinity;
+        return Math.max(0, limit - usage(token, current, [], null).here);
+    }
+
+    // Limited tokens placed more often than allowed in the current document.
+    function overLimit(tokens, current) {
+        return tokens.filter(function (token) {
+            var limit = Number(token.limit) || 0;
+            return limit > 0 && usage(token, current, [], null).here > limit;
+        });
+    }
+
+    // Suggestions minus limited tokens with no placements left: replacing an
+    // unknown token with one would push it over its limit.
+    function placeableSuggestions(key, tokens, current) {
+        var exhausted = Object.create(null);
+        tokens.forEach(function (token) {
+            if (remaining(token, current) === 0) {
+                exhausted[token.key] = true;
+                exhausted[token.key + '#'] = true;
+            }
+        });
+        var pool = tokens.filter(function (token) { return !exhausted[token.key]; });
+        return suggestions(key, pool).filter(function (candidate) { return !exhausted[candidate]; });
     }
 
     // Serialized by callCommand: all dependencies must come from Api or Asc.scope.
@@ -168,6 +201,20 @@
                     if (!Object.prototype.hasOwnProperty.call(args.known, match[1])) unknown.push({ paragraph: p, text: match[0] });
                 }
             });
+            // Table charts keep their column tokens in the chart's data sheet
+            // (series names + category), not in body text.
+            try {
+                doc.GetAllCharts().forEach(function (chart) {
+                    var seen = Object.create(null);
+                    (chart.Chart && chart.Chart.getAllSeries ? chart.Chart.getAllSeries() : []).forEach(function (series) {
+                        [series.getSeriesName(), series.getCatName(0)].forEach(function (text) {
+                            var match = /^\s*\{\{([^{}\r\n]*)\}\}\s*$/.exec(String(text || ''));
+                            if (match) seen[match[1]] = true;
+                        });
+                    });
+                    Object.keys(seen).forEach(function (key) { current[key] = (current[key] || 0) + 1; });
+                });
+            } catch (chartError) { /* chart internals vary by editor version; usage is best-effort */ }
 
             var wc = api.WordControl;
             if (api.GetVersion() !== '9.4.0' || !wc || !wc.m_oOverlay || !wc.m_oOverlay.HtmlElement
@@ -275,5 +322,8 @@
         }
     }
 
-    root.FieldTokenTools = { catalog: catalog, knownKeys: knownKeys, distance: distance, suggestions: suggestions, usage: usage, editorCommand: editorCommand };
+    root.FieldTokenTools = {
+        catalog: catalog, knownKeys: knownKeys, distance: distance, suggestions: suggestions, usage: usage,
+        remaining: remaining, overLimit: overLimit, placeableSuggestions: placeableSuggestions, editorCommand: editorCommand,
+    };
 })(globalThis);

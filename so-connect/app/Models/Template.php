@@ -17,6 +17,7 @@ class Template extends Model
 
     protected $fillable = [
         'form_id',
+        'report_template_id',
         'organization_id',
         'uploaded_by',
         'template_name',
@@ -46,6 +47,11 @@ class Template extends Model
     public function form(): BelongsTo
     {
         return $this->belongsTo(Form::class, 'form_id', 'id');
+    }
+
+    public function reportTemplate(): BelongsTo
+    {
+        return $this->belongsTo(ReportTemplate::class, 'report_template_id', 'id');
     }
 
     public function organization(): BelongsTo

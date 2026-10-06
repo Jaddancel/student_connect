@@ -24,5 +24,6 @@ class DatabaseSeeder extends Seeder
         $this->call(SemesterSeeder::class);
         $this->call(ScoringConfigSeeder::class);
         $this->call(FormPagesSeeder::class);
+        $this->call(ReportTemplateSeeder::class);
     }
 }

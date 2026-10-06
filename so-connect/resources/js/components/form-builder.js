@@ -1,4 +1,5 @@
 import Sortable from "sortablejs";
+import { flushPrintedTemplate } from "./shared/printed-template-draft";
 
 /**
  * Alpine component backing the WYSIWYG form-builder editor.
@@ -47,6 +48,10 @@ export function formBuilder(config) {
         // Sidebar icon key (see MenuHelper::iconNames); '' falls back to the
         // default forms glyph.
         icon: config.data.icon || "",
+        // Optional cap on accepted (approved) submissions per semester,
+        // across all organizations; disabled = unlimited.
+        submission_limit_enabled: !!config.data.semester_submission_limit,
+        semester_submission_limit: config.data.semester_submission_limit || 1,
         fields: config.data.fields || [],
         rows: config.data.rows || [],
         // The letterhead (header) and footer belong to the printed document, so
@@ -223,6 +228,7 @@ export function formBuilder(config) {
                     body: JSON.stringify({
                         draft_id: this.draftId,
                         form_id: this.formId,
+                        kit: this.kit || null,
                         name: this.name,
                         fields: this.fields.map(
                             ({ _keyLocked, ...field }) => field,
@@ -443,7 +449,12 @@ export function formBuilder(config) {
                             required: false,
                         },
                     ],
-                    row_total: { key: "", label: "Total", multiply: [] },
+                    row_total: {
+                        key: "",
+                        label: "Total",
+                        op: "multiply",
+                        multiply: [],
+                    },
                 };
             }
             return {};
@@ -579,6 +590,14 @@ export function formBuilder(config) {
             }
         },
         /** Keys of the fields sharing a row with the given field (self excluded). */
+        /** Other fields stacked in the same layout column as `fieldKey`. */
+        columnSiblingKeys(fieldKey) {
+            for (const row of this.rows) {
+                const column = row.columns.find((c) => c.fields.includes(fieldKey));
+                if (column) return column.fields.filter((k) => k !== fieldKey);
+            }
+            return [];
+        },
         rowSiblingKeys(fieldKey) {
             const row = this.rows.find((r) =>
                 r.columns.some((c) => c.fields.includes(fieldKey)),
@@ -1105,6 +1124,7 @@ export function formBuilder(config) {
                 },
             ];
         },
+        /** Date fields in the same row: the number becomes full years from today. */
         calculateFromOptions(f) {
             if (!f || !["number", "age"].includes(f.field_type)) return [];
             const siblings = new Set(this.rowSiblingKeys(f.field_key));
@@ -1118,6 +1138,63 @@ export function formBuilder(config) {
                     value: field.field_key,
                     label: field.field_label || field.field_key,
                 }));
+        },
+        /**
+         * Table fields stacked in the same layout column as a number field: the
+         * number becomes the total of one of the table's columns.
+         */
+        calculateFromTableOptions(f) {
+            if (!f || f.field_type !== "number") return [];
+            const siblings = new Set(this.columnSiblingKeys(f.field_key));
+            return this.fields
+                .filter(
+                    (field) =>
+                        siblings.has(field.field_key) &&
+                        field.field_type === "table-input",
+                )
+                .map((field) => ({
+                    value: field.field_key,
+                    label: field.field_label || field.field_key,
+                }));
+        },
+        calculatesFromTable(f) {
+            const source = f && f.field_options && f.field_options.calculate_from;
+            return (
+                !!source &&
+                this.calculateFromTableOptions(f).some((o) => o.value === source)
+            );
+        },
+        /**
+         * Columns of the chosen table that can be totalled — mirrors
+         * FieldCompute::summableColumns(): number columns plus the row total.
+         */
+        calculateColumnOptions(f) {
+            const table = this.calculatesFromTable(f)
+                ? this.field(f.field_options.calculate_from)
+                : null;
+            if (!table) return [];
+            const opts = table.field_options || {};
+            const out = (opts.columns || [])
+                .filter((c) => c.type === "number" && c.key)
+                .map((c) => ({ value: c.key, label: c.label || c.key }));
+            const rt = opts.row_total || {};
+            if ((rt.multiply || []).filter(Boolean).length >= 2) {
+                const key = (rt.key || "").trim() || "row_total";
+                if (!out.some((o) => o.value === key))
+                    out.push({ value: key, label: rt.label || "Total" });
+            }
+            return out;
+        },
+        onCalculateFromChange(f) {
+            delete f.field_options.calculate_row;
+            if (!this.calculatesFromTable(f)) {
+                delete f.field_options.calculate_column;
+                return;
+            }
+            const options = this.calculateColumnOptions(f);
+            if (!options.some((o) => o.value === f.field_options.calculate_column)) {
+                f.field_options.calculate_column = (options[0] || {}).value || "";
+            }
         },
 
         // --- table-input column editing ---
@@ -1213,12 +1290,16 @@ export function formBuilder(config) {
                     out.push({ value: f.field_key, label: f.field_label });
                 }
                 if (f.field_type === "table-input") {
+                    // Mirrors FieldType::tableRowTotal(): two+ columns make a
+                    // total, whose key falls back to `row_total`.
                     const rt = (f.field_options || {}).row_total || {};
-                    if (rt.key)
+                    if ((rt.multiply || []).filter(Boolean).length >= 2) {
+                        const rtKey = (rt.key || "").trim() || "row_total";
                         out.push({
-                            value: `${f.field_key}.${rt.key}`,
-                            label: `${f.field_label} → ${rt.label || rt.key}`,
+                            value: `${f.field_key}.${rtKey}`,
+                            label: `${f.field_label} → ${rt.label || "Total"}`,
                         });
+                    }
                     ((f.field_options || {}).columns || []).forEach((c) => {
                         if (c.type === "number")
                             out.push({
@@ -1348,10 +1429,42 @@ export function formBuilder(config) {
             }
         },
 
+        /**
+         * Toggle the semester submission limit. Enabling it on a form bound to
+         * a system function asks for confirmation first: once the cap is hit
+         * that core flow is closed to everyone until the next semester.
+         */
+        toggleSubmissionLimit(event) {
+            const enabling = event.target.checked;
+            if (
+                enabling &&
+                this.system_function &&
+                !window.confirm(
+                    "This form drives a system function. Limiting its submissions will block " +
+                        "officers from that core flow for the rest of the semester once the " +
+                        "limit is reached. Enable the limit anyway?",
+                )
+            ) {
+                event.target.checked = false;
+                this.submission_limit_enabled = false;
+                return;
+            }
+            this.submission_limit_enabled = enabling;
+        },
+
         // --- persistence ---
         async save() {
             this.message = "";
             this.error = "";
+
+            if (
+                this.submission_limit_enabled &&
+                !(parseInt(this.semester_submission_limit, 10) >= 1)
+            ) {
+                this.error =
+                    "Enter a semester submission limit of at least 1, or turn the limit off.";
+                return;
+            }
 
             this.saving = true;
             // Flush the printed-template editor first: the Document Server only
@@ -1375,6 +1488,9 @@ export function formBuilder(config) {
                 route_name: this.route_name,
                 system_function: this.system_function || null,
                 icon: this.icon || null,
+                semester_submission_limit: this.submission_limit_enabled
+                    ? parseInt(this.semester_submission_limit, 10) || null
+                    : null,
                 fields: this.fields.map(({ _keyLocked, ...field }) => field),
                 rows: this.rows,
                 pdf_template: this.pdf_template,
@@ -1434,29 +1550,7 @@ export function formBuilder(config) {
          * clear the draft before the Document Server's final save lands.
          */
         flushPrintedTemplate() {
-            return new Promise((resolve) => {
-                const done = (event) => {
-                    window.removeEventListener(
-                        "printed-template:flush-done",
-                        done,
-                    );
-                    clearTimeout(timer);
-                    resolve(!event.detail || event.detail.ok !== false);
-                };
-                window.addEventListener("printed-template:flush-done", done);
-                // Slightly longer than the component's own flush timeout, so an
-                // absent/unresponsive component can't hang the save forever.
-                const timer = setTimeout(() => {
-                    window.removeEventListener(
-                        "printed-template:flush-done",
-                        done,
-                    );
-                    resolve(false);
-                }, 25000);
-                window.dispatchEvent(
-                    new CustomEvent("printed-template:flush-request"),
-                );
-            });
+            return flushPrintedTemplate();
         },
     };
 }

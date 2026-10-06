@@ -6,12 +6,14 @@ use App\Forms\ActivityTableData;
 use App\Forms\ConditionEvaluator;
 use App\Forms\FieldType;
 use App\Forms\FormRenderContext;
+use App\Forms\SemesterSubmissionLimit;
 use App\Forms\SystemFunction;
 use App\Services\OrganizationAuthorizationService;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\ManualFormSession;
 use App\Services\DocumentGenerationService;
+use App\Services\FormPrintTemplateService;
 use App\Services\ManualForm\ManualFormSessionService;
 use App\Support\IdScanRetryCache;
 use App\Support\OrganizationField;
@@ -74,11 +76,27 @@ class FormRenderController extends Controller
             $prefill = self::applyTargetDatePrefill($request, $fields, $prefill);
         }
 
+        // The After Event Report is always filed for one concluded event,
+        // picked on the After Event Form page (?event=).
+        $afterEvent = null;
+        if ($form->system_function === SystemFunction::AFTER_EVENT_REPORT) {
+            try {
+                $afterEvent = app(\App\Services\AfterEventReportService::class)
+                    ->assertFileable($request->user(), (int) $request->query('event', 0));
+            } catch (\Illuminate\Validation\ValidationException $exception) {
+                return redirect()->route('after-event-reports.index')
+                    ->withErrors($exception->errors());
+            }
+            $hidden[\App\Forms\Handlers\AfterEventReportHandler::EVENT_INPUT] = (string) $afterEvent['event_id'];
+        }
+
         return view('pages.form.render', array_merge($context, [
             'title' => $form->name,
             'prefill' => $prefill,
             'hidden' => $hidden,
+            'afterEvent' => $afterEvent,
             'recentSubmissions' => $this->recentSubmissions($request, $form),
+            'submissionLimit' => SemesterSubmissionLimit::status($form),
         ]));
     }
 
@@ -347,11 +365,17 @@ class FormRenderController extends Controller
         );
 
         // Defense in depth: an untemplated form must never accept a submission,
-        // since it could not produce its printed document.
+        // since it could not produce its printed document. The printed template
+        // is either an active .docx slot (the Step-2 editor) or a legacy
+        // rich-text `pdf_template.html` that generation migrates on first use.
         $pdfTemplate = (array) ($form->pdf_template ?? []);
-        if (trim((string) ($pdfTemplate['html'] ?? '')) === '') {
+        if (trim((string) ($pdfTemplate['html'] ?? '')) === ''
+            && app(FormPrintTemplateService::class)->activeTemplates($form)->isEmpty()) {
             abort(422, 'This form is not ready to accept submissions yet (no printed template).');
         }
+
+        // The form's per-semester cap on accepted submissions.
+        SemesterSubmissionLimit::assertOpen($form);
 
         // A reviewed manual-filling draft finalizes through this same endpoint,
         // carrying its session id (and, for a public form, its resume token).
@@ -444,6 +468,21 @@ class FormRenderController extends Controller
                 continue;
             }
 
+            $options = (array) ($field->field_options ?? []);
+            if (FieldType::isMultiImage($type)) {
+                $paths = [];
+                foreach ((array) $request->file($key, []) as $file) {
+                    if ($file !== null) {
+                        $paths[] = $file->store(
+                            'form-uploads/'.$form->route_name,
+                            (string) config('documents.disk', 'public'),
+                        );
+                    }
+                }
+                $payload[$key] = $paths;
+                continue;
+            }
+
             if (FieldType::isFileLike($type)) {
                 if ($request->hasFile($key)) {
                     $payload[$key] = $request->file($key)->store(
@@ -474,20 +513,6 @@ class FormRenderController extends Controller
                 if (is_string($submitted) && str_starts_with($submitted, 'data:image')) {
                     $capturedSignatures[] = $key;
                 }
-                continue;
-            }
-
-            if ($type === FieldType::MULTI_IMAGE) {
-                $paths = [];
-                foreach ((array) $request->file($key, []) as $file) {
-                    if ($file !== null) {
-                        $paths[] = $file->store(
-                            'form-uploads/'.$form->route_name,
-                            (string) config('documents.disk', 'public'),
-                        );
-                    }
-                }
-                $payload[$key] = $paths;
                 continue;
             }
 

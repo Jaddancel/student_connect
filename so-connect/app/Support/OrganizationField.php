@@ -5,21 +5,31 @@ namespace App\Support;
 use App\Models\Officer;
 use App\Models\Organization;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Resolves the organization-scoped universal fields (`org_name`,
- * `org_president`, `org_auditor`, `org_secretary`, `adviser`) that
+ * `org_president`, `org_treasurer`, `org_auditor`, `org_secretary`, `adviser`) that
  * {@see UniversalField} declares but cannot read off a profile. Values come
  * from the submitter's organization: its registered name for `org_name`,
- * current officeholders for the role fields, and the extensible adviser list
- * for `adviser`.
+ * current officeholders for the role fields and their saved profile signatures,
+ * and the extensible adviser list for `adviser`.
  */
 final class OrganizationField
 {
     /**
-     * The organization to resolve org fields against for a user: their most
-     * recent officer assignment's organization. Null for users with no officer
-     * row (e.g. plain admins), in which case org fields render empty.
+     * The organization a user acts for (forms are filed under it, and org
+     * fields resolve against it):
+     *
+     *  1. the organization picked in the switcher, when it is the signed-in
+     *     user's own session and they are an officer/president there;
+     *  2. otherwise their most recent officer/president assignment;
+     *  3. otherwise their most recent assignment of any role (e.g. `member`).
+     *
+     * A `member` row never outranks an officer role — joining another
+     * organization as a member must not re-home the user's own requests.
+     * Null for users with no officer row (e.g. plain admins), in which case
+     * org fields render empty.
      */
     public static function resolveOrganization(?User $user): ?Organization
     {
@@ -27,9 +37,17 @@ final class OrganizationField
             return null;
         }
 
-        $officer = $user->officers()
-            ->orderByDesc('org_officer_id')
-            ->first();
+        $officerRoles = fn () => $user->officers()->whereIn('role', ['officer', 'president']);
+
+        if (Auth::check() && (int) Auth::id() === (int) $user->getKey()) {
+            $activeOrganizationId = (int) session('active_organization_id', 0);
+            if ($activeOrganizationId > 0 && $officerRoles()->where('organization', $activeOrganizationId)->exists()) {
+                return Organization::query()->find($activeOrganizationId);
+            }
+        }
+
+        $officer = $officerRoles()->orderByDesc('org_officer_id')->first()
+            ?? $user->officers()->orderByDesc('org_officer_id')->first();
 
         return $officer?->organization()->first();
     }
@@ -59,9 +77,24 @@ final class OrganizationField
                 : null;
         }
 
+        $signaturePosition = match ($key) {
+            'org_president_signature' => 'president',
+            'org_treasurer_signature' => 'treasurer',
+            'org_auditor_signature' => 'auditor',
+            'org_secretary_signature' => 'secretary',
+            default => null,
+        };
+        if ($signaturePosition !== null) {
+            $officer = self::officerByPosition($organization, $signaturePosition, officersOnly: true);
+            $path = $officer?->user()->first()?->profile()->first()?->signature_path;
+
+            return trim((string) $path) !== '' ? $path : null;
+        }
+
         $officer = match ($key) {
             'org_president' => self::officerByRole($organization, 'president'),
             'org_auditor' => self::officerByPosition($organization, 'auditor'),
+            'org_treasurer' => self::officerByPosition($organization, 'treasurer'),
             'org_secretary' => self::officerByPosition($organization, 'secretary'),
             default => null,
         };
@@ -110,9 +143,10 @@ final class OrganizationField
             ->first();
     }
 
-    private static function officerByPosition(Organization $organization, string $position): ?Officer
+    private static function officerByPosition(Organization $organization, string $position, bool $officersOnly = false): ?Officer
     {
         return $organization->officersOfThisOrganization()
+            ->when($officersOnly, fn ($query) => $query->whereIn('role', ['officer', 'president']))
             ->whereRaw('LOWER(position) = ?', [$position])
             ->orderByDesc('org_officer_id')
             ->first();

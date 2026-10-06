@@ -2,7 +2,6 @@
 
 use App\Models\Form;
 use App\Models\Form\FormDescription;
-use App\Models\FormSubmission;
 use App\Models\IdTemplate;
 use App\Services\WaiverSubmissionService;
 use App\Support\SignatureImage;
@@ -45,23 +44,4 @@ it('leaves an already-stored path untouched', function () {
 
     expect($result['path'])->toBe('waivers/2026/07/x.png');
     expect($result['validation'])->toBeNull();
-});
-
-it('shows the waiver review page to a type-2 admin and hides it from officers', function () {
-    $field = waiverField('wf3');
-    FormSubmission::create([
-        'form_id' => $field->form_id, 'organization_id' => null, 'submitted_by' => null,
-        'payload' => ['waiver' => 'waivers/x.png', '_waiver_validation' => ['waiver' => ['valid' => false]]],
-        'submitted_at' => now(),
-    ]);
-
-    $this->actingAs(recordsUser(2))
-        ->get(route('admin.waiver-review.index'))
-        ->assertOk()
-        ->assertSee('Waiver Form')
-        ->assertSee('Needs review');
-
-    $this->actingAs(recordsUser(3))
-        ->get(route('admin.waiver-review.index'))
-        ->assertForbidden();
 });

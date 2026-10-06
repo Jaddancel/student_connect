@@ -204,6 +204,38 @@
                                    .finally(() => { this.loading = false; });
                     },
 
+                    // Once the user clicks into the editor it owns the keyboard
+                    // until they click somewhere else on the host page. Host
+                    // shortcuts (Ctrl+S, ⌘K, Escape handlers…) are muted while it
+                    // does, and if focus slips back to the page (a re-render, a
+                    // toast) the next keystroke hands it straight back.
+                    bindFocusGuard() {
+                        const frame = () => document.querySelector('iframe[name=frameEditor]');
+                        let owns = false;
+
+                        window.addEventListener('blur', () => {
+                            window.setTimeout(() => {
+                                if (frame() && document.activeElement === frame()) owns = true;
+                            }, 0);
+                        });
+                        const release = (e) => {
+                            const f = frame();
+                            if (f && e.target !== f && !f.contains(e.target)) owns = false;
+                        };
+                        document.addEventListener('mousedown', release, true);
+                        document.addEventListener('focusin', release, true);
+
+                        window.addEventListener('keydown', (e) => {
+                            const f = frame();
+                            if (!owns || !f || f.offsetParent === null) return;
+                            e.stopImmediatePropagation();
+                            if (document.activeElement !== f) {
+                                f.focus();
+                                f.contentWindow && f.contentWindow.focus();
+                            }
+                        }, true);
+                    },
+
                     // Tear the editor down (e.g. when the viewport shrinks to
                     // phone size) so it can be re-booted cleanly later.
                     teardown() {
@@ -388,6 +420,7 @@
                         // default (mini rail below 1280px) on the way out.
                         $store.sidebar.isExpanded = value === 2 ? false : window.innerWidth >= 1280;
                     };
+                    bindFocusGuard();
                     $watch('step', (value) => syncNav(value));
                     if (step === 2) syncNav(2);
                     // Crossing the phone/tablet boundary swaps the editor for the
