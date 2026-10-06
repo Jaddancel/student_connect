@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Support\SqlDumpGuard;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -11,7 +13,8 @@ use ZipArchive;
 /**
  * Database backup + restore over spatie/laravel-backup. Backups are DB-only zip
  * archives on the local "backups" disk; restore extracts the SQL dump from a
- * chosen archive and pipes it into mysql (taking a safety backup first).
+ * chosen (or uploaded) archive and pipes it into mysql (taking a safety backup
+ * first).
  *
  * Restore is destructive — it replaces the current database — so it is only
  * reachable from the super-admin BackupController.
@@ -152,14 +155,32 @@ class BackupService
      */
     public function restore(string $filename): ?string
     {
-        $archivePath = $this->path($filename);
+        return $this->restoreFromArchive($this->path($filename));
+    }
 
-        // 1. Extract the SQL dump first, so a bad archive fails before we have
-        //    written anything (including a pointless safety backup).
+    /**
+     * Restore the database from an uploaded backup archive (e.g. one previously
+     * downloaded from this page). Uploaded dumps are untrusted, so they are
+     * screened for mysql client commands before anything is written.
+     */
+    public function restoreFromUpload(UploadedFile $file): ?string
+    {
+        return $this->restoreFromArchive((string) $file->getRealPath(), untrusted: true);
+    }
+
+    private function restoreFromArchive(string $archivePath, bool $untrusted = false): ?string
+    {
+        // 1. Extract (and, for uploads, screen) the SQL dump first, so a bad
+        //    archive fails before we have written anything (including a
+        //    pointless safety backup).
         $sqlPath = $this->extractSqlDump($archivePath);
         $safety = null;
 
         try {
+            if ($untrusted) {
+                SqlDumpGuard::assertSafe($sqlPath);
+            }
+
             // 2. Safety backup of the current state before we overwrite it.
             $safety = $this->create();
 
@@ -183,6 +204,10 @@ class BackupService
             throw new RuntimeException('Could not open the backup archive.');
         }
 
+        if ($password = config('backup.backup.password')) {
+            $zip->setPassword((string) $password);
+        }
+
         $sqlEntry = null;
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $name = (string) $zip->getNameIndex($i);
@@ -197,15 +222,26 @@ class BackupService
             throw new RuntimeException('The backup archive contains no SQL dump.');
         }
 
-        $contents = $zip->getFromName($sqlEntry);
+        // Stream to disk rather than buffering: uploaded dumps can be large.
+        $source = $zip->getStream($sqlEntry);
+        $tmp = tempnam(sys_get_temp_dir(), 'restore_');
+        $target = $tmp === false ? false : fopen($tmp, 'w');
+        $copied = $source !== false && $target !== false && stream_copy_to_stream($source, $target) !== false;
+
+        if (is_resource($source)) {
+            fclose($source);
+        }
+        if (is_resource($target)) {
+            fclose($target);
+        }
         $zip->close();
 
-        if ($contents === false) {
+        if (! $copied || filesize($tmp) === 0) {
+            if ($tmp !== false) {
+                @unlink($tmp);
+            }
             throw new RuntimeException('Could not read the SQL dump from the archive.');
         }
-
-        $tmp = tempnam(sys_get_temp_dir(), 'restore_').'.sql';
-        file_put_contents($tmp, $contents);
 
         return $tmp;
     }
@@ -231,6 +267,7 @@ class BackupService
                 '--host='.($config['host'] ?? '127.0.0.1'),
                 '--port='.($config['port'] ?? '3306'),
                 '--user='.($config['username'] ?? 'root'),
+                '--local-infile=0',
                 (string) ($config['database'] ?? ''),
             ],
             null,

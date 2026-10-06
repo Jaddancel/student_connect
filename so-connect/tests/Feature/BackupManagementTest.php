@@ -2,6 +2,7 @@
 
 use App\Services\BackupService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -25,7 +26,9 @@ it('shows stored backups to a super admin', function () {
     $this->actingAs(recordsUser(1))
         ->get(route('superadmin.backups.index'))
         ->assertOk()
-        ->assertSee('2026-07-19-00-00-00.zip');
+        ->assertSee('2026-07-19-00-00-00.zip')
+        ->assertSee(route('superadmin.backups.restore-upload'))
+        ->assertSee('name="backup_file"', false);
 });
 
 it('shows archived backups on their own page only to super admins', function () {
@@ -137,4 +140,71 @@ it('forbids non-super-admins from restoring', function () {
     $this->actingAs(recordsUser(2))
         ->post(route('superadmin.backups.restore', 'b1.zip'))
         ->assertForbidden();
+});
+
+function backupZipUpload(string $sql, string $name = 'downloaded.zip'): UploadedFile
+{
+    $path = tempnam(sys_get_temp_dir(), 'upload_');
+    $zip = new ZipArchive;
+    $zip->open($path, ZipArchive::OVERWRITE);
+    $zip->addFromString('db-dumps/mysql-laravel.sql', $sql);
+    $zip->close();
+
+    return new UploadedFile($path, $name, 'application/zip', null, true);
+}
+
+it('restores from an uploaded backup file and audits it', function () {
+    $upload = backupZipUpload("SELECT 1;\n");
+
+    $this->mock(BackupService::class, function ($mock) {
+        $mock->shouldReceive('restoreFromUpload')->once()->andReturn('safety.zip');
+    });
+
+    $this->actingAs(recordsUser(1))
+        ->post(route('superadmin.backups.restore-upload'), ['backup_file' => $upload])
+        ->assertRedirect()
+        ->assertSessionHas('success', fn ($msg) => str_contains($msg, 'downloaded.zip') && str_contains($msg, 'safety.zip'));
+
+    $log = DB::table('action_logs')->where('action', 'backup_restored')->first();
+    expect($log)->not->toBeNull();
+});
+
+it('rejects uploads that are not zip archives', function () {
+    $this->mock(BackupService::class, function ($mock) {
+        $mock->shouldNotReceive('restoreFromUpload');
+    });
+
+    $this->actingAs(recordsUser(1))
+        ->post(route('superadmin.backups.restore-upload'), [
+            'backup_file' => UploadedFile::fake()->create('dump.sql', 10, 'application/sql'),
+        ])
+        ->assertSessionHasErrors('backup_file');
+});
+
+it('forbids non-super-admins from restoring an uploaded file', function () {
+    $this->actingAs(recordsUser(2))
+        ->post(route('superadmin.backups.restore-upload'), ['backup_file' => backupZipUpload("SELECT 1;\n")])
+        ->assertForbidden();
+});
+
+it('refuses uploaded dumps containing mysql client commands before touching the database', function () {
+    $service = Mockery::mock(BackupService::class)->makePartial();
+    $service->shouldNotReceive('create');
+
+    expect(fn () => $service->restoreFromUpload(backupZipUpload("SELECT 1;\n\\! touch /tmp/pwned\n")))
+        ->toThrow(RuntimeException::class, 'mysql client command');
+});
+
+it('refuses uploaded archives without an SQL dump', function () {
+    $path = tempnam(sys_get_temp_dir(), 'upload_');
+    $zip = new ZipArchive;
+    $zip->open($path, ZipArchive::OVERWRITE);
+    $zip->addFromString('readme.txt', 'hi');
+    $zip->close();
+
+    $service = Mockery::mock(BackupService::class)->makePartial();
+    $service->shouldNotReceive('create');
+
+    expect(fn () => $service->restoreFromUpload(new UploadedFile($path, 'x.zip', 'application/zip', null, true)))
+        ->toThrow(RuntimeException::class, 'no SQL dump');
 });

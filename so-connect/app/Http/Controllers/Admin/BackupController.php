@@ -13,7 +13,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Super-admin database backup management: list / create / download / delete
- * backups and restore the database from one. All actions are audited; restore
+ * backups and restore the database from a stored or uploaded one. All actions
+ * are audited; restore
  * is destructive (replaces the current DB from the chosen dump, after a safety
  * backup).
  */
@@ -105,6 +106,38 @@ class BackupController extends Controller
         // The safety snapshot shows up as a brand-new archive in the list; say so
         // explicitly, otherwise it reads as a backup nobody asked for.
         $message = 'Database restored from '.$filename.'.';
+        $message .= $safety
+            ? ' A safety backup of the previous state was saved as '.$safety.'.'
+            : ' A safety backup of the previous state was saved first.';
+
+        return back()->with('success', $message);
+    }
+
+    /**
+     * Restore from a backup archive uploaded by the user (e.g. one downloaded
+     * from this page earlier, or from another environment).
+     */
+    public function restoreUpload(Request $request): RedirectResponse
+    {
+        $request->validate([
+            // 100 MB, matching the container's upload_max_filesize.
+            'backup_file' => ['required', 'file', 'extensions:zip', 'max:102400'],
+        ], [
+            'backup_file.extensions' => 'The backup file must be a .zip archive downloaded from this page.',
+        ]);
+
+        $file = $request->file('backup_file');
+        $name = basename($file->getClientOriginalName());
+
+        try {
+            $safety = $this->backups->restoreFromUpload($file);
+        } catch (\Throwable $e) {
+            return back()->withErrors(['restore' => 'Restore failed: '.$e->getMessage()]);
+        }
+
+        ActionLogger::log(ActionLogger::CATEGORY_SETTINGS, 'backup_restored', 'Restored the database from uploaded file '.$name, ['file' => $name, 'source' => 'upload']);
+
+        $message = 'Database restored from uploaded file '.$name.'.';
         $message .= $safety
             ? ' A safety backup of the previous state was saved as '.$safety.'.'
             : ' A safety backup of the previous state was saved first.';

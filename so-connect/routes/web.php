@@ -702,6 +702,8 @@ Route::middleware(['auth', 'superadmin'])->group(function () {
         ->name('superadmin.backups.archived');
     Route::post('/superadmin/backups', [\App\Http\Controllers\Admin\BackupController::class, 'store'])
         ->name('superadmin.backups.store');
+    Route::post('/superadmin/backups/restore-upload', [\App\Http\Controllers\Admin\BackupController::class, 'restoreUpload'])
+        ->name('superadmin.backups.restore-upload');
     Route::get('/superadmin/backups/{filename}/download', [\App\Http\Controllers\Admin\BackupController::class, 'download'])
         ->name('superadmin.backups.download');
     Route::post('/superadmin/backups/{filename}/restore', [\App\Http\Controllers\Admin\BackupController::class, 'restore'])
