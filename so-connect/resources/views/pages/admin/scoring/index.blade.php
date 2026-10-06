@@ -46,7 +46,6 @@
                                     </option>
                                 @endforeach
                             </select>
-                            <input type="hidden" name="semester_id" value="{{ $selectedSemester->semester_id }}" />
                         @endif
                     </form>
 

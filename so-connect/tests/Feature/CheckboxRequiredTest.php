@@ -28,9 +28,11 @@ it('lets a required single checkbox be left unchecked', function () {
 
     expect(FieldType::validationRules('checkbox', true))->toBe(['nullable']);
 
-    $this->actingAs($officer)->get(route('forms.render', 'consent'))
+    $response = $this->actingAs($officer)->get(route('forms.render', 'consent'))
         ->assertOk()
         ->assertDontSee('<span class="text-error-500">*</span>', false);
+
+    expect(substr_count($response->getContent(), 'Co-sponsored?'))->toBe(1);
 
     $this->actingAs($officer)->post(route('forms.render.submit', 'consent'), [])->assertSessionHasNoErrors();
     $this->actingAs($officer)->post(route('forms.render.submit', 'consent'), ['agree' => '1'])->assertSessionHasNoErrors();

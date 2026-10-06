@@ -43,10 +43,12 @@
          input is bound to a universal field (the signature case carries the
          marker on its own component root, where the events are handled). --}}
     <div @if ($field->universal_key && $type !== FieldType::SIGNATURE) data-universal-key="{{ $field->universal_key }}" @endif>
-        <label for="{{ $key }}" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-            {{ $field->field_label }}
-            @if ($required)<span class="text-error-500">*</span>@endif
-        </label>
+        @if ($type !== FieldType::CHECKBOX || count($pairs))
+            <label for="{{ $key }}" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                {{ $field->field_label }}
+                @if ($required)<span class="text-error-500">*</span>@endif
+            </label>
+        @endif
 
         @if ($field->universal_key === 'adviser')
             {{-- "Advisers" universal field: a dropdown of the org's known advisers
