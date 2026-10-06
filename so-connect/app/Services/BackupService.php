@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Support\SqlDumpGuard;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Symfony\Component\Process\Process;
@@ -181,10 +182,20 @@ class BackupService
                 SqlDumpGuard::assertSafe($sqlPath);
             }
 
-            // 2. Safety backup of the current state before we overwrite it.
+            // 2. Safety backup of the current state before we overwrite it. The
+            //    wipe below is irreversible without it, so refuse to continue
+            //    if no new archive appeared.
             $safety = $this->create();
+            if ($safety === null) {
+                throw new RuntimeException('Could not take a safety backup of the current database; nothing was restored.');
+            }
 
-            // 3. Pipe the dump into the database.
+            // 3. Drop every existing table, so tables created after the backup
+            //    was taken don't survive alongside the restored ones (the dump
+            //    only drops/recreates the tables it contains).
+            $this->wipeDatabase();
+
+            // 4. Pipe the dump into the database.
             $this->importSql($sqlPath);
         } finally {
             @unlink($sqlPath);
@@ -244,6 +255,13 @@ class BackupService
         }
 
         return $tmp;
+    }
+
+    private function wipeDatabase(): void
+    {
+        $schema = DB::connection()->getSchemaBuilder();
+        $schema->dropAllViews();
+        $schema->dropAllTables();
     }
 
     /**
