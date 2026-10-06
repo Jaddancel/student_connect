@@ -62,7 +62,8 @@
 
         @foreach ($categories as $catKey => $catMeta)
             @php $criteria = $criteriaByCategory->get($catKey, collect()); @endphp
-            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+            {{-- Anchor target: editing a criterion's trigger returns here (#category-<key>). --}}
+            <div id="category-{{ $catKey }}" class="scroll-mt-28 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                 <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
                     <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ $catMeta['label'] }}</h3>
                     <span class="text-xs text-gray-400 dark:text-gray-500">capped at {{ $catMeta['cap'] }} points</span>

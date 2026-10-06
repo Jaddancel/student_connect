@@ -6,7 +6,10 @@
     $type = $field->field_type;
     $key = $field->field_key;
     $opts = (array) ($field->field_options ?? []);
-    $required = (bool) $field->is_required;
+    // A single checkmark is a yes/no answer — unchecked is valid — so it is
+    // never marked required, whatever the field setting.
+    $required = (bool) $field->is_required
+        && ! ($type === FieldType::CHECKBOX && FieldType::optionValues((array) ($field->field_options ?? [])) === []);
     $special = $special ?? [];
     // Fall back to the universal-field autofill value (from the user's profile)
     // when there's no old() input yet; a resubmit still wins via old().
@@ -66,6 +69,55 @@
                 @break
 
             @case(FieldType::SELECT)
+                @if (FieldType::isMultiSelect($type, $opts))
+                    {{-- Multi-select: a dropdown list of options, each ticked with a
+                         trailing checkmark when chosen. Real `key[]` checkboxes back
+                         it, so old() input, visibility conditions and the POST all
+                         see the selection as a list. --}}
+                    @php
+                        $oldList = array_map('strval', (array) old($key, $prefill[$key] ?? []));
+                        $labelMap = collect($pairs)->mapWithKeys(fn ($p) => [(string) $p['value'] => $p['label']]);
+                    @endphp
+                    <div x-data="{
+                            open: false,
+                            selected: {{ Illuminate\Support\Js::from(array_values(array_intersect($oldList, $labelMap->keys()->all()))) }},
+                            labels: {{ Illuminate\Support\Js::from($labelMap) }},
+                            order: {{ Illuminate\Support\Js::from($labelMap->keys()->values()) }},
+                            summary() { return this.order.filter((v) => this.selected.includes(v)).map((v) => this.labels[v]).join(', '); },
+                        }"
+                        class="relative" @click.outside="open = false" @keydown.escape="open = false" data-multi-select="{{ $key }}">
+                        <button type="button" id="{{ $key }}" @click="open = !open"
+                            :aria-expanded="open.toString()" aria-haspopup="listbox"
+                            class="{{ $inputClass }} flex items-center justify-between gap-2 text-left">
+                            <span class="truncate" :class="selected.length ? '' : 'text-gray-400'"
+                                x-text="selected.length ? summary() : @js($placeholder ?: 'Select one or more options')">{{ $placeholder ?: 'Select one or more options' }}</span>
+                            <span class="flex shrink-0 items-center gap-2">
+                                <span x-show="selected.length" x-cloak x-text="selected.length + ' selected'"
+                                    class="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-600 dark:bg-brand-500/15 dark:text-brand-400"></span>
+                                <svg class="h-4 w-4 text-gray-400 transition" :class="open && 'rotate-180'" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
+                                </svg>
+                            </span>
+                        </button>
+                        <div x-show="open" x-cloak role="listbox" aria-multiselectable="true" aria-labelledby="{{ $key }}"
+                            class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                            @forelse ($pairs as $p)
+                                <label role="option" :aria-selected="selected.includes(@js((string) $p['value'])).toString()"
+                                    class="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-brand-50 dark:text-gray-200 dark:hover:bg-white/[0.06]">
+                                    <span>{{ $p['label'] }}</span>
+                                    <input type="checkbox" name="{{ $key }}[]" value="{{ $p['value'] }}" x-model="selected"
+                                        @checked(in_array((string) $p['value'], $oldList, true)) class="peer sr-only" />
+                                    <svg class="invisible h-4 w-4 shrink-0 text-brand-500 peer-checked:visible" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0l-3.5-3.5a1 1 0 1 1 1.4-1.4l2.8 2.79 6.8-6.8a1 1 0 0 1 1.4 0Z" clip-rule="evenodd" />
+                                    </svg>
+                                </label>
+                            @empty
+                                <p class="px-3 py-2 text-xs text-gray-400">No options available.</p>
+                            @endforelse
+                        </div>
+                    </div>
+                    @break
+                @endif
                 <select id="{{ $key }}" name="{{ $key }}" class="{{ $inputClass }}">
                     <option value="">{{ $placeholder ?: 'Select an option' }}</option>
                     @foreach ($pairs as $p)

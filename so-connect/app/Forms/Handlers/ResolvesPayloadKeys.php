@@ -30,6 +30,22 @@ trait ResolvesPayloadKeys
     }
 
     /**
+     * The organization a submission belongs to: the form's organization
+     * picker when it has one, otherwise the submitter's active organization.
+     * 0 when neither resolves.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    protected function organizationId(Form $form, array $payload, ?\App\Models\User $user): int
+    {
+        $picked = (int) $this->payloadValue($form, $payload, 'organization_id');
+
+        return $picked > 0
+            ? $picked
+            : (int) (\App\Support\OrganizationField::resolveOrganization($user)?->getKey() ?? 0);
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      * @param  string[]  $keys
      *

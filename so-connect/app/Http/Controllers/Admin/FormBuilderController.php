@@ -383,6 +383,8 @@ class FormBuilderController extends Controller
             'fields.*.field_options.accept' => ['nullable', 'string', 'max:255'],
             // Date/time autofill-with-now toggle.
             'fields.*.field_options.autofill_now' => ['nullable', 'boolean'],
+            // Dropdown "allow multiple selections" toggle.
+            'fields.*.field_options.multiple' => ['nullable', 'boolean'],
             // Same-row date-derived number calculations (e.g. birthday -> age).
             'fields.*.field_options.calculate_from' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_]+$/'],
             // Column totalled when calculate_from names a table field.
@@ -770,7 +772,8 @@ class FormBuilderController extends Controller
     /**
      * Keep image upload options as predictable scalars when persisted. An
      * image field holds exactly one picture (any legacy `multiple` flag is
-     * dropped); only a photo set takes several, capped by `max_files`.
+     * dropped); only a photo set takes several, capped by `max_files`. The
+     * `multiple` flag survives only on a dropdown, where it makes a multi-select.
      *
      * @param  array<int,array<string,mixed>>  $fields
      * @return array<int,array<string,mixed>>
@@ -779,14 +782,21 @@ class FormBuilderController extends Controller
     {
         foreach ($fields as $i => $field) {
             $type = (string) ($field['field_type'] ?? '');
+            // `multiple` only means something on a dropdown (multi-select).
+            if ($type !== FieldType::SELECT) {
+                unset($fields[$i]['field_options']['multiple']);
+            } elseif (array_key_exists('multiple', (array) ($field['field_options'] ?? []))) {
+                $fields[$i]['field_options']['multiple'] = FieldType::isMultiSelect($type, (array) $field['field_options']);
+            }
+
             if (! in_array($type, [FieldType::IMAGE, FieldType::MULTI_IMAGE], true)) {
                 continue;
             }
 
-            $options = (array) ($field['field_options'] ?? []);
+            $options = (array) ($fields[$i]['field_options'] ?? []);
 
             if ($type === FieldType::IMAGE) {
-                unset($options['multiple'], $options['max_files']);
+                unset($options['max_files']);
             } else {
                 $maxFiles = (int) ($options['max_files'] ?? 5);
                 $options['max_files'] = max(1, min(10, $maxFiles));

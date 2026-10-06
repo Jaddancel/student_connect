@@ -168,7 +168,7 @@
                                                                     </svg>
                                                                 </span>
                                                             </div>
-                                                            <div class="text-[10px] uppercase tracking-wide text-gray-400" x-text="field(key)?.field_type"></div>
+                                                            <div class="text-[10px] uppercase tracking-wide text-gray-400" x-text="field(key)?.field_type + (field(key)?.field_type === 'select' && field(key)?.field_options?.multiple ? ' · multiple' : '')"></div>
                                                             {{-- Activity table: preview the selected columns right on the card. --}}
                                                             <template x-if="field(key)?.field_type === 'activity-table'">
                                                                 <div class="mt-1.5 rounded-lg border border-gray-200 p-2 dark:border-gray-700">
@@ -265,6 +265,8 @@
                                 <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
                                     <input type="checkbox" x-model="f.is_required" class="h-4 w-4 rounded border-gray-300 text-brand-500" /> Required
                                 </label>
+                                <p x-show="f.field_type === 'checkbox' && !(f.field_options.options || []).length" x-cloak
+                                    class="mt-1 text-[10px] text-gray-400">A single checkmark is a yes/no answer — leaving it unchecked still satisfies Required.</p>
                             </div>
                             <div x-show="!['heading','static-text','signature','image','file','select','radio','checkbox'].includes(f.field_type)">
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Placeholder</label>
@@ -639,6 +641,17 @@
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Options</label>
                                 {{-- A dropdown can be pre-defined or drawn from registered entries;
                                      the search field is always drawn from registered entries. --}}
+                                <template x-if="f.field_type === 'select'">
+                                    <label class="mb-2 flex items-start gap-2 rounded-lg border border-gray-200 px-2.5 py-2 text-xs text-gray-600 dark:border-gray-700 dark:text-gray-300">
+                                        <input type="checkbox" :checked="!!f.field_options.multiple"
+                                            @change="setMultiple(f, $event.target.checked)"
+                                            data-multi-select-toggle class="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 text-brand-500" />
+                                        <span>
+                                            <span class="font-medium text-gray-700 dark:text-gray-200">Allow multiple selections</span>
+                                            <span class="block text-[10px] text-gray-400">Users can tick several options; each one is saved as its own row (like a text list).</span>
+                                        </span>
+                                    </label>
+                                </template>
                                 <template x-if="f.field_type === 'select'">
                                     <div class="mb-2 flex flex-wrap gap-3 text-xs text-gray-600 dark:text-gray-300">
                                         <label class="flex items-center gap-1.5">

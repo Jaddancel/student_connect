@@ -581,6 +581,16 @@ class FormRenderController extends Controller
                 continue;
             }
 
+            // A multi-select stores its chosen option values as a list — one
+            // row per selection, like a text list.
+            if (FieldType::isMultiSelect($type, (array) ($field->field_options ?? []))) {
+                $payload[$key] = array_values(array_unique(array_filter(
+                    array_map('strval', (array) ($validated[$key] ?? [])),
+                    fn ($v) => $v !== '',
+                )));
+                continue;
+            }
+
             if ($type === FieldType::TABLE_INPUT) {
                 $payload[$key] = $this->normalizeTableRows(
                     (array) ($validated[$key] ?? []),
@@ -677,7 +687,7 @@ class FormRenderController extends Controller
         // organization as the activity request the handler creates; otherwise
         // approval-time document generation rejects the pair as mismatched.
         $submissionOrgId = $form->system_function === SystemFunction::NEW_EVENT
-            ? (int) ($payload['organization_id'] ?? 0)
+            ? ((int) ($payload['organization_id'] ?? 0) ?: (int) ($organization?->getKey() ?? 0))
             : ($handler ? $form->organization_id : ($organization?->getKey() ?? $form->organization_id));
 
         // A reviewed manual draft records its provenance on the submission so an

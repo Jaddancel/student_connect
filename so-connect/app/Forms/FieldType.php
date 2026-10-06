@@ -187,6 +187,18 @@ final class FieldType
     }
 
     /**
+     * Whether a dropdown lets the user pick several options. Its value is then
+     * a list of chosen option values — one row per selection, like a text list.
+     *
+     * @param  array<string,mixed>  $options  the field's `field_options`
+     */
+    public static function isMultiSelect(string $type, array $options = []): bool
+    {
+        return $type === self::SELECT
+            && filter_var($options['multiple'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
      * Whether a field of this type may control another field's visibility
      * condition (it must carry a single comparable value).
      */
@@ -379,6 +391,16 @@ final class FieldType
                 break;
 
             case self::SELECT:
+                // A multi-select submits an array of chosen values; each element
+                // is checked against the choices in nestedValidationRules().
+                if (self::isMultiSelect($type, $options)) {
+                    $rules[] = 'array';
+                    if ($required) {
+                        $rules[] = 'min:1';
+                    }
+                    break;
+                }
+                // no break — a single select validates like a radio group.
             case self::RADIO:
                 // A sourced select validates against its scoped source set
                 // (values injected as `source_values` at submit time); a static
@@ -406,7 +428,10 @@ final class FieldType
                 if (! empty(self::optionValues($options))) {
                     $rules[] = 'array';
                 } else {
-                    $rules = [$required ? 'accepted' : 'nullable'];
+                    // A single checkmark is a yes/no answer: leaving it unchecked
+                    // is itself an answer (stored as 0), so "required" never
+                    // forces it to be ticked.
+                    $rules = ['nullable'];
                 }
                 break;
 
@@ -525,6 +550,14 @@ final class FieldType
      */
     public static function nestedValidationRules(string $type, array $options = []): array
     {
+        if (self::isMultiSelect($type, $options)) {
+            $choices = OptionSource::forField($options) !== null
+                ? self::sourceInRule($options)
+                : (self::optionValues($options) !== [] ? 'in:'.implode(',', self::optionValues($options)) : 'max:255');
+
+            return ['*' => ['string', 'distinct', $choices]];
+        }
+
         switch ($type) {
             case self::TEXT_LIST:
                 return ['*' => ['nullable', 'string', 'max:500']];

@@ -69,6 +69,10 @@ final class SubmissionPresenter
             case FieldType::SELECT:
             case FieldType::SEARCH:
             case FieldType::RADIO:
+                if (is_array($value)) {
+                    return implode(', ', self::optionLabels($value, $options));
+                }
+
                 return self::optionLabel((string) $value, $options);
 
             default:
@@ -78,6 +82,26 @@ final class SubmissionPresenter
 
                 return (string) $value;
         }
+    }
+
+    /**
+     * Display labels for a multi-select's chosen values (blanks dropped).
+     *
+     * @param  array<int|string,mixed>  $values
+     * @param  array<string,mixed>  $options
+     * @return array<int,string>
+     */
+    public static function optionLabels(array $values, array $options): array
+    {
+        $labels = [];
+        foreach ($values as $value) {
+            $value = trim((string) (is_scalar($value) ? $value : ''));
+            if ($value !== '') {
+                $labels[] = self::optionLabel($value, $options);
+            }
+        }
+
+        return $labels;
     }
 
     /**

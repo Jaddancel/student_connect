@@ -589,6 +589,12 @@ export function formBuilder(config) {
             this.rows.splice(i, 1);
         },
 
+        /** Dropdown "Allow multiple selections" toggle (multi-select). */
+        setMultiple(f, on) {
+            if (on) f.field_options.multiple = true;
+            else delete f.field_options.multiple;
+        },
+
         // --- conditional visibility ---
         setVisibilityMode(f, mode) {
             if (mode === "conditional") {

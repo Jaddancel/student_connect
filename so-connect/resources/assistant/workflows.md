@@ -73,9 +73,11 @@ Rules** is where scoring itself is configured:
    has no approval step) and can also test the fields of the New Event
    submission that created the reported event — they appear in the variable
    picker under "New Event (linked event)".
-4. List fields (text lists, tables, photo sets) are marked "(rows)" in the
-   variable picker: comparing one (e.g. "Faculty Advisers ≥ 2") compares its
-   number of rows, and "one instance per row of" adds one per row.
+4. List fields (text lists, tables, photo sets, multi-select dropdowns) are
+   marked "(rows)" in the variable picker: comparing one (e.g. "Faculty
+   Advisers ≥ 2") compares its number of rows, and "one instance per row of"
+   adds one per row. A single checkmark field compares only as "is / is not"
+   **Checked** or **Unchecked** (yes/no event-plan columns as **Yes** / **No**).
 5. Admins can also add brand-new **custom criteria** alongside the built-in
    ones.
 

@@ -159,6 +159,10 @@ class ManualDraftPayloadBuilder
             return ! empty($raw) ? 1 : 0;
         }
 
+        if (FieldType::isMultiSelect($type, (array) ($field->field_options ?? []))) {
+            return array_values(array_filter(array_map('strval', (array) $raw), fn ($v) => $v !== ''));
+        }
+
         return $raw;
     }
 

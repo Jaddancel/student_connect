@@ -17,6 +17,11 @@ use App\Models\FormSubmission;
 final class FieldKit
 {
     /**
+     * The organization picker (`organization_id`) is only mandatory where it
+     * decides WHICH organization the applicant joins (Sign Up, Membership).
+     * Everywhere else it is optional: without it, the submission belongs to the
+     * submitter's active organization ({@see \App\Support\OrganizationField::resolveOrganization()}).
+     *
      * @return array<string, array{label:string, types:string[], required:array<string,string>}>
      */
     public static function catalog(): array
@@ -60,7 +65,6 @@ final class FieldKit
                 'label' => 'New Event fields',
                 'types' => [FieldType::ORG_SELECT, FieldType::WAIVER_SCAN],
                 'required' => [
-                    'organization_id' => FieldType::ORG_SELECT,
                     'title' => FieldType::TEXT,
                     'target_date' => FieldType::DATE,
                     'event_location' => FieldType::TEXT,
@@ -113,9 +117,7 @@ final class FieldKit
             'project_request' => [
                 'label' => 'Project Request fields',
                 'types' => [FieldType::ORG_SELECT],
-                'required' => [
-                    'organization_id' => FieldType::ORG_SELECT,
-                ],
+                'required' => [],
             ],
             'organization_recognition' => [
                 'label' => 'Recognition fields',
@@ -124,9 +126,7 @@ final class FieldKit
                     FieldType::COMPUTED,
                     FieldType::WORKPLAN_SELECT,
                 ],
-                'required' => [
-                    'organization_id' => FieldType::ORG_SELECT,
-                ],
+                'required' => [],
             ],
             'accomplishment_report' => [
                 'label' => 'Accomplishment fields',
@@ -134,9 +134,7 @@ final class FieldKit
                     FieldType::ORG_SELECT,
                     FieldType::EVENT_SELECT,
                 ],
-                'required' => [
-                    'organization_id' => FieldType::ORG_SELECT,
-                ],
+                'required' => [],
             ],
             'financial_report' => [
                 'label' => 'Financial Report fields',

@@ -23,16 +23,19 @@ class NewEventHandler implements SystemFunctionHandler
 {
     use ResolvesPayloadKeys;
 
-    // Only the organization binding is structurally required. Every other
-    // (non-special) field is optional so officers aren't blocked mid-form; a
-    // blank target date defaults to today in handle() (the column is NOT NULL).
-    private const REQUIRED_KEYS = ['organization_id'];
-
+    // Every (non-special) field is optional so officers aren't blocked
+    // mid-form; a blank target date defaults to today in handle() (the column
+    // is NOT NULL). The organization comes from the form's organization picker
+    // when it has one, else the officer's active organization.
     public function validatePayload(Form $form, array $payload, Request $request): void
     {
-        $values = $this->requirePayloadKeys($form, $payload, self::REQUIRED_KEYS);
         $userId = (int) $request->user()->getKey();
-        $organizationId = (int) $values['organization_id'];
+        $organizationId = $this->organizationId($form, $payload, $request->user());
+        if ($organizationId <= 0) {
+            throw ValidationException::withMessages([
+                'form' => 'Choose the organization this event is for — you are not an officer of any organization.',
+            ]);
+        }
 
         $isOrganizationMember = DB::table('organization_officers')
             ->where('user', $userId)
@@ -65,7 +68,7 @@ class NewEventHandler implements SystemFunctionHandler
     public function handle(Form $form, FormSubmission $submission, array $payload, Request $request): RedirectResponse
     {
         $userId = (int) $request->user()->getKey();
-        $organizationId = (int) $this->payloadValue($form, $payload, 'organization_id');
+        $organizationId = $this->organizationId($form, $payload, $request->user());
 
         // target_date is optional but event_plans.target_date is NOT NULL — fall
         // back to today when the officer left it blank.

@@ -236,6 +236,11 @@ final class PdfTemplateRenderer
             return [$dom->createTextNode(implode(', ', $items))];
         }
 
+        // A multi-select prints like a text list: its chosen labels, comma-separated.
+        if (FieldType::isMultiSelect($type, $options)) {
+            return [$dom->createTextNode(implode(', ', SubmissionPresenter::optionLabels((array) ($payload[$key] ?? []), $options)))];
+        }
+
         if (in_array($type, [FieldType::IMAGE, FieldType::SIGNATURE], true)) {
             $uris = SubmissionPresenter::imageDataUris($payload, $key, $disk);
             $nodes = [];

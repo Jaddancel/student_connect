@@ -203,6 +203,12 @@ class DocxTemplateData
             ));
         }
 
+        // A multi-select behaves like a text list: one item (label) per
+        // selection, so `{{key#}}` repeats a row per chosen option.
+        if (FieldType::isMultiSelect($type, $options)) {
+            return SubmissionPresenter::optionLabels((array) ($payload[$key] ?? []), $options);
+        }
+
         if ($type === FieldType::FILE) {
             $names = [];
 

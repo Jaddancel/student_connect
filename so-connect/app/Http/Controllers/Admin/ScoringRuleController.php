@@ -89,7 +89,7 @@ class ScoringRuleController extends Controller
             $criterion,
         );
 
-        return redirect()->route('admin.scoring.rules.index')
+        return redirect()->to(self::indexUrl($criterion))
             ->with('toast', 'Saved!');
     }
 
@@ -114,7 +114,7 @@ class ScoringRuleController extends Controller
             $criterion,
         );
 
-        return redirect()->route('admin.scoring.rules.index')
+        return redirect()->to(self::indexUrl($criterion))
             ->with('toast', 'Saved!');
     }
 
@@ -132,7 +132,7 @@ class ScoringRuleController extends Controller
             ['key' => $criterion->key],
         );
 
-        return redirect()->route('admin.scoring.rules.index')
+        return redirect()->to(self::indexUrl($criterion))
             ->with('toast', 'Saved!');
     }
 
@@ -141,6 +141,7 @@ class ScoringRuleController extends Controller
         return view('pages.admin.scoring.rules.editor', [
             'title' => 'Trigger — '.$criterion->label,
             'criterion' => $criterion,
+            'backUrl' => self::indexUrl($criterion),
             'rule' => $criterion->rule,
             'trigger' => $criterion->rule?->trigger,
             'categories' => ScoringCatalog::categories(),
@@ -180,7 +181,7 @@ class ScoringRuleController extends Controller
 
         return response()->json([
             'message' => 'Saved!',
-            'redirect' => route('admin.scoring.rules.index'),
+            'redirect' => self::indexUrl($criterion),
         ]);
     }
 
@@ -199,7 +200,7 @@ class ScoringRuleController extends Controller
             $rule,
         );
 
-        return redirect()->route('admin.scoring.rules.index')
+        return redirect()->to(self::indexUrl($criterion))
             ->with('toast', 'Saved!');
     }
 
@@ -214,8 +215,16 @@ class ScoringRuleController extends Controller
             ['criterion' => $criterion->key],
         );
 
-        return redirect()->route('admin.scoring.rules.index')
+        return redirect()->to(self::indexUrl($criterion))
             ->with('toast', 'Saved!');
+    }
+
+    /**
+     * The rules list, scrolled to the criterion's category section.
+     */
+    private static function indexUrl(ScoringCriterion $criterion): string
+    {
+        return route('admin.scoring.rules.index').'#category-'.$criterion->category_key;
     }
 
     /**
@@ -250,6 +259,8 @@ class ScoringRuleController extends Controller
                         'key' => $f->field_key,
                         'label' => $f->field_label,
                         'type' => $f->field_type,
+                        // A multi-select holds a list (one row per pick).
+                        'multiple' => \App\Forms\FieldType::isMultiSelect($f->field_type, (array) ($f->field_options ?? [])),
                         // Selectable states for the value picker: a dynamic
                         // source resolves its entries (admin/unscoped — scoring
                         // spans every organization); a static field uses its

@@ -14,6 +14,23 @@
 const LIST_FIELD_TYPES = ['text-list', 'table-input', 'multi-image', 'workplan-events'];
 const NUMBER_TYPES = ['number', 'age', 'computed'];
 
+const COMPARE_OPS = [
+    { value: '=', label: 'is' },
+    { value: '!=', label: 'is not' },
+    { value: '>', label: '>' },
+    { value: '>=', label: '≥' },
+    { value: '<', label: '<' },
+    { value: '<=', label: '≤' },
+    { value: 'contains', label: 'contains' },
+    { value: 'not_empty', label: 'is filled in' },
+];
+
+// A two-state variable compares only with is / is not against its two states
+// (a submitted checkmark stores 1 / 0; a yes/no plan column is a boolean).
+const BINARY_OPS = COMPARE_OPS.slice(0, 2);
+const CHECKBOX_STATES = [{ value: '1', label: 'Checked' }, { value: '0', label: 'Unchecked' }];
+const YES_NO_STATES = [{ value: '1', label: 'Yes' }, { value: '0', label: 'No' }];
+
 export function tallyEditor(config) {
     return {
         saveUrl: config.saveUrl,
@@ -105,12 +122,13 @@ export function tallyEditor(config) {
         },
 
         /**
-         * Picker label for a form field. List fields (text list, table, images)
+         * Picker label for a form field. List fields (text list, table, images,
+         * multi-select dropdowns)
          * are flagged: comparing them (≥, <, …) or dividing them uses their row
          * count, and "one instance per row of" counts their rows.
          */
         fieldLabel(fld) {
-            return LIST_FIELD_TYPES.includes(fld.type) ? `${fld.label} (rows)` : fld.label;
+            return LIST_FIELD_TYPES.includes(fld.type) || fld.multiple ? `${fld.label} (rows)` : fld.label;
         },
 
         /** The field definition behind a `field:<key>` / `new_event:<key>` variable (for option pickers). */
@@ -130,8 +148,38 @@ export function tallyEditor(config) {
 
         /** Option pairs to offer as the comparison value for a row's variable. */
         optionsFor(row) {
+            const states = this.binaryStates(row.var);
+            if (states) return states;
             const def = this.varDef(row.var);
             return def && def.options && def.options.length ? def.options : null;
+        },
+
+        /**
+         * The two states of a checked/unchecked variable — a single checkmark
+         * field (a checkbox with no option list) or a yes/no plan column — or
+         * null for any other variable.
+         */
+        binaryStates(varKey) {
+            const def = this.varDef(varKey);
+            if (def && def.type === 'checkbox' && !(def.options && def.options.length)) return CHECKBOX_STATES;
+            if (varKey && varKey.startsWith('plan:')) {
+                const plan = this.variables.plan.find((p) => `plan:${p.key}` === varKey);
+                if (plan && plan.type === 'boolean') return YES_NO_STATES;
+            }
+            return null;
+        },
+
+        /** Operators a row's variable may use. */
+        opsFor(row) {
+            return this.binaryStates(row.var) ? BINARY_OPS : COMPARE_OPS;
+        },
+
+        /** Snap a row onto a two-state variable's allowed operators/values. */
+        normalizeRow(row) {
+            if (!this.binaryStates(row.var)) return;
+            if (!['=', '!='].includes(row.op)) row.op = '=';
+            const v = String(row.value ?? '').trim().toLowerCase();
+            row.value = ['0', 'false', 'no'].includes(v) ? '0' : '1';
         },
 
         needsValue(row) {
@@ -164,6 +212,8 @@ export function tallyEditor(config) {
             this.formId = when.form_id ? String(when.form_id) : (this.variables.forms[0] ? String(this.variables.forms[0].id) : '');
 
             this.root = this.groupFromAst(trigger.if);
+            const visit = (group) => group.children.forEach((c) => (c.kind === 'group' ? visit(c) : this.normalizeRow(c)));
+            visit(this.root);
 
             const add = (trigger.then && trigger.then.add) || {};
             this.add = {

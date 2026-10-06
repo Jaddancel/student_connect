@@ -22,9 +22,13 @@ class OrgAccreditationHandler implements SystemFunctionHandler
 
     public function validatePayload(Form $form, array $payload, Request $request): void
     {
-        $values = $this->requirePayloadKeys($form, $payload, ['organization_id']);
-        $organizationId = (int) $values['organization_id'];
+        $organizationId = $this->organizationId($form, $payload, $request->user());
 
+        if ($organizationId <= 0) {
+            throw ValidationException::withMessages([
+                'form' => 'Choose the organization this application is for — you are not an officer of any organization.',
+            ]);
+        }
         if (! DB::table('organizations')->where('organization_id', $organizationId)->exists()) {
             throw ValidationException::withMessages([
                 'form' => 'The selected organization does not exist.',
@@ -35,7 +39,7 @@ class OrgAccreditationHandler implements SystemFunctionHandler
     public function handle(Form $form, FormSubmission $submission, array $payload, Request $request): RedirectResponse
     {
         $userId = (int) ($request->user()?->getKey() ?? 0);
-        $organizationId = (int) $this->payloadValue($form, $payload, 'organization_id');
+        $organizationId = $this->organizationId($form, $payload, $request->user());
 
         app(DocumentGenerationService::class)->createDocumentGenerationRequest(
             $organizationId ?: null,

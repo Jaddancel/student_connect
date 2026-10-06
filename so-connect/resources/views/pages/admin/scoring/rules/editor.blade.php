@@ -27,7 +27,7 @@
                         <input type="checkbox" x-model="enabled" class="h-4 w-4 rounded border-gray-300 text-brand-500" />
                         Trigger enabled
                     </label>
-                    <a href="{{ route('admin.scoring.rules.index') }}"
+                    <a href="{{ $backUrl }}"
                         class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
                         Back
                     </a>
@@ -89,7 +89,7 @@
                                 <label class="flex items-center gap-1 text-xs text-gray-500">
                                     <input type="checkbox" x-model="child.not" class="h-3.5 w-3.5 rounded border-gray-300 text-brand-500" /> not
                                 </label>
-                                <select x-model="child.var" class="h-9 min-w-[10rem] rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                <select x-model="child.var" @change="$nextTick(() => normalizeRow(child))" class="h-9 min-w-[10rem] rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                                     <option value="">— variable —</option>
                                     <template x-for="g in variableGroups" :key="g.label">
                                         <optgroup :label="g.label">
@@ -100,14 +100,9 @@
                                     </template>
                                 </select>
                                 <select x-model="child.op" class="h-9 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                                    <option value="=">is</option>
-                                    <option value="!=">is not</option>
-                                    <option value=">">&gt;</option>
-                                    <option value=">=">&ge;</option>
-                                    <option value="<">&lt;</option>
-                                    <option value="<=">&le;</option>
-                                    <option value="contains">contains</option>
-                                    <option value="not_empty">is filled in</option>
+                                    <template x-for="o in opsFor(child)" :key="o.value">
+                                        <option :value="o.value" x-text="o.label" :selected="o.value === child.op"></option>
+                                    </template>
                                 </select>
                                 <template x-if="needsValue(child)">
                                     <span>
@@ -144,7 +139,7 @@
                                 <template x-for="(gc, gci) in child.children" :key="gci">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <label class="flex items-center gap-1 text-xs text-gray-500"><input type="checkbox" x-model="gc.not" class="h-3.5 w-3.5 rounded border-gray-300 text-brand-500" /> not</label>
-                                        <select x-model="gc.var" class="h-9 min-w-[9rem] rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                        <select x-model="gc.var" @change="$nextTick(() => normalizeRow(gc))" class="h-9 min-w-[9rem] rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                                             <option value="">— variable —</option>
                                             <template x-for="g in variableGroups" :key="g.label">
                                                 <optgroup :label="g.label">
@@ -155,10 +150,9 @@
                                             </template>
                                         </select>
                                         <select x-model="gc.op" class="h-9 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                                            <option value="=">is</option><option value="!=">is not</option>
-                                            <option value=">">&gt;</option><option value=">=">&ge;</option>
-                                            <option value="<">&lt;</option><option value="<=">&le;</option>
-                                            <option value="contains">contains</option><option value="not_empty">is filled in</option>
+                                            <template x-for="o in opsFor(gc)" :key="o.value">
+                                                <option :value="o.value" x-text="o.label" :selected="o.value === gc.op"></option>
+                                            </template>
                                         </select>
                                         <template x-if="needsValue(gc)">
                                             <span>

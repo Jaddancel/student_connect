@@ -171,7 +171,8 @@ class SignatureEnroller
      */
     private function namesAPerson(FormDescription $field): bool
     {
-        if (! in_array($field->field_type, [FieldType::TEXT, FieldType::SELECT, FieldType::SEARCH], true)) {
+        if (! in_array($field->field_type, [FieldType::TEXT, FieldType::SELECT, FieldType::SEARCH], true)
+            || FieldType::isMultiSelect($field->field_type, (array) ($field->field_options ?? []))) {
             return false;
         }
 
