@@ -55,10 +55,43 @@
                     No backups yet.
                 </p>
             @else
-                <div class="mt-6 overflow-x-auto">
+                @php($backupNames = array_column($backups, 'name'))
+                <div class="mt-6" x-data="{ all: @js($backupNames), selected: [] }" :class="selected.length > 0 && 'pb-20'">
+                    <form method="POST" action="{{ route('superadmin.backups.bulk') }}" x-show="selected.length > 0" x-cloak
+                        x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-4"
+                        x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150"
+                        x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 translate-y-4"
+                        class="fixed inset-x-0 bottom-6 z-40 mx-auto flex w-[calc(100%-2rem)] max-w-xl flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-theme-lg dark:border-gray-700 dark:bg-gray-900">
+                        @csrf
+                        <template x-for="name in selected" :key="name">
+                            <input type="hidden" name="filenames[]" :value="name">
+                        </template>
+                        <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <span x-text="selected.length"></span> selected
+                            <button type="button" @click="selected = []"
+                                class="ml-2 text-xs font-normal text-gray-500 underline hover:text-gray-700 dark:text-gray-400">Clear</button>
+                        </p>
+                        <div class="flex items-center gap-2">
+                            <button type="submit" name="action" value="archive"
+                                @click="if (! confirm(`Archive ${selected.length} backup(s)? They will be moved to the archived section.`)) $event.preventDefault()"
+                                class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-transparent dark:text-gray-300">Archive selected</button>
+                            <button type="submit" name="action" value="delete"
+                                @click="if (! confirm(`Delete ${selected.length} backup(s)? This cannot be undone.`)) $event.preventDefault()"
+                                class="rounded-lg bg-error-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-error-600">Delete selected</button>
+                        </div>
+                    </form>
+
+                <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm">
                         <thead class="text-xs uppercase tracking-wide text-gray-400">
                             <tr>
+                                <th class="w-8 pb-2">
+                                    <input type="checkbox" aria-label="Select all backups"
+                                        class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-700"
+                                        :checked="selected.length === all.length"
+                                        :indeterminate="selected.length > 0 && selected.length < all.length"
+                                        @change="selected = $event.target.checked ? [...all] : []">
+                                </th>
                                 <th class="pb-2">Backup</th>
                                 <th class="pb-2">Size</th>
                                 <th class="pb-2">Created</th>
@@ -67,7 +100,12 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                             @foreach ($backups as $backup)
-                                <tr>
+                                <tr :class="selected.includes(@js($backup['name'])) && 'bg-brand-50/50 dark:bg-brand-500/5'">
+                                    <td class="py-3">
+                                        <input type="checkbox" value="{{ $backup['name'] }}" x-model="selected"
+                                            aria-label="Select {{ $backup['name'] }}"
+                                            class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-700">
+                                    </td>
                                     <td class="py-3 font-mono text-xs text-gray-700 dark:text-gray-300">{{ $backup['name'] }}</td>
                                     <td class="py-3 text-gray-500 dark:text-gray-400">{{ number_format($backup['size'] / 1024, 1) }} KB</td>
                                     <td class="py-3 text-gray-500 dark:text-gray-400">{{ \Illuminate\Support\Carbon::createFromTimestamp($backup['last_modified'])->diffForHumans() }}</td>
@@ -104,6 +142,7 @@
                             @endforeach
                         </tbody>
                     </table>
+                </div>
                 </div>
             @endif
         </section>

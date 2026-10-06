@@ -208,3 +208,63 @@ it('refuses uploaded archives without an SQL dump', function () {
     expect(fn () => $service->restoreFromUpload(new UploadedFile($path, 'x.zip', 'application/zip', null, true)))
         ->toThrow(RuntimeException::class, 'no SQL dump');
 });
+
+it('aborts a restore without wiping the database when no safety backup could be taken', function () {
+    $service = Mockery::mock(BackupService::class)->makePartial();
+    $service->shouldReceive('create')->once()->andReturnNull();
+
+    expect(fn () => $service->restoreFromUpload(backupZipUpload("SELECT 1;\n")))
+        ->toThrow(RuntimeException::class, 'safety backup');
+
+    expect(Illuminate\Support\Facades\Schema::hasTable('users'))->toBeTrue();
+});
+
+it('bulk archives selected backups and audits each one', function () {
+    Storage::fake('backups');
+    foreach (['b1.zip', 'b2.zip', 'b3.zip'] as $name) {
+        Storage::disk('backups')->put(backupDir().'/'.$name, 'x');
+    }
+
+    $this->actingAs(recordsUser(1))
+        ->post(route('superadmin.backups.bulk'), ['action' => 'archive', 'filenames' => ['b1.zip', 'b2.zip']])
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Archived 2 backups.');
+
+    $service = app(BackupService::class);
+    expect(collect($service->list())->pluck('name')->all())->toBe(['b3.zip']);
+    expect(collect($service->listArchived())->pluck('name')->sort()->values()->all())->toBe(['b1.zip', 'b2.zip']);
+    expect(DB::table('action_logs')->where('action', 'backup_archived')->count())->toBe(2);
+});
+
+it('bulk deletes selected backups and reports ones that could not be processed', function () {
+    Storage::fake('backups');
+    Storage::disk('backups')->put(backupDir().'/b1.zip', 'x');
+    Storage::disk('backups')->put(backupDir().'/b2.zip', 'x');
+
+    $this->actingAs(recordsUser(1))
+        ->post(route('superadmin.backups.bulk'), ['action' => 'delete', 'filenames' => ['b1.zip', '../b2.zip']])
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Deleted 2 backups.');
+
+    expect(Storage::disk('backups')->files(backupDir()))->toBe([]);
+    expect(DB::table('action_logs')->where('action', 'backup_deleted')->count())->toBe(2);
+
+    Storage::disk('backups')->put(backupDir().'/b3.zip', 'x');
+
+    $this->actingAs(recordsUser(1))
+        ->post(route('superadmin.backups.bulk'), ['action' => 'archive', 'filenames' => ['b3.zip', 'missing.zip']])
+        ->assertSessionHas('success', 'Archived 1 backup.')
+        ->assertSessionHasErrors('backup');
+});
+
+it('validates bulk backup requests', function () {
+    $this->actingAs(recordsUser(1))
+        ->post(route('superadmin.backups.bulk'), ['action' => 'restore', 'filenames' => []])
+        ->assertSessionHasErrors(['action', 'filenames']);
+});
+
+it('forbids non-super-admins from bulk backup operations', function () {
+    $this->actingAs(recordsUser(2))
+        ->post(route('superadmin.backups.bulk'), ['action' => 'delete', 'filenames' => ['b1.zip']])
+        ->assertForbidden();
+});

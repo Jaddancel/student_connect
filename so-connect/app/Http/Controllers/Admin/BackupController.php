@@ -93,6 +93,50 @@ class BackupController extends Controller
         return back()->with('success', 'Backup deleted.');
     }
 
+    /**
+     * Archive or delete several active backups at once. Each file is audited
+     * individually, under the same action names as the single-file operations.
+     */
+    public function bulk(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'action' => ['required', 'in:archive,delete'],
+            'filenames' => ['required', 'array', 'min:1'],
+            'filenames.*' => ['required', 'string'],
+        ], [
+            'filenames.required' => 'Select at least one backup.',
+        ]);
+
+        $archive = $data['action'] === 'archive';
+        $done = 0;
+        $failed = [];
+
+        foreach (array_unique(array_map('basename', $data['filenames'])) as $filename) {
+            try {
+                $archive ? $this->backups->archive($filename) : $this->backups->delete($filename);
+            } catch (\Throwable $e) {
+                $failed[] = $filename;
+
+                continue;
+            }
+
+            $done++;
+            $archive
+                ? ActionLogger::log(ActionLogger::CATEGORY_SETTINGS, 'backup_archived', 'Archived backup '.$filename, ['file' => $filename, 'bulk' => true])
+                : ActionLogger::log(ActionLogger::CATEGORY_SETTINGS, 'backup_deleted', 'Deleted backup '.$filename, ['file' => $filename, 'bulk' => true]);
+        }
+
+        $response = back();
+        if ($done > 0) {
+            $response->with('success', ($archive ? 'Archived ' : 'Deleted ').$done.' backup'.($done === 1 ? '' : 's').'.');
+        }
+        if ($failed) {
+            $response->withErrors(['backup' => 'Could not '.$data['action'].': '.implode(', ', $failed).'.']);
+        }
+
+        return $response;
+    }
+
     public function restore(string $filename): RedirectResponse
     {
         try {
