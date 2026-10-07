@@ -22,6 +22,7 @@ import { manualFormStart, manualScanUploader } from "./components/manual-form";
 import { registerAgeAutofill } from "./components/age-autofill";
 import { computedField, tableColumnSumField } from "./components/computed-field";
 import { postViewer } from "./components/post-viewer";
+import { eventCountdown } from "./components/event-countdown";
 
 // flatpickr
 import flatpickr from "flatpickr";
@@ -53,6 +54,7 @@ Alpine.data("manualScanUploader", manualScanUploader);
 Alpine.data("computedField", computedField);
 Alpine.data("tableColumnSumField", tableColumnSumField);
 Alpine.data("postViewer", postViewer);
+Alpine.data("eventCountdown", eventCountdown);
 
 // Shared by table-input fields (tableSums) and `computed` fields
 // (computedValues) so a computed field can live-recompute from either without

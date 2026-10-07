@@ -75,6 +75,12 @@ Route::get('/', [LandingPage::class, 'view'])->name('home');
 Route::get('/organizations/{organizationId}/{slug?}', [LandingPage::class, 'organizationFeed'])
     ->whereNumber('organizationId')
     ->name('organization-feed');
+Route::get('/organizations/{organizationId}/{slug}/members', [LandingPage::class, 'organizationMembers'])
+    ->whereNumber('organizationId')
+    ->name('organization-members');
+Route::get('/organizations/{organizationId}/{slug}/events', [LandingPage::class, 'organizationEvents'])
+    ->whereNumber('organizationId')
+    ->name('organization-events');
 
 // dashboard pages
 Route::get('/sample_dashboard', function () {

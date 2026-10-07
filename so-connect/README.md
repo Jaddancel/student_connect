@@ -3,6 +3,14 @@
 **TailAdmin Laravel** is a modern, production-ready admin dashboard template powered by **Laravel 12**, **Tailwind CSS v4**, **Alpine.js**, and a clean, modular architecture. TailAdmin is one of the most popular Tailwind CSS dashboard now also available for Larvael. It’s designed for building fast, scalable admin panels, CRM dashboards, SaaS backends, and any data-driven application where clarity and performance matter.
 ![TailAdmin - Next.js Dashboard Preview](./tailadmin-laravel.png)
 
+## Organization events
+
+The public organization **Events** tab shows only approved activity requests
+with an accepted admin approval and scheduled start/end times. It highlights
+the next upcoming event with a live hours/minutes/seconds countdown and lists
+event cards nearest to the current date first. Event times use the configured
+display timezone. Pending, rejected, and workplan-only activities are excluded.
+
 ## Organization post viewer
 
 Click a post card or **View post** in an organization's feed to open a full-screen
@@ -12,11 +20,13 @@ image on mobile). Use the on-screen arrows or Left/Right arrow keys to cycle thr
 attachments; Escape or the close button returns to the feed. Posts without media
 still display their full text, and video posts retain playback controls.
 
-In the Posts editor, select up to 20 JPEG, PNG, or WebP images, each at most 4 MB.
-The first image remains the thumbnail. New uploads or a different library image
-replace the existing image set; text-only edits preserve it. A video replaces the
-image set. Shared library files are never deleted when a post is replaced or
-removed. Existing single-image posts work without backfilling.
+In the Posts editor, a post can have up to 20 images. Click several tiles in the
+Event gallery or Accomplishment Library to toggle them on or off, in the order
+picked. You can also upload JPEG, PNG, or WebP files of up to 4 MB each; uploads
+go after the picked images. Selected images can be reordered or removed, and the
+first one becomes the cover thumbnail. A video replaces the image set. Uploaded
+files are deleted when removed from a post, but shared library and gallery files
+are never deleted. Existing single-image posts work without backfilling.
 
 Deploy with `php artisan migrate` and `npm run build`. Targeted checks:
 `php artisan test tests/Feature/PostImageViewerTest.php tests/Feature/PostAfterEventMediaGalleryTest.php`

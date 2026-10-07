@@ -75,12 +75,20 @@ it('lets an admin open the builder pages', function () {
     $this->actingAs($admin)->get(route('admin.form-builder.create'))->assertOk();
 });
 
-it('does not require extension services on the new event form', function () {
+it('requires the core fields on the new event form and keeps extension services optional', function () {
     app(\Database\Seeders\FormPagesSeeder::class)->run();
 
     $form = Form::where('route_name', 'new-event')->firstOrFail();
-    $field = $form->fields()->where('field_key', 'extension_services')->firstOrFail();
+    $requiredKeys = ['title', 'target_date', 'event_location', 'event_start_time', 'event_end_time'];
 
+    foreach ($requiredKeys as $fieldKey) {
+        $field = $form->fields()->where('field_key', $fieldKey)->firstOrFail();
+        expect((bool) $field->is_required)->toBeTrue();
+    }
+
+    expect($form->fields()->where('field_key', 'target_date')->firstOrFail()->field_type)->toBe('date');
+
+    $field = $form->fields()->where('field_key', 'extension_services')->firstOrFail();
     expect((bool) $field->is_required)->toBeFalse();
 });
 

@@ -292,9 +292,9 @@ class FormPagesSeeder extends Seeder
         $fields = [
             $this->f('title', 'Activity / Title', FieldType::TEXT, ['required' => true]),
             $this->f('target_date', 'Target Date', FieldType::DATE, ['required' => true]),
-            $this->f('event_location', 'Event Location', FieldType::TEXT),
-            $this->f('event_start_time', 'Start', FieldType::TIME),
-            $this->f('event_end_time', 'End', FieldType::TIME),
+            $this->f('event_location', 'Event Location', FieldType::TEXT, ['required' => true]),
+            $this->f('event_start_time', 'Start', FieldType::TIME, ['required' => true]),
+            $this->f('event_end_time', 'End', FieldType::TIME, ['required' => true]),
             $this->f('purpose_of_activity', 'Purpose of Activity', FieldType::TEXTAREA, [
                 'required' => true,
                 'options' => ['rows' => 4],

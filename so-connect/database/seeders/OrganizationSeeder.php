@@ -94,6 +94,11 @@ class OrganizationSeeder extends Seeder
             ['College of Education - Student Council', 6],
             ['Laboratory School - Student Council', 6],
             ['Supreme Student Council', 6],
+            ['TAU Lakas Angkan Youth Fellowship', 2],
+            ['TAU Latter-Day Saints Student Association', 2],
+            ['Daniel Generations', 2],
+            ['Christian Brotherhood International - TAU Chapter', 2],
+            ['TAU-SIBOL Association of DOST Scholars', 1]
         ];
 
         foreach ($orgNameAndTypes as $orgAndType) {

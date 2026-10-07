@@ -529,7 +529,7 @@
                             $cat6rows = [
                                 ['cat6_documents',    'Required Documents Submitted',          50, false],
                                 ['cat6_meetings',     'General Meetings with Minutes (>30 min)',25, false],
-                                ['cat6_leadership',   'Leadership Training Participated',       15, true],
+                                ['cat6_leadership',   'Leadership Training Participated',       15, false],
                                 ['cat6_transparency', 'Financial/Transparency Report Submitted',10, false],
                             ];
                             @endphp

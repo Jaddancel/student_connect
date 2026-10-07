@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Forms\SystemFunction;
 use App\Helpers\OrganizationLogoHelper;
+use App\Models\EventPlan;
 use App\Models\Post;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -72,14 +75,8 @@ class LandingPage extends Controller
 
     public function organizationFeed(int $organizationId, ?string $slug = null)
     {
-        $organizationTypes = $this->organizationTypes();
         $organizations = $this->organizationDirectory();
-        $organizationsByType = $organizations->groupBy('type')->all();
-
-        $organization = $organizations->firstWhere('id', $organizationId);
-        if (! $organization) {
-            abort(404);
-        }
+        $organization = $organizations->firstWhere('id', $organizationId) ?? abort(404);
 
         if ($slug !== null && $slug !== $organization['slug']) {
             return redirect()->route('organization-feed', [
@@ -97,7 +94,183 @@ class LandingPage extends Controller
                 ->get()
             : collect();
 
-        return view('landingPage.organization', compact('organization', 'posts', 'organizationTypes', 'organizationsByType'));
+        $publishedPostCount = $posts->filter(fn ($post) => ($post->status ?? 'published') === 'published')->count();
+
+        return $this->organizationPage($organizations, $organization, 'posts', [
+            'posts' => $posts,
+            'publishedPostCount' => $publishedPostCount,
+        ]);
+    }
+
+    public function organizationMembers(int $organizationId, string $slug)
+    {
+        $organizations = $this->organizationDirectory();
+        $organization = $organizations->firstWhere('id', $organizationId) ?? abort(404);
+
+        if ($slug !== $organization['slug']) {
+            return redirect()->route('organization-members', [
+                'organizationId' => $organization['id'],
+                'slug' => $organization['slug'],
+            ]);
+        }
+
+        $publishedPostCount = Schema::hasTable('posts')
+            ? Post::query()->where('organization', $organizationId)->where('status', 'published')->count()
+            : 0;
+
+        return $this->organizationPage($organizations, $organization, 'members', [
+            'publishedPostCount' => $publishedPostCount,
+        ]);
+    }
+
+    public function organizationEvents(int $organizationId, string $slug)
+    {
+        $organizations = $this->organizationDirectory();
+        $organization = $organizations->firstWhere('id', $organizationId) ?? abort(404);
+
+        if ($slug !== $organization['slug']) {
+            return redirect()->route('organization-events', [
+                'organizationId' => $organization['id'],
+                'slug' => $organization['slug'],
+            ]);
+        }
+
+        $timezone = config('app.display_timezone', 'Asia/Manila');
+        $now = now($timezone);
+        $events = EventPlan::query()
+            ->where('organization_id', $organizationId)
+            ->where('status', 'approved')
+            ->whereNotNull('event_start_time')
+            ->whereNotNull('event_end_time')
+            ->whereHas('request', function ($query) {
+                $query->whereHas('form', fn ($form) => $form->where('system_function', SystemFunction::NEW_EVENT))
+                    ->whereExists(function ($approval) {
+                        $approval->selectRaw('1')
+                            ->from('approvals')
+                            ->whereColumn('approvals.request', 'requests.request_id')
+                            ->where('is_rejected', false)
+                            ->whereNotNull('approved_at')
+                            ->where(fn ($stage) => $stage->whereNull('stage')->orWhere('stage', 'admin'));
+                    });
+            })
+            ->orderBy('event_start_time')
+            ->orderBy('event_plan_id')
+            ->get()
+            ->map(function ($plan) use ($timezone) {
+                // Builder times are stored as local wall-clock datetimes, not UTC.
+                $start = Carbon::parse($plan->getRawOriginal('event_start_time'), $timezone);
+                $end = Carbon::parse($plan->getRawOriginal('event_end_time'), $timezone);
+
+                return [
+                    'id' => (int) $plan->getKey(),
+                    'title' => $plan->title,
+                    'location' => $plan->event_location,
+                    'date' => $start->format('F j, Y'),
+                    'start' => $start->toIso8601String(),
+                    'end' => $end->toIso8601String(),
+                    'start_time' => $start->format('g:i A'),
+                    'end_time' => $end->format('g:i A'),
+                ];
+            });
+
+        $upcomingEvents = $events->filter(fn ($event) => Carbon::parse($event['start'])->gt($now))->values();
+        $events = $events->sortBy(fn ($event) => abs(Carbon::parse($event['start'])->getTimestamp() - $now->getTimestamp()))->values();
+        $publishedPostCount = Post::query()->where('organization', $organizationId)->where('status', 'published')->count();
+
+        return $this->organizationPage($organizations, $organization, 'events', [
+            'events' => $events,
+            'upcomingEvents' => $upcomingEvents,
+            'publishedPostCount' => $publishedPostCount,
+        ]);
+    }
+
+    private function organizationPage(Collection $organizations, array $organization, string $activeTab, array $data)
+    {
+        ['officers' => $officers, 'members' => $members] = $this->organizationRoster($organization['id']);
+
+        return view('landingPage.organization', array_merge([
+            'organization' => $organization,
+            'organizationTypes' => $this->organizationTypes(),
+            'organizationsByType' => $organizations->groupBy('type')->all(),
+            'activeTab' => $activeTab,
+            'officers' => $officers,
+            'members' => $members,
+            'memberCount' => $officers->count() + $members->count(),
+            'posts' => collect(),
+        ], $data));
+    }
+
+    /**
+     * Public roster for an organization. "Officers" are rows whose organization
+     * role is president/officer; everyone else is a regular member. A user is
+     * listed once — under their highest role.
+     *
+     * @return array{officers: Collection, members: Collection}
+     */
+    private function organizationRoster(int $organizationId): array
+    {
+        if (! Schema::hasTable('organization_officers')) {
+            return ['officers' => collect(), 'members' => collect()];
+        }
+
+        // Officer cards follow this order; any other position comes after, by name.
+        $positionOrder = ['president' => 0, 'secretary' => 1, 'auditor' => 2, 'treasurer' => 3];
+
+        $rows = DB::table('organization_officers as oo')
+            ->join('users as u', 'u.user_id', '=', 'oo.user')
+            ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+            ->where('oo.organization', $organizationId)
+            ->get([
+                'oo.org_officer_id',
+                'oo.user',
+                'oo.role',
+                'oo.position',
+                'oo.member_since',
+                'p.first_name',
+                'p.last_name',
+                'p.photo',
+                'p.course',
+                'p.year_section',
+                'p.course_year',
+            ])
+            ->map(function ($row) use ($positionOrder) {
+                $role = strtolower((string) $row->role);
+                $isOfficer = in_array($role, ['president', 'officer'], true);
+                $position = trim((string) $row->position);
+
+                if ($role === 'president') {
+                    $title = 'President';
+                } elseif ($isOfficer) {
+                    $title = $position !== '' && strcasecmp($position, 'Others') !== 0 ? $position : 'Officer';
+                } else {
+                    $title = 'Member';
+                }
+
+                $name = trim(($row->first_name ?? '').' '.($row->last_name ?? ''));
+                $courseYear = $row->course_year
+                    ?: trim(implode(' ', array_filter([$row->course, $row->year_section])));
+
+                return [
+                    'user_id' => (int) $row->user,
+                    'is_officer' => $isOfficer,
+                    'name' => $name !== '' ? $name : 'Unnamed Member',
+                    'initials' => strtoupper(substr((string) $row->first_name, 0, 1).substr((string) $row->last_name, 0, 1)) ?: '?',
+                    'title' => $title,
+                    'rank' => $isOfficer ? ($positionOrder[strtolower($title)] ?? count($positionOrder)) : PHP_INT_MAX,
+                    'photo_url' => $row->photo ? '/storage/'.ltrim($row->photo, '/') : null,
+                    'course_year' => $courseYear !== '' ? $courseYear : null,
+                    'member_since' => $row->member_since ? Carbon::parse($row->member_since) : null,
+                    'sort_name' => strtolower(($row->last_name ?? '').' '.($row->first_name ?? '')),
+                ];
+            })
+            ->sortBy([['rank', 'asc'], ['sort_name', 'asc']])
+            ->unique('user_id')
+            ->values();
+
+        return [
+            'officers' => $rows->where('is_officer', true)->values(),
+            'members' => $rows->where('is_officer', false)->values(),
+        ];
     }
 
     private function organizationTypes(): array
@@ -179,5 +352,4 @@ class LandingPage extends Controller
             ];
         });
     }
-
 }

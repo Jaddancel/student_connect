@@ -196,7 +196,13 @@
                 ->map(fn($word) => strtoupper($word[0]))
                 ->implode('');
 
-            $publishedPosts = $posts->filter(fn($p) => ($p->status ?? 'published') === 'published');
+            $orgRouteParams = ['organizationId' => $organization['id'], 'slug' => $organization['slug']];
+            $tabs = [
+                'posts' => ['label' => 'Posts', 'url' => route('organization-feed', $orgRouteParams)],
+                'about' => ['label' => 'About', 'url' => null],
+                'members' => ['label' => 'Members', 'url' => route('organization-members', $orgRouteParams)],
+                'events' => ['label' => 'Events', 'url' => route('organization-events', $orgRouteParams)],
+            ];
         @endphp
 
         <section class="rounded-3xl bg-[color:var(--brand-cream)] p-6 ring-1 ring-emerald-100 sm:p-8 dark:ring-emerald-900/40">
@@ -214,24 +220,35 @@
                     <p class="text-xs font-bold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-400">Organization Page</p>
                     <h1 class="brand-font mt-1 text-3xl text-slate-800 sm:text-4xl dark:text-slate-100">{{ $organization['name'] }}</h1>
                     <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                        {{ $publishedPosts->count() }} published post{{ $publishedPosts->count() !== 1 ? 's' : '' }}
+                        {{ $memberCount }} member{{ $memberCount !== 1 ? 's' : '' }}
+                        <span aria-hidden="true" class="mx-1">·</span>
+                        {{ $publishedPostCount }} published post{{ $publishedPostCount !== 1 ? 's' : '' }}
                     </p>
                 </div>
             </div>
 
             {{-- Tabs --}}
-            <div class="mt-6 flex border-b border-emerald-100 dark:border-emerald-900/40">
-                <button
-                    class="border-b-2 border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 dark:border-emerald-400 dark:text-emerald-400">Posts</button>
-                <button
-                    class="px-4 py-2 text-sm font-semibold text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">About</button>
-                <button
-                    class="px-4 py-2 text-sm font-semibold text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">Members</button>
-                <button
-                    class="px-4 py-2 text-sm font-semibold text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">Events</button>
-            </div>
+            <nav aria-label="Organization sections" class="mt-6 flex border-b border-emerald-100 dark:border-emerald-900/40">
+                @foreach ($tabs as $tabKey => $tab)
+                    @if ($tabKey === $activeTab)
+                        <a href="{{ $tab['url'] }}" aria-current="page"
+                            class="-mb-px border-b-2 border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 dark:border-emerald-400 dark:text-emerald-400">{{ $tab['label'] }}</a>
+                    @elseif ($tab['url'])
+                        <a href="{{ $tab['url'] }}"
+                            class="px-4 py-2 text-sm font-semibold text-slate-500 transition hover:text-emerald-700 dark:text-slate-400 dark:hover:text-emerald-300">{{ $tab['label'] }}</a>
+                    @else
+                        <span aria-disabled="true" title="Coming soon"
+                            class="cursor-not-allowed px-4 py-2 text-sm font-semibold text-slate-300 dark:text-slate-600">{{ $tab['label'] }}</span>
+                    @endif
+                @endforeach
+            </nav>
         </section>
 
+        @if ($activeTab === 'members')
+            @include('landingPage.partials.org-members')
+        @elseif ($activeTab === 'events')
+            @include('landingPage.partials.org-events')
+        @else
         {{-- ── Post Grid ── --}}
         <section class="mt-8">
             @if ($posts->isEmpty())
@@ -345,6 +362,7 @@
                 </div>
             @endif
         </section>
+        @endif
     </main>
     @include('landingPage.partials.post-viewer')
 </body>
