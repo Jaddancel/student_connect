@@ -3,7 +3,11 @@
 namespace Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Models\User;
+use Database\Seeders\Support\SeedData;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class DatabaseSeeder extends Seeder
 {
@@ -12,18 +16,24 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->regular()->create();
-        $this->call(OrganizationSeeder::class);
-        $this->call(PresidentSeeder::class);
-        $this->call(ProfileSeeder::class);
-        $this->call(RequestSeeder::class);
-        $this->call(SuperAdminSeeder::class);
-        $this->call(AdminSeeder::class);
-        $this->call(TemplateSeeder::class);
-        $this->call(EventPlanSeeder::class);
-        $this->call(SemesterSeeder::class);
-        $this->call(ScoringConfigSeeder::class);
-        $this->call(FormPagesSeeder::class);
-        $this->call(ReportTemplateSeeder::class);
+        if (User::query()->exists()) {
+            throw new RuntimeException('Historical demo seeding requires an empty database. Use a dedicated demo database.');
+        }
+        UserSeeder::assertSignatureRuntime();
+        SeedData::images(is_dir(config('seeding.assets_path').'/portraits') ? 'portraits' : 'portrait');
+        SeedData::images('event_photo');
+
+        DB::transaction(function () {
+            $this->call([
+                SuperAdminSeeder::class,
+                AdminSeeder::class,
+                ConfigurationSeeder::class,
+                SemesterSeeder::class,
+                OrganizationSeeder::class,
+                RequestSeeder::class,
+                PresidentSeeder::class,
+                UserSeeder::class,
+            ]);
+        });
     }
 }

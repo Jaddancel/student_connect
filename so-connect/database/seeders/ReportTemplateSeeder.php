@@ -6,9 +6,9 @@ use App\Models\ReportTemplate;
 use App\Services\FormPrintTemplateService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\File;
+use PhpOffice\PhpWord\Element\Section;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
-use PhpOffice\PhpWord\Element\Section;
 
 /**
  * Recreates the two formerly hardcoded admin reports — "Registered

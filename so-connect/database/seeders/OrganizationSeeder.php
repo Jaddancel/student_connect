@@ -2,8 +2,15 @@
 
 namespace Database\Seeders;
 
+use App\Models\Officer;
 use App\Models\Organization;
+use App\Models\Organization\OrganizationDetail;
+use App\Models\OrganizationAdviser;
+use App\Models\Post;
+use App\Models\User;
 use App\Models\YearTerm;
+use Database\Factories\PostFactory;
+use Database\Seeders\Support\SeedData;
 use Illuminate\Database\Seeder;
 
 class OrganizationSeeder extends Seeder
@@ -14,22 +21,17 @@ class OrganizationSeeder extends Seeder
     public function run(): void
     {
 
-        $this->createYearTerms();
-        $this->createOrganizations();
+        SeedData::at('2023-06-01 09:00:00', function () {
+            $this->createYearTerms();
+            $this->createOrganizations();
+        });
     }
 
     protected function createYearTerms()
     {
-        $yearTerms = [
-            '2020 - 2021',
-            '2021 - 2022',
-            '2022 - 2023',
-            '2023 - 2024',
-            '2024 - 2025',
-            '2025 - 2026',
-        ];
+        $yearTerms = array_map(fn ($year) => $year.' - '.($year + 1), range(2023, 2030));
         foreach ($yearTerms as $terms) {
-            YearTerm::create([
+            YearTerm::firstOrCreate([
                 'year_term' => $terms,
             ]);
         }
@@ -98,13 +100,86 @@ class OrganizationSeeder extends Seeder
             ['TAU Latter-Day Saints Student Association', 2],
             ['Daniel Generations', 2],
             ['Christian Brotherhood International - TAU Chapter', 2],
-            ['TAU-SIBOL Association of DOST Scholars', 1]
+            ['TAU-SIBOL Association of DOST Scholars', 1],
         ];
 
         foreach ($orgNameAndTypes as $orgAndType) {
             $name = $orgAndType[0];
             $type = $orgAndType[1];
-            Organization::factory()->makeOrganization($name, $type)->create();
+            $this->createOrganization($name, $type);
+        }
+    }
+
+    public function createOrganization(string $name, int $type, ?User $president = null, ?User $officer = null): Organization
+    {
+        $detail = OrganizationDetail::factory()->create(['name' => $name]);
+        $organization = Organization::query()->create([
+            'organization_type' => $type,
+            'detail' => $detail->getKey(),
+            'accreditation_status' => 'active',
+        ]);
+
+        foreach (['President', 'Secretary', 'Auditor', 'Treasurer', ...array_fill(0, 11, 'Others')] as $index => $position) {
+            $user = ($index === 0 ? $president : ($index === 4 ? $officer : null)) ?? SeedData::user();
+            Officer::query()->create([
+                'organization' => $organization->getKey(),
+                'user' => $user->getKey(),
+                'position' => $position,
+                'role' => $position === 'President' ? 'president' : 'officer',
+                'yearterm' => YearTerm::query()->where('year_term', '2023 - 2024')->value('year_term_code'),
+                'member_since' => now(),
+            ]);
+        }
+
+        foreach ([1, 2] as $index) {
+            $adviser = SeedData::user(email: 'adviser-'.$organization->getKey().'-'.$index.'@example.com');
+            $adviser->profile()->update(['occupation' => 'Faculty']);
+            $profile = $adviser->profile()->firstOrFail();
+            OrganizationAdviser::query()->create([
+                'organization_id' => $organization->getKey(),
+                'name' => $profile->first_name.' '.$profile->last_name,
+            ]);
+        }
+
+        foreach (range(0, 9) as $index) {
+            $date = fake()->dateTimeBetween(now(), SeedData::END)->format('Y-m-d H:i:s');
+            SeedData::at($date, fn () => Post::factory()->forOrganization((int) $organization->getKey())->create([
+                'published_at' => now(),
+                'is_featured' => in_array($index, [1, 6], true),
+                'image_path' => ($index + 1) % 4 === 0 ? PostFactory::randomImagePath() : null,
+            ]));
+        }
+
+        return $organization;
+    }
+
+    public function shareOfficers(array $protectedOfficerIds = []): void
+    {
+        $organizations = Organization::query()->orderBy('organization_id')->get();
+        foreach ($organizations as $index => $first) {
+            foreach ($organizations->slice($index + 1) as $second) {
+                if (! fake()->boolean(25)) {
+                    continue;
+                }
+                $kind = fake()->numberBetween(1, 100);
+                $sourceNamed = $kind <= 15;
+                $targetNamed = $kind <= 5;
+                $source = $first->officersOfThisOrganization()
+                    ->whereIn('role', ['officer', 'president'])
+                    ->where('position', $sourceNamed ? '!=' : '=', 'Others')
+                    ->whereNotIn('org_officer_id', $protectedOfficerIds)
+                    ->whereNotIn('user', $second->officersOfThisOrganization()->pluck('user'))
+                    ->inRandomOrder()->first();
+                $target = $second->officersOfThisOrganization()
+                    ->whereIn('role', ['officer', 'president'])
+                    ->where('position', $targetNamed ? '!=' : '=', 'Others')
+                    ->whereNotIn('org_officer_id', $protectedOfficerIds)
+                    ->inRandomOrder()->first();
+                if ($source === null || $target === null) {
+                    continue;
+                }
+                $target->update(['user' => $source->user]);
+            }
         }
     }
 }

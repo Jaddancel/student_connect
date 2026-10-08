@@ -72,9 +72,7 @@ class ScoringRuleEngine
 
                 $total = 0;
                 foreach ($records as $record) {
-                    if ($this->passes($trigger['if'] ?? null, $record)) {
-                        $total += $this->contribution((array) ($trigger['then']['add'] ?? []), $record);
-                    }
+                    $total += $this->tallyRecord($trigger, $record);
                 }
 
                 $instances[$rule->criterion->key] = $total;
@@ -88,6 +86,14 @@ class ScoringRuleEngine
         }
 
         return $instances;
+    }
+
+    /** Evaluate one record using the same conditions and contribution as the semester tally. */
+    public function tallyRecord(array $trigger, array $record): int
+    {
+        return $this->passes($trigger['if'] ?? null, $record)
+            ? $this->contribution((array) ($trigger['then']['add'] ?? []), $record)
+            : 0;
     }
 
     /**

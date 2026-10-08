@@ -3,6 +3,88 @@
 **TailAdmin Laravel** is a modern, production-ready admin dashboard template powered by **Laravel 12**, **Tailwind CSS v4**, **Alpine.js**, and a clean, modular architecture. TailAdmin is one of the most popular Tailwind CSS dashboard now also available for Larvael. It’s designed for building fast, scalable admin panels, CRM dashboards, SaaS backends, and any data-driven application where clarity and performance matter.
 ![TailAdmin - Next.js Dashboard Preview](./tailadmin-laravel.png)
 
+## Historical demo seeding
+
+`DatabaseSeeder` requires an **empty, dedicated demo database**; it does not
+append records to an existing installation. Run migrations before
+`php artisan db:seed`. Do not reset a database containing real data.
+
+The October 2026 configuration backup in `database/seeders/data/` supplies all
+ten forms and the scoring rules. Its Word files were intentionally omitted.
+Seeding therefore creates records only: approvals, submissions, event plans,
+calendar events, workplans and account/membership state, but **no generated
+documents or fabricated document paths**. Import the complete backup separately
+when official templates are needed. Rules whose source form was already missing
+in the backup cannot produce a tally; their source remains unresolved.
+
+Prerequisites, from this application directory:
+
+```bash
+python3 -m venv storage/app/seed-venv
+storage/app/seed-venv/bin/pip install -r database/seeders/scripts/requirements.txt
+SEED_PYTHON="$PWD/storage/app/seed-venv/bin/python" php artisan db:seed
+```
+
+For Sail, run those commands inside the Laravel container. The Compose mount
+exposes the repository's `.seedfiles` read-only. `SEED_ASSETS_PATH` can override
+its location. Portraits are selected from `portraits/`, with compatibility for
+the existing `portrait/` directory; after-event photos come from `event_photo/`.
+Missing assets or the Python/Pillow runtime fail seeding explicitly.
+The Python runtime is checked before any demo records are inserted. A
+`Broken pipe` from an older seeder usually means Python exited early (for
+example, because Pillow was missing); the generator now reads a temporary
+batch file so Python failures retain their actual error output. Running plain
+`php artisan` still requires `SEED_PYTHON` in the environment or `.env` unless
+the default `python3` already has Pillow installed. After changing `.env`, run
+`php artisan config:clear` if configuration was cached.
+
+The data window is June 1, 2023 through October 31, 2026. One superadmin is
+created first, followed by three admins (`superadmin@example.com`,
+`admin1@example.com` through `admin3@example.com`; demo password `tAU100!!`).
+Every account, including pending guests and faculty adviser accounts, receives
+a random portrait and a unique synthetic, name-derived 100x100 JPEG signature.
+These are demonstration signatures, not replicas of real people's signatures.
+
+Each organization has 15 current officers: President, Secretary, Auditor,
+Treasurer and eleven unnamed (`Others`) officers. Accepted membership requests
+add **members**, not extra officers. Approved sign-ups fill reserved unnamed
+officer slots. Organization pairs roll a 25% sharing chance; within successful
+rolls, 10% select named/unnamed officers, 5% named/named and the remainder
+unnamed/unnamed. No organization contains the same user twice.
+
+There are exactly 50 submissions per form and 50 requests for each
+request-producing form, except After Event Reports. Those have no
+approval/request step: every organization files 5-10 reports against distinct
+concluded events (1-2 in the running semester, so the After Event Form page
+lists them), each with 2-5 distinct photos from `event_photo/`. Accepted New
+Event requests are reported first; imported historical calendar activities fill
+the rest without adding New Event requests or submissions. Every report is
+followed by a published `Event` post that reuses the report's photos.
+
+Approximately 70% of organizations form the workplan cohort (rounded to a whole
+organization); 25% of that cohort proceed to accreditation after an accepted
+workplan. Their requests use 70% accepted / 10% declined / remaining pending;
+other organizations use 30% / 10% / remaining pending. Integer acceptance quotas
+are rounded per cohort, with exactly five declines per 50-request form.
+Public new-organization registrations use the default 15/5/30 distribution.
+The two disabled organizations have no qualifying accreditation approval.
+
+User-request bursts independently roll 80% for 5-8 arrivals and 30% for
+12-15 arrivals on a random day in a sampled month. Both batches can occur
+together; the last batch is truncated at the global 50-record form cap. Large
+double-bursts use the default cohort so accepted sign-ups fit the fixed roster.
+Applicable scoring criteria are chosen randomly and checked by the actual
+scoring engine; pending/declined records may contain qualifying values without
+contributing to an approved-record tally.
+
+Semester schedules are seeded for school years starting in 2023 through 2030:
+June 22-November 2 and November 9-March 29 of the following year. Explicit end
+dates preserve the vacation gaps; existing semesters without an explicit end
+retain their next-semester-derived behavior.
+
+Targeted validation:
+`php artisan test tests/Feature/HistoricalSeederTest.php tests/Feature/SeedSemesterCalendarTest.php`.
+
 ## Organization events
 
 The public organization **Events** tab shows only approved activity requests
@@ -12,6 +94,10 @@ event cards nearest to the current date first. Event times use the configured
 display timezone. Pending, rejected, and workplan-only activities are excluded.
 
 ## Organization post viewer
+
+Posts from accreditation-disabled or missing organizations are excluded from
+public listings. Suspension keeps posts for restoration; permanent organization
+purge deletes them through the existing accreditation lifecycle.
 
 Click a post card or **View post** in an organization's feed to open a full-screen
 viewer. Images appear individually on a black stage, with the organization,
