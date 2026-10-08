@@ -15,6 +15,7 @@ use App\Models\Workplan;
 use App\Services\AccreditationService;
 use App\Services\AfterEventReportService;
 use App\Services\Scoring\ScoringRuleEngine;
+use App\Services\WorkplanService;
 use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\Support\SeedData;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -54,8 +55,8 @@ it('seeds historical accounts and configuration-compliant workflows with exact f
         ->and(Organization::query()->count())->toBe(71)
         ->and(GeneratedDocument::query()->count())->toBe(0)
         ->and(Form::query()->count())->toBe(10)
-        ->and(FormSubmission::query()->count())->toBeGreaterThanOrEqual(450 + 71 * 5)
-        ->and(ActionRequest::query()->count())->toBe(450);
+        ->and(FormSubmission::query()->count())->toBeGreaterThanOrEqual(450 + 69 + 495 + 71 * 5)
+        ->and(ActionRequest::query()->count())->toBe(450 + 69 + 495);
 
     $hashes = [];
     foreach (User::query()->with('profile')->get() as $user) {
@@ -83,9 +84,18 @@ it('seeds historical accounts and configuration-compliant workflows with exact f
     expect(DB::table('organization_officers')->whereIn('role', ['officer', 'president'])
         ->select('user')->groupBy('user')->havingRaw('COUNT(*) > 1')->get())->not->toBeEmpty();
 
-    $workplanOrgs = Workplan::query()->pluck('organization_id')->all();
-    expect(Workplan::query()->count())->toBe(50)
-        ->and(Workplan::query()->where('status', 'finalized')->count())->toBe(35);
+    // Every organization has a finalized workplan for each semester it was
+    // active in (69 x 7 active, 2 x 6 disabled); the 50-request cohort files for
+    // the upcoming semester.
+    $upcoming = Semester::query()->whereDate('starts_at', '2026-11-09')->firstOrFail();
+    $workplanOrgs = Workplan::query()->where('semester_id', $upcoming->getKey())->pluck('organization_id')->all();
+    expect(Workplan::query()->where('semester_id', '!=', $upcoming->getKey())->where('status', 'finalized')->count())->toBe(495)
+        ->and(Workplan::query()->where('semester_id', '!=', $upcoming->getKey())->where('status', '!=', 'finalized')->count())->toBe(0)
+        ->and($workplanOrgs)->toHaveCount(50)
+        ->and(Workplan::query()->where('semester_id', $upcoming->getKey())->where('status', 'finalized')->count())->toBe(35);
+    foreach (Organization::query()->where('accreditation_status', '!=', 'disabled')->pluck('organization_id') as $organizationId) {
+        expect(app(WorkplanService::class)->hasApprovedWorkplanForDate((int) $organizationId, '2026-09-15'))->toBeTrue();
+    }
 
     foreach (Form::query()->with('fields')->get() as $form) {
         $submissions = FormSubmission::query()->where('form_id', $form->getKey())->get();
@@ -99,8 +109,24 @@ it('seeds historical accounts and configuration-compliant workflows with exact f
                 expect($count)->toBeGreaterThanOrEqual(5)->toBeLessThanOrEqual(10);
             }
         } else {
-            expect($submissions)->toHaveCount(50)
-                ->and($requests)->toHaveCount(50);
+            if ($form->system_function === 'new_workplan') {
+                // Per-semester workplans are outside the 50-request cap.
+                $founding = $requests->filter(fn ($request) => $request->requested_at->lt('2026-09-30'));
+                expect($founding)->toHaveCount(495);
+                $requests = $requests->reject(fn ($request) => $founding->contains($request))->values();
+                expect($submissions)->toHaveCount(50 + 495);
+            } elseif ($form->system_function === 'org_accreditation') {
+                // Founding accreditations (one per non-disabled organization)
+                // are outside the 50-request cap.
+                $founding = $requests->filter(fn ($request) => $request->requested_at->lt('2023-06-22'));
+                expect($founding)->toHaveCount(69)
+                    ->and($founding->pluck('organization_id')->unique())->toHaveCount(69);
+                $requests = $requests->reject(fn ($request) => $founding->contains($request))->values();
+                expect($submissions)->toHaveCount(50 + 69);
+            } else {
+                expect($submissions)->toHaveCount(50);
+            }
+            expect($requests)->toHaveCount(50);
             $decisions = Approval::query()->whereIn('request', $requests->modelKeys())
                 ->where(fn ($q) => $q->whereNull('stage')->orWhereIn('stage', ['admin', 'president']))
                 ->get()->unique('request');
@@ -171,9 +197,10 @@ it('seeds historical accounts and configuration-compliant workflows with exact f
     }
 
     $accreditation = Form::query()->where('system_function', 'org_accreditation')->firstOrFail();
-    $accreditedOrgs = ActionRequest::query()->where('form_id', $accreditation->getKey())->pluck('organization_id')->unique();
-    expect($accreditedOrgs)->toHaveCount(13);
-    foreach (ActionRequest::query()->where('form_id', $accreditation->getKey())->get() as $request) {
+    $renewals = ActionRequest::query()->where('form_id', $accreditation->getKey())
+        ->where('requested_at', '>=', '2023-06-22')->get();
+    expect($renewals->pluck('organization_id')->unique())->toHaveCount(13);
+    foreach ($renewals as $request) {
         $submission = FormSubmission::query()->findOrFail($request->payload['submission_id']);
         $workplan = Workplan::query()->findOrFail($submission->payload['workplan_id']);
         expect($workplan->status)->toBe('finalized')
@@ -183,7 +210,11 @@ it('seeds historical accounts and configuration-compliant workflows with exact f
     $disabled = Organization::query()->where('accreditation_status', 'disabled')->get();
     expect($disabled)->toHaveCount(2);
     foreach ($disabled as $organization) {
-        expect(app(AccreditationService::class)->isCompliant($organization, Carbon::parse(SeedData::END)))->toBeFalse();
+        expect(app(AccreditationService::class)->isCompliant($organization, Carbon::parse(SeedData::END)))->toBeFalse()
+            ->and($organization->accreditation_disabled_at->toDateTimeString())->toBe('2026-06-22 00:00:00');
+    }
+    foreach (Organization::query()->whereKeyNot($disabled->modelKeys())->get() as $organization) {
+        expect(app(AccreditationService::class)->isCompliant($organization, Carbon::parse('2026-06-22')))->toBeTrue();
     }
     expect(ActionRequest::query()->whereNotBetween('requested_at', [SeedData::START, SeedData::END])->count())->toBe(0)
         ->and(Approval::query()->whereNotBetween('approved_at', [SeedData::START, SeedData::END])->count())->toBe(0);

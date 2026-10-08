@@ -12,6 +12,7 @@ use App\Models\Officer;
 use App\Models\User;
 use App\Policies\RolePolicy;
 use App\Observers\EventCreatedObserver;
+use App\Services\AccreditationService;
 use App\Services\OrganizationAuthorizationService;
 use Faker\Generator as FakerGenerator;
 use Illuminate\Auth\Events\Login;
@@ -101,6 +102,7 @@ class AppServiceProvider extends ServiceProvider
                     ->where('oo.user', $userId)
                     ->select([
                         'o.organization_id as id',
+                        'o.accreditation_status',
                         DB::raw("COALESCE(od.name, 'Unknown Organization') as name"),
                     ])
                     ->orderBy('name')
@@ -121,12 +123,15 @@ class AppServiceProvider extends ServiceProvider
                         'logo' => $logo,
                         'initials' => $initials !== '' ? $initials : 'ORG',
                         'alert_count' => (int) ($counts[(int) $organization->id] ?? 0),
+                        'suspended' => $organization->accreditation_status === AccreditationService::STATUS_DISABLED,
                     ];
-                })->values();
+                })->unique('id')->values();
 
-                $activeOrganizationId = (int) session('active_organization_id', $organizationSwitcherItems->first()['id'] ?? 0);
-                if ($activeOrganizationId <= 0 || ! $organizationSwitcherItems->contains('id', $activeOrganizationId)) {
-                    $activeOrganizationId = (int) ($organizationSwitcherItems->first()['id'] ?? 0);
+                $default = $organizationSwitcherItems->firstWhere('suspended', false) ?? $organizationSwitcherItems->first();
+                $activeOrganizationId = (int) session('active_organization_id', 0);
+                $selected = $organizationSwitcherItems->firstWhere('id', $activeOrganizationId);
+                if ($selected === null || ($selected['suspended'] && ! $default['suspended'])) {
+                    $activeOrganizationId = (int) ($default['id'] ?? 0);
                 }
                 session(['active_organization_id' => $activeOrganizationId]);
             }

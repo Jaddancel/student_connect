@@ -8,6 +8,10 @@
     // by Alpine's systemAutofillOptions() instead of this static list.
     $universalGroups = \App\Support\UniversalField::groupedBySource('profile')
         + \App\Support\UniversalField::groupedBySource('org');
+    // Officer contact numbers are offered only on text fields, so they're
+    // pulled out of the static all-types list and rendered behind an x-if below.
+    $officerContactOptions = $universalGroups['officer_contact'] ?? [];
+    unset($universalGroups['officer_contact']);
     $universalGroupLabels = [
         'name' => 'Name', 'contact' => 'Contact', 'personal' => 'Personal',
         'academic' => 'Academic', 'id' => 'Identity', 'organization' => 'Organization',
@@ -286,6 +290,15 @@
                                             @endforeach
                                         </optgroup>
                                     @endforeach
+                                    @if ($officerContactOptions !== [])
+                                        <template x-if="f.field_type === 'text'">
+                                            <optgroup label="Officer Contact Number">
+                                                @foreach ($officerContactOptions as $ukey => $meta)
+                                                    <option value="{{ $ukey }}">{{ $meta['label'] }}</option>
+                                                @endforeach
+                                            </optgroup>
+                                        </template>
+                                    @endif
                                     <template x-if="systemAutofillOptions(f.field_type).length">
                                         <optgroup label="Current value">
                                             <template x-for="opt in systemAutofillOptions(f.field_type)" :key="opt.value">

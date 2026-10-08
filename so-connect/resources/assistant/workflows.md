@@ -121,7 +121,8 @@ keeps two kinds of backup, shown with a Type badge:
   whole database. Automatic backups are always this type and run on the
   interval set in Settings.
 - **Configuration backup** — only settings, forms (with fields), reports,
-  Step 2 printed templates and tally (scoring) configurations. Anything tied
+  Step 2 printed templates, waiver templates and tally (scoring)
+  configurations. Anything tied
   to a particular organization (and who created/edited items) is left blank.
   Restoring one *merges* it in: matching items are updated, missing ones are
   added, nothing is deleted. Items that reference a form missing from this

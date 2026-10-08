@@ -4,6 +4,7 @@ namespace App\Services\ConfigBackup;
 
 use App\Models\AppSetting;
 use App\Models\Form;
+use App\Models\IdTemplate;
 use App\Models\ReportTemplate;
 use App\Models\ScoringCategory;
 use App\Models\ScoringCriterion;
@@ -18,13 +19,14 @@ use ZipArchive;
 
 /**
  * Writes a Configuration Backup archive: settings, forms (+ fields), report
- * templates, Step 2 printed templates (+ their .docx files) and the tally
- * (scoring) configuration.
+ * templates, Step 2 printed templates (+ their .docx files), waiver templates
+ * (+ their reference images) and the tally (scoring) configuration.
  *
  * Archive layout:
  *   manifest.json   type / format version / origin
  *   config.json     the configuration payload
  *   files/<sha1>.docx  template documents, referenced from config.json
+ *   files/<sha1>.<img> waiver template reference images
  *
  * Cross-references use natural keys (see FormRef), never DB ids. Anything
  * tied to a particular organization is left blank, and user references are
@@ -35,6 +37,9 @@ class ConfigExporter
     public const TYPE = 'configuration';
 
     public const FORMAT_VERSION = 1;
+
+    /** Image extensions a waiver template reference image may have in the archive. */
+    public const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
 
     /** Settings whose value embeds form ids, keyed by path within the value. */
     public const FORM_ID_SETTINGS = ['accreditation.conditions' => 'required_forms'];
@@ -94,6 +99,7 @@ class ConfigExporter
             'settings' => $this->settings($formRefs),
             'forms' => $this->forms(),
             'report_templates' => $this->reportTemplates(),
+            'waiver_templates' => $this->waiverTemplates(),
             'scoring' => $this->scoring($formRefs),
         ];
     }
@@ -176,6 +182,35 @@ class ConfigExporter
             ],
             'templates' => $this->templateSlots($this->templates->activeReportTemplates($report)),
         ])->values()->all();
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function waiverTemplates(): array
+    {
+        $disk = Storage::disk((string) config('documents.disk', 'public'));
+
+        return IdTemplate::query()->where('kind', 'waiver')->orderBy('id_template_id')->get()
+            ->filter(fn (IdTemplate $template) => $template->image_path
+                && $disk->exists($template->image_path)
+                && in_array(strtolower(pathinfo($template->image_path, PATHINFO_EXTENSION)), self::IMAGE_EXTENSIONS, true))
+            ->map(function (IdTemplate $template) use ($disk) {
+                $source = $disk->path($template->image_path);
+                $entry = 'files/'.sha1_file($source).'.'.strtolower(pathinfo($template->image_path, PATHINFO_EXTENSION));
+                $this->files[$entry] = $source;
+
+                return [
+                    'name' => (string) $template->name,
+                    'image_width' => (int) $template->image_width,
+                    'image_height' => (int) $template->image_height,
+                    'zones' => $template->zones ?? [],
+                    'is_active' => (bool) $template->is_active,
+                    'file' => $entry,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**

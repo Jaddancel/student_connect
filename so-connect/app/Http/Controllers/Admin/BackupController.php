@@ -224,7 +224,8 @@ class BackupController extends Controller
     {
         $labels = [
             'settings' => 'setting', 'forms' => 'form', 'fields' => 'field', 'templates' => 'printed template',
-            'report_templates' => 'report', 'scoring_categories' => 'tally category',
+            'report_templates' => 'report', 'waiver_templates' => 'waiver template',
+            'scoring_categories' => 'tally category',
             'scoring_criteria' => 'tally criterion', 'scoring_rules' => 'tally rule',
         ];
 

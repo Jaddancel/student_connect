@@ -62,12 +62,33 @@ the rest without adding New Event requests or submissions. Every report is
 followed by a published `Event` post that reuses the report's photos.
 
 Approximately 70% of organizations form the workplan cohort (rounded to a whole
-organization); 25% of that cohort proceed to accreditation after an accepted
-workplan. Their requests use 70% accepted / 10% declined / remaining pending;
+organization). Every organization already has a finalized workplan, approved
+during the preparation period, for each semester it was active in up to the
+current one; these per-semester workplans sit outside the 50-request cap. The
+cohort's 50 workplan requests are for the upcoming semester (November 9, 2026),
+filed in the first days of its preparation window (September 30-October 4) at 35 accepted / 5 declined /
+10 pending. 25% of the cohort have an accepted upcoming workplan and then file
+accreditation renewals. New Event requests keep a parent plan only when no
+approved workplan covers the event's semester, as `NewEventHandler` does. The
+cohort's other requests use 70% accepted / 10% declined / remaining pending;
 other organizations use 30% / 10% / remaining pending. Integer acceptance quotas
 are rounded per cohort, with exactly five declines per 50-request form.
 Public new-organization registrations use the default 15/5/30 distribution.
-The two disabled organizations have no qualifying accreditation approval.
+Each of the 50 registrations proposes a distinct, realistically named
+organization. The 15 accepted ones become organizations in addition to the 56
+in `OrganizationSeeder`, for 71 in total.
+
+Accreditation compliance follows `AccreditationService`: an organization stays
+active once it has any approved accreditation request filed before the current
+semester began. Every organization except the two disabled ones therefore gets
+an approved founding accreditation (June 5-19, 2023). These sit outside the
+50-request cap; the 25% cohort's later renewals keep the cap and the 70/10/20
+ratio. The two disabled organizations never receive an approval and are
+disabled on June 22, 2026, the date the daily `accreditation:enforce --disable`
+job would first catch them. They file no after-event reports past that date.
+Officers of a disabled organization who are also officers of an active one keep
+access; the organization switcher skips suspended organizations. Only officers
+whose organizations are all disabled see the suspension screen.
 
 User-request bursts independently roll 80% for 5-8 arrivals and 30% for
 12-15 arrivals on a random day in a sampled month. Both batches can occur
@@ -80,7 +101,9 @@ contributing to an approved-record tally.
 Semester schedules are seeded for school years starting in 2023 through 2030:
 June 22-November 2 and November 9-March 29 of the following year. Explicit end
 dates preserve the vacation gaps; existing semesters without an explicit end
-retain their next-semester-derived behavior.
+retain their next-semester-derived behavior. Preparation periods run 84 days
+before a first semester (March 30-June 21) and 40 days before a second semester
+(September 30-November 8, overlapping the end of the first semester).
 
 Targeted validation:
 `php artisan test tests/Feature/HistoricalSeederTest.php tests/Feature/SeedSemesterCalendarTest.php`.

@@ -20,7 +20,8 @@ it('seeds the requested semester calendar through 2030 including vacation gaps',
             ->and($first->schoolYear())->toBe($year.'–'.($year + 1))
             ->and($second->schoolYear())->toBe($year.'–'.($year + 1))
             ->and($first->activePeriodStart()->toDateString())->toBe($year.'-03-30')
-            ->and($second->activePeriodStart()->toDateString())->toBe($year.'-11-03');
+            ->and($second->activePeriodStart()->toDateString())->toBe($year.'-09-30')
+            ->and($second->vacation_days)->toBe(40);
     }
 
     Carbon::setTestNow('2026-11-02');

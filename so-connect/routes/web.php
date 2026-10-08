@@ -966,6 +966,11 @@ Route::get('/api/policy-security/approvals', [PolicySecurityRequestController::c
 Route::get('/api/policy-security/stats', [PolicySecurityRequestController::class, 'stats'])
     ->middleware('auth');
 
+Route::get('/api/dashboard/requests/{section}', [\App\Http\Controllers\AdminDashboardRequestController::class, 'index'])
+    ->whereIn('section', \App\Http\Controllers\AdminDashboardRequestController::SECTIONS)
+    ->middleware('auth')
+    ->name('api.dashboard.requests');
+
 $applyAuthorizedOrganizationScope = static function ($query, array $authorizedOrganizationIds) {
     return $query->where(function ($organizationScopeQuery) use ($authorizedOrganizationIds) {
         foreach ($authorizedOrganizationIds as $organizationId) {

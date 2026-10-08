@@ -18,7 +18,7 @@ class SemesterSeeder extends Seeder
                         'name' => ($number === 1 ? 'First' : 'Second').' Semester '.$year.'-'.($year + 1),
                         'semester_number' => $number,
                         'ends_at' => $number === 1 ? $year.'-11-02' : ($year + 1).'-03-29',
-                        'vacation_days' => $number === 1 ? 84 : 6,
+                        'vacation_days' => $number === 1 ? 84 : 40,
                         'created_by' => null,
                     ]);
                 }

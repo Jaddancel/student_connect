@@ -8,6 +8,7 @@ use App\Helpers\MenuHelper;
 use App\Models\AppSetting;
 use App\Models\Form;
 use App\Models\Form\FormDescription;
+use App\Models\IdTemplate;
 use App\Models\ReportTemplate;
 use App\Models\ScoringCategory;
 use App\Models\ScoringCriterion;
@@ -15,12 +16,14 @@ use App\Models\ScoringRule;
 use App\Models\Template;
 use App\Services\FormPrintTemplateService;
 use App\Services\RequestTypeService;
+use App\Support\ZonePayloadValidator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use ZipArchive;
 
@@ -33,7 +36,7 @@ use ZipArchive;
  *
  * Items are matched by natural key: settings by key, forms by route_name (or
  * system_function), fields by field_key, printed-template slots by
- * slot_order, report templates by name, scoring categories/criteria by key
+ * slot_order, report and waiver templates by name, scoring categories/criteria by key
  * and rules by their criterion.
  */
 class ConfigImporter
@@ -131,6 +134,9 @@ class ConfigImporter
                     foreach ($config['report_templates'] as $report) {
                         $this->importReportTemplate($report, $zip);
                     }
+                    foreach ($config['waiver_templates'] as $waiver) {
+                        $this->importWaiverTemplate($waiver, $zip);
+                    }
                     $this->importSettings($config['settings']);
                 });
             } catch (\Throwable $e) {
@@ -174,7 +180,7 @@ class ConfigImporter
             if ($name === 'files/') {
                 continue;
             }
-            if (! in_array($name, ['manifest.json', 'config.json'], true) && ! preg_match('#^files/[0-9a-f]{40}\.docx$#', $name)) {
+            if (! in_array($name, ['manifest.json', 'config.json'], true) && ! preg_match('#^files/[0-9a-f]{40}\.(docx|'.$this->imageExtensions().')$#', $name)) {
                 throw new RuntimeException('The configuration backup contains an unexpected file: '.$name);
             }
 
@@ -271,6 +277,14 @@ class ConfigImporter
             'report_templates.*.attributes.definition' => ['present', 'array'],
             ...$slot('report_templates.*.templates'),
 
+            // Absent in backups taken before waiver templates were included.
+            'waiver_templates' => ['sometimes', 'array'],
+            'waiver_templates.*.name' => ['required', 'string', 'max:255'],
+            'waiver_templates.*.image_width' => ['required', 'integer', 'min:1'],
+            'waiver_templates.*.image_height' => ['required', 'integer', 'min:1'],
+            'waiver_templates.*.zones' => ['required', 'array', 'min:1'],
+            'waiver_templates.*.file' => ['required', 'string', 'regex:#^files/[0-9a-f]{40}\.('.$this->imageExtensions().')$#'],
+
             'scoring' => ['required', 'array'],
             'scoring.categories' => ['present', 'array'],
             'scoring.categories.*.key' => ['required', 'string', 'max:32'],
@@ -296,6 +310,19 @@ class ConfigImporter
                 if ($zip->statName($template['file']) === false) {
                     throw new RuntimeException('The configuration backup is missing a template document ('.$template['file'].').');
                 }
+            }
+        }
+
+        $config['waiver_templates'] ??= [];
+        foreach ($config['waiver_templates'] as $index => $waiver) {
+            if ($zip->statName($waiver['file']) === false) {
+                throw new RuntimeException('The configuration backup is missing a waiver template image ('.$waiver['file'].').');
+            }
+
+            try {
+                $config['waiver_templates'][$index]['zones'] = ZonePayloadValidator::validate($waiver['zones']);
+            } catch (ValidationException $e) {
+                throw new RuntimeException('The configuration backup is invalid: waiver template "'.$waiver['name'].'": '.$e->validator->errors()->first());
             }
         }
 
@@ -401,6 +428,50 @@ class ConfigImporter
             fn () => 'report-templates/'.$report->getKey().'/report-template-'.Str::uuid().'.docx',
             ['report_template_id' => $report->getKey()],
         );
+    }
+
+    // ── waiver templates ────────────────────────────────────────────────────
+
+    /**
+     * Matched by name; a changed reference image is written to a new file
+     * (never in place).
+     *
+     * @param  array<string,mixed>  $data
+     */
+    private function importWaiverTemplate(array $data, ZipArchive $zip): void
+    {
+        $disk = $this->disk();
+        $bytes = (string) $zip->getFromName($data['file']);
+        if ($bytes === '') {
+            throw new RuntimeException('A waiver template image in the configuration backup is empty.');
+        }
+
+        $attributes = [
+            'image_width' => (int) $data['image_width'],
+            'image_height' => (int) $data['image_height'],
+            'zones' => $data['zones'],
+            'is_active' => (bool) ($data['is_active'] ?? true),
+        ];
+
+        $template = IdTemplate::query()->where('kind', 'waiver')->where('name', $data['name'])->orderBy('id_template_id')->first();
+        $current = $template && $template->image_path && $disk->exists($template->image_path) ? $disk->get($template->image_path) : null;
+
+        if ($template === null || $current !== $bytes) {
+            $path = 'waiver-templates/'.Str::uuid().'.'.pathinfo($data['file'], PATHINFO_EXTENSION);
+            if (! $disk->put($path, $bytes)) {
+                throw new RuntimeException('Could not store a waiver template image from the configuration backup.');
+            }
+            $this->written[] = $path;
+            $attributes['image_path'] = $path;
+        }
+
+        if ($template === null) {
+            IdTemplate::query()->create($attributes + ['name' => $data['name'], 'kind' => 'waiver', 'created_by' => null]);
+            $this->count('waiver_templates', true);
+        } else {
+            $template->fill($attributes)->save();
+            $this->count('waiver_templates', false);
+        }
     }
 
     /**
@@ -590,6 +661,11 @@ class ConfigImporter
             'updated' => $this->counts['updated'] ?? [],
             'warnings' => $this->warnings,
         ];
+    }
+
+    private function imageExtensions(): string
+    {
+        return implode('|', ConfigExporter::IMAGE_EXTENSIONS);
     }
 
     private function disk()

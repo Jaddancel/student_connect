@@ -1,18 +1,24 @@
 const DASHBOARD_TYPES = {
+	// New User (sign-up) + Organization Membership requests.
 	membership: {
 		code: 1,
+		section: 'membership',
 		label: 'Memberships',
 		singularLabel: 'Membership Request',
 	},
+	// Activity requests (form bound to the New Event function).
 	events: {
 		code: 2,
+		section: 'events',
 		label: 'Events',
-		singularLabel: 'Event Request',
+		singularLabel: 'Activity Request',
 	},
+	// Requests from forms required by the accreditation conditions settings.
 	roles: {
 		code: 7,
+		section: 'policy',
 		label: 'Policy and Security',
-		singularLabel: 'Role Change Request',
+		singularLabel: 'Accreditation Request',
 	},
 };
 
@@ -27,8 +33,6 @@ const DASHBOARD_WINDOWS = {
 		compareWindowText: 'in the last 24 hours',
 		listWindowText: 'in the last 24 hours',
 		queryHours: 24,
-		volumeLegendLabel: 'Requests per hour',
-		peakVolumeSuffix: '/hour',
 		series: 'hourly',
 	},
 	month: {
@@ -40,8 +44,6 @@ const DASHBOARD_WINDOWS = {
 		compareWindowText: 'in the last month',
 		listWindowText: 'in the last month',
 		queryHours: 24 * 30,
-		volumeLegendLabel: 'Requests per day',
-		peakVolumeSuffix: '/day',
 		series: 'daily',
 	},
 	all: {
@@ -53,8 +55,6 @@ const DASHBOARD_WINDOWS = {
 		compareWindowText: 'overall',
 		listWindowText: 'across all time',
 		queryHours: null,
-		volumeLegendLabel: 'Requests per month',
-		peakVolumeSuffix: '/month',
 		series: 'monthly',
 	},
 };
@@ -77,125 +77,6 @@ function normalizeDate(dateString) {
 	}
 
 	return date;
-}
-
-function formatActionSummary(action, typeCode) {
-	const parts = safeText(action, '').split('|').map((part) => part.trim()).filter(Boolean);
-
-	if (typeCode === 1) {
-		return {
-			headline: 'Membership Request',
-			detail: parts[0] ? `Organization #${parts[0]}` : 'Organization Pending',
-		};
-	}
-
-	if (typeCode === 2) {
-		if (parts.length >= 7) {
-			return {
-				headline: safeText(parts[2], 'Event Request'),
-				detail: safeText(parts[6], 'No event description provided.'),
-			};
-		}
-
-		if (parts.length >= 6) {
-			return {
-				headline: safeText(parts[2], 'Event Request'),
-				detail: safeText(parts[5], 'No event description provided.'),
-			};
-		}
-
-		if (parts.length >= 5) {
-			return {
-				headline: safeText(parts[0], 'Event Request'),
-				detail: safeText(parts[1], 'No event description provided.'),
-			};
-		}
-
-		return {
-			headline: 'Event Request',
-			detail: safeText(action, 'No event details available.'),
-		};
-	}
-
-	if (typeCode === 7) {
-		const currentRole = safeText(parts[2], 'member').toLowerCase();
-		const nextRole = currentRole === 'member'
-			? 'officer'
-			: 'president';
-
-		return {
-			headline: DASHBOARD_TYPES.roles.singularLabel,
-			detail: `${currentRole.charAt(0).toUpperCase() + currentRole.slice(1)} -> ${nextRole.charAt(0).toUpperCase() + nextRole.slice(1)}`,
-		};
-	}
-
-	return {
-		headline: DASHBOARD_TYPES.roles.singularLabel,
-		detail: safeText(action, 'No details available.'),
-	};
-}
-
-function extractOrganizationId(action, typeCode = null) {
-	const parts = safeText(action, '').split('|').map((part) => part.trim());
-	const targetPart = typeCode === 7
-		? (parts[1] ?? '')
-		: (parts[0] ?? '');
-	const organizationId = Number.parseInt(targetPart, 10);
-
-	if (!Number.isInteger(organizationId) || organizationId <= 0) {
-		return null;
-	}
-
-	return organizationId;
-}
-
-function formatListColumns(requestItem, typeCode, organizationNameMap = {}) {
-	const parts = safeText(requestItem?.action, '').split('|').map((part) => part.trim()).filter(Boolean);
-	const requesterName = buildRequesterName(requestItem?.profile);
-	const requesterId = safeText(requestItem?.user, 'Unknown');
-	const organizationId = Number.parseInt(String(requestItem?.organization_id ?? ''), 10) > 0
-		? Number.parseInt(String(requestItem?.organization_id ?? ''), 10)
-		: extractOrganizationId(requestItem?.action, typeCode);
-	const organizationName = organizationId
-		? safeText(requestItem?.request_organization || organizationNameMap[String(organizationId)], `Organization #${organizationId}`)
-		: null;
-
-	if (typeCode === 1) {
-		return {
-			nameOrTitle: requesterName === 'Unknown Requester' ? `User #${requesterId}` : requesterName,
-			organization: organizationName ?? 'Organization Pending',
-		};
-	}
-
-	if (typeCode === 2) {
-		const eventTitle = parts.length >= 3
-			? safeText(parts[2], 'Event Request')
-			: safeText(parts[0], 'Event Request');
-
-		return {
-			nameOrTitle: eventTitle,
-			organization: organizationName ?? 'Organization Unknown',
-		};
-	}
-
-	if (typeCode === 7) {
-		const payloadUserId = parts.length >= 1 ? safeText(parts[0], requesterId) : requesterId;
-		const currentRole = safeText(parts[2], safeText(requestItem?.current_role, 'member')).toLowerCase();
-		const requestedRole = currentRole === 'member' ? 'officer' : 'president';
-		const transition = `${currentRole.charAt(0).toUpperCase() + currentRole.slice(1)} -> ${requestedRole.charAt(0).toUpperCase() + requestedRole.slice(1)}`;
-
-		return {
-			nameOrTitle: requesterName === 'Unknown Requester'
-				? `User #${payloadUserId} (${transition})`
-				: `${requesterName} (${transition})`,
-			organization: organizationName ?? 'Organization Unknown',
-		};
-	}
-
-	return {
-		nameOrTitle: requesterName === 'Unknown Requester' ? `User #${requesterId}` : requesterName,
-		organization: 'N/A',
-	};
 }
 
 function formatRelativeTimestamp(dateString) {
@@ -298,48 +179,69 @@ function buildDailySeries(requests, days = 30) {
 	return buckets;
 }
 
-function buildMonthlySeries(requests) {
-	const now = new Date();
-	const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-	const buckets = [];
+const MAX_OVERALL_BUCKETS = 24;
+const VOLUME_LABEL_COUNT = 6;
+const VOLUME_UNITS = {
+	hour: { legend: 'Requests per hour', suffix: '/hour' },
+	day: { legend: 'Requests per day', suffix: '/day' },
+	month: { legend: 'Requests per month', suffix: '/month' },
+	quarter: { legend: 'Requests per quarter', suffix: '/quarter' },
+	year: { legend: 'Requests per year', suffix: '/year' },
+};
 
+function shortYear(year) {
+	return `'${String(year).slice(-2)}`;
+}
+
+// Whole history, bucketed by month, quarter or year so it never exceeds
+// MAX_OVERALL_BUCKETS bars.
+function buildOverallSeries(requests) {
+	const now = new Date();
 	const parsedTimes = requests
 		.map((requestItem) => normalizeDate(requestItem.requested_at))
 		.filter((dateValue) => dateValue instanceof Date);
-
 	const earliest = parsedTimes.length
-		? parsedTimes.reduce((minValue, currentValue) => (currentValue < minValue ? currentValue : minValue), parsedTimes[0])
-		: currentMonthStart;
+		? parsedTimes.reduce((minValue, currentValue) => (currentValue < minValue ? currentValue : minValue))
+		: now;
+	const latest = parsedTimes.reduce((maxValue, currentValue) => (currentValue > maxValue ? currentValue : maxValue), now);
+	const monthIndex = (date) => date.getFullYear() * 12 + date.getMonth();
+	const spanMonths = monthIndex(latest) - monthIndex(earliest) + 1;
 
-	const startMonth = new Date(earliest.getFullYear(), earliest.getMonth(), 1);
-	const cursor = new Date(startMonth);
+	let unit = 'month';
+	let monthsPerBucket = 1;
 
-	while (cursor <= currentMonthStart) {
-		const key = `${cursor.getFullYear()}-${cursor.getMonth()}`;
-
-		buckets.push({
-			key,
-			label: cursor.toLocaleDateString(undefined, {
-				month: 'short',
-				year: '2-digit',
-			}),
-			count: 0,
-		});
-
-		cursor.setMonth(cursor.getMonth() + 1);
+	if (spanMonths > MAX_OVERALL_BUCKETS * 3) {
+		unit = 'year';
+		monthsPerBucket = 12;
+	} else if (spanMonths > MAX_OVERALL_BUCKETS) {
+		unit = 'quarter';
+		monthsPerBucket = 3;
 	}
 
-	const bucketByKey = new Map(buckets.map((bucket) => [bucket.key, bucket]));
+	const bucketIndex = (date) => Math.floor(monthIndex(date) / monthsPerBucket);
+	const firstIndex = bucketIndex(earliest);
+	const lastIndex = bucketIndex(latest);
+	const buckets = [];
 
-	for (const request of requests) {
-		const at = normalizeDate(request.requested_at);
+	for (let index = firstIndex; index <= lastIndex; index += 1) {
+		const startMonth = index * monthsPerBucket;
+		const year = Math.floor(startMonth / 12);
+		const month = startMonth % 12;
+		let label;
 
-		if (!at) {
-			continue;
+		if (unit === 'year') {
+			label = String(year);
+		} else if (unit === 'quarter') {
+			label = `Q${Math.floor(month / 3) + 1} ${shortYear(year)}`;
+		} else {
+			label = `${new Date(year, month, 1).toLocaleDateString(undefined, { month: 'short' })} ${shortYear(year)}`;
 		}
 
-		const key = `${at.getFullYear()}-${at.getMonth()}`;
-		const bucket = bucketByKey.get(key);
+		buckets.push({ label, count: 0, unit });
+	}
+
+	for (const at of parsedTimes) {
+		const bucket = buckets[bucketIndex(at) - firstIndex];
 
 		if (bucket) {
 			bucket.count += 1;
@@ -350,31 +252,26 @@ function buildMonthlySeries(requests) {
 }
 
 function buildVolumeSeries(requests, windowType) {
+	let buckets;
+
 	if (windowType === 'daily') {
-		return buildDailySeries(requests, 30);
+		buckets = buildDailySeries(requests, 30).map((bucket) => ({ ...bucket, unit: 'day' }));
+	} else if (windowType === 'monthly') {
+		buckets = buildOverallSeries(requests);
+	} else {
+		buckets = buildHourlySeries(requests, 24).map((bucket) => ({ ...bucket, unit: 'hour' }));
 	}
 
-	if (windowType === 'monthly') {
-		return buildMonthlySeries(requests);
-	}
+	// Label roughly VOLUME_LABEL_COUNT evenly spaced bars (always the latest)
+	// so dense series stay readable; every bar keeps its tooltip.
+	const step = Math.max(Math.ceil(buckets.length / VOLUME_LABEL_COUNT), 1);
+	const lastIndex = buckets.length - 1;
 
-	return buildHourlySeries(requests, 24);
-}
-
-function getApprovalStatus(approvalItem) {
-	if (!approvalItem || typeof approvalItem !== 'object') {
-		return 'pending';
-	}
-
-	if (approvalItem.status === false) {
-		return 'approved';
-	}
-
-	if (approvalItem.status === true) {
-		return 'rejected';
-	}
-
-	return 'pending';
+	return buckets.map((bucket, index) => ({
+		...bucket,
+		key: `${bucket.unit}-${index}-${bucket.label}`,
+		showLabel: (lastIndex - index) % step === 0,
+	}));
 }
 
 function getApprovalStatusLabel(status) {
@@ -387,6 +284,17 @@ function getApprovalStatusLabel(status) {
 	}
 
 	return 'Pending';
+}
+
+function emptyRoleStats() {
+	return {
+		organizationNames: [],
+		organizationLabel: 'Your Organizations',
+		adminsCount: 0,
+		officersCount: 0,
+		membershipsCount: 0,
+		pendingRoleChangeRequestsCount: 0,
+	};
 }
 
 document.addEventListener('alpine:init', () => {
@@ -439,15 +347,8 @@ document.addEventListener('alpine:init', () => {
 		activeRequestId: 0,
 		decisionRequestId: null,
 		requests: [],
-		approvals: [],
-		roleStats: {
-			organizationNames: [],
-			organizationLabel: 'Your Organizations',
-			adminsCount: 0,
-			officersCount: 0,
-			membershipsCount: 0,
-			pendingRoleChangeRequestsCount: 0,
-		},
+		volumeSeries: [],
+		roleStats: emptyRoleStats(),
 
 		get type() {
 			return Alpine.store('dashboardType').current;
@@ -477,12 +378,16 @@ document.addEventListener('alpine:init', () => {
 			return this.window.listWindowText;
 		},
 
+		get volumeUnit() {
+			return VOLUME_UNITS[this.volumeSeries[0]?.unit] ?? VOLUME_UNITS.hour;
+		},
+
 		get volumeLegendLabel() {
-			return this.window.volumeLegendLabel;
+			return this.volumeUnit.legend;
 		},
 
 		get peakVolumeSuffix() {
-			return this.window.peakVolumeSuffix;
+			return this.volumeUnit.suffix;
 		},
 
 		get totalRequests() {
@@ -494,11 +399,11 @@ document.addEventListener('alpine:init', () => {
 		},
 
 		get approvedCount() {
-			return this.approvals.filter((approval) => approval?.status === false).length;
+			return this.requests.filter((requestItem) => requestItem.approval_status === 'approved').length;
 		},
 
 		get deniedCount() {
-			return this.approvals.filter((approval) => approval?.status === true).length;
+			return this.requests.filter((requestItem) => requestItem.approval_status === 'rejected').length;
 		},
 
 		get pendingCount() {
@@ -527,10 +432,6 @@ document.addEventListener('alpine:init', () => {
 			}
 
 			return Math.round(((this.approvedCount + this.deniedCount) / this.totalRequests) * 100);
-		},
-
-		get volumeSeries() {
-			return buildVolumeSeries(this.requests, this.window.series);
 		},
 
 		get maxVolumeCount() {
@@ -585,33 +486,26 @@ document.addEventListener('alpine:init', () => {
 			this.loading = true;
 			this.error = null;
 
-			const actionTypeCode = this.type.code;
+			const isPolicyAndSecurityType = this.type.code === 7;
 			const queryHours = this.window.queryHours;
-			const isPolicyAndSecurityType = actionTypeCode === 7;
-			const baseRequestsEndpoint = isPolicyAndSecurityType
-				? '/api/policy-security/requests'
-				: `/api/requests/${actionTypeCode}`;
+			const baseRequestsEndpoint = `/api/dashboard/requests/${this.type.section}`;
 			const requestsEndpoint = Number.isInteger(queryHours)
 				? `${baseRequestsEndpoint}?hours=${queryHours}`
 				: baseRequestsEndpoint;
-			const approvalsEndpoint = isPolicyAndSecurityType
-				? '/api/policy-security/approvals'
-				: `/api/approvals/${actionTypeCode}`;
-			const statsEndpoint = '/api/policy-security/stats';
 
 			try {
-				const [requestsResponse, approvalsResponse, policyStatsResponse] = await Promise.all([
-					fetch(requestsEndpoint),
-					fetch(approvalsEndpoint),
-					isPolicyAndSecurityType ? fetch(statsEndpoint) : Promise.resolve(null),
+				const [requestsResponse, policyStatsResponse] = await Promise.all([
+					fetch(requestsEndpoint, { headers: { Accept: 'application/json' } }),
+					isPolicyAndSecurityType
+						? fetch('/api/policy-security/stats', { headers: { Accept: 'application/json' } })
+						: Promise.resolve(null),
 				]);
 
-				if (!requestsResponse.ok || !approvalsResponse.ok || (policyStatsResponse && !policyStatsResponse.ok)) {
+				if (!requestsResponse.ok || (policyStatsResponse && !policyStatsResponse.ok)) {
 					throw new Error('Unable to load dashboard data.');
 				}
 
 				const requestsPayload = await requestsResponse.json();
-				const approvalsPayload = await approvalsResponse.json();
 				const policyStatsPayload = policyStatsResponse ? await policyStatsResponse.json() : null;
 
 				if (requestId !== this.activeRequestId) {
@@ -619,34 +513,6 @@ document.addEventListener('alpine:init', () => {
 				}
 
 				const rawRequests = Array.isArray(requestsPayload?.data) ? requestsPayload.data : [];
-				const rawApprovals = Array.isArray(approvalsPayload?.data) ? approvalsPayload.data : [];
-				const organizationIds = Array.from(new Set(rawRequests
-					.map((requestItem) => {
-						const explicitOrganizationId = Number.parseInt(String(requestItem?.organization_id ?? ''), 10);
-
-						if (Number.isInteger(explicitOrganizationId) && explicitOrganizationId > 0) {
-							return explicitOrganizationId;
-						}
-
-						return extractOrganizationId(requestItem.action, actionTypeCode);
-					})
-					.filter((organizationId) => organizationId !== null)));
-				let organizationNameMap = {};
-
-				if (organizationIds.length && !isPolicyAndSecurityType) {
-					try {
-						const organizationResponse = await fetch(`/api/organizations?ids=${organizationIds.join(',')}`);
-
-						if (organizationResponse.ok) {
-							const organizationsPayload = await organizationResponse.json();
-							organizationNameMap = organizationsPayload && typeof organizationsPayload.data === 'object'
-								? organizationsPayload.data
-								: {};
-						}
-					} catch (organizationError) {
-						console.warn('Unable to resolve organization names for dashboard list.', organizationError);
-					}
-				}
 
 				if (isPolicyAndSecurityType) {
 					const statsData = policyStatsPayload && typeof policyStatsPayload.data === 'object'
@@ -662,29 +528,23 @@ document.addEventListener('alpine:init', () => {
 						pendingRoleChangeRequestsCount: Number.parseInt(String(statsData.pending_role_change_requests_count ?? 0), 10) || 0,
 					};
 				} else {
-					this.roleStats = {
-						organizationNames: [],
-						organizationLabel: 'Your Organizations',
-						adminsCount: 0,
-						officersCount: 0,
-						membershipsCount: 0,
-						pendingRoleChangeRequestsCount: 0,
-					};
+					this.roleStats = emptyRoleStats();
 				}
 
 				this.requests = rawRequests
 					.map((requestItem) => {
-						const summary = formatActionSummary(requestItem.action, actionTypeCode);
-						const listColumns = formatListColumns(requestItem, actionTypeCode, organizationNameMap);
+						const approvalStatus = ['approved', 'rejected'].includes(requestItem?.approval_status)
+							? requestItem.approval_status
+							: 'pending';
 
 						return {
 							...requestItem,
 							requester_name: buildRequesterName(requestItem.profile),
-							action_headline: summary.headline,
-							action_detail: summary.detail,
-							name_or_title: safeText(requestItem?.name_or_title, listColumns.nameOrTitle),
-							request_organization: safeText(requestItem?.request_organization, listColumns.organization),
+							name_or_title: safeText(requestItem?.name_or_title, this.type.singularLabel),
+							request_organization: safeText(requestItem?.request_organization, 'Organization Pending'),
 							requested_at_label: formatRelativeTimestamp(requestItem.requested_at),
+							approval_status: approvalStatus,
+							approval_status_label: getApprovalStatusLabel(approvalStatus),
 						};
 					})
 					.sort((left, right) => {
@@ -693,32 +553,7 @@ document.addEventListener('alpine:init', () => {
 
 						return rightTime - leftTime;
 					});
-
-				const requestIds = new Set(this.requests
-					.map((requestItem) => Number.parseInt(String(requestItem.request_id), 10))
-					.filter((requestItemId) => Number.isInteger(requestItemId) && requestItemId > 0));
-
-				this.approvals = rawApprovals.filter((approvalItem) => {
-					const linkedRequestId = Number.parseInt(String(approvalItem?.request?.request_id ?? ''), 10);
-
-					return requestIds.has(linkedRequestId);
-				});
-
-				const approvalByRequestId = new Map(this.approvals
-					.map((approvalItem) => [Number.parseInt(String(approvalItem?.request?.request_id ?? ''), 10), approvalItem])
-					.filter(([linkedRequestId]) => Number.isInteger(linkedRequestId) && linkedRequestId > 0));
-
-				this.requests = this.requests.map((requestItem) => {
-					const requestItemId = Number.parseInt(String(requestItem.request_id), 10);
-					const approvalItem = approvalByRequestId.get(requestItemId) ?? null;
-					const approvalStatus = getApprovalStatus(approvalItem);
-
-					return {
-						...requestItem,
-						approval_status: approvalStatus,
-						approval_status_label: getApprovalStatusLabel(approvalStatus),
-					};
-				});
+				this.volumeSeries = buildVolumeSeries(this.requests, this.window.series);
 				this.loaded = true;
 			} catch (error) {
 				if (requestId !== this.activeRequestId) {
@@ -726,15 +561,8 @@ document.addEventListener('alpine:init', () => {
 				}
 
 				this.requests = [];
-				this.approvals = [];
-				this.roleStats = {
-					organizationNames: [],
-					organizationLabel: 'Your Organizations',
-					adminsCount: 0,
-					officersCount: 0,
-					membershipsCount: 0,
-					pendingRoleChangeRequestsCount: 0,
-				};
+				this.volumeSeries = buildVolumeSeries([], this.window.series);
+				this.roleStats = emptyRoleStats();
 				this.error = error instanceof Error ? error.message : 'Unable to load dashboard data.';
 			} finally {
 				if (requestId === this.activeRequestId) {

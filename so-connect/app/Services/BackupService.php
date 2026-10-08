@@ -20,7 +20,7 @@ use ZipArchive;
  *  - Database backups (spatie/laravel-backup, DB-only): restore extracts the
  *    SQL dump and replaces the whole database.
  *  - Configuration backups (ConfigExporter, "config-" prefix): settings,
- *    forms, report templates, Step 2 templates and tally configuration.
+ *    forms, report templates, Step 2 templates, waiver templates and tally configuration.
  *    Restore merges them in (ConfigImporter) without deleting anything.
  *
  * Configuration archives live in a sibling "<name>-config" directory because

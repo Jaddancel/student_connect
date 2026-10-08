@@ -98,6 +98,32 @@ class OrganizationAuthorizationService
     }
 
     /**
+     * Orgs (any role) the user may select in the switcher: those not disabled
+     * for missing accreditation, in the switcher's name order.
+     *
+     * @return array<int>
+     */
+    public static function selectableOrganizationIdsForUser(int $userId): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        return DB::table('organization_officers as oo')
+            ->join('organizations as o', 'o.organization_id', '=', 'oo.organization')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->where('oo.user', $userId)
+            ->where(fn ($query) => $query->where('o.accreditation_status', '!=', AccreditationService::STATUS_DISABLED)
+                ->orWhereNull('o.accreditation_status'))
+            ->orderByRaw("COALESCE(od.name, 'Unknown Organization')")
+            ->get(['o.organization_id'])
+            ->map(fn ($row) => (int) $row->organization_id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
      * Narrow a role-derived org set to the org the current user selected in the
      * switcher, so switching context re-scopes every feature to that one org
      * (and an org where they're only a member yields an empty officer/president

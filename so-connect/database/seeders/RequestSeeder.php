@@ -30,6 +30,62 @@ use Illuminate\Support\Str;
 
 class RequestSeeder extends Seeder
 {
+    private const DISABLED_AT = '2026-06-22 00:00:00';
+
+    /** @var list<array{0:string, 1:string, 2:int, 3:string}> Name, initials, organization type, description. */
+    private const REGISTRATIONS = [
+        ['TAU Red Cross Youth Council', 'RCYC', 1, 'Trains student volunteers in first aid, blood donation drives and disaster response.'],
+        ['Young Farmers\' Guild of TAU', 'YFG', 1, 'Promotes modern farming practice and agripreneurship among student farmers.'],
+        ['TAU Environmental Rangers', 'TER', 1, 'Leads tree planting, river clean-ups and campus waste-segregation campaigns.'],
+        ['Kabataang Tarlakenyo para sa Bayan', 'KTB', 1, 'Organizes civic education and outreach programs in Tarlac communities.'],
+        ['TAU Peer Counselors Circle', 'PCC', 1, 'Provides peer support and mental health awareness activities for students.'],
+        ['Animal Welfare Advocates of TAU', 'AWAT', 1, 'Runs rescue, vaccination and responsible pet ownership campaigns on campus.'],
+        ['TAU Literacy Volunteers', 'TLV', 1, 'Conducts reading and tutoring sessions for elementary pupils in nearby barangays.'],
+        ['Agri-Tech Innovators Society', 'ATIS', 1, 'Explores drones, sensors and automation for small-farm agriculture.'],
+        ['TAU Disaster Response Volunteers', 'TDRV', 1, 'Prepares students for emergency response and community preparedness drills.'],
+        ['Kapatiran ng mga Iskolar ng Bayan', 'KIB', 1, 'Supports scholars through study groups, mentoring and service projects.'],
+        ['TAU Food Security Network', 'TFSN', 1, 'Promotes community gardens, food banks and nutrition awareness.'],
+        ['Green Campus Advocates', 'GCA', 1, 'Champions energy saving, recycling and sustainable practices in the university.'],
+        ['TAU Youth for Good Governance', 'YGG', 1, 'Encourages student participation in transparent and accountable governance.'],
+        ['TAU Fisheries Students\' Association', 'TFSA', 1, 'Advances aquaculture learning through field visits and hatchery projects.'],
+        ['Rural Health Advocates of TAU', 'RHAT', 1, 'Assists barangay health programs and student wellness campaigns.'],
+        ['TAU Born Again Campus Fellowship', 'BACF', 2, 'Gathers students for Bible study, worship and campus outreach.'],
+        ['Iglesia Youth Ministry - TAU Chapter', 'IYM', 2, 'Holds fellowship, devotional and community service activities for members.'],
+        ['TAU Muslim Students Association', 'TMSA', 2, 'Fosters faith, cultural understanding and interfaith dialogue on campus.'],
+        ['Victory Campus Ministry - TAU', 'VCM', 2, 'Disciples students through small groups and leadership development.'],
+        ['Couples for Christ Youth - TAU Chapter', 'CFCY', 2, 'Builds faith-centered student communities through camps and service.'],
+        ['Seventh-day Adventist Students Fellowship', 'SDASF', 2, 'Organizes worship, health ministry and community outreach for students.'],
+        ['Tau Kappa Phi Fraternity - TAU Chapter', 'TKP', 3, 'Brotherhood committed to leadership, scholarship and community service.'],
+        ['Sigma Delta Phi Sorority', 'SDP', 3, 'Sisterhood promoting academic excellence, leadership and service.'],
+        ['Beta Epsilon Agricultural Fraternity', 'BEAF', 3, 'Fraternity of agriculture students devoted to service and fellowship.'],
+        ['Phi Lambda Delta Sorority', 'PLD', 3, 'Sorority advancing women\'s leadership and community engagement.'],
+        ['Mu Sigma Phi - TAU Chapter', 'MSP', 3, 'Fellowship of health science students engaged in medical missions.'],
+        ['LS Robotics Club', 'LSRC', 4, 'Builds and programs robots for laboratory school competitions.'],
+        ['LS Journalism Club', 'LSJC', 4, 'Publishes the laboratory school newsletter and trains campus journalists.'],
+        ['LS Chess Club', 'LSCC', 4, 'Develops strategic thinking through training sessions and tournaments.'],
+        ['LS - Photography Club', 'LSPC', 4, 'Teaches photography and documents school events and activities.'],
+        ['LS Environmental Club', 'LSEC', 4, 'Runs gardening, recycling and nature awareness projects for pupils.'],
+        ['LS - Theater Guild', 'LSTG', 4, 'Stages plays and trains students in acting and production.'],
+        ['LS Coding Club', 'LSCDC', 4, 'Introduces programming and computational thinking to young learners.'],
+        ['LS - English Club', 'LSENG', 4, 'Promotes English proficiency through debates, quiz bees and readings.'],
+        ['LS Young Entrepreneurs Club', 'LSYEC', 4, 'Teaches business basics through school market days and projects.'],
+        ['TAU Esports Society', 'TES', 4, 'Organizes responsible gaming tournaments and digital literacy events.'],
+        ['TAU Mountaineers', 'TAUM', 4, 'Promotes outdoor safety, climbing and Leave No Trace principles.'],
+        ['TAU Film Society', 'TFS', 4, 'Screens, discusses and produces student films.'],
+        ['Data Science Society of TAU', 'DSST', 4, 'Builds data skills through workshops, hackathons and research.'],
+        ['TAU Cycling Club', 'TCC', 4, 'Encourages cycling for fitness, safety and sustainable transport.'],
+        ['TAU Investment and Finance Society', 'TIFS', 4, 'Teaches personal finance, investing and financial literacy.'],
+        ['TAU Animation and Multimedia Guild', 'TAMG', 4, 'Produces animation, graphics and multimedia for campus events.'],
+        ['TAU Linguistics Circle', 'TLC', 4, 'Studies Philippine languages and promotes language preservation.'],
+        ['TAU Marching Band', 'TMB', 5, 'Represents the university in parades, ceremonies and competitions.'],
+        ['TAU Dance Company', 'TDC', 5, 'University dance troupe performing folk, contemporary and street dance.'],
+        ['University Student Publication - The Harvest Gazette', 'THG', 5, 'Official student publication reporting campus news and opinion.'],
+        ['TAU Varsity Athletes Association', 'TVAA', 5, 'Supports varsity athletes in training, academics and welfare.'],
+        ['TAU Student Ambassadors Corps', 'TSAC', 5, 'Represents the university at campus tours, visits and official events.'],
+        ['TAU Theater Arts Ensemble', 'TTAE', 5, 'University theater company staging original and classic productions.'],
+        ['TAU Peer Tutors Network', 'TPTN', 5, 'University-sanctioned tutoring program supporting students in core subjects.'],
+    ];
+
     /** @var list<int> */
     private array $workplanOrganizations = [];
 
@@ -64,6 +120,7 @@ class RequestSeeder extends Seeder
 
         $protectedOfficers = $this->seedSignups();
         SeedData::at('2023-06-03 17:00:00', fn () => (new OrganizationSeeder)->shareOfficers($protectedOfficers));
+        $this->seedBaselineAccreditations();
         $this->seedWorkplans();
         $this->seedAccreditations();
         $this->seedMemberships();
@@ -73,7 +130,9 @@ class RequestSeeder extends Seeder
         foreach (Form::query()->whereNull('system_function')->with('fields')->get() as $form) {
             $this->seedDocumentForm($form);
         }
-        SeedData::at('2026-10-01 09:00:00', function () {
+        // The daily accreditation:enforce job disables non-compliant
+        // organizations as soon as the current semester starts.
+        SeedData::at(self::DISABLED_AT, function () {
             foreach ($this->disabledOrganizations as $id) {
                 app(AccreditationService::class)->disable(Organization::query()->findOrFail($id));
             }
@@ -193,10 +252,10 @@ class RequestSeeder extends Seeder
                 $president = SeedData::user();
                 $officer = SeedData::user();
                 $payload = [
-                    'organization_name' => 'Student Development Society '.($index + 1),
-                    'organization_initials' => 'SDS'.($index + 1),
-                    'organization_description' => 'Student-led service, leadership and academic development.',
-                    'organization_type' => fake()->numberBetween(1, 6),
+                    'organization_name' => self::REGISTRATIONS[$index][0],
+                    'organization_initials' => self::REGISTRATIONS[$index][1],
+                    'organization_description' => self::REGISTRATIONS[$index][3],
+                    'organization_type' => self::REGISTRATIONS[$index][2],
                     'freshman' => 20, 'sophomore' => 20, 'junior' => 20, 'total' => 60,
                     'president_email' => $president->user_email,
                     'officer_email' => $officer->user_email,
@@ -284,57 +343,122 @@ class RequestSeeder extends Seeder
         return $protected;
     }
 
+    /**
+     * Every organization has a finalized workplan, approved during the
+     * preparation period, for each semester it was active in up to the
+     * current one. The workplan cohort's 50 requests (70/10/20) are for the
+     * upcoming semester, filed during its preparation period; accreditation
+     * renewals follow the accepted ones.
+     */
     private function seedWorkplans(): void
     {
-        $form = $this->form('new_workplan');
+        $anchor = Carbon::parse(SeedData::END);
+        $semesters = Semester::query()->where('starts_at', '<=', $anchor)->orderBy('starts_at')->get();
+        foreach (Organization::query()->get() as $organization) {
+            $disabled = in_array((int) $organization->getKey(), $this->disabledOrganizations, true);
+            foreach ($semesters as $semester) {
+                if ($disabled && $semester->starts_at->gte(Carbon::parse(self::DISABLED_AT))) {
+                    continue;
+                }
+                $from = $semester->activePeriodStart()->max(Carbon::parse('2023-06-04'));
+                $until = $semester->starts_at->copy()->subDays(2);
+                $date = Carbon::createFromTimestamp(fake()->numberBetween($from->timestamp, $until->timestamp))
+                    ->setTime(fake()->numberBetween(8, 16), fake()->numberBetween(0, 59));
+                $this->seedWorkplan($organization, $semester, $date, 'accepted');
+            }
+        }
+
+        $upcoming = Semester::query()->where('starts_at', '>', $anchor)->orderBy('starts_at')->firstOrFail();
         $accepted = fake()->randomElements(
             array_values(array_diff($this->workplanOrganizations, $this->accreditationOrganizations)),
             35 - count($this->accreditationOrganizations),
         );
         $accepted = [...$accepted, ...$this->accreditationOrganizations];
         $declined = fake()->randomElements(array_values(array_diff($this->workplanOrganizations, $accepted)), 5);
-        $semesters = Semester::query()->where('starts_at', '<=', '2026-06-22')->get();
+        // Filed in the first days of the preparation window so the approvals
+        // and the accreditation renewals that follow them stay in the past.
+        $from = $upcoming->activePeriodStart()->setTime(8, 0);
+        $until = $from->copy()->addDays(4)->setTime(17, 0);
         foreach ($this->workplanOrganizations as $id) {
-            $semester = $semesters->random();
-            $date = $semester->starts_at->copy()->subDays(5)->setTime(9, 0);
-            SeedData::at($date->toDateTimeString(), function () use ($form, $id, $semester, $accepted, $declined) {
-                $organization = Organization::query()->findOrFail($id);
+            $status = in_array($id, $accepted, true) ? 'accepted' : (in_array($id, $declined, true) ? 'declined' : 'pending');
+            $date = Carbon::createFromTimestamp(fake()->numberBetween($from->timestamp, $until->timestamp));
+            $this->workplans[$id] = $this->seedWorkplan(Organization::query()->findOrFail($id), $upcoming, $date, $status);
+        }
+    }
+
+    private function seedWorkplan(Organization $organization, Semester $semester, Carbon $date, string $status): Workplan
+    {
+        $form = $this->form('new_workplan');
+
+        return SeedData::at($date->toDateTimeString(), function () use ($form, $organization, $semester, $status) {
+            $id = (int) $organization->getKey();
+            $president = SeedPayload::president($organization);
+            $plan = EventPlan::query()->create([
+                'organization_id' => $id, 'created_by' => $president->getKey(),
+                'title' => fake()->randomElement([
+                    'General Assembly', 'Officers Planning Workshop', 'Membership Orientation',
+                    'Leadership Training', 'Community Outreach Program', 'Academic Support Program',
+                ]),
+                'target_date' => $semester->starts_at->copy()->addDays(fake()->numberBetween(7, 30)),
+                'resources_needed' => 'Venue, materials, sound system and refreshments',
+                'persons_responsible' => [$president->getKey()],
+                'purpose_of_activity' => 'Student leadership and service development',
+                'status' => 'approved',
+            ]);
+            $payload = SeedPayload::for($form, $organization, $president, now());
+            $row = [
+                'title' => $plan->title,
+                'target' => $plan->target_date->format('M d, Y'),
+                'resources' => $plan->resources_needed,
+                'people' => SeedPayload::name($president),
+            ];
+            $payload = array_merge($payload, [
+                'school_year' => $semester->schoolYear(),
+                'current_school_year' => $semester->schoolYear(),
+                'current_semester' => $semester->semesterLabel().' Semester',
+                'semester_id' => $semester->getKey(),
+                'approved_events' => [$plan->getKey()],
+                'activity_table' => [['title' => $plan->title, 'target_date' => $plan->target_date->toDateString()]],
+                'workplan_rows' => [$row],
+                'activities' => [$row['title']], 'target' => [$row['target']],
+                'resources' => [$row['resources']], 'people' => [$row['people']],
+            ]);
+            $submission = $this->submission($form, $organization, $president, $payload);
+            $request = $this->documentRequest($form, $organization, $president, $submission);
+            $approval = $this->decision($request, $status);
+
+            return Workplan::query()->create([
+                'organization_id' => $id, 'semester_id' => $semester->getKey(),
+                'status' => $status === 'accepted' ? 'finalized' : 'active',
+                'finalized_at' => $status === 'accepted' ? $approval->approved_at : null,
+                'finalized_by' => $status === 'accepted' ? $president->getKey() : null,
+            ]);
+        });
+    }
+
+    /**
+     * AccreditationService treats an organization as compliant once it has any
+     * approved accreditation request filed before the current semester began.
+     * Every organization except the two disabled ones is accredited before the
+     * first semester, so the daily enforcement job leaves them active. These
+     * founding accreditations sit outside the 50-request cap; the renewals in
+     * seedAccreditations() keep the cap and the 70/10/20 ratio.
+     */
+    private function seedBaselineAccreditations(): void
+    {
+        $form = $this->form('org_accreditation');
+        $organizations = Organization::query()->whereNotIn('organization_id', $this->disabledOrganizations)->get();
+        foreach ($organizations as $organization) {
+            $date = Carbon::parse('2023-06-05 08:00:00')
+                ->addDays(fake()->numberBetween(0, 14))->addMinutes(fake()->numberBetween(0, 540));
+            SeedData::at($date->toDateTimeString(), function () use ($form, $organization) {
                 $president = SeedPayload::president($organization);
-                $status = in_array($id, $accepted, true) ? 'accepted' : (in_array($id, $declined, true) ? 'declined' : 'pending');
-                $plan = EventPlan::query()->create([
-                    'organization_id' => $id, 'created_by' => $president->getKey(),
-                    'title' => 'Semester student development program',
-                    'target_date' => $semester->starts_at->copy()->addDays(10),
-                    'resources_needed' => 'Venue, materials, sound system and refreshments',
-                    'persons_responsible' => [$president->getKey()],
-                    'purpose_of_activity' => 'Student leadership and service development',
-                    'status' => 'approved',
-                ]);
                 $payload = SeedPayload::for($form, $organization, $president, now());
-                $row = [
-                    'title' => $plan->title,
-                    'target' => $plan->target_date->format('M d, Y'),
-                    'resources' => $plan->resources_needed,
-                    'people' => SeedPayload::name($president),
-                ];
-                $payload = array_merge($payload, [
-                    'school_year' => $semester->schoolYear(),
-                    'semester_id' => $semester->getKey(),
-                    'approved_events' => [$plan->getKey()],
-                    'activity_table' => [['title' => $plan->title, 'target_date' => $plan->target_date->toDateString()]],
-                    'workplan_rows' => [$row],
-                    'activities' => [$row['title']], 'target' => [$row['target']],
-                    'resources' => [$row['resources']], 'people' => [$row['people']],
-                ]);
+                $target = SeedScoring::target($form, $payload);
+                $payload = $target['payload'] + ['_seed_criterion' => $target['criterion']];
                 $submission = $this->submission($form, $organization, $president, $payload);
                 $request = $this->documentRequest($form, $organization, $president, $submission);
-                $approval = $this->decision($request, $status);
-                $this->workplans[$id] = Workplan::query()->create([
-                    'organization_id' => $id, 'semester_id' => $semester->getKey(),
-                    'status' => $status === 'accepted' ? 'finalized' : 'active',
-                    'finalized_at' => $status === 'accepted' ? $approval->approved_at : null,
-                    'finalized_by' => $status === 'accepted' ? $president->getKey() : null,
-                ]);
+                $this->decision($request, 'accepted');
             });
         }
     }
@@ -414,7 +538,7 @@ class RequestSeeder extends Seeder
                 $semester = Semester::query()->where('starts_at', '>', $semester->starts_at)->orderBy('starts_at')->firstOrFail();
             }
             $targetDate = $requested->copy()->addDays(7)->max($semester->starts_at);
-            SeedData::at($requested->toDateTimeString(), function () use ($form, $entry, $statuses, $index, $targetDate) {
+            SeedData::at($requested->toDateTimeString(), function () use ($form, $entry, $statuses, $index, $targetDate, $semester) {
                 $organization = $entry['organization'];
                 $president = SeedPayload::president($organization);
                 $payload = SeedPayload::for($form, $organization, $president, now());
@@ -424,19 +548,27 @@ class RequestSeeder extends Seeder
                 $submission = $this->submission($form, $organization, $president, $payload);
                 $request = $this->documentRequest($form, $organization, $president, $submission);
                 $shared = $this->planFields($organization, $president, $payload);
-                $parent = EventPlan::query()->create($shared + ['status' => 'pending']);
+                // Like NewEventHandler: a parent plan is kept only while no
+                // approved workplan covers the event's semester.
+                $covered = Workplan::query()
+                    ->where('organization_id', $organization->getKey())
+                    ->where('semester_id', $semester->getKey())
+                    ->where('status', 'finalized')
+                    ->where('finalized_at', '<=', now())
+                    ->exists();
+                $parent = $covered ? null : EventPlan::query()->create($shared + ['status' => 'pending']);
                 $plan = EventPlan::query()->create($shared + [
-                    'parent_plan_id' => $parent->getKey(), 'request_id' => $request->getKey(), 'status' => 'pending',
+                    'parent_plan_id' => $parent?->getKey(), 'request_id' => $request->getKey(), 'status' => 'pending',
                 ]);
                 $request->update(['payload' => $request->payload + [
-                    'event_plan_id' => $plan->getKey(), 'parent_plan_id' => $parent->getKey(),
+                    'event_plan_id' => $plan->getKey(), 'parent_plan_id' => $parent?->getKey(),
                 ]]);
                 $approval = $this->decision($request, $statuses[$index]);
                 if ($statuses[$index] === 'accepted') {
                     SeedData::at($approval->approved_at->toDateTimeString(), function () use ($plan, $parent) {
                         $event = $this->calendarEvent($plan);
                         $plan->update(['status' => 'approved', 'event_id' => $event->getKey()]);
-                        $parent->update(['status' => 'approved', 'event_id' => $event->getKey()]);
+                        $parent?->update(['status' => 'approved', 'event_id' => $event->getKey()]);
                         $this->concludedPlans[] = $plan;
                     });
                 } elseif ($statuses[$index] === 'declined') {
@@ -498,18 +630,22 @@ class RequestSeeder extends Seeder
 
         foreach (Organization::query()->get() as $organization) {
             $id = (int) $organization->getKey();
+            // Disabled organizations stop holding activities once suspended.
+            $disabled = in_array($id, $this->disabledOrganizations, true);
+            $orgCutoff = $disabled ? Carbon::parse(self::DISABLED_AT)->subDays(5)->min($cutoff) : $cutoff;
+            $orgSemesters = $semesters->filter(fn (Semester $semester) => $semester->starts_at->lte($orgCutoff))->values();
             $target = fake()->numberBetween(5, 10);
             $plans = collect($this->concludedPlans)
-                ->filter(fn (EventPlan $plan) => (int) $plan->organization_id === $id && $plan->event_end_time->lte($cutoff))
+                ->filter(fn (EventPlan $plan) => (int) $plan->organization_id === $id && $plan->event_end_time->lte($orgCutoff))
                 ->shuffle()->take($target)->values()->all();
             $used = array_map(fn (EventPlan $plan) => $plan->target_date->toDateString(), $plans);
             $inCurrent = count(array_filter($plans, fn (EventPlan $plan) => $plan->event_end_time->gte($current->starts_at)));
-            $wantCurrent = fake()->numberBetween(1, 2);
+            $wantCurrent = $disabled ? 0 : fake()->numberBetween(1, 2);
 
             while (count($plans) < $target) {
-                $semester = $inCurrent < $wantCurrent ? $current : $semesters->random();
+                $semester = $inCurrent < $wantCurrent ? $current : $orgSemesters->random();
                 $start = $semester->starts_at->copy()->addDays(5);
-                $end = ($semester->endsAt() ?? $cutoff)->min($cutoff)->copy()->subDays(2);
+                $end = ($semester->endsAt() ?? $orgCutoff)->min($orgCutoff)->copy()->subDays(2);
                 if ($end->lt($start)) {
                     continue;
                 }
