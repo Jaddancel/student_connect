@@ -726,12 +726,22 @@ class FormRenderController extends Controller
         // waits as a pending request on the form's own admin request page;
         // the document is generated when an admin approves, and a rejection
         // sends the submitter back to this form.
-        $docService->createDocumentGenerationRequest(
+        $actionRequest = $docService->createDocumentGenerationRequest(
             $submissionOrgId ? (int) $submissionOrgId : null,
             (int) $submission->getKey(),
             (int) $form->getKey(),
             $user ? (int) $user->getKey() : 0,
         );
+
+        if ($form->auto_approve_submissions) {
+            app(\App\Services\RequestApprovalService::class)->approve(
+                $actionRequest,
+                (int) $user->getKey(),
+            );
+
+            return redirect()->route('forms.render', $form->route_name)
+                ->with('success', $form->name.' submitted and automatically approved. The document is being generated.');
+        }
 
         return redirect()->route('forms.render', $form->route_name)
             ->with('success', $form->name.' submitted for approval — the document will be generated once an admin approves it.');
