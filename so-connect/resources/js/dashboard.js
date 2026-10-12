@@ -544,7 +544,9 @@ document.addEventListener('alpine:init', () => {
 							request_organization: safeText(requestItem?.request_organization, 'Organization Pending'),
 							requested_at_label: formatRelativeTimestamp(requestItem.requested_at),
 							approval_status: approvalStatus,
-							approval_status_label: getApprovalStatusLabel(approvalStatus),
+							approval_status_label: requestItem?.accepted_by_system === true
+								? 'Accepted (AUTO)'
+								: getApprovalStatusLabel(approvalStatus),
 						};
 					})
 					.sort((left, right) => {

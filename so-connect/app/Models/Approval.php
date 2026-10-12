@@ -37,6 +37,11 @@ class Approval extends Model
         return $this->belongsTo(Officer::class, 'admin', 'org_officer_id');
     }
 
+    public function decidingUser(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'admin', 'user_id');
+    }
+
     public function officerApproval()
     {
         return $this->hasOne(Officer::class, 'approval', 'approval_id');

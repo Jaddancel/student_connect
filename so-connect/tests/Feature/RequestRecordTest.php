@@ -23,6 +23,14 @@ it('groups member requests by status and excludes admin-user requests', function
     $accepted = makeActionRequest($member->getKey());
     Approval::create(['request' => $accepted->getKey(), 'is_rejected' => false, 'approved_at' => now()]);
 
+    $systemAccepted = makeActionRequest($member->getKey());
+    Approval::create([
+        'request' => $systemAccepted->getKey(),
+        'admin' => 0,
+        'is_rejected' => false,
+        'approved_at' => now(),
+    ]);
+
     $rejected = makeActionRequest($member->getKey());
     Approval::create(['request' => $rejected->getKey(), 'is_rejected' => true, 'approved_at' => now()]);
 
@@ -32,12 +40,21 @@ it('groups member requests by status and excludes admin-user requests', function
     Approval::create(['request' => $adminRequest->getKey(), 'is_rejected' => false, 'approved_at' => now()]);
 
     $this->actingAs($admin)->get(route('admin.request-records.index'))->assertOk();
-
-    $this->actingAs($admin)->get(route('admin.request-records.export.json'))
+    $this->actingAs($admin)->get(route('admin.request-records.index'))
         ->assertOk()
-        ->assertJsonCount(1, 'accepted')
+        ->assertSee('Accepted by the system');
+
+    $jsonResponse = $this->actingAs($admin)->get(route('admin.request-records.export.json'))
+        ->assertOk()
+        ->assertJsonCount(2, 'accepted')
         ->assertJsonCount(1, 'pending')
         ->assertJsonCount(1, 'rejected');
+    expect(collect($jsonResponse->json('accepted'))->pluck('accepted_by')->filter()->all())
+        ->toBe(['Accepted by the system']);
+
+    $this->actingAs($admin)->get(route('admin.request-records.export.print'))
+        ->assertOk()
+        ->assertSee('Accepted by the system');
 });
 
 it('exposes request record exports', function () {

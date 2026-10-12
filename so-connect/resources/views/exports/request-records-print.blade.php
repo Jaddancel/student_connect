@@ -54,6 +54,7 @@
                         <th>Org ID</th>
                         <th>Request Time</th>
                         <th>Request Type</th>
+                        <th>Accepted By</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -63,10 +64,11 @@
                             <td>{{ $row['org_id'] ?? '—' }}</td>
                             <td>{{ $row['request_time'] }}</td>
                             <td>{{ $row['request_type'] }}</td>
+                            <td>{{ $row['accepted_by'] ?? '—' }}</td>
                         </tr>
                     @empty
                         <tr class="empty-row">
-                            <td colspan="4">No records in this category.</td>
+                            <td colspan="5">No records in this category.</td>
                         </tr>
                     @endforelse
                 </tbody>

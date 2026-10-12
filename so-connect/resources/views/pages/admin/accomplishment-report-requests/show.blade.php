@@ -179,6 +179,7 @@
                         <span class="text-sm text-gray-500 dark:text-gray-400">{{ $approval->rejection_reason }}</span>
                     @endif
                 </div>
+                <x-admin.decision-provenance :approval="$approval" />
             </div>
         @else
             <div x-data="{ rejectOpen: false }" class="rounded-2xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-800 dark:bg-white/[0.03]">

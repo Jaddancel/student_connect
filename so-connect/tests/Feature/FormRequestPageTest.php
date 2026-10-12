@@ -246,6 +246,77 @@ it('displays UTC request timestamps in the configured local timezone', function 
         ->assertSee('Sep 29, 2026 08:17 AM');
 });
 
+it('labels system-approved requests in the form request detail view', function () {
+    $form = frpForm();
+    $actionRequest = ActionRequest::query()->create([
+        'action' => 'document_generation',
+        'requested_at' => now(),
+        'user' => recordsUser(3)->getKey(),
+        'action_type' => \App\Helpers\FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION,
+        'form_id' => $form->getKey(),
+        'payload' => [],
+    ]);
+    Approval::query()->create([
+        'request' => $actionRequest->getKey(),
+        'admin' => 0,
+        'approved_at' => '2026-10-12 01:15:00',
+        'is_rejected' => false,
+    ]);
+
+    config(['app.display_timezone' => 'Asia/Manila']);
+    $this->actingAs(recordsUser(2))
+        ->get(route('admin.form-requests.show', [$form, $actionRequest->getKey()]))
+        ->assertOk()
+        ->assertSee('Accepted (AUTO)')
+        ->assertSee('Decided By')
+        ->assertSee('System')
+        ->assertSee('Decision Date')
+        ->assertSee('Oct 12, 2026 09:15 AM');
+
+    $this->get(route('admin.form-requests.index', $form))
+        ->assertOk()
+        ->assertSee('Approved')
+        ->assertDontSee('Accepted (AUTO)');
+});
+
+it('shows the deciding admin name and local decision date on request details', function (bool $rejected) {
+    config(['app.display_timezone' => 'Asia/Manila']);
+    $form = frpForm();
+    $decidingAdmin = recordsUser(2, [
+        'first_name' => 'Maria',
+        'middle_name' => 'Cruz',
+        'last_name' => 'Santos',
+    ]);
+    $actionRequest = ActionRequest::query()->create([
+        'action' => 'document_generation',
+        'requested_at' => now(),
+        'user' => recordsUser(3)->getKey(),
+        'action_type' => \App\Helpers\FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION,
+        'form_id' => $form->getKey(),
+        'payload' => [],
+    ]);
+    Approval::query()->create([
+        'request' => $actionRequest->getKey(),
+        'admin' => $decidingAdmin->getKey(),
+        'approved_at' => '2026-10-12 01:15:00',
+        'is_rejected' => $rejected,
+    ]);
+
+    $this->actingAs(recordsUser(2))
+        ->get(route('admin.form-requests.show', [$form, $actionRequest->getKey()]))
+        ->assertOk()
+        ->assertSee('Maria Cruz Santos')
+        ->assertSee('Oct 12, 2026 09:15 AM')
+        ->assertSee($rejected ? 'Rejected' : 'Approved');
+})->with([false, true]);
+
+it('keeps missing decision attribution distinct from the system', function () {
+    $approval = new Approval(['admin' => null, 'approved_at' => null]);
+    $this->blade('<x-admin.decision-provenance :approval="$approval" />', compact('approval'))
+        ->assertSee('Unavailable')
+        ->assertDontSee('System');
+});
+
 it('never lists another form\'s requests', function () {
     Storage::fake('public');
     config(['documents.disk' => 'public']);

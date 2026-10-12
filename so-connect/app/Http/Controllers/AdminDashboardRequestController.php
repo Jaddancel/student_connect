@@ -119,7 +119,7 @@ class AdminDashboardRequestController extends Controller
         $requestIds = $requests->pluck('request_id')->map(fn ($id) => (int) $id)->all();
         $approvalsByRequest = Approval::query()
             ->whereIn('request', $requestIds)
-            ->get(['approval_id', 'request', 'stage', 'is_rejected', 'approved_at'])
+            ->get(['approval_id', 'request', 'stage', 'admin', 'is_rejected', 'approved_at'])
             ->groupBy(fn ($approval) => (int) $approval->request);
 
         $profiles = $this->profilesByUser($requests->pluck('user')->filter()->unique()->values()->all());
@@ -138,7 +138,10 @@ class AdminDashboardRequestController extends Controller
             $requesterName = $this->requesterName($profile, $payload, (int) $r->user);
             $organizationId = $this->organizationIdFor($r);
             $formName = (string) ($formNames[$this->formIdFor($r)] ?? '');
-            [$status, $decidedAt] = $this->decision($actionType, $approvalsByRequest->get((int) $r->request_id) ?? collect());
+            [$status, $decidedAt, $acceptedBySystem] = $this->decision(
+                $actionType,
+                $approvalsByRequest->get((int) $r->request_id) ?? collect(),
+            );
 
             $kind = match (true) {
                 $actionType === SignupRequests::ACTION_TYPE => 'New User',
@@ -169,6 +172,7 @@ class AdminDashboardRequestController extends Controller
                     ? ($organizationNames[$organizationId] ?? 'Organization #'.$organizationId)
                     : 'Organization Pending',
                 'approval_status' => $status,
+                'accepted_by_system' => $acceptedBySystem,
                 'decided_at' => $decidedAt,
             ];
         })->values()->all();
@@ -180,7 +184,7 @@ class AdminDashboardRequestController extends Controller
      * other kind is decided by its single approval row.
      *
      * @param  Collection<int,Approval>  $approvals
-     * @return array{0:string,1:?string}
+     * @return array{0:string,1:?string,2:bool}
      */
     private function decision(int $actionType, Collection $approvals): array
     {
@@ -192,12 +196,15 @@ class AdminDashboardRequestController extends Controller
         }
 
         if ($final === null) {
-            return ['pending', null];
+            return ['pending', null, false];
         }
 
+        $isRejected = (bool) $final->is_rejected;
+
         return [
-            (bool) $final->is_rejected ? 'rejected' : 'approved',
+            $isRejected ? 'rejected' : 'approved',
             $final->approved_at ? \Illuminate\Support\Carbon::parse($final->approved_at)->toIso8601String() : null,
+            ! $isRejected && $final->admin !== null && (int) $final->admin === 0,
         ];
     }
 

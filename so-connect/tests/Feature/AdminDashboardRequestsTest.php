@@ -12,7 +12,7 @@ uses(RefreshDatabase::class);
 // AppSetting caches rememberForever; start each test from a clean cache.
 beforeEach(fn () => Cache::flush());
 
-function dashboardRequest(array $attributes, ?bool $rejected = null, ?string $stage = null): int
+function dashboardRequest(array $attributes, ?bool $rejected = null, ?string $stage = null, ?int $admin = null): int
 {
     $requestId = DB::table('requests')->insertGetId(array_merge([
         'action' => '0',
@@ -24,6 +24,7 @@ function dashboardRequest(array $attributes, ?bool $rejected = null, ?string $st
     if ($rejected !== null) {
         DB::table('approvals')->insert([
             'request' => $requestId,
+            'admin' => $admin,
             'stage' => $stage,
             'is_rejected' => $rejected,
             'approved_at' => now(),
@@ -114,7 +115,11 @@ it('tracks requests from accreditation-required forms in the policy section', fu
     $admin = recordsUser(2);
     $requester = recordsUser(3, ['first_name' => 'Ana', 'last_name' => 'Officer']);
     $org = recordsOrganization('Robotics Society');
-    $required = Form::query()->create(['name' => 'Constitution and By-Laws', 'route_name' => 'dash-cbl']);
+    $required = Form::query()->create([
+        'name' => 'Constitution and By-Laws',
+        'route_name' => 'dash-cbl',
+        'auto_approve_submissions' => true,
+    ]);
     $notRequired = Form::query()->create(['name' => 'Feedback', 'route_name' => 'dash-feedback']);
     AppSetting::put('accreditation.conditions', ['required_forms' => [$required->getKey()]]);
 
@@ -125,6 +130,13 @@ it('tracks requests from accreditation-required forms in the policy section', fu
         // Matched through the payload when the form_id column is empty.
         'payload' => ['form_id' => $required->getKey()],
     ]);
+    $systemAcceptedId = dashboardRequest([
+        'action_type' => 3,
+        'form_id' => $required->getKey(),
+        'organization_id' => $org->getKey(),
+        'user' => $requester->getKey(),
+        'payload' => ['form_id' => $required->getKey()],
+    ], rejected: false, admin: 0);
     dashboardRequest(['action_type' => 3, 'form_id' => $notRequired->getKey(), 'payload' => ['form_id' => $notRequired->getKey()]]);
     $oldId = dashboardRequest([
         'action_type' => 3,
@@ -142,10 +154,14 @@ it('tracks requests from accreditation-required forms in the policy section', fu
         ->assertJsonPath('data.0.request_organization', 'Robotics Society')
         ->assertJsonPath('data.0.approval_status', 'pending');
 
-    $this->actingAs($admin)->getJson('/api/dashboard/requests/policy')
-        ->assertJsonCount(3, 'data')
-        ->assertJsonPath('data.2.request_id', $oldId)
-        ->assertJsonPath('data.2.approval_status', 'approved');
+    $response = $this->actingAs($admin)->getJson('/api/dashboard/requests/policy')
+        ->assertJsonCount(4, 'data')
+        ->assertOk();
+
+    $rows = collect($response->json('data'))->keyBy('request_id');
+    expect($rows[$oldId]['approval_status'])->toBe('approved')
+        ->and($rows[$oldId]['accepted_by_system'])->toBeFalse()
+        ->and($rows[$systemAcceptedId]['accepted_by_system'])->toBeTrue();
 });
 
 it('restricts dashboard requests to admins', function () {

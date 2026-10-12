@@ -148,6 +148,37 @@ it('stores a form with layout and fields', function () {
     expect($form->is_active)->toBeTrue();
 });
 
+it('persists the auto-approve toggle when editing and reopening a plain form', function () {
+    \Illuminate\Support\Facades\Queue::fake();
+    $admin = makeUser(2);
+    $form = Form::create([
+        'name' => 'Toggle Approval',
+        'route_name' => 'toggle-approval',
+        'is_active' => true,
+        'is_published' => true,
+        'layout' => ['rows' => []],
+    ]);
+
+    foreach ([true, false] as $enabled) {
+        $this->actingAs($admin)
+            ->putJson(route('admin.form-builder.update', $form), [
+                'name' => $form->name,
+                'route_name' => $form->route_name,
+                'system_function' => null,
+                'auto_approve_submissions' => $enabled,
+                'fields' => [],
+                'rows' => [],
+            ])
+            ->assertOk();
+
+        expect($form->fresh()->auto_approve_submissions)->toBe($enabled);
+
+        $this->get(route('admin.form-builder.edit', $form))
+            ->assertOk()
+            ->assertViewHas('editorData', fn (array $data) => $data['auto_approve_submissions'] === $enabled);
+    }
+});
+
 it('publishes every printed-template draft slot and deactivates removed slots on edit', function () {
     Storage::fake('public');
     \Illuminate\Support\Facades\Queue::fake();
@@ -362,6 +393,7 @@ it('automatically approves submissions when enabled for a plain form', function 
         'is_published' => true,
         'auto_approve_submissions' => true,
         'layout' => ['rows' => []],
+        'pdf_template' => ['html' => '<p>Auto Approved Form</p>'],
     ]);
 
     $this->partialMock(\App\Services\DocumentGenerationService::class, function ($mock) {
@@ -386,7 +418,7 @@ it('automatically approves submissions when enabled for a plain form', function 
 
     expect((int) $submission->submitted_by)->toBe((int) $officer->getKey())
         ->and($approval->is_rejected)->toBeFalse()
-        ->and((int) $approval->admin)->toBe((int) $officer->getKey());
+        ->and((int) $approval->admin)->toBe(0);
 });
 
 it('enforces required-field validation on submit', function () {

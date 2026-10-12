@@ -737,6 +737,7 @@ class FormRenderController extends Controller
             app(\App\Services\RequestApprovalService::class)->approve(
                 $actionRequest,
                 (int) $user->getKey(),
+                approvalAdminId: 0,
             );
 
             return redirect()->route('forms.render', $form->route_name)

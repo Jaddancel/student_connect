@@ -3,6 +3,15 @@
 **TailAdmin Laravel** is a modern, production-ready admin dashboard template powered by **Laravel 12**, **Tailwind CSS v4**, **Alpine.js**, and a clean, modular architecture. TailAdmin is one of the most popular Tailwind CSS dashboard now also available for Larvael. It’s designed for building fast, scalable admin panels, CRM dashboards, SaaS backends, and any data-driven application where clarity and performance matter.
 ![TailAdmin - Next.js Dashboard Preview](./tailadmin-laravel.png)
 
+## Request decision details
+
+Completed request detail pages show **Decided By** and **Decision Date** for
+both approvals and rejections. The decision maker is resolved from the user ID
+stored in `approvals.admin`, with their profile name shown when available.
+Automatic approvals (`admin = 0`) show **System** and retain the
+**Accepted (AUTO)** badge. Decision timestamps use `app.display_timezone`.
+Missing historical attribution or dates are marked **Unavailable**.
+
 ## Historical demo seeding
 
 `DatabaseSeeder` requires an **empty, dedicated demo database**; it does not
@@ -347,6 +356,13 @@ npm run dev
 ```bash
 npm run build
 ```
+
+Without a running Vite dev server (`npm run dev`), Laravel serves the compiled
+assets in `public/build`. Rebuild after changing frontend source files; otherwise
+new form-builder controls can appear in Blade views while the older JavaScript
+does not send their values on save. With Sail, use
+`./vendor/bin/sail npm run build` to rebuild using the container's filesystem
+permissions, then reload the browser.
 
 #### Optimize Laravel
 

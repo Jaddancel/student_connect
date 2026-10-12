@@ -30,7 +30,12 @@ class RequestApprovalService
         return $this->approve($actionRequest, $requesterUserId);
     }
 
-    public function approve(ActionRequest $actionRequest, int $approverUserId, ?string $stage = null): Approval
+    public function approve(
+        ActionRequest $actionRequest,
+        int $approverUserId,
+        ?string $stage = null,
+        ?int $approvalAdminId = null,
+    ): Approval
     {
         $actionRequest->loadMissing('requestType');
 
@@ -62,7 +67,7 @@ class RequestApprovalService
         $approval = Approval::query()->updateOrCreate(
             $approvalMatch,
             [
-                'admin' => $approverUserId,
+                'admin' => $approvalAdminId ?? $approverUserId,
                 'approved_at' => now(),
                 'stage' => $stage,
                 'is_rejected' => false,
