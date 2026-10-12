@@ -2,9 +2,60 @@
 
 @section('content')
     <div class="grid grid-cols-12 gap-4 md:gap-6">
+        @if ($organization)
+            <section
+                aria-labelledby="organization-dashboard-title"
+                x-data="organizationDashboard(@js($semesterEnd?->toIso8601String()))"
+                class="relative col-span-12 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-sm dark:border-gray-800 dark:bg-gray-900">
+                <div aria-hidden="true" class="pointer-events-none absolute inset-0"
+                    :style="`background: linear-gradient(110deg, rgba(${themeColor}, 0.28), rgba(${themeColor}, 0.06))`"></div>
+                <div class="relative flex flex-col gap-5 p-5 sm:flex-row sm:items-center lg:p-6">
+                    <div class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-white shadow-theme-sm dark:border-gray-700 dark:bg-gray-800 sm:h-28 sm:w-28">
+                        @if ($organizationLogo)
+                            <img x-ref="logo" src="{{ $organizationLogo }}" alt="{{ $organizationDetail?->name }} logo"
+                                class="h-full w-full object-contain" @load="applyLogoTheme($event.target)"
+                                x-on:error="themeError = true">
+                        @else
+                            <span class="text-2xl font-bold text-gray-700 dark:text-gray-200">
+                                {{ $organizationDetail?->initials ?: 'ORG' }}
+                            </span>
+                        @endif
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <h1 id="organization-dashboard-title" class="text-xl font-semibold text-gray-900 dark:text-white sm:text-2xl">
+                            {{ $organizationDetail?->name ?? 'Organization' }}
+                        </h1>
+                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                            @if ($organization->created_at)
+                                Founded on {{ $organization->created_at->format('F j, Y') }}.
+                            @else
+                                Registration date unavailable.
+                            @endif
+                            {{ $organization->officer_count }} {{ \Illuminate\Support\Str::plural('officer', $organization->officer_count) }}.
+                        </p>
+                        <div class="mt-3 border-t border-gray-300/60 pt-3 text-sm font-medium text-gray-700 dark:border-gray-600 dark:text-gray-200">
+                            <span x-text="semesterText">
+                                @if ($semesterDaysRemaining === null)
+                                    Semester end date not configured.
+                                @elseif ($semesterEnd->isPast())
+                                    Semester has ended.
+                                @elseif ($semesterDaysRemaining <= 7)
+                                    Time until semester end: {{ $semesterDaysRemaining }} days
+                                @else
+                                    Days until semester end: {{ $semesterDaysRemaining }}
+                                @endif
+                            </span>
+                        </div>
+                        <p x-cloak x-show="themeError" class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            Logo theme unavailable.
+                        </p>
+                    </div>
+                </div>
+            </section>
+        @endif
         <div class="col-span-12">
             <div
-                class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03]">
+                class="min-h-[300px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03]">
 
                 {{-- Lime gradient top stripe --}}
                 <div class="h-1 w-full bg-gradient-to-r from-palette-lime via-palette-lime-light to-palette-lime-pale">
@@ -59,8 +110,8 @@
                     @else
                         <div class="space-y-2.5">
                             @foreach ($upcomingEvents as $event)
-                                <div
-                                    class="group relative overflow-hidden rounded-xl border border-palette-neutral bg-palette-surface transition-all hover:border-palette-lime-light hover:shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-palette-lime/30">
+                                <a href="{{ route('calendar', ['event' => $event->event_id]) }}"
+                                    class="group relative block overflow-hidden rounded-xl border border-palette-neutral bg-palette-surface transition-all hover:border-palette-lime-light hover:shadow-theme-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-palette-lime/30">
 
                                     {{-- Absolute left lime bar --}}
                                     <div
@@ -89,7 +140,7 @@
                                             </p>
                                         </div>
                                     </div>
-                                </div>
+                                </a>
                             @endforeach
                         </div>
                     @endif

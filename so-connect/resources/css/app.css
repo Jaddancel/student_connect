@@ -426,6 +426,11 @@ html[data-theme='light'] {
   @apply !fill-gray-700 dark:!fill-gray-400;
 }
 
+/* System Dashboard activity chart: period labels (Q1 2026, …). */
+.apexcharts-text.sc-period-label {
+  @apply !fill-gray-700 dark:!fill-white;
+}
+
 .apexcharts-tooltip.apexcharts-theme-light {
   @apply gap-1 !rounded-lg !border-gray-200 p-3 !shadow-theme-sm dark:!border-gray-800 dark:!bg-gray-900;
 }

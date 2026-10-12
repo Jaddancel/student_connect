@@ -26,30 +26,32 @@
             @endif
         </div>
 
-        <form method="POST" action="{{ route('profile.signature') }}" enctype="multipart/form-data"
-              x-data="signatureField()" class="space-y-2">
-            @csrf
-            <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                Draw a new signature (or upload an image of it)
-            </p>
-            <canvas x-ref="canvas" width="500" height="160"
-                class="w-full rounded-lg border border-gray-300 bg-white touch-none dark:border-gray-700"></canvas>
-            <input type="hidden" name="signature" x-ref="input" />
-            <div class="flex flex-wrap items-center gap-2">
-                <button type="button" @click="clear()"
-                    class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
-                    Clear
-                </button>
-                <label class="cursor-pointer rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
-                    Upload instead
-                    <input type="file" name="signature_file" accept="image/jpeg,image/png" class="hidden"
-                           @change="$el.form.submit()" />
-                </label>
-                <button type="submit"
-                    class="rounded-lg bg-brand-500 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-brand-600">
-                    Save signature
-                </button>
-            </div>
-        </form>
+        @if ((int) auth()->user()?->user_type === 1)
+            <form method="POST" action="{{ route('profile.signature') }}" enctype="multipart/form-data"
+                  x-data="signatureField()" class="space-y-2">
+                @csrf
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    Draw a new signature (or upload an image of it)
+                </p>
+                <canvas x-ref="canvas" width="500" height="160"
+                    class="w-full rounded-lg border border-gray-300 bg-white touch-none dark:border-gray-700"></canvas>
+                <input type="hidden" name="signature" x-ref="input" />
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" @click="clear()"
+                        class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
+                        Clear
+                    </button>
+                    <label class="cursor-pointer rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
+                        Upload instead
+                        <input type="file" name="signature_file" accept="image/jpeg,image/png" class="hidden"
+                               @change="$el.form.submit()" />
+                    </label>
+                    <button type="submit"
+                        class="rounded-lg bg-brand-500 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-brand-600">
+                        Save signature
+                    </button>
+                </div>
+            </form>
+        @endif
     </div>
 </div>

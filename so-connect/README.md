@@ -5,6 +5,48 @@
 
 ## Request decision details
 
+The user-type-3 organization dashboard shows the selected organization's logo,
+name, registration date (`organizations.created_at`, displayed as "Founded on")
+and current officer/president count above the existing event widget. The banner
+gradient is sampled from the logo; organizations without a logo use initials and
+a neutral gradient. Events and banner follow the organization switcher.
+Clicking a dashboard event opens `/calendar?event=<event_id>`, navigates to its
+date and opens the calendar modal with that event's details expanded. Only
+events available in the current organization calendar can be opened; missing
+events and loading failures display an explicit message.
+The current semester's end-of-day deadline uses `Semester::endsAt()` (including
+its next-semester fallback). With 7 or fewer days remaining, the banner shows
+"Time until semester end" with a live countdown; above 7 it shows
+"Days until semester end". Missing deadlines and ended semesters are shown
+explicitly rather than inventing an end date.
+
+Dashboard charts measure the sidebar-adjusted content width on first render.
+The shared layout reserves desktop sidebar spacing before Alpine initializes,
+and system dashboard charts initialize after Alpine's layout updates, avoiding
+oversized charts on cold loads and reloads.
+
+The admin dashboard's **Last quarter** and **Last year** time filters cover the
+rolling last 3 and 12 calendar months through now, respectively, rather than
+the previous completed calendar quarter or year. Month-end dates are clamped
+to the last valid day of the starting month. Both
+filter request counts, lists and daily volume charts across dashboard sections.
+The existing 24-hour, rolling one-month and Overall filters are unchanged.
+
+Select fields on activity and form request review pages display the configured
+option labels (the left-hand entries in the form builder), matching printed PDF
+templates. Multiple selections display comma-separated labels. Submissions
+retain their option keys for validation and scoring; historical values whose
+options no longer exist remain visible as their stored values.
+
+Review attachment captions offer **EXIF Data** when embedded metadata exists.
+All supported image formats (JPEG, PNG, HEIC/HEIF, GIF, WebP, BMP and SVG)
+are inspected for embedded EXIF, XMP and IPTC metadata in the original upload using `exiftool`
+(`libimage-exiftool-perl` on Debian/Ubuntu), included in the Sail 8.5 image.
+Rebuild the Laravel image after updating its Dockerfile. Native deployments
+must install ExifTool and make it available on the PHP process's `PATH`.
+Files without metadata show **EXIF data missing**; extraction failures show
+**EXIF data unavailable** and are logged rather than reported as missing.
+
 Completed request detail pages show **Decided By** and **Decision Date** for
 both approvals and rejections. The decision maker is resolved from the user ID
 stored in `approvals.admin`, with their profile name shown when available.

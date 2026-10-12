@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 /**
  * Feeds the user-type-2 dashboard sections:
@@ -47,15 +48,32 @@ class AdminDashboardRequestController extends Controller
             ], 403);
         }
 
+        $validated = $request->validate([
+            'window' => ['nullable', Rule::in(['quarter', 'year'])],
+        ]);
+        $window = $validated['window'] ?? null;
         $hours = max((int) $request->query('hours', 0), 0);
+        $range = null;
+
+        if ($window !== null) {
+            $end = now();
+            $start = $end->copy()->subMonthsNoOverflow($window === 'quarter' ? 3 : 12);
+
+            $range = [
+                'starts_at' => $start->toIso8601String(),
+                'ends_at' => $end->toIso8601String(),
+            ];
+        }
 
         $query = $this->sectionQuery($section);
 
         if ($query === null) {
-            return response()->json(['data' => []]);
+            return response()->json(['data' => [], 'range' => $range]);
         }
 
-        if ($hours > 0) {
+        if ($range !== null) {
+            $query->whereBetween('requested_at', [$start, $end]);
+        } elseif ($hours > 0) {
             $query->whereBetween('requested_at', [now()->subHours($hours), now()]);
         }
 
@@ -64,7 +82,7 @@ class AdminDashboardRequestController extends Controller
             ->orderByDesc('request_id')
             ->get(['request_id', 'action', 'action_type', 'form_id', 'organization_id', 'user', 'payload', 'requested_at']);
 
-        return response()->json(['data' => $this->present($requests)]);
+        return response()->json(['data' => $this->present($requests), 'range' => $range]);
     }
 
     private function sectionQuery(string $section): ?Builder

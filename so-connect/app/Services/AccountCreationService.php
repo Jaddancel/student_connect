@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Profile;
 use App\Models\Profile\profileAddress;
 use App\Models\User;
+use App\Support\AddressParser;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -13,12 +14,11 @@ class AccountCreationService
     public function create(array $data, int $userType, ?string $photoPath, ?string $signaturePath): User
     {
         return DB::transaction(function () use ($data, $userType, $photoPath, $signaturePath) {
-            $address = profileAddress::create([
-                'country' => 'Philippines',
-                'province' => '',
-                'town' => '',
-                'barangay' => $data['present_address'] ?? '',
-            ]);
+            $homeAddress = trim((string) ($data['home_address'] ?? ''));
+
+            $address = profileAddress::create(
+                AddressParser::parse($homeAddress !== '' ? $homeAddress : ($data['present_address'] ?? ''))
+            );
 
             $profile = Profile::create([
                 'first_name' => $data['first_name'],
@@ -36,6 +36,7 @@ class AccountCreationService
                 'year_section' => $data['year_level'] ?? '',
                 'occupation' => $userType === User::TYPE_SUPERADMIN ? 'SuperAdmin' : 'Administrator',
                 'address' => (int) $address->profile_address_id,
+                'home_address' => $homeAddress !== '' ? $homeAddress : null,
                 'photo' => $photoPath ?? '',
                 'signature_path' => $signaturePath,
             ]);

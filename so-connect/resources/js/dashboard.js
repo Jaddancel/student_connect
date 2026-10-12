@@ -46,6 +46,28 @@ const DASHBOARD_WINDOWS = {
 		queryHours: 24 * 30,
 		series: 'daily',
 	},
+	quarter: {
+		key: 'quarter',
+		label: 'Last quarter',
+		metricLabel: 'Last quarter',
+		windowLabel: 'Last 3 months',
+		chartWindowLabel: 'last 3 months',
+		compareWindowText: 'in the last 3 months',
+		listWindowText: 'in the last 3 months',
+		queryWindow: 'quarter',
+		series: 'period',
+	},
+	year: {
+		key: 'year',
+		label: 'Last year',
+		metricLabel: 'Last year',
+		windowLabel: 'Last 12 months',
+		chartWindowLabel: 'last 12 months',
+		compareWindowText: 'in the last 12 months',
+		listWindowText: 'in the last 12 months',
+		queryWindow: 'year',
+		series: 'period',
+	},
 	all: {
 		key: 'all',
 		label: 'Overall',
@@ -251,10 +273,47 @@ function buildOverallSeries(requests) {
 	return buckets;
 }
 
-function buildVolumeSeries(requests, windowType) {
+function buildPeriodSeries(requests, range) {
+	const start = range?.starts_at ? normalizeDate(range.starts_at) : null;
+	const end = range?.ends_at ? normalizeDate(range.ends_at) : null;
+	if (!start || !end || start > end) {
+		return [];
+	}
+
+	const buckets = [];
+	const cursor = new Date(start);
+	cursor.setHours(0, 0, 0, 0);
+	while (cursor <= end) {
+		const from = new Date(cursor);
+		cursor.setDate(cursor.getDate() + 1);
+		buckets.push({
+			label: from.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+			from,
+			to: new Date(cursor),
+			count: 0,
+			unit: 'day',
+		});
+	}
+
+	for (const request of requests) {
+		const at = normalizeDate(request.requested_at);
+		const bucket = at && at >= start && at <= end
+			? buckets.find((item) => at >= item.from && at < item.to)
+			: null;
+		if (bucket) {
+			bucket.count += 1;
+		}
+	}
+
+	return buckets;
+}
+
+function buildVolumeSeries(requests, windowType, range = null) {
 	let buckets;
 
-	if (windowType === 'daily') {
+	if (windowType === 'period') {
+		buckets = buildPeriodSeries(requests, range);
+	} else if (windowType === 'daily') {
 		buckets = buildDailySeries(requests, 30).map((bucket) => ({ ...bucket, unit: 'day' }));
 	} else if (windowType === 'monthly') {
 		buckets = buildOverallSeries(requests);
@@ -293,7 +352,9 @@ function emptyRoleStats() {
 		adminsCount: 0,
 		officersCount: 0,
 		membershipsCount: 0,
-		pendingRoleChangeRequestsCount: 0,
+		showAccreditation: false,
+		nonCompliantOrganizationsCount: null,
+		accreditationSemesterLabel: null,
 	};
 }
 
@@ -489,9 +550,11 @@ document.addEventListener('alpine:init', () => {
 			const isPolicyAndSecurityType = this.type.code === 7;
 			const queryHours = this.window.queryHours;
 			const baseRequestsEndpoint = `/api/dashboard/requests/${this.type.section}`;
-			const requestsEndpoint = Number.isInteger(queryHours)
-				? `${baseRequestsEndpoint}?hours=${queryHours}`
-				: baseRequestsEndpoint;
+			const requestsEndpoint = this.window.queryWindow
+				? `${baseRequestsEndpoint}?window=${this.window.queryWindow}`
+				: Number.isInteger(queryHours)
+					? `${baseRequestsEndpoint}?hours=${queryHours}`
+					: baseRequestsEndpoint;
 
 			try {
 				const [requestsResponse, policyStatsResponse] = await Promise.all([
@@ -501,7 +564,11 @@ document.addEventListener('alpine:init', () => {
 						: Promise.resolve(null),
 				]);
 
-				if (!requestsResponse.ok || (policyStatsResponse && !policyStatsResponse.ok)) {
+				if (!requestsResponse.ok) {
+					const payload = await requestsResponse.json();
+					throw new Error(payload?.message || 'Unable to load dashboard data.');
+				}
+				if (policyStatsResponse && !policyStatsResponse.ok) {
 					throw new Error('Unable to load dashboard data.');
 				}
 
@@ -525,7 +592,11 @@ document.addEventListener('alpine:init', () => {
 						adminsCount: Number.parseInt(String(statsData.admins_count ?? 0), 10) || 0,
 						officersCount: Number.parseInt(String(statsData.officers_count ?? 0), 10) || 0,
 						membershipsCount: Number.parseInt(String(statsData.memberships_count ?? 0), 10) || 0,
-						pendingRoleChangeRequestsCount: Number.parseInt(String(statsData.pending_role_change_requests_count ?? 0), 10) || 0,
+						showAccreditation: statsData.show_accreditation === true,
+						nonCompliantOrganizationsCount: Number.isInteger(statsData.non_compliant_organizations_count)
+							? statsData.non_compliant_organizations_count
+							: null,
+						accreditationSemesterLabel: safeText(statsData.accreditation_semester_label, '') || null,
 					};
 				} else {
 					this.roleStats = emptyRoleStats();
@@ -555,7 +626,7 @@ document.addEventListener('alpine:init', () => {
 
 						return rightTime - leftTime;
 					});
-				this.volumeSeries = buildVolumeSeries(this.requests, this.window.series);
+				this.volumeSeries = buildVolumeSeries(this.requests, this.window.series, requestsPayload.range);
 				this.loaded = true;
 			} catch (error) {
 				if (requestId !== this.activeRequestId) {

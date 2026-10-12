@@ -106,6 +106,40 @@ it('allows superadmin to create another superadmin through the invitation workfl
     $this->assertAuthenticatedAs($newSuperadmin);
 });
 
+it('parses the home address into the new account profile address', function () {
+    Mail::fake();
+
+    $superAdmin = User::query()->create([
+        'user_email' => 'superadmin-address@example.test',
+        'user_password' => 'password12345',
+        'user_type' => User::TYPE_SUPERADMIN,
+        'profile' => null,
+        'profile_pending' => false,
+    ]);
+
+    $this->actingAs($superAdmin)
+        ->post(route('superadmin.accounts.store'), [
+            'email' => 'address-admin@example.test',
+            'first_name' => 'Ana',
+            'last_name' => 'Admin',
+            'contact_number' => '09171234567',
+            'present_address' => 'Dorm 4, Banilad, Cebu City',
+            'home_address' => '123 Rizal St, Brgy. Lahug, Cebu City, Cebu, Philippines',
+        ])
+        ->assertRedirect(route('superadmin.accounts.create'));
+
+    $profile = User::query()->where('user_email', 'address-admin@example.test')->firstOrFail()->profile()->firstOrFail();
+    $address = $profile->addressOfUser;
+
+    expect($profile->home_address)->toBe('123 Rizal St, Brgy. Lahug, Cebu City, Cebu, Philippines')
+        ->and($address->only(['country', 'province', 'town', 'barangay']))->toBe([
+            'country' => 'Philippines',
+            'province' => 'Cebu',
+            'town' => 'Cebu City',
+            'barangay' => '123 Rizal St, Brgy. Lahug',
+        ]);
+});
+
 it('does not allow admins to access superadmin account creation', function () {
     $admin = User::query()->create([
         'user_email' => 'admin-noncreator@example.test',

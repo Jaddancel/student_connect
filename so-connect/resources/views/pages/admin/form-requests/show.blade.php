@@ -98,6 +98,9 @@
                                 </div>
                             @elseif (in_array($type, [FieldType::ORG_SELECT, FieldType::EVENT_SELECT, FieldType::WORKPLAN_EVENTS], true))
                                 <p class="mt-1 text-gray-800 dark:text-white/90">{{ \App\Forms\SpecialFieldLabel::forField($type, $value) ?: '—' }}</p>
+                            @elseif (in_array($type, [FieldType::SELECT, FieldType::SEARCH, FieldType::RADIO], true))
+                                @php $displayValue = SubmissionPresenter::display($submissionPayload, $field->field_key, $type, (array) ($field->field_options ?? [])); @endphp
+                                <p class="mt-1 whitespace-pre-wrap text-gray-800 dark:text-white/90">{{ $displayValue === '' ? '—' : $displayValue }}</p>
                             @elseif (is_array($value))
                                 <p class="mt-1 whitespace-pre-wrap text-gray-800 dark:text-white/90">{{ implode(', ', array_map('strval', $value)) ?: '—' }}</p>
                             @else

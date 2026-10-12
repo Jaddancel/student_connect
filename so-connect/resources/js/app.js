@@ -9,6 +9,7 @@ import { signatureField } from "./components/signature-field";
 import { signatureImageField } from "./components/signature-image-field";
 import { idTemplateEditor } from "./components/id-template-editor";
 import { idScanWizard } from "./components/id-scan-wizard";
+import { formUploadPreview, mediaPreview } from "./components/heic-preview";
 import {
     waiverScanField,
     waiverScanItem,
@@ -23,6 +24,8 @@ import { registerAgeAutofill } from "./components/age-autofill";
 import { computedField, tableColumnSumField } from "./components/computed-field";
 import { postViewer } from "./components/post-viewer";
 import { eventCountdown } from "./components/event-countdown";
+import { organizationDashboard } from "./components/organization-dashboard";
+import { systemDashboard, uptimeClock } from "./components/system-dashboard";
 
 // flatpickr
 import flatpickr from "flatpickr";
@@ -42,6 +45,8 @@ Alpine.data("signatureField", signatureField);
 Alpine.data("signatureImageField", signatureImageField);
 Alpine.data("idTemplateEditor", idTemplateEditor);
 Alpine.data("idScanWizard", idScanWizard);
+Alpine.data("formUploadPreview", formUploadPreview);
+Alpine.data("mediaPreview", mediaPreview);
 Alpine.data("waiverScanField", waiverScanField);
 Alpine.data("waiverScanItem", waiverScanItem);
 Alpine.data("waiverTemplateEditor", waiverTemplateEditor);
@@ -55,6 +60,9 @@ Alpine.data("computedField", computedField);
 Alpine.data("tableColumnSumField", tableColumnSumField);
 Alpine.data("postViewer", postViewer);
 Alpine.data("eventCountdown", eventCountdown);
+Alpine.data("organizationDashboard", organizationDashboard);
+Alpine.data("systemDashboard", systemDashboard);
+Alpine.data("uptimeClock", uptimeClock);
 
 // Shared by table-input fields (tableSums) and `computed` fields
 // (computedValues) so a computed field can live-recompute from either without

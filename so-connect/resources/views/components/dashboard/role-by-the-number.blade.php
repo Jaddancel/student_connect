@@ -31,10 +31,15 @@
                 x-text="$store.dashboardData.roleStats.membershipsCount"></p>
         </div>
 
-        <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
-            <p class="text-xs text-gray-500 dark:text-gray-400">Pending Role Change Requests</p>
+        <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800"
+            x-show="$store.dashboardData.roleStats.showAccreditation" x-cloak>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Organizations Not Meeting Accreditation</p>
             <p class="mt-2 text-2xl font-semibold text-gray-800 dark:text-white/90"
-                x-text="$store.dashboardData.roleStats.pendingRoleChangeRequestsCount"></p>
+                x-text="$store.dashboardData.roleStats.nonCompliantOrganizationsCount ?? '—'"></p>
+            <p class="mt-1 text-xs text-gray-400 dark:text-gray-500"
+                x-text="$store.dashboardData.roleStats.accreditationSemesterLabel
+                    ? 'Current semester · ' + $store.dashboardData.roleStats.accreditationSemesterLabel
+                    : 'No current semester'"></p>
         </div>
     </div>
 </div>

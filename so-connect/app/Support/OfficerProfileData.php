@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Profile;
 use App\Models\Profile\profileAddress;
 
 /**
@@ -72,18 +73,44 @@ class OfficerProfileData
     }
 
     /**
-     * The address row a profile points at. Sign-up collects one free-text
-     * present address, which the schema keeps as the barangay line.
+     * The address row a profile points at, parsed from the free-text home
+     * address (or the present address when no home address was given).
      *
      * @param  array<string,mixed>  $payload
      */
     public static function createAddress(array $payload): profileAddress
     {
-        return profileAddress::create([
-            'country' => 'Philippines',
-            'province' => '',
-            'town' => '',
-            'barangay' => (string) ($payload['present_address'] ?? ''),
-        ]);
+        return profileAddress::create(AddressParser::parse(self::addressText($payload)));
+    }
+
+    /**
+     * Re-parse a re-application's address onto the profile's existing address
+     * row, creating one when the profile has none. A blank address keeps
+     * whatever was stored before.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    public static function syncAddress(Profile $profile, array $payload): void
+    {
+        if (self::addressText($payload) === '') {
+            return;
+        }
+
+        $address = $profile->addressOfUser;
+        if ($address) {
+            $address->update(AddressParser::parse(self::addressText($payload)));
+
+            return;
+        }
+
+        $profile->update(['address' => (int) self::createAddress($payload)->profile_address_id]);
+    }
+
+    /** @param  array<string,mixed>  $payload */
+    private static function addressText(array $payload): string
+    {
+        $home = trim((string) ($payload['home_address'] ?? ''));
+
+        return $home !== '' ? $home : trim((string) ($payload['present_address'] ?? ''));
     }
 }

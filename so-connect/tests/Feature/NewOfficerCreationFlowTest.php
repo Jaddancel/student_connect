@@ -191,58 +191,6 @@ it('admin rejecting action_type=11 creates rejection approval and no action_type
     expect(ActionRequest::query()->where('action_type', 12)->exists())->toBeFalse();
 });
 
-it('superadmin approving action_type=12 creates profile/user/member/officer records', function () {
-    [, $org] = makeOfficerWithOrg('officer-sa@example.test');
-    $superadmin = makeSuperadminUser('superadmin-decide@example.test');
-
-    $payload = array_merge(makeDirectoryPayload((int) $org->getKey()), [
-        'email' => 'brand-new-officer@example.test',
-        'original_request_id' => 99,
-    ]);
-
-    $type12 = ActionRequest::query()->create([
-        'action' => '0|New|Officer|M|0', 'action_type' => 12,
-        'user' => null, 'requested_at' => now(),
-        'payload' => $payload,
-    ]);
-
-    $this->actingAs($superadmin)
-        ->postJson(route('superadmin.officer-account-requests.decision', $type12->getKey()), [
-            'decision' => 'approve',
-            'country' => 'Philippines', 'province' => 'Cebu',
-            'town' => 'Cebu City', 'barangay' => 'Lahug',
-        ])
-        ->assertOk();
-
-    $newUser = User::query()->where('user_email', 'brand-new-officer@example.test')->first();
-    expect($newUser)->not->toBeNull()
-        ->and((int) $newUser->user_type)->toBe(3);
-
-    expect(Hash::check('tAU100!!', $newUser->user_password))->toBeTrue();
-
-    $profile = Profile::query()->where('profile_id', $newUser->profile)->first();
-    expect($profile)->not->toBeNull()
-        ->and($profile->occupation)->toBe('Student')
-        ->and($profile->first_name)->toBe('New');
-
-    $addrId = (int) $profile->address;
-    $addr = DB::table('profile_addresses')->where('profile_address_id', $addrId)->first();
-    expect($addr)->not->toBeNull()
-        ->and($addr->country)->toBe('Philippines');
-
-    $officerRow = DB::table('organization_officers')
-        ->where('user', (int) $newUser->getKey())
-        ->where('organization', (int) $org->getKey())
-        ->where('role', 'officer')
-        ->first();
-    expect($officerRow)->not->toBeNull();
-
-    $approval = Approval::query()->where('request', (int) $type12->getKey())->first();
-    expect($approval)->not->toBeNull()
-        ->and($approval->is_rejected)->toBeFalse()
-        ->and((int) $officerRow->approval)->toBe((int) $approval->approval_id);
-});
-
 it('admin direct creation creates all records immediately without a request queue', function () {
     $admin = makeAdminUser('admin-direct@example.test');
     $org   = Organization::query()->create(['organization_type' => 1, 'detail' => null]);
@@ -277,7 +225,7 @@ it('admin direct creation creates all records immediately without a request queu
     expect(ActionRequest::query()->where('user', (int) $newUser->getKey())->exists())->toBeFalse();
 });
 
-it('edit profile link is absent from navbar for user_type 2 and 3 but present for superadmin', function () {
+it('shows the correct profile link in the navbar for user types 1, 2, and 3', function () {
     $addressId = DB::table('profile_addresses')->insertGetId([
         'country' => 'Philippines', 'province' => 'Cebu', 'town' => 'Cebu City', 'barangay' => 'Lahug',
     ]);
@@ -296,9 +244,52 @@ it('edit profile link is absent from navbar for user_type 2 and 3 but present fo
     [$officer] = makeOfficerWithOrg('officer-nav@example.test');
 
     // Each user type lands on a different actual page; test that page's rendered dropdown
-    $this->actingAs($superadmin)->get(route('superadmin.profile-requests'))->assertSee('Edit profile');
-    $this->actingAs($adminUser)->get(route('dashboard'))->assertDontSee('Edit profile');
-    $this->actingAs($officer)->get(route('dashboard'))->assertDontSee('Edit profile');
+    $this->actingAs($superadmin)->get(route('superadmin.profiles'))->assertSee('Edit profile');
+    $this->actingAs($adminUser)->get(route('dashboard'))->assertSee('View Profile');
+    $this->actingAs($officer)->get(route('dashboard'))->assertSee('View Profile');
+});
+
+it('allows user types 2 and 3 to view their profiles without profile editing controls', function () {
+    $profile = Profile::query()->create([
+        'first_name' => 'Profile', 'last_name' => 'Viewer', 'middle_name' => '',
+        'occupation' => 'Administrator',
+    ]);
+    $adminUser = User::query()->create([
+        'user_email' => 'profile-view-admin@example.test', 'user_password' => 'password',
+        'user_type' => 2, 'profile' => $profile->getKey(), 'profile_pending' => false,
+    ]);
+    [$officer] = makeOfficerWithOrg('profile-view-officer@example.test');
+    $officerProfile = $officer->profile()->first();
+    $superadmin = User::query()->create([
+        'user_email' => 'profile-edit-superadmin@example.test', 'user_password' => 'password',
+        'user_type' => 1, 'profile' => $profile->getKey(), 'profile_pending' => false,
+    ]);
+
+    foreach ([[$adminUser, 'Profile Viewer'], [$officer, 'Test Officer']] as [$user, $name]) {
+        $this->actingAs($user)
+            ->get(route('profile'))
+            ->assertOk()
+            ->assertSee($name)
+            ->assertDontSee('Save signature')
+            ->assertDontSee('Upload instead')
+            ->assertDontSee('open-profile-info-modal')
+            ->assertDontSee('open-profile-address-modal');
+
+        $this->actingAs($user)
+            ->post(route('profile.signature'))
+            ->assertForbidden();
+    }
+
+    $this->actingAs($superadmin)
+        ->get(route('profile'))
+        ->assertOk()
+        ->assertSee('Save signature')
+        ->assertSee('open-profile-info-modal')
+        ->assertSee('open-profile-address-modal');
+
+    expect($profile->fresh()->signature_path)
+        ->toBeNull()
+        ->and($officerProfile?->fresh()->signature_path)->toBeNull();
 });
 
 it('officer dashboard includes a quick link to the student leader directory form', function () {

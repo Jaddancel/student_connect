@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\OrganizationLogoHelper;
+use App\Models\Organization;
+use App\Models\Semester;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Support\Facades\DB;
 
@@ -23,9 +26,8 @@ class Dashboard extends Controller
             return redirect()->route('profile.create');
         }
 
-        // Super admin: reuse the existing monitoring-dashboard data builder.
         if ($userType === 1) {
-            return app(SuperAdminController::class)->monitoringDashboard();
+            return app()->call([app(SuperAdminController::class), 'monitoringDashboard']);
         }
 
         // Admin.
@@ -44,6 +46,15 @@ class Dashboard extends Controller
         $user = auth()->user();
 
         $organizationIds = collect(OrganizationAuthorizationService::memberOrganizationIdsForUser((int) $user->getKey()));
+
+        $organization = Organization::query()
+            ->with('detail')
+            ->withCount(['officersOfThisOrganization as officer_count' => fn ($query) => $query->whereIn('role', ['officer', 'president'])])
+            ->whereIn('organization_id', $organizationIds->all())
+            ->first();
+
+        $organizationDetail = $organization?->getRelation('detail');
+        $semesterEnd = Semester::current()?->endsAt()?->endOfDay();
 
         $upcomingEvents = collect();
 
@@ -70,6 +81,11 @@ class Dashboard extends Controller
         return view('pages.dashboard.officer', [
             'title' => 'Dashboard',
             'upcomingEvents' => $upcomingEvents,
+            'organization' => $organization,
+            'organizationDetail' => $organizationDetail,
+            'organizationLogo' => OrganizationLogoHelper::map()[$organizationDetail?->name ?? ''] ?? null,
+            'semesterEnd' => $semesterEnd,
+            'semesterDaysRemaining' => $semesterEnd ? max(0, (int) ceil(now()->diffInSeconds($semesterEnd, false) / 86400)) : null,
         ]);
     }
 }

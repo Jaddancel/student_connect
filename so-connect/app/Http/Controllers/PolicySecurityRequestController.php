@@ -212,34 +212,10 @@ class PolicySecurityRequestController extends Controller
             ->values()
             ->all();
 
-        $policyRequestIds = ActionRequest::query()
-            ->where('action_type', 7)
-            ->get()
-            ->filter(function ($actionRequest) use ($presidentOrganizationIds) {
-                if ($presidentOrganizationIds === null) {
-                    return true;
-                }
-                [, $organizationId] = $this->parseRoleChangeAction($actionRequest->action);
-
-                return in_array($organizationId, $presidentOrganizationIds, true);
-            })
-            ->pluck('request_id')
-            ->map(fn ($requestId) => (int) $requestId)
-            ->values()
-            ->all();
-
-        $resolvedRequestIds = Approval::query()
-            ->whereIn('request', $policyRequestIds)
-            ->whereNotNull('request')
-            ->pluck('request')
-            ->map(fn ($requestId) => (int) $requestId)
-            ->unique()
-            ->values()
-            ->all();
-
-        $pendingCount = collect($policyRequestIds)
-            ->reject(fn ($requestId) => in_array($requestId, $resolvedRequestIds, true))
-            ->count();
+        // Accreditation standing is an admin-only figure; presidents get null.
+        $accreditation = app(\App\Services\AccreditationService::class);
+        $semesterWindow = $isAdmin ? $accreditation->semesterWindow() : null;
+        $nonCompliantCount = $semesterWindow ? $accreditation->nonCompliantCountForSemester($semesterWindow['semester']) : null;
 
         $officerQuery = \DB::table('organization_officers');
 
@@ -262,7 +238,11 @@ class PolicySecurityRequestController extends Controller
                 'admins_count' => $adminsCount,
                 'officers_count' => $officersCount,
                 'memberships_count' => $membershipsCount,
-                'pending_role_change_requests_count' => $pendingCount,
+                'show_accreditation' => $isAdmin,
+                'non_compliant_organizations_count' => $nonCompliantCount,
+                'accreditation_semester_label' => $semesterWindow
+                    ? $semesterWindow['semester']->semesterLabel().' Sem '.$semesterWindow['semester']->schoolYear()
+                    : null,
             ],
         ]);
     }

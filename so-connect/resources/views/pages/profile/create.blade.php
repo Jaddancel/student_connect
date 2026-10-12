@@ -304,7 +304,7 @@
                         Create Profile
                     </button>
                     <p class="mt-3 text-center text-xs text-gray-400 dark:text-gray-500">
-                        Your request will be reviewed by a superadmin before your profile is activated.
+                        Your profile is activated as soon as you submit this form.
                     </p>
                 </div>
 
@@ -321,7 +321,7 @@
                 </div>
                 <h3 class="mb-1.5 text-sm font-semibold text-gray-800 dark:text-white/90">How this works</h3>
                 <p class="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                    Submit your profile request and a superadmin will review and match it to your record. You'll be notified once it's approved.
+                    Fill in your details and submit — your profile is created immediately and you can start using StudentConnect right away.
                 </p>
             </div>
 

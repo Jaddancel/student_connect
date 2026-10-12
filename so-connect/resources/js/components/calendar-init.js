@@ -18,6 +18,21 @@ export function calendarInit() {
     );
     const todayStr =
         calendarWrapper.dataset.today || new Date().toISOString().slice(0, 10);
+    const linkedEventId = new URLSearchParams(window.location.search).get("event");
+    let linkedEventHandled = false;
+    let eventsLoaded = false;
+
+    const showLinkedEventError = (message) => {
+        let alert = document.getElementById("calendar-event-link-error");
+        if (!alert) {
+            alert = document.createElement("p");
+            alert.id = "calendar-event-link-error";
+            alert.setAttribute("role", "alert");
+            alert.className = "mb-4 rounded-lg border border-gray-200 p-4 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-300";
+            calendarWrapper.before(alert);
+        }
+        alert.textContent = message;
+    };
 
     // Calendar scope: "current" = the org selected in the session switcher,
     // "all" = every org the user belongs to. Toggled from the header.
@@ -234,6 +249,11 @@ export function calendarInit() {
         document.body.style.overflow = "";
     };
 
+    const openEventDetails = (event) => {
+        openDaySummaryModal(event.startStr.slice(0, 10), [event]);
+        daySummaryEventListEl?.querySelector(".ep-toggle")?.click();
+    };
+
     // ─── Event Plan Modal ────────────────────────────────────────────────────────
 
     const openEventPlanDrawer = (prefillDate) => {
@@ -310,6 +330,30 @@ export function calendarInit() {
         events: {
             url: "/api/events/calendar",
             extraParams: () => ({ scope: eventScope }),
+            success() {
+                eventsLoaded = true;
+            },
+            failure(error) {
+                console.error("Unable to load calendar events.", error);
+                if (linkedEventId && !linkedEventHandled) {
+                    showLinkedEventError("Unable to load the requested event. Please reload the calendar to try again.");
+                }
+            },
+        },
+        eventsSet(events) {
+            if (!linkedEventId || linkedEventHandled || !eventsLoaded) return;
+            linkedEventHandled = true;
+            const event = events.find((item) => item.id === linkedEventId);
+            if (!event?.start) {
+                showLinkedEventError("The requested event is unavailable in your current organization calendar.");
+                return;
+            }
+            calendarInstance.gotoDate(event.start);
+            openEventDetails(event);
+        },
+        eventClick(info) {
+            info.jsEvent.preventDefault();
+            openEventDetails(info.event);
         },
         nowIndicator: true,
         slotDuration: "00:30:00",

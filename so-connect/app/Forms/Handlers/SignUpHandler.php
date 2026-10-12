@@ -282,6 +282,7 @@ class SignUpHandler implements SystemFunctionHandler
         $profile = $applicant->profile()->first();
         if ($profile) {
             $profile->update(OfficerProfileData::fromPayload($payload));
+            OfficerProfileData::syncAddress($profile, $payload);
         } else {
             $address = OfficerProfileData::createAddress($payload);
             $profile = Profile::create(OfficerProfileData::fromPayload($payload, (int) $address->profile_address_id));

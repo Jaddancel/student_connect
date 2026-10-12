@@ -66,12 +66,19 @@ final class SeedData
             'middle_name' => fake()->optional()->firstName() ?? '',
             'last_name' => fake()->lastName(),
             'contact_number' => '9'.fake()->numerify('#########'),
+            'home_address' => fake()->randomElement([
+                'Purok 3, Brgy. San Isidro, Tarlac City, Tarlac',
+                'Rizal St., Poblacion A, Camiling, Tarlac',
+                'Brgy. Lourdes, Capas, Tarlac',
+                'Mabini St., Brgy. Sto. Cristo, Tarlac City, Tarlac',
+            ]),
             'course' => '',
             'year_level' => '',
         ], User::TYPE_SUPERADMIN, self::portrait(), null);
 
-        $user->profile->update([
-            'signature_path' => 'seed-signatures/profile-'.$user->profile->getKey().'.jpg',
+        $profile = $user->profile()->firstOrFail();
+        $profile->update([
+            'signature_path' => 'seed-signatures/profile-'.$profile->getKey().'.jpg',
         ]);
         $user->forceFill([
             'user_created_at' => now(),

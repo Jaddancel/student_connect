@@ -1,4 +1,5 @@
 import { extractSignatureInk } from './signature-ink';
+import { heicToJpeg } from './heic-preview';
 
 /**
  * Alpine component for an image-based signature FORM FIELD.
@@ -60,8 +61,15 @@ export function signatureImageField(config = {}) {
             const file = event.target.files && event.target.files[0];
             if (!file) return;
             this.extractError = '';
+            let stage = 'decode';
             try {
-                const dataUrl = await extractSignatureInk(await this.readAsDataUrl(file));
+                const source = /\.(heic|heif)$/i.test(file.name)
+                    || ['image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence'].includes(file.type.toLowerCase())
+                    ? await heicToJpeg(file)
+                    : file;
+                const sourceDataUrl = await this.readAsDataUrl(source);
+                stage = 'extract';
+                const dataUrl = await extractSignatureInk(sourceDataUrl);
                 this.$refs.input.value = dataUrl;
                 this.preview = dataUrl;
                 this.usingSaved = false;
@@ -69,12 +77,15 @@ export function signatureImageField(config = {}) {
                 this.$refs.input.dispatchEvent(new Event('input', { bubbles: true }));
                 this.scheduleVerify(dataUrl);
             } catch (e) {
+                console.error(`Signature upload failed during ${stage}.`, e);
                 // Never fall back to posting the raw photo: the server would
                 // reject it anyway, and the whole point is to keep the
                 // signature, not the picture it came from.
                 this.clear();
-                this.extractError = "We couldn't find a signature in that photo. "
-                    + 'Use a well-lit shot of the signature on plain paper, with nothing else in frame.';
+                this.extractError = stage === 'decode'
+                    ? "We couldn't decode that image. Please try uploading it again."
+                    : "We couldn't find a signature in that photo. "
+                        + 'Use a well-lit shot of the signature on plain paper, with nothing else in frame.';
                 event.target.value = '';
             }
         },
