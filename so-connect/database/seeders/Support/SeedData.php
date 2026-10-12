@@ -4,6 +4,7 @@ namespace Database\Seeders\Support;
 
 use App\Models\Profile;
 use App\Models\User;
+use App\Services\AccountCreationService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
@@ -55,6 +56,30 @@ final class SeedData
             'user_created_at' => now(),
             'email_verified_at' => now(),
         ]);
+    }
+
+    public static function superadminFromAccountForm(string $email): User
+    {
+        $user = app(AccountCreationService::class)->create([
+            'email' => $email,
+            'first_name' => fake()->firstName(),
+            'middle_name' => fake()->optional()->firstName() ?? '',
+            'last_name' => fake()->lastName(),
+            'contact_number' => '9'.fake()->numerify('#########'),
+            'course' => '',
+            'year_level' => '',
+        ], User::TYPE_SUPERADMIN, self::portrait(), null);
+
+        $user->profile->update([
+            'signature_path' => 'seed-signatures/profile-'.$user->profile->getKey().'.jpg',
+        ]);
+        $user->forceFill([
+            'user_created_at' => now(),
+            'email_verified_at' => now(),
+            'force_password_change' => false,
+        ])->save();
+
+        return $user;
     }
 
     /** @return list<string> */

@@ -1,13 +1,19 @@
 @extends('layouts.app')
 
 @section('content')
-    <x-common.page-breadcrumb pageTitle="Create Admin Account" />
+    <x-common.page-breadcrumb pageTitle="{{ $title }}" />
 
     <div class="space-y-6">
 
         @if (session('success'))
             <div class="rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm font-medium text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400">
                 {{ session('success') }}
+            </div>
+        @endif
+
+        @if (session('mail_error'))
+            <div class="rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
+                {{ session('mail_error') }}
             </div>
         @endif
 
@@ -19,7 +25,7 @@
             </div>
         @endif
 
-        <form action="{{ route('superadmin.accounts.store') }}" method="POST" enctype="multipart/form-data"
+        <form action="{{ route($storeRoute) }}" method="POST" enctype="multipart/form-data"
             class="space-y-6"
             x-data="{ advisers: {{ Js::from(old('faculty_advisers', [''])) }}, addAdviser() { this.advisers.push(''); }, removeAdviser(i) { if (this.advisers.length > 1) this.advisers.splice(i, 1); } }">
             @csrf
@@ -242,7 +248,7 @@
                         <label for="email" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Email Address <span class="text-error-500">*</span>
                         </label>
-                        <input type="email" id="email" name="email" placeholder="admin@example.com"
+                        <input type="email" id="email" name="email" placeholder="{{ strtolower($accountLabel) }}@example.com"
                             value="{{ old('email') }}"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border {{ $errors->has('email') ? 'border-error-500' : 'border-gray-300' }} bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                         @error('email')
@@ -252,7 +258,7 @@
                             <svg class="h-3.5 w-3.5 shrink-0 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                             </svg>
-                            An invitation email will be sent here. The new admin will set their own password upon first login.
+                            An invitation email will be sent here. The new {{ strtolower($accountLabel) }} will set their own password upon first login.
                         </p>
                     </div>
 
@@ -268,7 +274,7 @@
                 </button>
                 <button type="submit"
                     class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">
-                    Create Admin Account
+                    Create {{ $accountLabel }} Account
                 </button>
             </div>
         </form>

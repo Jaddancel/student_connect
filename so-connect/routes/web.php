@@ -815,6 +815,14 @@ Route::post('/superadmin/accounts/create', [AdminAccountCreationController::clas
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.accounts.store');
 
+Route::get('/superadmin/superadmins/create', [AdminAccountCreationController::class, 'createSuperadmin'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.superadmins.create');
+
+Route::post('/superadmin/superadmins/create', [AdminAccountCreationController::class, 'storeSuperadmin'])
+    ->middleware(['auth', 'superadmin'])
+    ->name('superadmin.superadmins.store');
+
 // Google "Sign in" popup for pre-filling admin (SuperAdmin) and officer (Admin)
 // creation forms, AND the public landing-page "Sign up with Google" button.
 // Shared by all three; stateless and reads the applicant's Google profile

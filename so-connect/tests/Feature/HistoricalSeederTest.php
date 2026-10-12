@@ -50,6 +50,7 @@ it('seeds historical accounts and configuration-compliant workflows with exact f
 
     expect(User::query()->orderBy('user_id')->first()->user_type)->toBe(User::TYPE_SUPERADMIN)
         ->and(User::query()->where('user_type', User::TYPE_SUPERADMIN)->count())->toBe(1)
+        ->and(User::query()->where('user_type', User::TYPE_SUPERADMIN)->first()->profile()->first()->occupation)->toBe('SuperAdmin')
         ->and(User::query()->where('user_type', User::TYPE_ADMIN)->count())->toBe(3)
         ->and(User::query()->orderBy('user_id')->skip(1)->take(3)->pluck('user_type')->all())->toBe([2, 2, 2])
         ->and(Organization::query()->count())->toBe(71)
