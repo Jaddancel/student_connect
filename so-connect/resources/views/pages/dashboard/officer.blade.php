@@ -110,8 +110,8 @@
                     @else
                         <div class="space-y-2.5">
                             @foreach ($upcomingEvents as $event)
-                                <div
-                                    class="group relative overflow-hidden rounded-xl border border-palette-neutral bg-palette-surface transition-all hover:border-palette-lime-light hover:shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-palette-lime/30">
+                                <a href="{{ route('calendar', ['event' => $event->event_id]) }}"
+                                    class="group relative block overflow-hidden rounded-xl border border-palette-neutral bg-palette-surface transition-all hover:border-palette-lime-light hover:shadow-theme-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-palette-lime/30">
 
                                     {{-- Absolute left lime bar --}}
                                     <div
@@ -140,7 +140,7 @@
                                             </p>
                                         </div>
                                     </div>
-                                </div>
+                                </a>
                             @endforeach
                         </div>
                     @endif

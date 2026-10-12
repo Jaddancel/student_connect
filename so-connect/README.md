@@ -10,6 +10,10 @@ name, registration date (`organizations.created_at`, displayed as "Founded on")
 and current officer/president count above the existing event widget. The banner
 gradient is sampled from the logo; organizations without a logo use initials and
 a neutral gradient. Events and banner follow the organization switcher.
+Clicking a dashboard event opens `/calendar?event=<event_id>`, navigates to its
+date and opens the calendar modal with that event's details expanded. Only
+events available in the current organization calendar can be opened; missing
+events and loading failures display an explicit message.
 The current semester's end-of-day deadline uses `Semester::endsAt()` (including
 its next-semester fallback). With 7 or fewer days remaining, the banner shows
 "Time until semester end" with a live countdown; above 7 it shows

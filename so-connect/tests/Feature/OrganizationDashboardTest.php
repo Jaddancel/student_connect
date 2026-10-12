@@ -30,6 +30,7 @@ it('shows the selected organization banner, officer count and scoped events', fu
         ]);
     }
 
+    $events = [];
     foreach ([$organization, $otherOrganization] as $org) {
         $detail = EventDetail::query()->create([
             'name' => 'Event for '.$org->getKey(),
@@ -38,7 +39,7 @@ it('shows the selected organization banner, officer count and scoped events', fu
             'start_time' => now()->addDay(),
             'end_time' => now()->addDay()->addHour(),
         ]);
-        Event::query()->create([
+        $events[$org->getKey()] = Event::query()->create([
             'organization' => $org->getKey(),
             'event_detail' => $detail->getKey(),
         ]);
@@ -61,6 +62,7 @@ it('shows the selected organization banner, officer count and scoped events', fu
         ->assertSee('Time until semester end:')
         ->assertSee('ESWM%20TAU.JPG')
         ->assertSee('Event for '.$organization->getKey())
+        ->assertSee(route('calendar', ['event' => $events[$organization->getKey()]->getKey()]))
         ->assertDontSee('Event for '.$otherOrganization->getKey())
         ->assertViewHas('semesterDaysRemaining', 7);
 
@@ -72,6 +74,7 @@ it('shows the selected organization banner, officer count and scoped events', fu
         ->assertDontSee('Another organization Dashboard')
         ->assertSee('1 officer.')
         ->assertSee('Event for '.$otherOrganization->getKey())
+        ->assertSee(route('calendar', ['event' => $events[$otherOrganization->getKey()]->getKey()]))
         ->assertDontSee('Event for '.$organization->getKey());
 });
 
