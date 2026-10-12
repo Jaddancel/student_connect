@@ -5,6 +5,15 @@
 
 ## Request decision details
 
+Review attachment captions offer **EXIF Data** when embedded metadata exists.
+All supported image formats (JPEG, PNG, HEIC/HEIF, GIF, WebP, BMP and SVG)
+are inspected for embedded EXIF, XMP and IPTC metadata in the original upload using `exiftool`
+(`libimage-exiftool-perl` on Debian/Ubuntu), included in the Sail 8.5 image.
+Rebuild the Laravel image after updating its Dockerfile. Native deployments
+must install ExifTool and make it available on the PHP process's `PATH`.
+Files without metadata show **EXIF data missing**; extraction failures show
+**EXIF data unavailable** and are logged rather than reported as missing.
+
 Completed request detail pages show **Decided By** and **Decision Date** for
 both approvals and rejections. The decision maker is resolved from the user ID
 stored in `approvals.admin`, with their profile name shown when available.

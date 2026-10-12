@@ -9,6 +9,7 @@ import { signatureField } from "./components/signature-field";
 import { signatureImageField } from "./components/signature-image-field";
 import { idTemplateEditor } from "./components/id-template-editor";
 import { idScanWizard } from "./components/id-scan-wizard";
+import { formUploadPreview, mediaPreview } from "./components/heic-preview";
 import {
     waiverScanField,
     waiverScanItem,
@@ -43,6 +44,8 @@ Alpine.data("signatureField", signatureField);
 Alpine.data("signatureImageField", signatureImageField);
 Alpine.data("idTemplateEditor", idTemplateEditor);
 Alpine.data("idScanWizard", idScanWizard);
+Alpine.data("formUploadPreview", formUploadPreview);
+Alpine.data("mediaPreview", mediaPreview);
 Alpine.data("waiverScanField", waiverScanField);
 Alpine.data("waiverScanItem", waiverScanItem);
 Alpine.data("waiverTemplateEditor", waiverTemplateEditor);

@@ -159,11 +159,22 @@ window.addEventListener('resize', checkMobile);">
             const MIME_LABELS = {
                 'image/jpeg': 'JPG', 'image/jpg': 'JPG', 'image/png': 'PNG',
                 'image/gif': 'GIF', 'image/webp': 'WEBP', 'image/svg+xml': 'SVG',
+                'image/heic': 'HEIC', 'image/heif': 'HEIF',
+                'image/heic-sequence': 'HEIC', 'image/heif-sequence': 'HEIF',
                 'application/pdf': 'PDF',
                 'application/msword': 'DOC',
                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'DOCX',
                 'application/vnd.ms-excel': 'XLS',
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'XLSX',
+            };
+            const MIME_EXTENSIONS = {
+                'image/jpeg': ['jpg', 'jpeg'],
+                'image/jpg': ['jpg', 'jpeg'],
+                'image/png': ['png'],
+                'image/heic': ['heic'],
+                'image/heif': ['heif'],
+                'image/heic-sequence': ['heic'],
+                'image/heif-sequence': ['heif'],
             };
 
             function formatAcceptLabel(accept) {
@@ -183,7 +194,12 @@ window.addEventListener('resize', checkMobile);">
                     const t = raw.trim().toLowerCase();
                     if (t.startsWith('.')) return file.name.toLowerCase().endsWith(t);
                     if (t.endsWith('/*')) return file.type.toLowerCase().startsWith(t.slice(0, -1));
-                    return file.type.toLowerCase() === t;
+                    if (file.type.toLowerCase() === t) return true;
+
+                    // Some browsers report HEIC as application/octet-stream or
+                    // a platform-specific MIME despite the explicit HEIC accept.
+                    const extension = file.name.split('.').pop().toLowerCase();
+                    return (MIME_EXTENSIONS[t] || []).includes(extension);
                 });
             }
 

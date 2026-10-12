@@ -293,7 +293,9 @@ function emptyRoleStats() {
 		adminsCount: 0,
 		officersCount: 0,
 		membershipsCount: 0,
-		pendingRoleChangeRequestsCount: 0,
+		showAccreditation: false,
+		nonCompliantOrganizationsCount: null,
+		accreditationSemesterLabel: null,
 	};
 }
 
@@ -525,7 +527,11 @@ document.addEventListener('alpine:init', () => {
 						adminsCount: Number.parseInt(String(statsData.admins_count ?? 0), 10) || 0,
 						officersCount: Number.parseInt(String(statsData.officers_count ?? 0), 10) || 0,
 						membershipsCount: Number.parseInt(String(statsData.memberships_count ?? 0), 10) || 0,
-						pendingRoleChangeRequestsCount: Number.parseInt(String(statsData.pending_role_change_requests_count ?? 0), 10) || 0,
+						showAccreditation: statsData.show_accreditation === true,
+						nonCompliantOrganizationsCount: Number.isInteger(statsData.non_compliant_organizations_count)
+							? statsData.non_compliant_organizations_count
+							: null,
+						accreditationSemesterLabel: safeText(statsData.accreditation_semester_label, '') || null,
 					};
 				} else {
 					this.roleStats = emptyRoleStats();

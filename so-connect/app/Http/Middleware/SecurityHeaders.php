@@ -53,6 +53,8 @@ class SecurityHeaders
             "form-action 'self'",
             "img-src 'self' data: blob: {$cdn} {$editor}",
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' {$cdn} {$editor}",
+            // HEIC previews are decoded locally in a blob-backed web worker.
+            "worker-src 'self' blob:",
             "style-src 'self' 'unsafe-inline' {$cdn} {$editor}",
             "font-src 'self' data: {$cdn} {$editor}",
             "connect-src 'self' {$cdn} {$editor}",

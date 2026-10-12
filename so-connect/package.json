@@ -26,6 +26,7 @@
         "alpinejs": "^3.14.9",
         "apexcharts": "^5.3.5",
         "flatpickr": "^4.6.13",
+        "heic2any": "^0.0.4",
         "jsvectormap": "^1.7.0",
         "konva": "^9.3.22",
         "prismjs": "^1.30.0",

@@ -199,6 +199,11 @@ If OCR is unreachable, the app logs a warning and continues—ID scanning fails 
 - **Tracking:** global `RecordRequestMetrics` middleware writes hourly request/5xx counters to `system_request_metrics`; `track.download:<kind>` route middleware logs successful downloads to `document_downloads`.
 - The legacy Profile Match and Officer Account request workflows were removed; Create Profile now creates the profile directly for non-admins.
 
+### Accreditation count (Admin dashboard)
+
+- Policy & Security → "Role By The Number" shows **Organizations Not Meeting Accreditation** (admins only; `show_accreditation` is false for presidents) from `/api/policy-security/stats`.
+- `AccreditationService::nonCompliantCountForSemester()` counts accreditation-active orgs lacking an approved submission of every required form between the current semester's prep start (`starts_at − vacation_days`) and its end. This window is reporting-only; enforcement (`isCompliant`/`orgsToDisable`) keeps its deadline-only rule.
+
 ### Database & Seeding
 
 - **Migrations:** `database/migrations/`

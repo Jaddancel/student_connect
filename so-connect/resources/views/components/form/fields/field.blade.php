@@ -261,24 +261,7 @@
                     $isMultipleImage = FieldType::isMultiImage($type);
                     $maxFiles = (int) ($opts['max_files'] ?? 5);
                 @endphp
-                <div x-data="{ previews: [], previewUrls: [], error: '', clearPreviews() {
-                        this.previewUrls.forEach((url) => URL.revokeObjectURL(url));
-                        this.previewUrls = [];
-                        this.previews = [];
-                    }, updatePreview(event) {
-                        const files = Array.from(event.target.files || []);
-                        this.clearPreviews();
-                        this.error = '';
-                        if (@js($isMultipleImage) && files.length > @js($maxFiles)) {
-                            this.error = `Choose up to ${@js($maxFiles)} images.`;
-                            event.target.value = '';
-                            return;
-                        }
-                        this.previewUrls = files
-                            .filter((file) => file.type.startsWith('image/'))
-                            .map((file) => URL.createObjectURL(file));
-                        this.previews = this.previewUrls;
-                    } }">
+                <div x-data="formUploadPreview({ multiple: @js($isMultipleImage), maxFiles: @js($maxFiles) })">
                     <input type="file" id="{{ $key }}" name="{{ $isMultipleImage ? $key.'[]' : $key }}"
                         accept="{{ FieldType::uploadAcceptAttribute($type, $opts) }}"
                         @if ($isMultipleImage) multiple @endif
@@ -346,8 +329,8 @@
 
                     {{-- Upload a photo of a signature; only the ink is kept --}}
                     <label class="block cursor-pointer rounded-lg border-2 border-dashed border-gray-300 px-4 py-3 text-center text-xs font-medium text-gray-500 transition hover:border-brand-400 hover:text-brand-600 dark:border-gray-700">
-                        <span x-text="preview ? 'Replace with another image' : 'Upload a photo of your signature (JPEG/PNG)'"></span>
-                        <input type="file" accept="image/jpeg,image/png,image/heic" class="hidden" @change="onUpload($event)" />
+                        <span x-text="preview ? 'Replace with another image' : 'Upload a photo of your signature (JPEG/PNG/HEIC)'"></span>
+                        <input type="file" accept="image/jpeg,image/png,image/heic,image/heif,.heic,.heif" class="hidden" @change="onUpload($event)" />
                     </label>
                     <p x-cloak x-show="extractError" x-text="extractError"
                         class="rounded-lg bg-error-50 px-3 py-2 text-xs text-error-600 dark:bg-error-500/15 dark:text-error-500"></p>

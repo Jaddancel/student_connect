@@ -2,9 +2,15 @@
 
 namespace App\Forms;
 
+use App\Support\ImageMetadata;
+use Illuminate\Process\Exceptions\ProcessTimedOutException as MetadataProcessTimedOutException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
+use Symfony\Component\Process\ExecutableFinder;
+use Symfony\Component\Process\Process;
 
 /**
  * Turns a stored {@see \App\Models\FormSubmission} payload into display-ready
@@ -150,7 +156,7 @@ final class SubmissionPresenter
      * left out — the caller falls back to printing it as text.
      *
      * @param  array<string,mixed>  $payload
-     * @return array<int,array{url:string, name:string, is_image:bool, size:?int, path:?string}>
+     * @return array<int,array{url:string, name:string, is_image:bool, is_video:bool, size:?int, path:?string, metadata:array<string,string>}>
      */
     public static function attachments(array $payload, string $key, string $type, ?string $disk = null): array
     {
@@ -169,7 +175,7 @@ final class SubmissionPresenter
      *
      * @param  array<string,mixed>  $payload
      * @param  array<int,string>  $fieldKeys  keys the field loop already renders
-     * @return array<string,array<int,array{url:string, name:string, is_image:bool, size:?int, path:?string}>> label => attachments
+     * @return array<string,array<int,array{url:string, name:string, is_image:bool, is_video:bool, size:?int, path:?string, metadata:array<string,string> }>> label => attachments
      */
     public static function orphanAttachments(array $payload, array $fieldKeys, ?string $disk = null): array
     {
@@ -196,7 +202,7 @@ final class SubmissionPresenter
     }
 
     /**
-     * @return array<int,array{url:string, name:string, is_image:bool, size:?int, path:?string}>
+     * @return array<int,array{url:string, name:string, is_image:bool, is_video:bool, size:?int, path:?string, metadata:array<string,string>}>
      */
     private static function attachmentsFor(mixed $value, ?string $disk = null): array
     {
@@ -213,12 +219,15 @@ final class SubmissionPresenter
             }
 
             if (str_starts_with($item, 'data:')) {
+                $isImage = str_starts_with($item, 'data:image');
                 $items[] = [
                     'url' => $item,
                     'name' => 'Captured image',
-                    'is_image' => str_starts_with($item, 'data:image'),
+                    'is_image' => $isImage,
+                    'is_video' => false,
                     'size' => null,
                     'path' => null,
+                    'metadata' => [],
                 ];
 
                 continue;
@@ -230,16 +239,159 @@ final class SubmissionPresenter
                 continue;
             }
 
+            $extension = strtolower(pathinfo($item, PATHINFO_EXTENSION));
+            $isImage = in_array($extension, ['jpe', 'jpeg', 'jpg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'svg'], true);
+            $isVideo = in_array($extension, ['mp4', 'mov', 'm4v', 'webm', 'avi', 'mkv', '3gp', 'mpeg', 'mpg'], true);
+
+            $metadata = [];
+            $metadataError = null;
+            try {
+                $metadata = ($isImage || $isVideo) ? self::mediaMetadata($item, $disk, $extension) : [];
+            } catch (\RuntimeException|\JsonException|MetadataProcessTimedOutException $exception) {
+                Log::warning('Unable to extract submitted attachment metadata.', [
+                    'path' => $item,
+                    'error' => $exception->getMessage(),
+                ]);
+                $metadataError = 'EXIF data unavailable';
+            }
+
             $items[] = [
                 'url' => Storage::disk($disk)->url($item),
                 'name' => basename($item),
-                'is_image' => (bool) preg_match('/\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)$/i', $item),
+                'is_image' => $isImage,
+                'is_video' => $isVideo,
                 'size' => Storage::disk($disk)->size($item),
                 'path' => $item,
+                'metadata' => $metadata,
+                'metadata_error' => $metadataError,
             ];
         }
 
         return $items;
+    }
+
+    /**
+     * Extract displayable photo EXIF or video container metadata.
+     *
+     * @return array<string,string>
+     */
+    private static function mediaMetadata(string $path, string $disk, string $extension): array
+    {
+        $absolutePath = Storage::disk($disk)->path($path);
+
+        if (in_array($extension, ['jpe', 'jpeg', 'jpg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'svg'], true)) {
+            $metadata = [];
+            self::flattenMetadata(ImageMetadata::read($absolutePath), 'EXIF', $metadata);
+
+            return $metadata;
+        }
+
+        if (in_array($extension, ['mp4', 'mov', 'm4v', 'webm', 'avi', 'mkv', '3gp', 'mpeg', 'mpg'], true)) {
+            return self::videoMetadata($absolutePath);
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  array<mixed>  $values
+     * @param  array<string,string>  $metadata
+     */
+    private static function flattenMetadata(array $values, string $prefix, array &$metadata): void
+    {
+        foreach ($values as $key => $value) {
+            if (count($metadata) >= 100) {
+                return;
+            }
+
+            $label = $prefix.'.'.(string) $key;
+            if (is_array($value)) {
+                self::flattenMetadata($value, $label, $metadata);
+            } elseif (is_scalar($value) && trim((string) $value) !== '') {
+                $metadata[$label] = Str::limit((string) $value, 500, '…');
+            }
+        }
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private static function videoMetadata(string $absolutePath): array
+    {
+        $ffprobe = (new ExecutableFinder)->find('ffprobe');
+        if ($ffprobe === null) {
+            return [];
+        }
+
+        $process = new Process([
+            $ffprobe,
+            '-v', 'error',
+            '-show_format',
+            '-show_streams',
+            '-of', 'json',
+            $absolutePath,
+        ]);
+        $process->setTimeout(5);
+        try {
+            $process->run();
+        } catch (ProcessTimedOutException) {
+            Log::warning('Timed out reading video metadata for a submitted attachment.', [
+                'extension' => pathinfo($absolutePath, PATHINFO_EXTENSION),
+            ]);
+
+            return [];
+        }
+
+        if (! $process->isSuccessful()) {
+            Log::warning('Unable to read video metadata for a submitted attachment.', [
+                'extension' => pathinfo($absolutePath, PATHINFO_EXTENSION),
+                'error' => Str::limit(trim($process->getErrorOutput()), 300),
+            ]);
+
+            return [];
+        }
+
+        $details = json_decode($process->getOutput(), true);
+        if (! is_array($details)) {
+            Log::warning('Video metadata reader returned invalid JSON.', [
+                'extension' => pathinfo($absolutePath, PATHINFO_EXTENSION),
+            ]);
+
+            return [];
+        }
+
+        $metadata = [];
+        foreach (($details['format'] ?? []) as $key => $value) {
+            if (count($metadata) >= 100) {
+                break;
+            }
+
+            if ($key === 'tags' && is_array($value)) {
+                self::flattenMetadata($value, 'Format', $metadata);
+            } elseif (is_scalar($value) && trim((string) $value) !== '') {
+                $metadata['Format.'.(string) $key] = Str::limit((string) $value, 500, '…');
+            }
+        }
+
+        foreach (($details['streams'] ?? []) as $index => $stream) {
+            if (! is_array($stream)) {
+                continue;
+            }
+            $prefix = 'Stream '.((int) $index + 1);
+            foreach ($stream as $key => $value) {
+                if (count($metadata) >= 100) {
+                    break 2;
+                }
+
+                if ($key === 'tags' && is_array($value)) {
+                    self::flattenMetadata($value, $prefix.'.Tags', $metadata);
+                } elseif (is_scalar($value) && trim((string) $value) !== '') {
+                    $metadata[$prefix.'.'.(string) $key] = Str::limit((string) $value, 500, '…');
+                }
+            }
+        }
+
+        return $metadata;
     }
 
     /** A file size an admin can read at a glance. */

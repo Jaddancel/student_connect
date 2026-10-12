@@ -270,6 +270,77 @@ class AccreditationService
         return $hasNonCompliant ? $this->daysUntilDeadline($now) : null;
     }
 
+    /**
+     * The current semester's accreditation window: from the start of its
+     * preparation period (starts_at − vacation_days) through its end (the
+     * explicit end, the day before the next semester, or now when open-ended).
+     *
+     * @return array{from: Carbon, to: Carbon, semester: Semester}|null
+     */
+    public function semesterWindow(?Semester $semester = null): ?array
+    {
+        $semester ??= Semester::current();
+        if (! $semester) {
+            return null;
+        }
+
+        $end = $semester->endsAt();
+
+        return [
+            'from' => $semester->activePeriodStart()->copy()->startOfDay(),
+            'to' => $end ? $end->copy()->endOfDay() : now(),
+            'semester' => $semester,
+        ];
+    }
+
+    /**
+     * How many accreditation-active orgs have NOT satisfied every required form
+     * with an approved submission inside the semester window. Dashboard
+     * reporting only — enforcement keeps using {@see isCompliant()}. Null when
+     * there is no current semester.
+     */
+    public function nonCompliantCountForSemester(?Semester $semester = null): ?int
+    {
+        $window = $this->semesterWindow($semester);
+        if ($window === null) {
+            return null;
+        }
+
+        $activeOrgIds = Organization::query()
+            ->accreditationActive()
+            ->pluck('organization_id')
+            ->map(fn ($id) => (int) $id);
+
+        $required = $this->requiredFormIds();
+        if ($required === []) {
+            return 0;
+        }
+
+        $satisfied = [];
+        ActionRequest::query()
+            ->join('approvals as a', 'a.request', '=', 'requests.request_id')
+            ->where('a.is_rejected', false)
+            ->whereNotNull('requests.organization_id')
+            ->whereBetween('requests.requested_at', [$window['from'], $window['to']])
+            ->where(function ($q) use ($required) {
+                $q->whereIn('requests.form_id', $required);
+                foreach ($required as $formId) {
+                    $q->orWhere('requests.payload->form_id', $formId);
+                }
+            })
+            ->get(['requests.organization_id', 'requests.form_id', 'requests.payload'])
+            ->each(function (ActionRequest $request) use (&$satisfied, $required) {
+                $candidates = [(int) $request->form_id, (int) (((array) ($request->payload ?? []))['form_id'] ?? 0)];
+                foreach (array_intersect($candidates, $required) as $formId) {
+                    $satisfied[(int) $request->organization_id][$formId] = true;
+                }
+            });
+
+        return $activeOrgIds
+            ->reject(fn (int $orgId) => count($satisfied[$orgId] ?? []) === count($required))
+            ->count();
+    }
+
     // ------------------------------------------------------------------ lifecycle
 
     /**

@@ -225,7 +225,7 @@ it('admin direct creation creates all records immediately without a request queu
     expect(ActionRequest::query()->where('user', (int) $newUser->getKey())->exists())->toBeFalse();
 });
 
-it('edit profile link is absent from navbar for user_type 2 and 3 but present for superadmin', function () {
+it('shows the correct profile link in the navbar for user types 1, 2, and 3', function () {
     $addressId = DB::table('profile_addresses')->insertGetId([
         'country' => 'Philippines', 'province' => 'Cebu', 'town' => 'Cebu City', 'barangay' => 'Lahug',
     ]);
@@ -245,8 +245,51 @@ it('edit profile link is absent from navbar for user_type 2 and 3 but present fo
 
     // Each user type lands on a different actual page; test that page's rendered dropdown
     $this->actingAs($superadmin)->get(route('superadmin.profiles'))->assertSee('Edit profile');
-    $this->actingAs($adminUser)->get(route('dashboard'))->assertDontSee('Edit profile');
-    $this->actingAs($officer)->get(route('dashboard'))->assertDontSee('Edit profile');
+    $this->actingAs($adminUser)->get(route('dashboard'))->assertSee('View Profile');
+    $this->actingAs($officer)->get(route('dashboard'))->assertSee('View Profile');
+});
+
+it('allows user types 2 and 3 to view their profiles without profile editing controls', function () {
+    $profile = Profile::query()->create([
+        'first_name' => 'Profile', 'last_name' => 'Viewer', 'middle_name' => '',
+        'occupation' => 'Administrator',
+    ]);
+    $adminUser = User::query()->create([
+        'user_email' => 'profile-view-admin@example.test', 'user_password' => 'password',
+        'user_type' => 2, 'profile' => $profile->getKey(), 'profile_pending' => false,
+    ]);
+    [$officer] = makeOfficerWithOrg('profile-view-officer@example.test');
+    $officerProfile = $officer->profile()->first();
+    $superadmin = User::query()->create([
+        'user_email' => 'profile-edit-superadmin@example.test', 'user_password' => 'password',
+        'user_type' => 1, 'profile' => $profile->getKey(), 'profile_pending' => false,
+    ]);
+
+    foreach ([[$adminUser, 'Profile Viewer'], [$officer, 'Test Officer']] as [$user, $name]) {
+        $this->actingAs($user)
+            ->get(route('profile'))
+            ->assertOk()
+            ->assertSee($name)
+            ->assertDontSee('Save signature')
+            ->assertDontSee('Upload instead')
+            ->assertDontSee('open-profile-info-modal')
+            ->assertDontSee('open-profile-address-modal');
+
+        $this->actingAs($user)
+            ->post(route('profile.signature'))
+            ->assertForbidden();
+    }
+
+    $this->actingAs($superadmin)
+        ->get(route('profile'))
+        ->assertOk()
+        ->assertSee('Save signature')
+        ->assertSee('open-profile-info-modal')
+        ->assertSee('open-profile-address-modal');
+
+    expect($profile->fresh()->signature_path)
+        ->toBeNull()
+        ->and($officerProfile?->fresh()->signature_path)->toBeNull();
 });
 
 it('officer dashboard includes a quick link to the student leader directory form', function () {
