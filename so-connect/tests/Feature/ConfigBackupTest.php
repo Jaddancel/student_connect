@@ -3,6 +3,7 @@
 use App\Models\AppSetting;
 use App\Models\Form;
 use App\Models\Form\FormDescription;
+use App\Models\IdTemplate;
 use App\Models\ReportTemplate;
 use App\Models\ScoringCategory;
 use App\Models\ScoringCriterion;
@@ -319,4 +320,59 @@ it('leaves tally rules alone when their form was already missing where the backu
     expect($rule->enabled)->toBeTrue()
         ->and($rule->trigger['when']['form_id'])->toBe(999999)
         ->and($summary['warnings'])->toBe([]);
+});
+
+it('includes waiver templates and their images in the backup and restores them', function () {
+    Storage::disk('public')->put('waiver-templates/ref.png', 'PNG-ORIGINAL');
+    $zones = [['name' => 'signer', 'field' => 'signer', 'type' => 'signature', 'x' => 10, 'y' => 20, 'w' => 100, 'h' => 40]];
+    $waiver = IdTemplate::create([
+        'name' => 'Event Waiver', 'kind' => 'waiver', 'image_path' => 'waiver-templates/ref.png',
+        'image_width' => 800, 'image_height' => 1000, 'zones' => $zones, 'is_active' => true,
+    ]);
+    // ID templates are not part of the backup.
+    IdTemplate::create(['name' => 'Student ID', 'kind' => 'id', 'image_path' => 'x.png', 'image_width' => 1, 'image_height' => 1, 'zones' => [], 'is_active' => true]);
+
+    $zipPath = exportConfig();
+    $zip = new ZipArchive;
+    $zip->open($zipPath);
+    $config = json_decode($zip->getFromName('config.json'), true);
+
+    expect($config['waiver_templates'])->toHaveCount(1)
+        ->and($config['waiver_templates'][0]['name'])->toBe('Event Waiver')
+        ->and($zip->getFromName($config['waiver_templates'][0]['file']))->toBe('PNG-ORIGINAL');
+    $zip->close();
+
+    // Drift, then delete: restore updates in place, then re-creates.
+    Storage::disk('public')->put('waiver-templates/ref.png', 'PNG-EDITED');
+    $waiver->update(['image_width' => 1, 'zones' => []]);
+
+    $summary = app(ConfigImporter::class)->import($zipPath);
+    $waiver->refresh();
+    expect($summary['updated'])->toHaveKey('waiver_templates')
+        ->and($waiver->image_width)->toBe(800)
+        ->and($waiver->zones)->toEqual($zones)
+        ->and(Storage::disk('public')->get($waiver->image_path))->toBe('PNG-ORIGINAL');
+
+    $waiver->delete();
+    $summary = app(ConfigImporter::class)->import($zipPath);
+    $restored = IdTemplate::query()->where('kind', 'waiver')->sole();
+    expect($summary['created'])->toMatchArray(['waiver_templates' => 1])
+        ->and($restored->name)->toBe('Event Waiver')
+        ->and($restored->created_by)->toBeNull()
+        ->and(Storage::disk('public')->get($restored->image_path))->toBe('PNG-ORIGINAL')
+        ->and(IdTemplate::query()->where('kind', 'id')->count())->toBe(1);
+});
+
+it('still restores configuration backups made before waiver templates were included', function () {
+    seedConfiguration();
+    $zipPath = exportConfig();
+
+    $zip = new ZipArchive;
+    $zip->open($zipPath);
+    $config = json_decode($zip->getFromName('config.json'), true);
+    unset($config['waiver_templates']);
+    $zip->addFromString('config.json', json_encode($config));
+    $zip->close();
+
+    expect(app(ConfigImporter::class)->import($zipPath)['updated'])->toHaveKey('forms');
 });

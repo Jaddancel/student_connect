@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Auth;
 
 /**
  * Resolves the organization-scoped universal fields (`org_name`,
- * `org_president`, `org_treasurer`, `org_auditor`, `org_secretary`, `adviser`) that
+ * `org_president`, `org_treasurer`, `org_auditor`, `org_secretary`, `adviser`,
+ * and the officers' `org_*_contact` numbers) that
  * {@see UniversalField} declares but cannot read off a profile. Values come
  * from the submitter's organization: its registered name for `org_name`,
  * current officeholders for the role fields and their saved profile signatures,
@@ -92,12 +93,16 @@ final class OrganizationField
         }
 
         $officer = match ($key) {
-            'org_president' => self::officerByRole($organization, 'president'),
-            'org_auditor' => self::officerByPosition($organization, 'auditor'),
-            'org_treasurer' => self::officerByPosition($organization, 'treasurer'),
-            'org_secretary' => self::officerByPosition($organization, 'secretary'),
+            'org_president', 'org_president_contact' => self::officerByRole($organization, 'president'),
+            'org_auditor', 'org_auditor_contact' => self::officerByPosition($organization, 'auditor'),
+            'org_treasurer', 'org_treasurer_contact' => self::officerByPosition($organization, 'treasurer'),
+            'org_secretary', 'org_secretary_contact' => self::officerByPosition($organization, 'secretary'),
             default => null,
         };
+
+        if ($officer !== null && str_ends_with($key, '_contact')) {
+            return self::officerContact($officer);
+        }
 
         return $officer ? self::officerName($officer) : null;
     }
@@ -167,5 +172,24 @@ final class OrganizationField
         ], static fn ($p) => trim((string) $p) !== '');
 
         return $parts === [] ? null : implode(' ', $parts);
+    }
+
+    /**
+     * The officer's profile contact number as a digit-only local number. The
+     * profile form stores the 10 digits after a fixed "0" (9XXXXXXXXX); admin-
+     * created accounts may hold "+63 917-…" or "0917…", all normalized alike.
+     */
+    private static function officerContact(Officer $officer): ?string
+    {
+        $raw = $officer->user()->first()?->profile()->first()?->contact_number;
+        $digits = preg_replace('/\D+/', '', (string) $raw) ?? '';
+
+        if (strlen($digits) === 12 && str_starts_with($digits, '639')) {
+            $digits = '0'.substr($digits, 2);
+        } elseif (strlen($digits) === 10 && str_starts_with($digits, '9')) {
+            $digits = '0'.$digits;
+        }
+
+        return $digits !== '' ? $digits : null;
     }
 }

@@ -20,7 +20,7 @@ class RequestRecordController extends Controller
     /**
      * Columns the request table can be sorted by.
      */
-    private const SORTABLE = ['user_id', 'org_id', 'request_time', 'request_type', 'status'];
+    private const SORTABLE = ['user_id', 'org_id', 'request_time', 'request_type', 'status', 'accepted_by'];
 
     public function index(Request $request)
     {

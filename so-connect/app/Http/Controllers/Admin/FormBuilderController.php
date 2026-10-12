@@ -226,6 +226,7 @@ class FormBuilderController extends Controller
                 'icon' => $data['icon'],
                 'show_in_sidebar' => $data['show_in_sidebar'],
                 'semester_submission_limit' => $data['semester_submission_limit'],
+                'auto_approve_submissions' => $data['auto_approve_submissions'],
                 'system_function' => $data['system_function'],
                 'is_active' => $data['is_active'],
                 'is_published' => $data['is_published'],
@@ -273,6 +274,7 @@ class FormBuilderController extends Controller
                 'icon' => $data['icon'],
                 'show_in_sidebar' => $data['show_in_sidebar'],
                 'semester_submission_limit' => $data['semester_submission_limit'],
+                'auto_approve_submissions' => $data['auto_approve_submissions'],
                 // The system-function binding is immutable once created.
                 'system_function' => $form->system_function,
                 'is_active' => $data['is_active'],
@@ -360,6 +362,7 @@ class FormBuilderController extends Controller
             'icon' => ['nullable', 'string', Rule::in(MenuHelper::iconNames())],
             'show_in_sidebar' => ['sometimes', 'boolean'],
             'semester_submission_limit' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'auto_approve_submissions' => ['sometimes', 'boolean'],
             'fields' => ['present', 'array'],
             'fields.*.field_key' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9_]+$/'],
             'fields.*.field_label' => ['required', 'string', 'max:255'],
@@ -459,6 +462,13 @@ class FormBuilderController extends Controller
             'fields.*.field_key.regex' => 'Field keys may only contain letters, numbers and underscores.',
         ]);
 
+        $systemFunction = $form?->system_function ?? (($validated['system_function'] ?? '') !== '' ? $validated['system_function'] : null);
+        if (($validated['auto_approve_submissions'] ?? false) && $systemFunction !== null) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'auto_approve_submissions' => 'Automatic approval is only available for forms without a system function.',
+            ]);
+        }
+
         // Ensure field keys are unique within the form.
         $keys = array_column($validated['fields'], 'field_key');
         if (count($keys) !== count(array_unique($keys))) {
@@ -480,6 +490,7 @@ class FormBuilderController extends Controller
             'icon' => ($validated['icon'] ?? '') !== '' ? $validated['icon'] : null,
             'show_in_sidebar' => (bool) ($validated['show_in_sidebar'] ?? true),
             'semester_submission_limit' => isset($validated['semester_submission_limit']) ? (int) $validated['semester_submission_limit'] : null,
+            'auto_approve_submissions' => (bool) ($validated['auto_approve_submissions'] ?? false),
             'system_function' => ($validated['system_function'] ?? '') !== '' ? $validated['system_function'] : null,
             // Saving publishes: there is no draft/unpublished state — every
             // form goes live immediately on save/create.
@@ -973,6 +984,7 @@ class FormBuilderController extends Controller
             'icon' => '',
             'show_in_sidebar' => true,
             'semester_submission_limit' => null,
+            'auto_approve_submissions' => false,
             'system_function' => '',
             'fields' => [],
             'rows' => [],
@@ -1020,6 +1032,7 @@ class FormBuilderController extends Controller
             'icon' => (string) ($form->icon ?? ''),
             'show_in_sidebar' => (bool) ($form->show_in_sidebar ?? true),
             'semester_submission_limit' => $form->semester_submission_limit,
+            'auto_approve_submissions' => (bool) $form->auto_approve_submissions,
             'system_function' => (string) ($form->system_function ?? ''),
             'fields' => $fields,
             'rows' => $layout['rows'] ?? [],

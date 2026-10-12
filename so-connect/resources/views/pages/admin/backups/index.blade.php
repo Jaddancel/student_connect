@@ -60,7 +60,7 @@
                             <button type="submit" name="type" value="{{ \App\Services\BackupService::TYPE_CONFIGURATION }}" role="menuitem"
                                 class="block w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-white/5">
                                 <span class="block text-sm font-medium text-gray-800 dark:text-white/90">Configuration backup</span>
-                                <span class="block text-xs text-gray-500 dark:text-gray-400">Settings, forms, reports, printed templates and tally configurations.</span>
+                                <span class="block text-xs text-gray-500 dark:text-gray-400">Settings, forms, reports, printed templates, waiver templates and tally configurations.</span>
                             </button>
                         </div>
                     </form>
@@ -138,7 +138,7 @@
                                                 class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Download</a>
                                             <form method="POST" action="{{ route('superadmin.backups.restore', $backup['name']) }}"
                                                 onsubmit="return confirm(@js($backup['type'] === \App\Services\BackupService::TYPE_CONFIGURATION
-                                                    ? 'Restore the configuration from this backup? Matching settings, forms, reports, printed templates and tally configurations will be updated and missing ones added; nothing is deleted (a safety configuration backup is taken first).'
+                                                    ? 'Restore the configuration from this backup? Matching settings, forms, reports, printed templates, waiver templates and tally configurations will be updated and missing ones added; nothing is deleted (a safety configuration backup is taken first).'
                                                     : 'Restore the database from this backup? The current database will be replaced (a safety backup is taken first).'));">
                                                 @csrf
                                                 <button type="submit"

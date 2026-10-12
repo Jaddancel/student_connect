@@ -12,12 +12,13 @@ class AdminInvitationMail extends Mailable
         public readonly string $recipientEmail,
         public readonly string $recipientName,
         public readonly string $activationUrl,
+        public readonly string $accountRole = 'Admin',
     ) {}
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Your Admin Account Has Been Created — StudentConnect',
+            subject: "Your {$this->accountRole} Account Has Been Created — StudentConnect",
         );
     }
 

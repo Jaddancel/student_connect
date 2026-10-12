@@ -10,7 +10,7 @@
                     <label for="dashboard-window-filter" class="sr-only">Filter dashboard timeframe</label>
                     <select id="dashboard-window-filter"
                         class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 xl:min-w-[180px]"
-                        x-model="$store.dashboardWindow.key"
+                        x-bind:value="$store.dashboardWindow.key"
                         x-on:change="$store.dashboardWindow.setWindow($event.target.value)">
                         <option value="day">Last 24 hours</option>
                         <option value="month">1 month</option>

@@ -15,6 +15,10 @@ use Symfony\Component\HttpFoundation\Response;
  * org (or the grace period elapses and it is purged). Admins/super admins
  * (user_type 1/2) are never blocked, and a member who still belongs to at least
  * one active org keeps normal access.
+ *
+ * The check covers every officer org, not just the switcher's selection, and
+ * the selection is moved off a disabled org before the request is handled, so
+ * access no longer depends on which org the switcher happened to pick.
  */
 class EnsureOrganizationAccredited
 {
@@ -22,19 +26,35 @@ class EnsureOrganizationAccredited
     {
         $user = $request->user();
 
-        if (
-            $user
-            && (int) $user->user_type === 3
-            && ! $request->routeIs('org-suspended', 'logout')
-        ) {
-            $orgIds = OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey());
+        if ($user && ! $request->routeIs('org-suspended', 'logout')) {
+            $userId = (int) $user->getKey();
 
-            if ($orgIds !== [] && $this->allDisabled($orgIds)) {
-                return redirect()->route('org-suspended');
+            if ((int) $user->user_type === 3) {
+                $orgIds = OrganizationAuthorizationService::allOfficerOrganizationIdsForUser($userId);
+
+                if ($orgIds !== [] && $this->allDisabled($orgIds)) {
+                    return redirect()->route('org-suspended');
+                }
             }
+
+            $this->keepSelectionOnActiveOrganization($request, $userId);
         }
 
         return $next($request);
+    }
+
+    private function keepSelectionOnActiveOrganization(Request $request, int $userId): void
+    {
+        if (! $request->hasSession()) {
+            return;
+        }
+
+        $selectable = OrganizationAuthorizationService::selectableOrganizationIdsForUser($userId);
+        $selected = (int) $request->session()->get('active_organization_id', 0);
+
+        if ($selectable !== [] && ! in_array($selected, $selectable, true)) {
+            $request->session()->put('active_organization_id', $selectable[0]);
+        }
     }
 
     /**

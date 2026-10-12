@@ -40,12 +40,13 @@ class RequestRecordsSheet implements FromCollection, WithHeadings, WithTitle
             $row['org_id'],
             $row['request_time'],
             $row['request_type'],
+            $row['accepted_by'] ?? '',
         ]);
     }
 
     public function headings(): array
     {
-        return ['User ID', 'Org ID', 'Request Time', 'Request Type'];
+        return ['User ID', 'Org ID', 'Request Time', 'Request Type', 'Accepted By'];
     }
 
     public function title(): string

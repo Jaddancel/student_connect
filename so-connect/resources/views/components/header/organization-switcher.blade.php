@@ -51,7 +51,23 @@
                 @foreach ($items as $item)
                     @php
                         $isActive = (int) $item['id'] === $activeOrganizationId;
+                        $isSuspended = (bool) ($item['suspended'] ?? false);
                     @endphp
+                    @if ($isSuspended)
+                        <div class="flex w-full cursor-not-allowed items-center gap-3 rounded-xl px-2 py-2 text-left opacity-60" title="Suspended for missing its accreditation requirements">
+                            @if (!empty($item['logo']))
+                                <img src="{{ $item['logo'] }}" alt="{{ $item['name'] }} logo" class="h-10 w-10 rounded-full object-cover grayscale" />
+                            @else
+                                <span class="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-xs font-bold text-gray-700 dark:bg-gray-700 dark:text-gray-200">{{ $item['initials'] }}</span>
+                            @endif
+
+                            <div class="min-w-0 flex-1">
+                                <div class="truncate text-sm font-medium text-gray-800 dark:text-gray-200">{{ $item['name'] }}</div>
+                                <div class="text-xs text-red-600 dark:text-red-400">Suspended</div>
+                            </div>
+                        </div>
+                        @continue
+                    @endif
                     <form method="POST" action="{{ route('organizations.switch', $item['id']) }}">
                         @csrf
                         <button type="submit" class="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-gray-100 dark:hover:bg-white/5 {{ $isActive ? 'bg-gray-100 dark:bg-white/5' : '' }}">

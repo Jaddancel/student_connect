@@ -87,9 +87,10 @@ class MenuHelper
 
         if ((int) $user->user_type === 1) {
             $menuGroups[] = [
-                'title' => 'Admin',
+                'title' => 'Superadmin',
                 'items' => [
                     ['icon' => 'user-profile', 'name' => 'Profile Manager', 'path' => '/superadmin/profiles'],
+                    ['icon' => 'user-profile', 'name' => 'Create Superadmin', 'path' => '/superadmin/superadmins/create'],
                     ['icon' => 'user-profile', 'name' => 'Create Admin', 'path' => '/superadmin/accounts/create'],
                     ['icon' => 'user-profile', 'name' => 'Organizations', 'path' => '/superadmin/organizations'],
                     ['icon' => 'pages', 'name' => 'ID Templates', 'path' => '/superadmin/id-templates'],

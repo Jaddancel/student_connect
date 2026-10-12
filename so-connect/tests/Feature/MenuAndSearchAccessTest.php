@@ -48,6 +48,13 @@ it('does not show the form builder or template manager to super admins in the si
         ->pluck('path');
 
     expect($paths)->not->toContain('/admin/form-builder');
+
+    $superadminGroup = collect(MenuHelper::getMenuGroups())->firstWhere('title', 'Superadmin');
+    expect(collect($superadminGroup['items'])->pluck('path'))->toContain(
+        '/superadmin/profiles',
+        '/superadmin/superadmins/create',
+        '/superadmin/accounts/create',
+    );
 });
 
 it('still shows the form builder to admins in the sidebar', function () {

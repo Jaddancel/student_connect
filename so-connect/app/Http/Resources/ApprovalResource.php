@@ -25,6 +25,11 @@ class ApprovalResource extends JsonResource
             'id' => $this->approval_id,
             'approved_at' => $this->approved_at,
             'admin' => UserResource::make($approvingUser),
+            'accepted_by' => (
+                ! (bool) $this->is_rejected
+                && $this->admin !== null
+                && (int) $this->admin === 0
+            ) ? 'Accepted by the system' : null,
             'status' => $this->is_rejected,
             'request' => ActionRequestResource::make(RequestModel::query()->find($this->request)),
         ];

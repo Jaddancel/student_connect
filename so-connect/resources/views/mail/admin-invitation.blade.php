@@ -3,7 +3,7 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <title>Admin Account Created</title>
+    <title>{{ $accountRole }} Account Created</title>
     <style>
         body { background-color: #faf5ff; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0; padding: 0; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
         table { border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%; }
@@ -49,14 +49,14 @@
                 <table role="presentation" class="main">
                     <tr>
                         <td class="wrapper">
-                            <span class="badge">Admin Account</span>
-                            <h1>Your Admin Account Has Been Created</h1>
+                            <span class="badge">{{ $accountRole }} Account</span>
+                            <h1>Your {{ $accountRole }} Account Has Been Created</h1>
                             <p>Hello{{ $recipientName ? ', ' . $recipientName : '' }},</p>
-                            <p>A superadmin has set up an <strong>administrator account</strong> for you on StudentConnect. You'll be able to manage student organizations, review requests, and oversee system activity.</p>
+                            <p>A superadmin has set up a <strong>{{ strtolower($accountRole) }} account</strong> for you on StudentConnect. You'll be able to manage the system according to your assigned role.</p>
 
                             <div class="highlight-box">
                                 <p>Account: {{ $recipientEmail }}</p>
-                                <p class="sub">Role: System Administrator</p>
+                                <p class="sub">Role: {{ $accountRole === 'Superadmin' ? 'Superadmin' : 'System Administrator' }}</p>
                             </div>
 
                             <p>Click the button below to activate your account. You'll be prompted to set your own secure password upon first login.</p>

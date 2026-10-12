@@ -111,6 +111,7 @@ it('stores a form with layout and fields', function () {
         'name' => 'Test Built Form',
         'description_text' => 'Collects member details for recognition.',
         'route_name' => 'test-built-form',
+        'auto_approve_submissions' => true,
         'fields' => [
             ['field_key' => 'full_name', 'field_label' => 'Full Name', 'field_type' => 'text', 'is_required' => true, 'field_options' => []],
             ['field_key' => 'age', 'field_label' => 'Age', 'field_type' => 'age', 'is_required' => true, 'field_options' => ['min' => 1, 'max' => 99]],
@@ -140,10 +141,42 @@ it('stores a form with layout and fields', function () {
     expect($form->pdf_template['header']['title'])->toBe('Hello');
     expect(count($form->layout['rows']))->toBe(2);
     expect($form->description_text)->toBe('Collects member details for recognition.');
+    expect($form->auto_approve_submissions)->toBeTrue();
     expect($form->pdf_template['html'])->toContain('data-field="full_name"');
     // Saving publishes — there is no draft checkbox anymore.
     expect($form->is_published)->toBeTrue();
     expect($form->is_active)->toBeTrue();
+});
+
+it('persists the auto-approve toggle when editing and reopening a plain form', function () {
+    \Illuminate\Support\Facades\Queue::fake();
+    $admin = makeUser(2);
+    $form = Form::create([
+        'name' => 'Toggle Approval',
+        'route_name' => 'toggle-approval',
+        'is_active' => true,
+        'is_published' => true,
+        'layout' => ['rows' => []],
+    ]);
+
+    foreach ([true, false] as $enabled) {
+        $this->actingAs($admin)
+            ->putJson(route('admin.form-builder.update', $form), [
+                'name' => $form->name,
+                'route_name' => $form->route_name,
+                'system_function' => null,
+                'auto_approve_submissions' => $enabled,
+                'fields' => [],
+                'rows' => [],
+            ])
+            ->assertOk();
+
+        expect($form->fresh()->auto_approve_submissions)->toBe($enabled);
+
+        $this->get(route('admin.form-builder.edit', $form))
+            ->assertOk()
+            ->assertViewHas('editorData', fn (array $data) => $data['auto_approve_submissions'] === $enabled);
+    }
 });
 
 it('publishes every printed-template draft slot and deactivates removed slots on edit', function () {
@@ -348,6 +381,44 @@ it('renders a published builder form and generates a PDF on submit', function ()
     expect($generated)->not->toBeNull();
     expect($generated->status)->toBe('generated');
     Storage::disk('public')->assertExists($generated->pdf_path);
+});
+
+it('automatically approves submissions when enabled for a plain form', function () {
+    $officer = makeOfficerUser();
+
+    $form = Form::create([
+        'name' => 'Auto Approved Form',
+        'route_name' => 'auto-approved-form',
+        'is_active' => true,
+        'is_published' => true,
+        'auto_approve_submissions' => true,
+        'layout' => ['rows' => []],
+        'pdf_template' => ['html' => '<p>Auto Approved Form</p>'],
+    ]);
+
+    $this->partialMock(\App\Services\DocumentGenerationService::class, function ($mock) {
+        $mock->shouldReceive('generateFromApprovedRequest')
+            ->once()
+            ->andReturn(new GeneratedDocument);
+    });
+
+    $response = $this->actingAs($officer)
+        ->post(route('forms.render.submit', 'auto-approved-form'), []);
+
+    $response->assertRedirect(route('forms.render', 'auto-approved-form'))
+        ->assertSessionHas('success', 'Auto Approved Form submitted and automatically approved. The document is being generated.');
+
+    $submission = FormSubmission::query()->where('form_id', $form->getKey())->firstOrFail();
+    $actionRequest = \App\Models\Request::query()
+        ->where('form_id', $form->getKey())
+        ->firstOrFail();
+    $approval = \App\Models\Approval::query()
+        ->where('request', $actionRequest->getKey())
+        ->firstOrFail();
+
+    expect((int) $submission->submitted_by)->toBe((int) $officer->getKey())
+        ->and($approval->is_rejected)->toBeFalse()
+        ->and((int) $approval->admin)->toBe(0);
 });
 
 it('enforces required-field validation on submit', function () {

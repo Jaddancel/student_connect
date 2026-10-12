@@ -158,6 +158,7 @@
                         <span class="text-sm text-gray-500 dark:text-gray-400">· {{ $presidentApproval->rejection_reason }}</span>
                     @endif
                 </div>
+                <x-admin.decision-provenance :approval="$presidentApproval" />
             </div>
         @endif
 
@@ -168,6 +169,8 @@
                 <div class="mt-3 flex items-center gap-3">
                     @if ($approval->is_rejected)
                         <span class="inline-flex items-center rounded-full bg-error-50 px-3 py-1 text-sm font-medium text-error-700 dark:bg-error-500/15 dark:text-error-400">Rejected</span>
+                    @elseif ($approval->admin !== null && (int) $approval->admin === 0)
+                        <span class="inline-flex items-center rounded-full bg-success-50 px-3 py-1 text-sm font-medium text-success-700 dark:bg-success-500/15 dark:text-success-400">Accepted (AUTO)</span>
                     @else
                         <span class="inline-flex items-center rounded-full bg-success-50 px-3 py-1 text-sm font-medium text-success-700 dark:bg-success-500/15 dark:text-success-400">Approved</span>
                     @endif
@@ -175,6 +178,7 @@
                         <span class="text-sm text-gray-500 dark:text-gray-400">{{ $approval->rejection_reason }}</span>
                     @endif
                 </div>
+                <x-admin.decision-provenance :approval="$approval" />
             </div>
         @else
             <div x-data="{ rejectOpen: false }" class="rounded-2xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-800 dark:bg-white/[0.03]">

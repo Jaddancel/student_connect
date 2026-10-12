@@ -36,8 +36,9 @@ class InvitationController extends Controller
 
         DB::table('invitation_tokens')->where('user_email', $record->user_email)->delete();
 
-        // Admin accounts: auto-login and redirect to first-login password wizard
-        if ((int) $user->user_type === User::TYPE_ADMIN) {
+        // Administrator and superadmin invitations auto-login to the
+        // first-login password wizard.
+        if (in_array((int) $user->user_type, [User::TYPE_ADMIN, User::TYPE_SUPERADMIN], true)) {
             Auth::login($user);
             $request->session()->regenerate();
 

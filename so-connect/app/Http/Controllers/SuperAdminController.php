@@ -115,11 +115,13 @@ class SuperAdminController extends Controller
                 DB::raw("COALESCE(u.user_email, 'Unknown') as user_email"),
                 DB::raw("COALESCE(od.name, '') as organization_name"),
                 'a.is_rejected',
+                'a.admin',
                 'a.approved_at',
             ])
             ->map(function ($row) use ($actionTypeLabels) {
                 $row->action_label   = $actionTypeLabels[(int) $row->action_type] ?? 'Request #'.$row->action_type;
                 $row->status         = is_null($row->is_rejected) ? 'pending' : ($row->is_rejected ? 'rejected' : 'approved');
+                $row->accepted_by_system = $row->status === 'approved' && $row->admin !== null && (int) $row->admin === 0;
                 $row->requester_name = trim($row->first_name.' '.$row->last_name) ?: $row->user_email;
 
                 return $row;

@@ -50,6 +50,13 @@
             </div>
         @endif
 
+        @if ($approval)
+            <div class="rounded-2xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <p class="text-sm font-semibold text-gray-700 dark:text-white/90">Decision</p>
+                <x-admin.decision-provenance :approval="$approval" />
+            </div>
+        @endif
+
         {{-- Meta --}}
         <div class="rounded-2xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-800 dark:bg-white/[0.03]">
             <div class="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">

@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
+use Database\Seeders\Support\SeedData;
 use Illuminate\Database\Seeder;
 
 class SuperAdminSeeder extends Seeder
@@ -12,8 +12,6 @@ class SuperAdminSeeder extends Seeder
      */
     public function run(): void
     {
-        User::factory()
-            ->tenSuperadminsWithoutRoles()
-            ->create();
+        SeedData::at('2023-06-01 08:00:00', fn () => SeedData::superadminFromAccountForm('superadmin@example.com'));
     }
 }

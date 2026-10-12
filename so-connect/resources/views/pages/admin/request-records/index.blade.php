@@ -11,6 +11,7 @@
             'request_time' => 'Request Time',
             'request_type' => 'Request Type',
             'status' => 'Status',
+            'accepted_by' => 'Accepted By',
         ];
         $statusAccent = [
             'accepted' => 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400',
@@ -98,6 +99,7 @@
                                         {{ ucfirst($row['status']) }}
                                     </span>
                                 </td>
+                                <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ $row['accepted_by'] ?? '—' }}</td>
                             </tr>
                         @empty
                             <tr>

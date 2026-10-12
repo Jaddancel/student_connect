@@ -3,6 +3,120 @@
 **TailAdmin Laravel** is a modern, production-ready admin dashboard template powered by **Laravel 12**, **Tailwind CSS v4**, **Alpine.js**, and a clean, modular architecture. TailAdmin is one of the most popular Tailwind CSS dashboard now also available for Larvael. It’s designed for building fast, scalable admin panels, CRM dashboards, SaaS backends, and any data-driven application where clarity and performance matter.
 ![TailAdmin - Next.js Dashboard Preview](./tailadmin-laravel.png)
 
+## Request decision details
+
+Completed request detail pages show **Decided By** and **Decision Date** for
+both approvals and rejections. The decision maker is resolved from the user ID
+stored in `approvals.admin`, with their profile name shown when available.
+Automatic approvals (`admin = 0`) show **System** and retain the
+**Accepted (AUTO)** badge. Decision timestamps use `app.display_timezone`.
+Missing historical attribution or dates are marked **Unavailable**.
+
+## Historical demo seeding
+
+`DatabaseSeeder` requires an **empty, dedicated demo database**; it does not
+append records to an existing installation. Run migrations before
+`php artisan db:seed`. Do not reset a database containing real data.
+
+The October 2026 configuration backup in `database/seeders/data/` supplies all
+ten forms and the scoring rules. Its Word files were intentionally omitted.
+Seeding therefore creates records only: approvals, submissions, event plans,
+calendar events, workplans and account/membership state, but **no generated
+documents or fabricated document paths**. Import the complete backup separately
+when official templates are needed. Rules whose source form was already missing
+in the backup cannot produce a tally; their source remains unresolved.
+
+Prerequisites, from this application directory:
+
+```bash
+python3 -m venv storage/app/seed-venv
+storage/app/seed-venv/bin/pip install -r database/seeders/scripts/requirements.txt
+SEED_PYTHON="$PWD/storage/app/seed-venv/bin/python" php artisan db:seed
+```
+
+For Sail, run those commands inside the Laravel container. The Compose mount
+exposes the repository's `.seedfiles` read-only. `SEED_ASSETS_PATH` can override
+its location. Portraits are selected from `portraits/`, with compatibility for
+the existing `portrait/` directory; after-event photos come from `event_photo/`.
+Missing assets or the Python/Pillow runtime fail seeding explicitly.
+The Python runtime is checked before any demo records are inserted. A
+`Broken pipe` from an older seeder usually means Python exited early (for
+example, because Pillow was missing); the generator now reads a temporary
+batch file so Python failures retain their actual error output. Running plain
+`php artisan` still requires `SEED_PYTHON` in the environment or `.env` unless
+the default `python3` already has Pillow installed. After changing `.env`, run
+`php artisan config:clear` if configuration was cached.
+
+The data window is June 1, 2023 through October 31, 2026. One superadmin is
+created first, followed by three admins (`superadmin@example.com`,
+`admin1@example.com` through `admin3@example.com`; demo password `tAU100!!`).
+Every account, including pending guests and faculty adviser accounts, receives
+a random portrait and a unique synthetic, name-derived 100x100 JPEG signature.
+These are demonstration signatures, not replicas of real people's signatures.
+
+Each organization has 15 current officers: President, Secretary, Auditor,
+Treasurer and eleven unnamed (`Others`) officers. Accepted membership requests
+add **members**, not extra officers. Approved sign-ups fill reserved unnamed
+officer slots. Organization pairs roll a 25% sharing chance; within successful
+rolls, 10% select named/unnamed officers, 5% named/named and the remainder
+unnamed/unnamed. No organization contains the same user twice.
+
+There are exactly 50 submissions per form and 50 requests for each
+request-producing form, except After Event Reports. Those have no
+approval/request step: every organization files 5-10 reports against distinct
+concluded events (1-2 in the running semester, so the After Event Form page
+lists them), each with 2-5 distinct photos from `event_photo/`. Accepted New
+Event requests are reported first; imported historical calendar activities fill
+the rest without adding New Event requests or submissions. Every report is
+followed by a published `Event` post that reuses the report's photos.
+
+Approximately 70% of organizations form the workplan cohort (rounded to a whole
+organization). Every organization already has a finalized workplan, approved
+during the preparation period, for each semester it was active in up to the
+current one; these per-semester workplans sit outside the 50-request cap. The
+cohort's 50 workplan requests are for the upcoming semester (November 9, 2026),
+filed in the first days of its preparation window (September 30-October 4) at 35 accepted / 5 declined /
+10 pending. 25% of the cohort have an accepted upcoming workplan and then file
+accreditation renewals. New Event requests keep a parent plan only when no
+approved workplan covers the event's semester, as `NewEventHandler` does. The
+cohort's other requests use 70% accepted / 10% declined / remaining pending;
+other organizations use 30% / 10% / remaining pending. Integer acceptance quotas
+are rounded per cohort, with exactly five declines per 50-request form.
+Public new-organization registrations use the default 15/5/30 distribution.
+Each of the 50 registrations proposes a distinct, realistically named
+organization. The 15 accepted ones become organizations in addition to the 56
+in `OrganizationSeeder`, for 71 in total.
+
+Accreditation compliance follows `AccreditationService`: an organization stays
+active once it has any approved accreditation request filed before the current
+semester began. Every organization except the two disabled ones therefore gets
+an approved founding accreditation (June 5-19, 2023). These sit outside the
+50-request cap; the 25% cohort's later renewals keep the cap and the 70/10/20
+ratio. The two disabled organizations never receive an approval and are
+disabled on June 22, 2026, the date the daily `accreditation:enforce --disable`
+job would first catch them. They file no after-event reports past that date.
+Officers of a disabled organization who are also officers of an active one keep
+access; the organization switcher skips suspended organizations. Only officers
+whose organizations are all disabled see the suspension screen.
+
+User-request bursts independently roll 80% for 5-8 arrivals and 30% for
+12-15 arrivals on a random day in a sampled month. Both batches can occur
+together; the last batch is truncated at the global 50-record form cap. Large
+double-bursts use the default cohort so accepted sign-ups fit the fixed roster.
+Applicable scoring criteria are chosen randomly and checked by the actual
+scoring engine; pending/declined records may contain qualifying values without
+contributing to an approved-record tally.
+
+Semester schedules are seeded for school years starting in 2023 through 2030:
+June 22-November 2 and November 9-March 29 of the following year. Explicit end
+dates preserve the vacation gaps; existing semesters without an explicit end
+retain their next-semester-derived behavior. Preparation periods run 84 days
+before a first semester (March 30-June 21) and 40 days before a second semester
+(September 30-November 8, overlapping the end of the first semester).
+
+Targeted validation:
+`php artisan test tests/Feature/HistoricalSeederTest.php tests/Feature/SeedSemesterCalendarTest.php`.
+
 ## Organization events
 
 The public organization **Events** tab shows only approved activity requests
@@ -12,6 +126,10 @@ event cards nearest to the current date first. Event times use the configured
 display timezone. Pending, rejected, and workplan-only activities are excluded.
 
 ## Organization post viewer
+
+Posts from accreditation-disabled or missing organizations are excluded from
+public listings. Suspension keeps posts for restoration; permanent organization
+purge deletes them through the existing accreditation lifecycle.
 
 Click a post card or **View post** in an organization's feed to open a full-screen
 viewer. Images appear individually on a black stage, with the organization,
@@ -238,6 +356,13 @@ npm run dev
 ```bash
 npm run build
 ```
+
+Without a running Vite dev server (`npm run dev`), Laravel serves the compiled
+assets in `public/build`. Rebuild after changing frontend source files; otherwise
+new form-builder controls can appear in Blade views while the older JavaScript
+does not send their values on save. With Sail, use
+`./vendor/bin/sail npm run build` to rebuild using the container's filesystem
+permissions, then reload the browser.
 
 #### Optimize Laravel
 

@@ -27,6 +27,7 @@ class LandingPage extends Controller
 
         $featuredPosts = Schema::hasTable('posts')
             ? Post::query()
+                ->withPublicOrganization()
                 ->where('posts.status', 'published')
                 ->when(Schema::hasTable('organization_scores'), function ($query) {
                     $query->leftJoinSub(
@@ -87,6 +88,7 @@ class LandingPage extends Controller
 
         $posts = Schema::hasTable('posts')
             ? Post::query()
+                ->withPublicOrganization()
                 ->where('organization', $organizationId)
                 ->orderByDesc('published_at')
                 ->orderByDesc('created_at')

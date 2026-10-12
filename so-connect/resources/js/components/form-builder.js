@@ -54,6 +54,7 @@ export function formBuilder(config) {
         // across all organizations; disabled = unlimited.
         submission_limit_enabled: !!config.data.semester_submission_limit,
         semester_submission_limit: config.data.semester_submission_limit || 1,
+        auto_approve_submissions: !!config.data.auto_approve_submissions,
         fields: config.data.fields || [],
         rows: config.data.rows || [],
         // The letterhead (header) and footer belong to the printed document, so
@@ -1531,6 +1532,7 @@ export function formBuilder(config) {
                 semester_submission_limit: this.submission_limit_enabled
                     ? parseInt(this.semester_submission_limit, 10) || null
                     : null,
+                auto_approve_submissions: !!this.auto_approve_submissions,
                 fields: this.fields.map(({ _keyLocked, ...field }) => field),
                 rows: this.rows,
                 pdf_template: this.pdf_template,

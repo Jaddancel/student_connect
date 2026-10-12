@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -32,6 +33,15 @@ class Post extends Model
         'published_at' => 'datetime',
         'image_paths' => 'array',
     ];
+
+    public function scopeWithPublicOrganization(Builder $query): Builder
+    {
+        return $query->whereHas('organizationOfPost', function (Builder $organization) {
+            $organization->where(fn (Builder $status) => $status
+                ->where('accreditation_status', '!=', \App\Services\AccreditationService::STATUS_DISABLED)
+                ->orWhereNull('accreditation_status'));
+        });
+    }
 
     public function imagePaths(): array
     {

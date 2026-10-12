@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +22,10 @@ class OrganizationController extends Controller
 
         if (! in_array($organization, $allowedOrganizationIds, true)) {
             abort(403);
+        }
+
+        if (! in_array($organization, OrganizationAuthorizationService::selectableOrganizationIdsForUser($userId), true)) {
+            abort(403, 'This organization is suspended for missing its accreditation requirements.');
         }
 
         session(['active_organization_id' => $organization]);

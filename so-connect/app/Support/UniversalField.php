@@ -38,7 +38,7 @@ final class UniversalField
      * - `type`           a {@see FieldType} constant
      * - `source`         'profile' | 'org'
      * - `profile_column` the {@see Profile} column (profile source only)
-     * - `group`          palette grouping: name | contact | academic | personal | organization
+     * - `group`          palette grouping: name | contact | academic | personal | organization | officer_contact
      * - `format`         optional presentation format applied in valueFor() (e.g. `date:F j, Y`)
      *
      * @return array<string, array{label:string, type:string, source:string, group:string, profile_column?:string, format?:string}>
@@ -82,6 +82,13 @@ final class UniversalField
             'org_treasurer_signature' => ['label' => 'Organization Treasurer Signature', 'type' => FieldType::SIGNATURE, 'source' => 'org', 'group' => 'organization'],
             'org_auditor_signature' => ['label' => 'Organization Auditor Signature', 'type' => FieldType::SIGNATURE, 'source' => 'org', 'group' => 'organization'],
             'org_secretary_signature' => ['label' => 'Organization Secretary Signature', 'type' => FieldType::SIGNATURE, 'source' => 'org', 'group' => 'organization'],
+            // The same officeholders' profile contact numbers, normalized to local
+            // numbers (e.g. 09171234567). Their own group: the Step 1 builder offers
+            // them only on text fields.
+            'org_president_contact' => ['label' => 'Organization President Contact Number', 'type' => FieldType::TEXT, 'source' => 'org', 'group' => 'officer_contact'],
+            'org_treasurer_contact' => ['label' => 'Organization Treasurer Contact Number', 'type' => FieldType::TEXT, 'source' => 'org', 'group' => 'officer_contact'],
+            'org_auditor_contact'   => ['label' => 'Organization Auditor Contact Number',   'type' => FieldType::TEXT, 'source' => 'org', 'group' => 'officer_contact'],
+            'org_secretary_contact' => ['label' => 'Organization Secretary Contact Number', 'type' => FieldType::TEXT, 'source' => 'org', 'group' => 'officer_contact'],
 
             // System-scoped: resolved from the clock/school calendar at render time
             // (see systemValue()), not from the submitter or their organization.

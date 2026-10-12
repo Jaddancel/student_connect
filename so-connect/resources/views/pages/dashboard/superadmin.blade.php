@@ -368,7 +368,7 @@
                                     @elseif ($row->status === 'approved')
                                         <span class="inline-flex items-center gap-1.5 rounded-full bg-success-50 px-2.5 py-1 text-xs font-medium text-success-700 dark:bg-success-500/15 dark:text-success-400">
                                             <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-success-500"></span>
-                                            Approved
+                                            {{ $row->accepted_by_system ? 'Accepted (AUTO)' : 'Approved' }}
                                         </span>
                                     @else
                                         <span class="inline-flex items-center gap-1.5 rounded-full bg-error-50 px-2.5 py-1 text-xs font-medium text-error-700 dark:bg-error-500/15 dark:text-error-400">

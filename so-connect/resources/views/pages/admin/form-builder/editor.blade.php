@@ -8,6 +8,10 @@
     // by Alpine's systemAutofillOptions() instead of this static list.
     $universalGroups = \App\Support\UniversalField::groupedBySource('profile')
         + \App\Support\UniversalField::groupedBySource('org');
+    // Officer contact numbers are offered only on text fields, so they're
+    // pulled out of the static all-types list and rendered behind an x-if below.
+    $officerContactOptions = $universalGroups['officer_contact'] ?? [];
+    unset($universalGroups['officer_contact']);
     $universalGroupLabels = [
         'name' => 'Name', 'contact' => 'Contact', 'personal' => 'Personal',
         'academic' => 'Academic', 'id' => 'Identity', 'organization' => 'Organization',
@@ -286,6 +290,15 @@
                                             @endforeach
                                         </optgroup>
                                     @endforeach
+                                    @if ($officerContactOptions !== [])
+                                        <template x-if="f.field_type === 'text'">
+                                            <optgroup label="Officer Contact Number">
+                                                @foreach ($officerContactOptions as $ukey => $meta)
+                                                    <option value="{{ $ukey }}">{{ $meta['label'] }}</option>
+                                                @endforeach
+                                            </optgroup>
+                                        </template>
+                                    @endif
                                     <template x-if="systemAutofillOptions(f.field_type).length">
                                         <optgroup label="Current value">
                                             <template x-for="opt in systemAutofillOptions(f.field_type)" :key="opt.value">
@@ -752,6 +765,18 @@
                         </label>
                         <p class="mt-1 text-xs text-gray-400">
                             List this form under "Organization Forms" in officers' sidebar. When off, it is still available from the Forms page.
+                        </p>
+                    </div>
+
+                    <div x-show="!system_function" x-cloak class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <input type="checkbox" x-model="auto_approve_submissions"
+                                class="h-4 w-4 rounded border-gray-300 text-brand-500" />
+                            Automatically approve submissions
+                        </label>
+                        <p class="mt-1 text-xs text-gray-400">
+                            Submissions to this form will be approved immediately and the printed document generated without admin review.
+                            System-function forms use their own approval flow.
                         </p>
                     </div>
 

@@ -175,14 +175,24 @@ class RecordQueryService
 
         $allRequests = $query->get();
 
-        $approvedIds = Approval::where('is_rejected', false)->pluck('request')->flip();
-        $rejectedIds = Approval::where('is_rejected', true)->pluck('request')->flip();
+        $approvals = Approval::query()
+            ->whereIn('request', $allRequests->pluck('request_id'))
+            ->get(['request', 'admin', 'is_rejected'])
+            ->groupBy('request');
 
         $accepted = [];
         $pending = [];
         $rejected = [];
 
         foreach ($allRequests as $req) {
+            $requestApprovals = $approvals->get($req->request_id, collect());
+            $hasAcceptance = $requestApprovals->contains(fn (Approval $approval) => ! (bool) $approval->is_rejected);
+            $wasRejected = $requestApprovals->contains(fn (Approval $approval) => (bool) $approval->is_rejected);
+            $acceptedBySystem = ! $wasRejected && $requestApprovals->contains(
+                fn (Approval $approval) => ! (bool) $approval->is_rejected
+                    && $approval->admin !== null
+                    && (int) $approval->admin === 0
+            );
             $row = [
                 'user_id' => $req->user !== null ? $req->user : 'Guest',
                 'org_id' => $req->organization_id,
@@ -192,11 +202,12 @@ class RecordQueryService
                 // their request-type name.
                 'request_type' => $req->form?->name
                     ?? (optional($req->requestType)->name ?? 'Unknown'),
+                'accepted_by' => $acceptedBySystem ? 'Accepted by the system' : null,
             ];
 
-            if (isset($rejectedIds[$req->request_id])) {
+            if ($wasRejected) {
                 $rejected[] = $row;
-            } elseif (isset($approvedIds[$req->request_id])) {
+            } elseif ($hasAcceptance) {
                 $accepted[] = $row;
             } else {
                 $pending[] = $row;

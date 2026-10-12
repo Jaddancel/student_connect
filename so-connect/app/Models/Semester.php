@@ -17,6 +17,7 @@ class Semester extends Model
         'name',
         'semester_number',
         'starts_at',
+        'ends_at',
         'vacation_days',
         'created_by',
     ];
@@ -25,6 +26,7 @@ class Semester extends Model
     {
         return [
             'starts_at' => 'date',
+            'ends_at' => 'date',
             'vacation_days' => 'integer',
             'semester_number' => 'integer',
         ];
@@ -71,11 +73,15 @@ class Semester extends Model
     }
 
     /**
-     * The end of this semester's event-plan date range:
-     * the day before the next semester starts, or null if this is the last semester.
+     * The explicit semester end, falling back to the day before the next
+     * semester starts for older calendars (null when no next semester exists).
      */
     public function endsAt(): ?Carbon
     {
+        if ($this->ends_at !== null) {
+            return $this->ends_at->copy();
+        }
+
         $next = static::query()
             ->where('starts_at', '>', $this->starts_at)
             ->orderBy('starts_at')
@@ -132,12 +138,12 @@ class Semester extends Model
         }
 
         $today = Carbon::today();
-        $year  = (int) $today->format('Y');
+        $year = (int) $today->format('Y');
         $month = (int) $today->format('n');
 
         return $month >= 8
-            ? $year . '–' . ($year + 1)
-            : ($year - 1) . '–' . $year;
+            ? $year.'–'.($year + 1)
+            : ($year - 1).'–'.$year;
     }
 
     /**
@@ -149,7 +155,7 @@ class Semester extends Model
     {
         $semester = static::current();
         if ($semester) {
-            return $semester->semesterLabel() . ' Semester';
+            return $semester->semesterLabel().' Semester';
         }
 
         $month = (int) Carbon::today()->format('n');
@@ -159,18 +165,23 @@ class Semester extends Model
 
     /**
      * Derives the school year string (e.g. "2024–2025") from starts_at.
-     * Aug–Dec → that year to next. Jan–Jul → previous year to that year.
+     * First semesters start a school year. A second semester starting in the
+     * same calendar year retains it; older Jan-Jul starts use the previous year.
      */
     public function schoolYear(): string
     {
         $year = (int) $this->starts_at->format('Y');
         $month = (int) $this->starts_at->format('n');
 
-        if ($month >= 8) {
-            return $year . '–' . ($year + 1);
+        if ($this->semester_number === 1 || ($this->semester_number === 2 && $month >= 8)) {
+            return $year.'–'.($year + 1);
         }
 
-        return ($year - 1) . '–' . $year;
+        if ($month >= 8) {
+            return $year.'–'.($year + 1);
+        }
+
+        return ($year - 1).'–'.$year;
     }
 
     /**
