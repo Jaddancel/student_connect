@@ -42,6 +42,8 @@ function guestSignupForm(): Form
         ['field_key' => 'email', 'field_label' => 'Email', 'field_type' => 'new-officer-email'],
         ['field_key' => 'position', 'field_label' => 'Position', 'field_type' => 'text'],
         ['field_key' => 'contact_number', 'field_label' => 'Contact number', 'field_type' => 'text'],
+        ['field_key' => 'present_address', 'field_label' => 'Present address', 'field_type' => 'text'],
+        ['field_key' => 'home_address', 'field_label' => 'Home address', 'field_type' => 'text'],
         ['field_key' => 'password', 'field_label' => 'Password', 'field_type' => 'password'],
     ] as $order => $field) {
         FormDescription::create(array_merge([
@@ -236,6 +238,55 @@ it('prefills the sign-up form from the last submission when a rejected guest ret
         ->assertOk()
         ->assertSee('value="Secretary"', false)
         ->assertSee('value="maria.santos@example.test"', false);
+});
+
+it('parses the sign-up home address into the applicant profile address', function () {
+    Mail::fake();
+    guestSignupForm();
+
+    $applicant = submitGuestSignup(guestSignupOrganization(), [
+        'present_address' => 'Dorm 4, Banilad, Cebu City',
+        'home_address' => '123 Rizal St, Brgy. Lahug, Cebu City, Cebu, Philippines',
+    ]);
+
+    expect($applicant->profile()->first()->addressOfUser->only(['country', 'province', 'town', 'barangay']))->toBe([
+        'country' => 'Philippines',
+        'province' => 'Cebu',
+        'town' => 'Cebu City',
+        'barangay' => '123 Rizal St, Brgy. Lahug',
+    ]);
+});
+
+it('falls back to the present address and refreshes it on resubmission', function () {
+    Mail::fake();
+    guestSignupForm();
+    $organization = guestSignupOrganization();
+
+    $applicant = submitGuestSignup($organization, ['present_address' => 'Brgy. Lourdes, Capas, Tarlac']);
+    $addressId = (int) $applicant->profile()->first()->address;
+
+    expect($applicant->profile()->first()->addressOfUser->only(['province', 'town', 'barangay']))->toBe([
+        'province' => 'Tarlac',
+        'town' => 'Capas',
+        'barangay' => 'Brgy. Lourdes',
+    ]);
+
+    decideSignup(ActionRequest::query()->where('action_type', 11)->firstOrFail(), 'reject', 'Wrong address.');
+
+    $this->actingAs($applicant->fresh())
+        ->post(route('forms.render.submit', 'guest-signup'), guestSignupPayload($organization, [
+            'present_address' => 'Brgy. Lourdes, Capas, Tarlac',
+            'home_address' => 'Poblacion A, Camiling, Tarlac',
+        ]))
+        ->assertRedirect(route('signup.success'));
+
+    $profile = $applicant->fresh()->profile()->first();
+    expect((int) $profile->address)->toBe($addressId)
+        ->and($profile->addressOfUser->only(['province', 'town', 'barangay']))->toBe([
+            'province' => 'Tarlac',
+            'town' => 'Camiling',
+            'barangay' => 'Poblacion A',
+        ]);
 });
 
 it('files a fresh request on resubmission without creating a second account', function () {
