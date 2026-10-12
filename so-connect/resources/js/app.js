@@ -24,6 +24,7 @@ import { registerAgeAutofill } from "./components/age-autofill";
 import { computedField, tableColumnSumField } from "./components/computed-field";
 import { postViewer } from "./components/post-viewer";
 import { eventCountdown } from "./components/event-countdown";
+import { organizationDashboard } from "./components/organization-dashboard";
 import { systemDashboard, uptimeClock } from "./components/system-dashboard";
 
 // flatpickr
@@ -59,6 +60,7 @@ Alpine.data("computedField", computedField);
 Alpine.data("tableColumnSumField", tableColumnSumField);
 Alpine.data("postViewer", postViewer);
 Alpine.data("eventCountdown", eventCountdown);
+Alpine.data("organizationDashboard", organizationDashboard);
 Alpine.data("systemDashboard", systemDashboard);
 Alpine.data("uptimeClock", uptimeClock);
 

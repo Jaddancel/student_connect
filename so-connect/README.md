@@ -5,6 +5,17 @@
 
 ## Request decision details
 
+The user-type-3 organization dashboard shows the selected organization's logo,
+name, registration date (`organizations.created_at`, displayed as "Founded on")
+and current officer/president count above the existing event widget. The banner
+gradient is sampled from the logo; organizations without a logo use initials and
+a neutral gradient. Events and banner follow the organization switcher.
+The current semester's end-of-day deadline uses `Semester::endsAt()` (including
+its next-semester fallback). With 7 or fewer days remaining, the banner shows
+"Time until semester end" with a live countdown; above 7 it shows
+"Days until semester end". Missing deadlines and ended semesters are shown
+explicitly rather than inventing an end date.
+
 Dashboard charts measure the sidebar-adjusted content width on first render.
 The shared layout reserves desktop sidebar spacing before Alpine initializes,
 and system dashboard charts initialize after Alpine's layout updates, avoiding
