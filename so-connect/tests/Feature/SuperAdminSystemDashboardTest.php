@@ -43,6 +43,7 @@ it('renders the system dashboard widgets and drops the profile requests button',
         ->assertSee('Documents Generated')
         ->assertSee('Storage Used')
         ->assertSee('Data View')
+        ->assertSee('class="flex-1 min-w-0 transition-all duration-300 ease-in-out xl:ml-[290px]"', false)
         ->assertDontSee('Profile Requests')
         ->assertDontSee('/superadmin/profile-requests');
 });

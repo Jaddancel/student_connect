@@ -172,3 +172,48 @@ it('restricts dashboard requests to admins', function () {
 it('requires authentication for dashboard requests', function () {
     $this->getJson('/api/dashboard/requests/membership')->assertUnauthorized();
 });
+
+it('offers last quarter and last year filters on the admin dashboard', function () {
+    $this->actingAs(recordsUser(2))->get('/dashboard')->assertOk()
+        ->assertSee('<option value="quarter">Last quarter</option>', false)
+        ->assertSee('<option value="year">Last year</option>', false)
+        ->assertDontSee('<option value="semester">', false);
+});
+
+it('filters every dashboard section to the rolling quarter or year', function (string $window, string $date, string $start, string $section) {
+    $this->travelTo(\Illuminate\Support\Carbon::parse($date));
+    $form = Form::query()->create([
+        'name' => 'Quarter Test', 'route_name' => 'quarter-test',
+        'system_function' => SystemFunction::NEW_EVENT,
+    ]);
+    AppSetting::put('accreditation.conditions', ['required_forms' => [$form->getKey()]]);
+    $attributes = [
+        'action_type' => $section === 'membership' ? 11 : 3,
+        'form_id' => $form->getKey(),
+    ];
+    $first = dashboardRequest($attributes + ['requested_at' => $start]);
+    $latest = dashboardRequest($attributes + ['requested_at' => now()]);
+    dashboardRequest($attributes + ['requested_at' => \Illuminate\Support\Carbon::parse($start)->subSecond()]);
+    dashboardRequest($attributes + ['requested_at' => now()->addSecond()]);
+
+    $response = $this->actingAs(recordsUser(2))
+        ->getJson('/api/dashboard/requests/'.$section.'?window='.$window.'&hours=1')
+        ->assertOk()->assertJsonCount(2, 'data');
+
+    expect(array_column($response->json('data'), 'request_id'))->toBe([$latest, $first])
+        ->and($response->json('range.starts_at'))->toBe(\Illuminate\Support\Carbon::parse($start)->toIso8601String())
+        ->and($response->json('range.ends_at'))->toBe(now()->toIso8601String());
+})->with([
+    ['quarter', '2026-10-12 12:00:00', '2026-07-12 12:00:00'],
+    ['quarter', '2026-01-15 12:00:00', '2025-10-15 12:00:00'],
+    ['quarter', '2026-05-31 12:00:00', '2026-02-28 12:00:00'],
+    ['quarter', '2024-05-31 12:00:00', '2024-02-29 12:00:00'],
+    ['year', '2026-10-12 12:00:00', '2025-10-12 12:00:00'],
+    ['year', '2024-02-29 12:00:00', '2023-02-28 12:00:00'],
+])->with(['membership', 'events', 'policy']);
+
+it('validates unsupported dashboard windows', function (string $window) {
+    $this->actingAs(recordsUser(2))
+        ->getJson('/api/dashboard/requests/membership?window='.$window)
+        ->assertUnprocessable()->assertJsonValidationErrors('window');
+})->with(['invalid', 'semester']);

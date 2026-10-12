@@ -14,6 +14,8 @@
                         x-on:change="$store.dashboardWindow.setWindow($event.target.value)">
                         <option value="day">Last 24 hours</option>
                         <option value="month">1 month</option>
+                        <option value="quarter">Last quarter</option>
+                        <option value="year">Last year</option>
                         <option value="all">Overall</option>
                     </select>
                 </div>

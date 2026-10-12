@@ -56,6 +56,7 @@ export function systemDashboard({ metrics, url }) {
     let activityChart = null;
     let registrationsChart = null;
     let unsubscribeTheme = null;
+    let destroyed = false;
 
     return {
         period: metrics.period,
@@ -64,8 +65,11 @@ export function systemDashboard({ metrics, url }) {
         error: "",
 
         init() {
-            this.renderActivity();
-            this.renderRegistrations();
+            this.$nextTick(() => {
+                if (destroyed) return;
+                this.renderActivity();
+                this.renderRegistrations();
+            });
             unsubscribeTheme = window.appTheme?.onChange?.(() => {
                 this.renderActivity();
                 this.renderRegistrations();
@@ -74,6 +78,7 @@ export function systemDashboard({ metrics, url }) {
         },
 
         destroy() {
+            destroyed = true;
             activityChart?.destroy();
             registrationsChart?.destroy();
             unsubscribeTheme?.();
