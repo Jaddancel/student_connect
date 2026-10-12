@@ -136,21 +136,22 @@ class NotificationBellHelper
      */
     public static function recentRequestNotifications(User $user, int $hours = 24): Collection
     {
+        // Super admins review no organization requests, so they get none here.
+        if ((int) $user->user_type === 1) {
+            return collect();
+        }
+
         $since = now()->subHours(max($hours, 1));
         $userId = (int) $user->getKey();
-        $isSuperAdmin = (int) $user->user_type === 1;
+        $isSuperAdmin = false;
 
-        $officerOrganizationIds = $isSuperAdmin
-            ? []
-            : OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
+        $officerOrganizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
 
-        $presidentOrganizationIds = $isSuperAdmin
-            ? []
-            : OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
+        $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
 
         $requests = ActionRequest::query()
             ->where('requested_at', '>=', $since)
-            ->whereIn('action_type', [1, 2, 3, 4, 7, 8, 9])
+            ->whereIn('action_type', [1, 2, 3, 4, 7, 8])
             ->orderByDesc('requested_at')
             ->limit(300)
             ->get(['request_id', 'action', 'action_type', 'requested_at', 'user']);
@@ -188,11 +189,9 @@ class NotificationBellHelper
                     $isSuperAdmin,
                 );
 
-                $link = $isSuperAdmin
-                    ? route('superadmin.profile-requests')
-                    : ($canReview && ! $isRequester && (int) $actionRequest->action_type === 1
-                        ? route('membership-requests')
-                        : route('dashboard'));
+                $link = $canReview && ! $isRequester && (int) $actionRequest->action_type === 1
+                    ? route('membership-requests')
+                    : route('dashboard');
 
                 $description = 'New '.$type.' submitted.';
                 if ($isRequester) {
@@ -311,7 +310,6 @@ class NotificationBellHelper
             4 => 'Document Access Request',
             7 => 'Role Change Request',
             8 => 'Form Upload Request',
-            9 => 'Profile Match Request',
             default => 'Request',
         };
     }
@@ -327,13 +325,7 @@ class NotificationBellHelper
         array $officerOrganizationIds,
         array $presidentOrganizationIds,
     ): bool {
-        $actionType = (int) $actionRequest->action_type;
-
         if ($isSuperAdmin) {
-            return $actionType === 9;
-        }
-
-        if ($actionType === 9) {
             return false;
         }
 
@@ -362,7 +354,7 @@ class NotificationBellHelper
         $actionType = (int) $actionRequest->action_type;
 
         if ($isSuperAdmin) {
-            return $actionType === 9;
+            return false;
         }
 
         if (in_array($actionType, [1, 2, FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION, FormTemplateHelper::ACTION_TYPE_DOCUMENT_ACCESS, FormTemplateHelper::ACTION_TYPE_FORM_UPLOAD], true)) {

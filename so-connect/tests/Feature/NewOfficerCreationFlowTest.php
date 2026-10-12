@@ -191,58 +191,6 @@ it('admin rejecting action_type=11 creates rejection approval and no action_type
     expect(ActionRequest::query()->where('action_type', 12)->exists())->toBeFalse();
 });
 
-it('superadmin approving action_type=12 creates profile/user/member/officer records', function () {
-    [, $org] = makeOfficerWithOrg('officer-sa@example.test');
-    $superadmin = makeSuperadminUser('superadmin-decide@example.test');
-
-    $payload = array_merge(makeDirectoryPayload((int) $org->getKey()), [
-        'email' => 'brand-new-officer@example.test',
-        'original_request_id' => 99,
-    ]);
-
-    $type12 = ActionRequest::query()->create([
-        'action' => '0|New|Officer|M|0', 'action_type' => 12,
-        'user' => null, 'requested_at' => now(),
-        'payload' => $payload,
-    ]);
-
-    $this->actingAs($superadmin)
-        ->postJson(route('superadmin.officer-account-requests.decision', $type12->getKey()), [
-            'decision' => 'approve',
-            'country' => 'Philippines', 'province' => 'Cebu',
-            'town' => 'Cebu City', 'barangay' => 'Lahug',
-        ])
-        ->assertOk();
-
-    $newUser = User::query()->where('user_email', 'brand-new-officer@example.test')->first();
-    expect($newUser)->not->toBeNull()
-        ->and((int) $newUser->user_type)->toBe(3);
-
-    expect(Hash::check('tAU100!!', $newUser->user_password))->toBeTrue();
-
-    $profile = Profile::query()->where('profile_id', $newUser->profile)->first();
-    expect($profile)->not->toBeNull()
-        ->and($profile->occupation)->toBe('Student')
-        ->and($profile->first_name)->toBe('New');
-
-    $addrId = (int) $profile->address;
-    $addr = DB::table('profile_addresses')->where('profile_address_id', $addrId)->first();
-    expect($addr)->not->toBeNull()
-        ->and($addr->country)->toBe('Philippines');
-
-    $officerRow = DB::table('organization_officers')
-        ->where('user', (int) $newUser->getKey())
-        ->where('organization', (int) $org->getKey())
-        ->where('role', 'officer')
-        ->first();
-    expect($officerRow)->not->toBeNull();
-
-    $approval = Approval::query()->where('request', (int) $type12->getKey())->first();
-    expect($approval)->not->toBeNull()
-        ->and($approval->is_rejected)->toBeFalse()
-        ->and((int) $officerRow->approval)->toBe((int) $approval->approval_id);
-});
-
 it('admin direct creation creates all records immediately without a request queue', function () {
     $admin = makeAdminUser('admin-direct@example.test');
     $org   = Organization::query()->create(['organization_type' => 1, 'detail' => null]);
@@ -296,7 +244,7 @@ it('edit profile link is absent from navbar for user_type 2 and 3 but present fo
     [$officer] = makeOfficerWithOrg('officer-nav@example.test');
 
     // Each user type lands on a different actual page; test that page's rendered dropdown
-    $this->actingAs($superadmin)->get(route('superadmin.profile-requests'))->assertSee('Edit profile');
+    $this->actingAs($superadmin)->get(route('superadmin.profiles'))->assertSee('Edit profile');
     $this->actingAs($adminUser)->get(route('dashboard'))->assertDontSee('Edit profile');
     $this->actingAs($officer)->get(route('dashboard'))->assertDontSee('Edit profile');
 });

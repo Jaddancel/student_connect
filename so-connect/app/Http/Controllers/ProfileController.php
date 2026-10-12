@@ -3,9 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ProfileMatchHelper;
-use App\Models\Approval;
-use App\Models\Request as ActionRequest;
-use App\Models\RequestType;
 use App\Support\SignatureImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -22,7 +19,7 @@ class ProfileController extends Controller
         return view('pages.profile.create');
     }
 
-    public function store(Request $request, \App\Services\RequestTypeService $requestTypeService)
+    public function store(Request $request)
     {
         $validated = $request->validate([
             'fname' => ['required', 'string', 'max:255'],
@@ -49,81 +46,33 @@ class ProfileController extends Controller
             return redirect()->route('dashboard');
         }
 
-        $closestProfile = ProfileMatchHelper::findClosestMatch(
-            $validated['fname'],
-            $validated['lname'],
-            $validated['mname'] ?? '',
-        );
+        $isAdmin = in_array((int) $user->user_type, [\App\Models\User::TYPE_SUPERADMIN, \App\Models\User::TYPE_ADMIN], true);
+
+        // Administrators are linked to their existing record when one matches;
+        // everyone else gets a fresh profile straight away (no review step).
+        $closestProfile = $isAdmin
+            ? ProfileMatchHelper::findClosestMatch($validated['fname'], $validated['lname'], $validated['mname'] ?? '')
+            : null;
 
         $uploadedSig = $request->hasFile('signature_file') && $request->file('signature_file')->isValid();
         $sigPath = $uploadedSig
             ? SignatureImage::store(file_get_contents($request->file('signature_file')->getRealPath()), 'signatures/profiles')
             : SignatureImage::storeDataUrl($validated['signature'] ?? null, 'signatures/profiles');
 
-        if (in_array((int) $user->user_type, [\App\Models\User::TYPE_SUPERADMIN, \App\Models\User::TYPE_ADMIN], true)) {
-            if ($closestProfile) {
-                $user->update([
-                    'profile' => (int) $closestProfile->getKey(),
-                    'profile_pending' => false,
-                ]);
-                if ($sigPath && empty($closestProfile->signature_path)) {
-                    $closestProfile->update(['signature_path' => $sigPath]);
-                }
-                $profileModel = $closestProfile;
-            } else {
-                $profileModel = \App\Models\Profile::create([
-                    'first_name' => trim($validated['fname']),
-                    'last_name' => trim($validated['lname']),
-                    'middle_name' => trim((string) ($validated['mname'] ?? '')),
-                    'contact_number' => $validated['contact_number'] ?? null,
-                    'age' => $validated['age'] ?? null,
-                    'sex' => $validated['sex'] ?? null,
-                    'religion' => $validated['religion'] ?? null,
-                    'nationality' => $validated['nationality'] ?? null,
-                    'birthday' => $validated['birthday'] ?? null,
-                    'course_year' => $validated['course_year'] ?? null,
-                    'occupation' => (int) $user->user_type === \App\Models\User::TYPE_SUPERADMIN ? 'SuperAdmin' : 'Administrator',
-                    'signature_path' => $sigPath,
-                    'origin' => \App\Models\Profile::ORIGIN_REGISTERED,
-                ]);
-
-                $user->update([
-                    'profile' => (int) $profileModel->getKey(),
-                    'profile_pending' => false,
-                ]);
+        if ($closestProfile) {
+            $user->update([
+                'profile' => (int) $closestProfile->getKey(),
+                'profile_pending' => false,
+            ]);
+            if ($sigPath && empty($closestProfile->signature_path)) {
+                $closestProfile->update(['signature_path' => $sigPath]);
             }
-
-            if ($profileModel->signature_path) {
-                app(\App\Services\SignatureReferenceService::class)->syncFromProfile($profileModel->fresh());
-            }
-
-            return redirect()->route('dashboard')->with('status', 'Profile setup complete. Welcome to StudentConnect!');
-        }
-
-        $action = implode('|', [
-            (int) $user->getKey(),
-            trim($validated['fname']),
-            trim($validated['lname']),
-            trim((string) ($validated['mname'] ?? '')),
-            (int) ($closestProfile?->getKey() ?? 0),
-        ]);
-
-        ActionRequest::query()->create([
-            'action' => $action,
-            'action_type' => 9,
-            'request_type_id' => (int) $requestTypeService->resolveSystemType(
-                RequestType::SYSTEM_KEY_PROFILE_MATCH,
-                'Profile Match Request',
-                RequestType::CATEGORY_ROLE_SECURITY,
-                (int) $user->getKey(),
-            )->getKey(),
-            'organization_id' => null,
-            'requested_by' => (int) $user->getKey(),
-            'payload' => [
-                'user_id' => (int) $user->getKey(),
-                'first_name' => $validated['fname'],
-                'last_name' => $validated['lname'],
-                'middle_name' => $validated['mname'] ?? '',
+            $profileModel = $closestProfile;
+        } else {
+            $profileModel = \App\Models\Profile::create([
+                'first_name' => trim($validated['fname']),
+                'last_name' => trim($validated['lname']),
+                'middle_name' => trim((string) ($validated['mname'] ?? '')),
                 'contact_number' => $validated['contact_number'] ?? null,
                 'age' => $validated['age'] ?? null,
                 'sex' => $validated['sex'] ?? null,
@@ -131,18 +80,26 @@ class ProfileController extends Controller
                 'nationality' => $validated['nationality'] ?? null,
                 'birthday' => $validated['birthday'] ?? null,
                 'course_year' => $validated['course_year'] ?? null,
+                'occupation' => match ((int) $user->user_type) {
+                    \App\Models\User::TYPE_SUPERADMIN => 'SuperAdmin',
+                    \App\Models\User::TYPE_ADMIN => 'Administrator',
+                    default => 'Student',
+                },
                 'signature_path' => $sigPath,
-                'suggested_profile_id' => (int) ($closestProfile?->getKey() ?? 0),
-            ],
-            'user' => (int) $user->getKey(),
-            'requested_at' => now(),
-        ]);
+                'origin' => \App\Models\Profile::ORIGIN_REGISTERED,
+            ]);
 
-        $user->update([
-            'profile_pending' => true,
-        ]);
+            $user->update([
+                'profile' => (int) $profileModel->getKey(),
+                'profile_pending' => false,
+            ]);
+        }
 
-        return redirect()->route('dashboard')->with('status', 'Profile request submitted. Waiting for superadmin approval.');
+        if ($profileModel->signature_path) {
+            app(\App\Services\SignatureReferenceService::class)->syncFromProfile($profileModel->fresh());
+        }
+
+        return redirect()->route('dashboard')->with('status', 'Profile setup complete. Welcome to StudentConnect!');
     }
 
     /**

@@ -23,9 +23,8 @@ class Dashboard extends Controller
             return redirect()->route('profile.create');
         }
 
-        // Super admin: reuse the existing monitoring-dashboard data builder.
         if ($userType === 1) {
-            return app(SuperAdminController::class)->monitoringDashboard();
+            return app()->call([app(SuperAdminController::class), 'monitoringDashboard']);
         }
 
         // Admin.

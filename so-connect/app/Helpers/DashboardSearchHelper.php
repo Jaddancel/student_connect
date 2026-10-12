@@ -77,7 +77,6 @@ class DashboardSearchHelper
         // Superadmin items — type 1
         if ($type === 1) {
             $items[] = ['name' => 'Profile Manager', 'path' => '/superadmin/profiles', 'icon' => 'user-profile', 'category' => 'Superadmin', 'keywords' => 'users profiles edit manage'];
-            $items[] = ['name' => 'Profile Requests', 'path' => '/superadmin/profile-requests', 'icon' => 'task', 'category' => 'Superadmin', 'keywords' => 'profile submissions pending review'];
             $items[] = ['name' => 'Dashboard Builder', 'path' => '/superadmin/dashboard-builder', 'icon' => 'charts', 'category' => 'Superadmin', 'keywords' => 'widgets layout builder customize'];
             $items[] = ['name' => 'Request Types', 'path' => '/superadmin/request-types', 'icon' => 'forms', 'category' => 'Superadmin', 'keywords' => 'action types configuration'];
             $items[] = ['name' => 'Data Sync', 'path' => '/superadmin/data-sync', 'icon' => 'tables', 'category' => 'Superadmin', 'keywords' => 'import export sync data'];

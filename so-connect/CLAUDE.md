@@ -192,6 +192,13 @@ If OCR is unreachable, the app logs a warning and continues—ID scanning fails 
 - **Printing:** template slots are `templates` rows with `report_template_id`, edited in the same OnlyOffice draft editor (`shared/printed-template-draft.js`). `ReportDocxRenderer` expands `{{#group}} … {{/group}}` blocks (nested groups re-keyed per row as `group__N.child`) before the normal `{{key}}`/`{{key#}}` fill; `{{profile.*}}`/`{{system.*}}` are universal tokens.
 - **Seeded:** `ReportTemplateSeeder` recreates "Registered Organizations" and "Organization Officers" (run `artisan db:seed --class=ReportTemplateSeeder` on existing installs).
 
+### System Dashboard (user type 1)
+
+- **Page:** `/dashboard` for superadmins (`SuperAdminController::monitoringDashboard`, view `pages/dashboard/superadmin.blade.php`, Alpine `system-dashboard.js`). The "Data View" period (3 Days / Weekly / Quarterly / Semester / Yearly) refetches `/superadmin/dashboard/metrics?period=`.
+- **Data:** `App\Services\SystemDashboardService` — totals (accounts, accreditation-active orgs, generated documents, `storage/app` size cached 10 min), uptime (age of PID 1 from `/proc`), activity (requests + generated documents + `document_downloads`) with semester start/preparation (`vacation_days`) overlays, registrations, and error rate.
+- **Tracking:** global `RecordRequestMetrics` middleware writes hourly request/5xx counters to `system_request_metrics`; `track.download:<kind>` route middleware logs successful downloads to `document_downloads`.
+- The legacy Profile Match and Officer Account request workflows were removed; Create Profile now creates the profile directly for non-admins.
+
 ### Database & Seeding
 
 - **Migrations:** `database/migrations/`

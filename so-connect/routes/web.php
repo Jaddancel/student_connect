@@ -246,7 +246,7 @@ Route::get('/download-files', [SidebarMenuController::class, 'downloadFiles'])
 
 Route::get('/download-files/{documentId}/download', [SidebarMenuController::class, 'downloadDocument'])
     ->whereNumber('documentId')
-    ->middleware('auth')
+    ->middleware(['auth', 'track.download:document'])
     ->name('download-files.download');
 
 Route::get('/membership-requests', [SidebarMenuController::class, 'membershipRequests'])
@@ -306,6 +306,7 @@ Route::middleware(['auth', 'officer.or.admin'])->group(function () {
         ->name('workplan.review');
     Route::get('/forms/workplan/{workplan_id}/download', [WorkplanController::class, 'downloadPdf'])
         ->whereNumber('workplan_id')
+        ->middleware('track.download:workplan')
         ->name('workplan.download');
 
     Route::patch('/workplans/{workplan_id}/finalize', [EventPlanController::class, 'finalize'])
@@ -322,6 +323,7 @@ Route::middleware(['auth', 'officer.or.admin'])->group(function () {
         ->name('reports.index');
     Route::get('/reports/{reportTemplate}/generate', [\App\Http\Controllers\Admin\ReportController::class, 'generate'])
         ->whereNumber('reportTemplate')
+        ->middleware('track.download:report')
         ->name('reports.generate');
 });
 
@@ -360,6 +362,7 @@ Route::middleware('auth')->group(function () {
 // literal suffix always wins. FormBlankPdfController authorizes officers and
 // presidents only (403 otherwise), mirroring the gated renderer.
 Route::get('/forms/{routeName}/blank-pdf', [FormBlankPdfController::class, 'show'])
+    ->middleware('track.download:blank_form')
     ->name('forms.blank-pdf');
 Route::get('/forms/{routeName}', [FormRenderController::class, 'show'])->name('forms.render');
 Route::post('/forms/{routeName}', [FormRenderController::class, 'submit'])
@@ -373,7 +376,8 @@ Route::post('/forms/{routeName}/manual/start', [ManualFormSessionController::cla
     ->middleware('throttle:10,1')->name('manual.start');
 Route::get('/manual/{session}', [ManualFormSessionController::class, 'show'])->name('manual.show');
 Route::get('/manual/{session}/status', [ManualFormSessionController::class, 'status'])->name('manual.status');
-Route::get('/manual/{session}/partial.pdf', [ManualFormSessionController::class, 'download'])->name('manual.download');
+Route::get('/manual/{session}/partial.pdf', [ManualFormSessionController::class, 'download'])
+    ->middleware('track.download:manual_form')->name('manual.download');
 Route::post('/manual/{session}/scan', [ManualFormSessionController::class, 'upload'])
     ->middleware('throttle:20,1')->name('manual.upload');
 Route::post('/manual/{session}/retry', [ManualFormSessionController::class, 'retry'])
@@ -381,7 +385,7 @@ Route::post('/manual/{session}/retry', [ManualFormSessionController::class, 'ret
 Route::get('/manual/{session}/documents/{document}/status', [ManualFormSessionController::class, 'statusDocument'])
     ->name('manual.documents.status');
 Route::get('/manual/{session}/documents/{document}/partial.pdf', [ManualFormSessionController::class, 'downloadDocument'])
-    ->name('manual.documents.download');
+    ->middleware('track.download:manual_form')->name('manual.documents.download');
 Route::post('/manual/{session}/documents/{document}/scans', [ManualFormSessionController::class, 'uploadDocument'])
     ->middleware('throttle:20,1')->name('manual.documents.upload');
 Route::post('/manual/{session}/documents/{document}/retry', [ManualFormSessionController::class, 'retryDocument'])
@@ -682,9 +686,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->name('admin.templates.generate');
 });
 
-Route::get('/superadmin/profile-requests', [SuperAdminController::class, 'profileRequests'])
+// Live metrics feeding the System Dashboard's "Data View" period switcher.
+Route::get('/superadmin/dashboard/metrics', [SuperAdminController::class, 'dashboardMetrics'])
     ->middleware(['auth', 'superadmin'])
-    ->name('superadmin.profile-requests');
+    ->name('superadmin.dashboard.metrics');
 
 Route::get('/superadmin/profiles/search', [SuperAdminController::class, 'searchProfiles'])
     ->middleware(['auth', 'superadmin'])
@@ -724,10 +729,6 @@ Route::middleware(['auth', 'superadmin'])->group(function () {
         ->name('superadmin.backups.destroy');
 });
 
-Route::post('/superadmin/profile-requests/auto-accept-suggested', [SuperAdminController::class, 'autoAcceptSuggestedRequests'])
-    ->middleware(['auth', 'superadmin'])
-    ->name('superadmin.profile-requests.auto-accept-suggested');
-
 Route::get('/superadmin/dashboard-builder', [SuperAdminController::class, 'dashboardBuilder'])
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.dashboard-builder');
@@ -740,16 +741,6 @@ Route::patch('/superadmin/dashboard-builder/{widgetId}', [SuperAdminController::
     ->whereNumber('widgetId')
     ->middleware(['auth', 'superadmin'])
     ->name('superadmin.dashboard-builder.update');
-
-Route::post('/superadmin/profile-requests/{requestId}/decision', [SuperAdminController::class, 'decideProfileRequest'])
-    ->whereNumber('requestId')
-    ->middleware(['auth', 'superadmin'])
-    ->name('superadmin.profile-requests.decision');
-
-Route::post('/superadmin/officer-account-requests/{requestId}/decision', [SuperAdminController::class, 'decideOfficerAccountRequest'])
-    ->whereNumber('requestId')
-    ->middleware(['auth', 'superadmin'])
-    ->name('superadmin.officer-account-requests.decision');
 
 Route::get('/superadmin/export', [ExportController::class, 'index'])
     ->middleware(['auth', 'superadmin'])
