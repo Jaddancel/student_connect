@@ -1,5 +1,5 @@
 <section class="mt-8" aria-labelledby="next-event-heading"
-    x-data="eventCountdown({{ Illuminate\Support\Js::from($upcomingEvents) }})">
+    x-data="eventCountdown({{ \App\Support\JsLiteral::from($upcomingEvents) }})">
     <h2 id="next-event-heading" class="brand-font text-xl text-slate-800 dark:text-slate-100">Next Event</h2>
     <div class="mt-4 rounded-3xl border border-emerald-200 bg-[color:var(--card-bg)] p-6 shadow-sm sm:p-8 dark:border-emerald-900/50">
         <template x-if="nextEvent">

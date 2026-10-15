@@ -10,11 +10,10 @@
     <!-- Favicon-->
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
     <!-- Font Awesome icons (free version)-->
-    <script src="https://use.fontawesome.com/releases/v5.15.3/js/all.js" integrity="sha384-haqrlim99xjfMxRP6EWtafs0sB1WKcMdynwZleuUSwJR0mDeRYbhtY+KPMr+JL6f" crossorigin="anonymous"></script>
-    <!-- Google fonts-->
-    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700" rel="stylesheet" type="text/css" />
-    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:400,100,300,700" rel="stylesheet" type="text/css" />
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
+    {{-- data-auto-add-css="false": Font Awesome would otherwise inject an un-nonced <style>
+         (blocked by the CSP); its stylesheet is linked statically instead. --}}
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.3/css/svg-with-js.css" integrity="sha384-C4KLoR3asMHYArL0nLQXEaFZIFfRMiV0Ul0DvsMfSMZ+YLJwFu0Rpxix+EZwqxOy" crossorigin="anonymous" />
+    <script src="https://use.fontawesome.com/releases/v5.15.3/js/all.js" integrity="sha384-haqrlim99xjfMxRP6EWtafs0sB1WKcMdynwZleuUSwJR0mDeRYbhtY+KPMr+JL6f" crossorigin="anonymous" data-auto-add-css="false"></script>
     <!-- Core theme CSS (includes Bootstrap)-->
     @vite(['resources/css/landingPage.css'])
 
@@ -825,7 +824,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4" crossorigin="anonymous"></script>
     <!-- Core theme JS-->
     @vite(['resources/js/scripts.js'])
-    <script src="https://cdn.startbootstrap.com/sb-forms-latest.js"></script>
 
     @if ($errors->has('user_email'))
     <div id="login-toast" style="

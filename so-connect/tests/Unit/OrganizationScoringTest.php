@@ -1,7 +1,10 @@
 <?php
 
 use App\Services\Scoring\TriggerValidator;
+use Illuminate\Foundation\Testing\TestCase;
 use Illuminate\Validation\ValidationException;
+
+uses(TestCase::class);
 
 it('accepts a valid scoring trigger payload', function () {
     $trigger = [

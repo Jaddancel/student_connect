@@ -26,9 +26,9 @@
 <div x-data="waiverScanField({
         scanUrl: '{{ route('waiver.scan') }}',
         csrf: '{{ csrf_token() }}',
-        template: {{ Illuminate\Support\Js::from($templatePayload) }},
-        expected: {{ Illuminate\Support\Js::from($expected) }},
-        initial: {{ Illuminate\Support\Js::from($oldItems) }},
+        template: {{ \App\Support\JsLiteral::from($templatePayload) }},
+        expected: {{ \App\Support\JsLiteral::from($expected) }},
+        initial: {{ \App\Support\JsLiteral::from($oldItems) }},
         maxItems: {{ (int) ($opts['max_files'] ?? 5) }},
     })" class="space-y-4">
 

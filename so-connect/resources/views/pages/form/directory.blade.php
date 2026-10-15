@@ -5,7 +5,7 @@
 
     <div x-data="{
             q: '',
-            forms: {{ Js::from($forms) }},
+            forms: {{ \App\Support\JsLiteral::from($forms) }},
             get filtered() {
                 const q = this.q.trim().toLowerCase();
                 if (!q) return this.forms;

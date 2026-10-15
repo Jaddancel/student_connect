@@ -59,7 +59,7 @@
 @endif
 
 <form action="{{ $preview ? '#' : route('forms.render.submit', $form->route_name) }}" method="POST" enctype="multipart/form-data" class="space-y-6"
-    x-data="formConditions({ conditions: {{ Illuminate\Support\Js::from($conditions ?? []) }} })"
+    x-data="formConditions({ conditions: {{ \App\Support\JsLiteral::from($conditions ?? []) }} })"
     @input="track($event)" @change="track($event)"
     @if ($preview) onsubmit="return false;" @endif>
     @csrf

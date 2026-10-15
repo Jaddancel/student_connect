@@ -17,6 +17,7 @@ use App\Services\OrganizationAuthorizationService;
 use Faker\Generator as FakerGenerator;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -51,6 +52,12 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->environment('production') || filter_var(env('FORCE_HTTPS'), FILTER_VALIDATE_BOOLEAN)) {
             URL::forceScheme('https');
         }
+
+        // CSP support (see SecurityHeaders): @nonce marks inline <script>/<style>
+        // blocks with the per-request nonce, and @js emits a plain literal that
+        // Alpine's CSP build can evaluate instead of Laravel's JSON.parse('…').
+        Blade::directive('nonce', fn () => '<?php echo \'nonce="\'.e(\Illuminate\Support\Facades\Vite::cspNonce()).\'"\'; ?>');
+        Blade::directive('js', fn (string $expression) => "<?php echo \App\Support\JsLiteral::encode({$expression}); ?>");
 
         Event::listen([Login::class, Logout::class], LogAuthActivity::class);
         Event::listen(Login::class, SendLoginNotification::class);

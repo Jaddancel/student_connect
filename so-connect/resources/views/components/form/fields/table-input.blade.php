@@ -39,10 +39,10 @@
 @endphp
 
 <div x-data="{
-        rows: {{ Illuminate\Support\Js::from($oldRows) }},
-        cols: {{ Illuminate\Support\Js::from($columns) }},
-        operands: {{ Illuminate\Support\Js::from($rowTotal['columns'] ?? []) }},
-        op: {{ Illuminate\Support\Js::from($rowTotal['op'] ?? 'multiply') }},
+        rows: {{ \App\Support\JsLiteral::from($oldRows) }},
+        cols: {{ \App\Support\JsLiteral::from($columns) }},
+        operands: {{ \App\Support\JsLiteral::from($rowTotal['columns'] ?? []) }},
+        op: {{ \App\Support\JsLiteral::from($rowTotal['op'] ?? 'multiply') }},
         hasRowTotal: {{ $hasRowTotal ? 'true' : 'false' }},
         // Mirrors FieldType::applyRowTotal(): left to right, ÷0 gives 0.
         rowTotal(row) {

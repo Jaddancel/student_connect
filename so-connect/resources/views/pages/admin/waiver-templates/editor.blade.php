@@ -7,7 +7,7 @@
             storeUrl: '{{ route('admin.waiver-templates.store') }}',
             indexUrl: '{{ route('admin.waiver-templates.index') }}',
             csrf: '{{ csrf_token() }}',
-            zoneTypes: {{ Illuminate\Support\Js::from(config('waiver.zone_types', ['text','signature','stamp'])) }},
+            zoneTypes: {{ \App\Support\JsLiteral::from(config('waiver.zone_types', ['text','signature','stamp'])) }},
         })" class="mx-auto max-w-5xl space-y-5">
 
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">

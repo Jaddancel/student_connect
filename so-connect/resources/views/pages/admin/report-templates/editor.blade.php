@@ -21,7 +21,7 @@
 
     <div
         x-data="reportTemplateBuilder({
-            data: {{ Js::from($editorData) }},
+            data: {{ \App\Support\JsLiteral::from($editorData) }},
             reportId: {{ $report?->getKey() ?? 'null' }},
             schemaUrl: '{{ route('admin.report-templates.schema') }}',
             previewUrl: '{{ route('admin.report-templates.preview') }}',

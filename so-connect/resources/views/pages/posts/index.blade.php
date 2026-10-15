@@ -35,19 +35,19 @@
         modalOpen: {{ $hasFormErrors ? 'true' : 'false' }},
         editMode: {{ $isOldEdit ? 'true' : 'false' }},
         editPostId: '{{ $oldEditPostId ?? '' }}',
-        editFormAction: {{ Js::from($oldFormAction) }},
-        fOrg: {{ Js::from($oldOrg) }},
-        fTitle: {{ Js::from($oldTitle) }},
-        fExcerpt: {{ Js::from($oldExcerpt) }},
-        fBody: {{ Js::from($oldBody) }},
-        fTag: {{ Js::from($oldTag) }},
+        editFormAction: {{ \App\Support\JsLiteral::from($oldFormAction) }},
+        fOrg: {{ \App\Support\JsLiteral::from($oldOrg) }},
+        fTitle: {{ \App\Support\JsLiteral::from($oldTitle) }},
+        fExcerpt: {{ \App\Support\JsLiteral::from($oldExcerpt) }},
+        fBody: {{ \App\Support\JsLiteral::from($oldBody) }},
+        fTag: {{ \App\Support\JsLiteral::from($oldTag) }},
         fFeatured: {{ $oldFeatured }},
         fHasVideo: false,
         /* ordered image set: kept/library/gallery paths, then new uploads */
-        fImages: {{ Js::from($oldImages) }},
+        fImages: {{ \App\Support\JsLiteral::from($oldImages) }},
         uploadCount: 0,
         maxImages: 20,
-        libraryTitles: {{ Js::from($libraryTitles) }},
+        libraryTitles: {{ \App\Support\JsLiteral::from($libraryTitles) }},
         /* media picker state */
         pickerOpen: false,
         pickerSearch: '',
@@ -55,7 +55,7 @@
         galleryOpen: false,
         gallerySearch: '',
         galleryOrgOnly: true,
-        galleryItems: {{ Js::from($afterEventMediaGallery) }},
+        galleryItems: {{ \App\Support\JsLiteral::from($afterEventMediaGallery) }},
 
         get filteredGallery() {
             const term = this.gallerySearch.trim().toLowerCase();
@@ -346,7 +346,7 @@
 
                             <div
                                 class="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
-                                <button type="button" @click="openEdit({{ Js::from($postJson) }})"
+                                <button type="button" @click="openEdit({{ \App\Support\JsLiteral::from($postJson) }})"
                                     class="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-palette-lime hover:bg-palette-lime-pale hover:text-gray-900 dark:border-gray-700 dark:text-gray-400">
                                     <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
                                         stroke-width="2">
@@ -479,7 +479,7 @@
                                     </td>
                                     <td class="px-5 py-3.5">
                                         <div class="flex items-center gap-2">
-                                            <button type="button" @click="openEdit({{ Js::from($postJson) }})"
+                                            <button type="button" @click="openEdit({{ \App\Support\JsLiteral::from($postJson) }})"
                                                 class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Edit</button>
                                             <span class="text-gray-300 dark:text-gray-700">|</span>
                                             <form method="POST" action="{{ route('posts.destroy', $post->post_id) }}"

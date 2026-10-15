@@ -1,0 +1,99 @@
+resources/views/components/dashboard/a-d-chart-by-type.blade.php:21  x-bind:style="'height: ' + (20 + (index % 6) * 18) + 'px'"
+    - string :style is applied with setAttribute('style') and blocked; bind an object, e.g. { width: pct + '%' }
+resources/views/components/dashboard/a-d-chart-by-type.blade.php:37  x-bind:style="'height: ' + (bucket.count > 0 ? Math.max((bucket.count / $store.dashboardData.maxVolumeCount) * 144, 4) : 2) + 'px'"
+    - global "Math" is not in Alpine scope
+    - string :style is applied with setAttribute('style') and blocked; bind an object, e.g. { width: pct + '%' }
+resources/views/components/dashboard/compare-by-type.blade.php:20  x-bind:style="'width: ' + (40 + (index * 15)) + '%'"
+    - string :style is applied with setAttribute('style') and blocked; bind an object, e.g. { width: pct + '%' }
+resources/views/components/dashboard/compare-by-type.blade.php:35  x-bind:style="'width: ' + $store.dashboardData.approvalRate + '%'"
+    - string :style is applied with setAttribute('style') and blocked; bind an object, e.g. { width: pct + '%' }
+resources/views/components/dashboard/compare-by-type.blade.php:48  x-bind:style="'width: ' + $store.dashboardData.denialRate + '%'"
+    - string :style is applied with setAttribute('style') and blocked; bind an object, e.g. { width: pct + '%' }
+resources/views/components/dashboard/compare-by-type.blade.php:60  x-bind:style="'width: ' + (100 - $store.dashboardData.completionRate) + '%'"
+    - string :style is applied with setAttribute('style') and blocked; bind an object, e.g. { width: pct + '%' }
+resources/views/components/dashboard/role-by-the-number.blade.php:38  x-text="$store.dashboardData.roleStats.nonCompliantOrganizationsCount ?? '—'"
+    - parse error: Unexpected token: PUNCTUATION "?"
+resources/views/pages/dashboard/officer.blade.php:11  :style="`background: linear-gradient(110deg, rgba(${themeColor}, 0.28), rgba(${themeColor}, 0.06))`"
+    - parse error: Unexpected token: OPERATOR "`"
+resources/views/pages/dashboard/superadmin.blade.php:47  style="background-image: radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0); background-size: 20px 20px;"
+    - inline style="" attribute is blocked by the CSP; use classes or an object :style binding
+resources/views/pages/dashboard/superadmin.blade.php:94  x-init=" const target = __BLADE__; if (target === 0) return; const start = performance.now(); const tick = (now) => { const t = Math.min((no
+    - parse error: Unexpected token: target
+resources/views/pages/posts/index.blade.php:33  x-data="{ view: 'cards', modalOpen: __BLADE__, editMode: __BLADE__, editPostId: '__BLADE__', editFormAction: __BLADE__, fOrg: __BLADE__, fTi
+    - parse error: Expected property key
+resources/views/pages/posts/index.blade.php:187  onchange="this.form.submit()"
+    - inline event handler is blocked by the CSP; use @event or addEventListener
+resources/views/pages/posts/index.blade.php:456  onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';"
+    - inline event handler is blocked by the CSP; use @event or addEventListener
+resources/views/pages/posts/index.blade.php:486  onsubmit="return confirm('Delete this post?')"
+    - inline event handler is blocked by the CSP; use @event or addEventListener
+resources/views/pages/posts/index.blade.php:510  :style="{ paddingLeft: (window.innerWidth >= 1280) ? (($store.sidebar.isExpanded || $store.sidebar.isHovered) ? 'calc(290px + 1rem)' : 'calc
+    - global "window" is not in Alpine scope
+resources/views/pages/posts/index.blade.php:798  x-text="item.submitted_at ? new Date(item.submitted_at).toLocaleDateString() : ''"
+    - parse error: Unexpected token: KEYWORD "new"
+resources/views/pages/posts/index.blade.php:827  :style="{ paddingLeft: (window.innerWidth >= 1280) ? (($store.sidebar.isExpanded || $store.sidebar.isHovered) ? 'calc(290px + 1rem)' : 'calc
+    - global "window" is not in Alpine scope
+resources/views/pages/posts/index.blade.php:909  x-show="__BLADE__ > 0 && pickerSearch !== '' && document.querySelectorAll('[x-show*=pickerSearch]:not([style*=none])').length === 0"
+    - global "document" is not in Alpine scope
+resources/views/pages/sidebar/approval-requests.blade.php:1  <script>
+    - inline <script> needs @nonce
+resources/views/pages/sidebar/promotion-confirmation.blade.php:106  @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null"
+    - global "URL" is not in Alpine scope
+resources/views/pages/sidebar/promotion-confirmation.blade.php:287  @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null"
+    - global "URL" is not in Alpine scope
+resources/views/pages/sidebar/promotion-request-show.blade.php:331  onclick="decideRequest(__BLADE__, 'approve')"
+    - inline event handler is blocked by the CSP; use @event or addEventListener
+resources/views/pages/sidebar/promotion-request-show.blade.php:349  onclick="decideRequest(__BLADE__, 'reject')"
+    - inline event handler is blocked by the CSP; use @event or addEventListener
+resources/views/pages/sidebar/promotion-request-show.blade.php:1  <script>
+    - inline <script> needs @nonce
+resources/views/pages/sidebar/promotion-requests.blade.php:6  x-data="{ reviewOpen: false, current: null, open(row) { this.current = row; this.reviewOpen = true; }, close() { this.reviewOpen = false; th
+    - parse error: Expected PUNCTUATION ":" but got PUNCTUATION "("
+resources/views/pages/sidebar/promotion-requests.blade.php:141  x-text="current?.requester_name ?? '—'"
+    - parse error: Unexpected token: PUNCTUATION "."
+resources/views/pages/sidebar/promotion-requests.blade.php:143  x-text="current?.organization_name ?? ''"
+    - parse error: Unexpected token: PUNCTUATION "."
+resources/views/pages/sidebar/promotion-requests.blade.php:144  x-if="current?.display_type === 'role_change'"
+    - parse error: Unexpected token: PUNCTUATION "."
+resources/views/pages/sidebar/promotion-requests.blade.php:145  x-text="current?.current_role ?? ''"
+    - parse error: Unexpected token: PUNCTUATION "."
+resources/views/pages/sidebar/promotion-requests.blade.php:145  x-text="current?.requested_role ?? ''"
+    - parse error: Unexpected token: PUNCTUATION "."
+resources/views/pages/sidebar/promotion-requests.blade.php:158  x-if="current?.display_type === 'new_officer' && current?.review_payload"
+    - parse error: Unexpected token: PUNCTUATION "."
+resources/views/pages/sidebar/promotion-requests.blade.php:175  x-text="(current.review_payload.semester ?? '') + ' — ' + (current.review_payload.school_year ?? '')"
+    - parse error: Unexpected token: PUNCTUATION "?"
+resources/views/pages/sidebar/promotion-requests.blade.php:238  x-text="Array.isArray(current.review_payload.financial_support) ? current.review_payload.financial_support.join(', ') || '—' : (current.revi
+    - global "Array" is not in Alpine scope
+resources/views/pages/sidebar/promotion-requests.blade.php:253  x-if="current?.display_type === 'role_change'"
+    - parse error: Unexpected token: PUNCTUATION "."
+resources/views/pages/sidebar/promotion-requests.blade.php:289  @click="decideRequest(current.request_id, 'reject', $el); close()"
+    - parse error: Unexpected token: close
+resources/views/pages/sidebar/promotion-requests.blade.php:294  @click="decideRequest(current.request_id, 'approve', $el); close()"
+    - parse error: Unexpected token: close
+resources/views/pages/sidebar/promotion-requests.blade.php:1  <script>
+    - inline <script> needs @nonce
+resources/views/pages/sidebar/superadmin-profile-edit.blade.php:40  x-data="{ confirmOpen: false, sex: '__BLADE__', birthday: '__BLADE__', age: '__BLADE__', firstName: '__BLADE__', lastName: '__BLADE__', cour
+    - parse error: Expected PUNCTUATION ":" but got PUNCTUATION "("
+resources/views/pages/sidebar/superadmin-profile-edit.blade.php:267  x-text="[firstName, lastName].filter(Boolean).join(' ') || '—'"
+    - global "Boolean" is not in Alpine scope
+resources/views/pages/sidebar/superadmin-profiles.blade.php:5  x-data="{ query: '', results: [], loading: false, searched: false, deleteTarget: null, deleting: false, confirmDelete(profile) { this.delete
+    - parse error: Expected PUNCTUATION ":" but got PUNCTUATION "("
+resources/views/pages/sidebar/superadmin-profiles.blade.php:159  :class="avatarColor((profile.first_name ?? '') + (profile.last_name ?? ''))"
+    - parse error: Unexpected token: PUNCTUATION "?"
+resources/views/pages/sidebar/superadmin-profiles.blade.php:166  x-text="[profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(' ')"
+    - global "Boolean" is not in Alpine scope
+resources/views/pages/sidebar/superadmin-profiles.blade.php:193  :href="`/superadmin/profiles/${profile.profile_id}/edit`"
+    - parse error: Unexpected token: OPERATOR "`"
+resources/views/pages/sidebar/superadmin-profiles.blade.php:234  x-text="[deleteTarget?.first_name, deleteTarget?.last_name].filter(Boolean).join(' ')"
+    - parse error: Unexpected token: PUNCTUATION "."
+resources/views/pages/sidebar/superadmin-profiles.blade.php:241  @click="open = false; deleteTarget = null"
+    - parse error: Unexpected token: deleteTarget
+resources/views/pages/superadmin/action-logs/index.blade.php:40  x-data="{ modalOpen: false, userValue: __BLADE__, userLabel: __BLADE__, q: '', results: [], loading: false, searched: false, async search() 
+    - parse error: Expected PUNCTUATION ":" but got IDENTIFIER "search"
+resources/views/pages/superadmin/action-logs/index.blade.php:81  @click="modalOpen = true; $nextTick(() => $refs.q && $refs.q.focus())"
+    - parse error: Unexpected token: $nextTick
+resources/views/pages/superadmin/action-logs/index.blade.php:119  x-text="[r.first_name, r.middle_name, r.last_name].filter(Boolean).join(' ')"
+    - global "Boolean" is not in Alpine scope
+
+373 Alpine expressions checked; 48 CSP problem(s) found.

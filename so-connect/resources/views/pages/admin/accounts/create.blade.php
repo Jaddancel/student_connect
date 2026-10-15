@@ -27,7 +27,7 @@
 
         <form action="{{ route($storeRoute) }}" method="POST" enctype="multipart/form-data"
             class="space-y-6"
-            x-data="{ advisers: {{ Js::from(old('faculty_advisers', [''])) }}, addAdviser() { this.advisers.push(''); }, removeAdviser(i) { if (this.advisers.length > 1) this.advisers.splice(i, 1); } }">
+            x-data="{ advisers: {{ \App\Support\JsLiteral::from(old('faculty_advisers', [''])) }}, addAdviser() { this.advisers.push(''); }, removeAdviser(i) { if (this.advisers.length > 1) this.advisers.splice(i, 1); } }">
             @csrf
 
             {{-- PART 1: Personal Information --}}

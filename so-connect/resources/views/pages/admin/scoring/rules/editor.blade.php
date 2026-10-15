@@ -7,8 +7,8 @@
         x-data="tallyEditor({
             saveUrl: '{{ route('admin.scoring.rules.update', $criterion) }}',
             csrf: '{{ csrf_token() }}',
-            variables: {{ Js::from($variables) }},
-            trigger: {{ Js::from($trigger) }},
+            variables: {{ \App\Support\JsLiteral::from($variables) }},
+            trigger: {{ \App\Support\JsLiteral::from($trigger) }},
             enabled: {{ ($rule?->enabled ?? true) ? 'true' : 'false' }},
         })">
 

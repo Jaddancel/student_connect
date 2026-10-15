@@ -12,9 +12,14 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(\App\Http\Middleware\RecordRequestMetrics::class);
+        // Global (not `web` group) so 404s and `auth` redirects get the headers too.
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
 
         $middleware->prependToGroup('web', \App\Http\Middleware\EnsureSystemInitialized::class);
-        $middleware->appendToGroup('web', \App\Http\Middleware\SecurityHeaders::class);
+        // Same CSRF check, minus the non-HttpOnly XSRF-TOKEN cookie no JS reads.
+        $middleware->web(replace: [
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class => \App\Http\Middleware\ValidateCsrfToken::class,
+        ]);
         $middleware->appendToGroup('web', \App\Http\Middleware\EnsurePasswordChanged::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\EnsureOrganizationAccredited::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\PreventBackHistory::class);

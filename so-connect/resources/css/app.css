@@ -1,6 +1,26 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap') layer(base);
+/* Fonts are self-hosted (bundled by Vite) rather than pulled from Google
+   Fonts, whose per-browser CSS cannot carry a Subresource Integrity hash. */
+@import '@fontsource-variable/outfit' layer(base);
+@import '@fontsource/manrope/400.css' layer(base);
+@import '@fontsource/manrope/500.css' layer(base);
+@import '@fontsource/manrope/600.css' layer(base);
+@import '@fontsource/manrope/700.css' layer(base);
+@import '@fontsource/sora/600.css' layer(base);
+@import '@fontsource/sora/700.css' layer(base);
 @import 'prismjs/themes/prism.min.css';
 @import 'tailwindcss';
+@import './csp/landing-layouts.css';
+@import './csp/builder.css';
+@import './csp/forms.css';
+@import './csp/sidebar-dash.css';
+@import './csp/admin.css';
+@import './csp/components-misc.css';
+
+/* Alpine removes x-cloak once a component initialises (CSP-safe replacement
+   for style="display: none" placeholders on x-show elements). */
+[x-cloak] {
+    display: none !important;
+}
 
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -18,7 +38,7 @@
 
 @theme {
   --font-*: initial;
-  --font-outfit: Outfit, sans-serif;
+  --font-outfit: 'Outfit Variable', Outfit, sans-serif;
 
   --breakpoint-*: initial;
   --breakpoint-2xsm: 375px;
@@ -984,7 +1004,17 @@ span.flatpickr-weekday,
 
 .dark .fc-day-event-meta { color: rgba(255,255,255,0.35); }
 
-/* Per-organization colors (hue supplied inline via --org-hue) */
+/* Calendar day-summary list (calendar-init.js); hue set via --org-hue. */
+.ep-item[data-org-hue] {
+  border-left: 4px solid hsl(var(--org-hue) 70% 45%);
+}
+.ep-detail {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+
+/* Per-organization colors (hue supplied via --org-hue, set from data-org-hue) */
 .event-fc-color.fc-org-color,
 .fc-day-event-card.fc-org-color {
   background: hsl(var(--org-hue) 85% 94%);

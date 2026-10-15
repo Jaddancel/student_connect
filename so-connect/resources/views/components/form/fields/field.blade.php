@@ -82,9 +82,9 @@
                     @endphp
                     <div x-data="{
                             open: false,
-                            selected: {{ Illuminate\Support\Js::from(array_values(array_intersect($oldList, $labelMap->keys()->all()))) }},
-                            labels: {{ Illuminate\Support\Js::from($labelMap) }},
-                            order: {{ Illuminate\Support\Js::from($labelMap->keys()->values()) }},
+                            selected: {{ \App\Support\JsLiteral::from(array_values(array_intersect($oldList, $labelMap->keys()->all()))) }},
+                            labels: {{ \App\Support\JsLiteral::from($labelMap) }},
+                            order: {{ \App\Support\JsLiteral::from($labelMap->keys()->values()) }},
                             summary() { return this.order.filter((v) => this.selected.includes(v)).map((v) => this.labels[v]).join(', '); },
                         }"
                         class="relative" @click.outside="open = false" @keydown.escape="open = false" data-multi-select="{{ $key }}">
@@ -132,7 +132,7 @@
                 {{-- Typeahead combobox over a scoped OptionSource list: submits
                      the chosen entry's id via a hidden input while showing its
                      label. Better than a giant <select> for large sources. --}}
-                <div x-data="searchSelectField({ options: {{ Illuminate\Support\Js::from($sourceEntry['options'] ?? []) }}, selected: @js((string) $old) })" class="relative">
+                <div x-data="searchSelectField({ options: {{ \App\Support\JsLiteral::from($sourceEntry['options'] ?? []) }}, selected: @js((string) $old) })" class="relative">
                     <input type="hidden" name="{{ $key }}" :value="selected" />
                     <div class="relative">
                         <input type="text" x-model="query" @focus="open = true" @click="open = true"
@@ -453,7 +453,7 @@
                     @change="
                         const opt = $el.selectedOptions[0];
                         if (!opt) return;
-                        const map = {{ Illuminate\Support\Js::from($autofillMap) }};
+                        const map = {{ \App\Support\JsLiteral::from($autofillMap) }};
                         for (const [attr, target] of Object.entries(map)) {
                             const val = opt.dataset[attr];
                             if (val === undefined) continue;
@@ -521,7 +521,7 @@
 
             @case(FieldType::TEXT_LIST)
                 @php $oldRows = array_values(array_filter((array) old($key, $prefill[$key] ?? []), fn ($v) => $v !== null)); if (! count($oldRows)) { $oldRows = ['']; } @endphp
-                <div x-data="{ rows: {{ Illuminate\Support\Js::from($oldRows) }} }" class="space-y-2">
+                <div x-data="{ rows: {{ \App\Support\JsLiteral::from($oldRows) }} }" class="space-y-2">
                     <template x-for="(row, i) in rows" :key="i">
                         <div class="flex items-center gap-2">
                             <input type="text" :name="'{{ $key }}[]'" x-model="rows[i]" placeholder="{{ $placeholder }}"

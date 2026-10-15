@@ -29,11 +29,11 @@
 
     <div
         x-data="formBuilder({
-            catalog: {{ Js::from($fieldCatalog) }},
-            optionSources: {{ Js::from($optionSources) }},
-            eventFieldChoices: {{ Js::from($eventFieldChoices ?? []) }},
+            catalog: {{ \App\Support\JsLiteral::from($fieldCatalog) }},
+            optionSources: {{ \App\Support\JsLiteral::from($optionSources) }},
+            eventFieldChoices: {{ \App\Support\JsLiteral::from($eventFieldChoices ?? []) }},
             kit: '{{ $kit }}',
-            data: {{ Js::from($editorData) }},
+            data: {{ \App\Support\JsLiteral::from($editorData) }},
             isEdit: {{ $form ? 'true' : 'false' }},
             storeUrl: '{{ route('admin.form-builder.store') }}',
             updateUrl: '{{ $form ? route('admin.form-builder.update', $form) : '' }}',

@@ -16,15 +16,7 @@
             </div>
         @endif
 
-        <div x-data="{
-                page: 1, perPage: 10, total: {{ $pending->count() }},
-                get pages() { return Math.max(1, Math.ceil(this.total / this.perPage)); },
-                get visiblePages() { let s = Math.max(1, this.page - 1), e = Math.min(this.pages, this.page + 1); return Array.from({length: e - s + 1}, (_, i) => s + i); },
-                onPage(i) { return i >= (this.page - 1) * this.perPage && i < this.page * this.perPage; },
-                setPage(p) { this.page = Math.max(1, Math.min(this.pages, p)); },
-                get from() { return this.total === 0 ? 0 : (this.page - 1) * this.perPage + 1; },
-                get to() { return Math.min(this.page * this.perPage, this.total); }
-            }" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div x-data="adminRequestPagination({ perPage: 10, total: @js($pending->count()) })" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
             <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
                 <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Pending Requests</h3>
                 <span class="inline-flex items-center rounded-full bg-warning-50 px-2.5 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-500/15 dark:text-warning-400">
@@ -95,15 +87,7 @@
         </div>
 
         @if ($decided->isNotEmpty())
-            <div x-data="{
-                    page: 1, perPage: 15, total: {{ $decided->count() }},
-                    get pages() { return Math.max(1, Math.ceil(this.total / this.perPage)); },
-                    get visiblePages() { let s = Math.max(1, this.page - 1), e = Math.min(this.pages, this.page + 1); return Array.from({length: e - s + 1}, (_, i) => s + i); },
-                    onPage(i) { return i >= (this.page - 1) * this.perPage && i < this.page * this.perPage; },
-                    setPage(p) { this.page = Math.max(1, Math.min(this.pages, p)); },
-                    get from() { return this.total === 0 ? 0 : (this.page - 1) * this.perPage + 1; },
-                    get to() { return Math.min(this.page * this.perPage, this.total); }
-                }" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+            <div x-data="adminRequestPagination({ perPage: 15, total: @js($decided->count()) })" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                 <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
                     <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Recent Decisions</h3>
                 </div>

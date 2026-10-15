@@ -173,7 +173,7 @@ export function calendarInit() {
                             .join("");
 
                         return `
-              <div class="ep-item overflow-hidden rounded-lg border border-gray-100 dark:border-gray-700" style="border-left: 4px solid hsl(${accentHue} 70% 45%);">
+              <div class="ep-item overflow-hidden rounded-lg border border-gray-100 dark:border-gray-700" data-org-hue="${accentHue}">
                 <button type="button" class="ep-toggle w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
                   <span class="ep-chevron flex h-4 w-4 shrink-0 items-center justify-center text-gray-400 dark:text-gray-500 transition-transform duration-200">${chevronSvg}</span>
                   <span class="flex-1 min-w-0">
@@ -181,7 +181,7 @@ export function calendarInit() {
                     ${metaLine ? `<span class="block text-xs text-gray-500 dark:text-gray-400">${metaLine}</span>` : ""}
                   </span>
                 </button>
-                <div class="ep-detail" style="max-height:0;overflow:hidden;transition:max-height 0.25s ease;">
+                <div class="ep-detail">
                   <div class="border-t border-gray-100 dark:border-gray-700 px-3 py-2.5 space-y-1 text-xs">
                     ${detailRows || '<span class="text-gray-400 dark:text-gray-500 italic">No additional details.</span>'}
                   </div>
@@ -189,6 +189,7 @@ export function calendarInit() {
               </div>`;
                     })
                     .join("");
+                applyOrgHues(daySummaryEventListEl);
 
                 daySummaryEventListEl
                     .querySelectorAll(".ep-toggle")
@@ -398,7 +399,8 @@ export function calendarInit() {
         eventContent(eventInfo) {
             const hue = Number(eventInfo.event.extendedProps?.orgHue);
             const colorClass = "fc-org-color";
-            const colorStyle = `style="--org-hue: ${Number.isFinite(hue) ? hue : 140}"`;
+            // Applied after mount (eventDidMount): style="" in HTML is blocked by the CSP.
+            const colorStyle = `data-org-hue="${Number.isFinite(hue) ? hue : 140}"`;
             const viewType = eventInfo.view.type;
 
             if (viewType === "timeGridDay") {
@@ -430,6 +432,9 @@ export function calendarInit() {
             <div class="fc-event-title">${eventInfo.event.title}</div>
           </div>`,
             };
+        },
+        eventDidMount(info) {
+            applyOrgHues(info.el);
         },
     });
 
@@ -470,3 +475,11 @@ export function calendarInit() {
 }
 
 export default calendarInit;
+
+// Per-organization hue for markup rendered from HTML strings. Set through the
+// CSSOM because inline style="" attributes are blocked by the CSP.
+function applyOrgHues(root) {
+    const nodes = root.matches?.("[data-org-hue]") ? [root] : [];
+    nodes.push(...root.querySelectorAll("[data-org-hue]"));
+    nodes.forEach((node) => node.style.setProperty("--org-hue", node.dataset.orgHue));
+}

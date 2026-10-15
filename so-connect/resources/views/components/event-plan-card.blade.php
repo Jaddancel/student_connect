@@ -60,7 +60,7 @@
     showCreateForm: false,
     showReviseForm: false,
     reviseOfficers: [],
-    reviseSelected: {{ Js::from($reviseSelected) }},
+    reviseSelected: {{ \App\Support\JsLiteral::from($reviseSelected) }},
     reviseLoading: false,
     async openReviseForm() {
         this.showReviseForm = !this.showReviseForm;
@@ -200,31 +200,31 @@
                     @endphp
                     <form method="POST" action="{{ route('event-plans.revise', $plan->event_plan_id) }}"
                         class="space-y-3" x-data="{
-                            facilities: {{ Js::from($reviseFacilities) }},
+                            facilities: {{ \App\Support\JsLiteral::from($reviseFacilities) }},
                             addFacility() {
                                 if (this.facilities.length < 10) this.facilities.push('');
                             },
                             removeFacility(index) {
                                 if (this.facilities.length > 1) this.facilities.splice(index, 1);
                             },
-                            advisers: {{ Js::from($reviseAdvisers) }},
+                            advisers: {{ \App\Support\JsLiteral::from($reviseAdvisers) }},
                             addAdviser() {
                                 this.advisers.push('');
                             },
                             removeAdviser(index) {
                                 if (this.advisers.length > 1) this.advisers.splice(index, 1);
                             },
-                            activityTypes: {{ Js::from($reviseActivityTypes) }},
-                            activityType: {{ Js::from($reviseActivityType) }},
-                            activityTypeOther: {{ Js::from($reviseActivityOther) }},
-                            seminarLevel: {{ Js::from($reviseSeminarLevel) }},
-                            areaScope: {{ Js::from($reviseAreaScope) }},
-                            areaScopeOther: {{ Js::from($reviseAreaScopeOther) }},
-                            sponsor: {{ Js::from($reviseSponsor) }},
-                            sponsorOther: {{ Js::from($reviseSponsorOther) }},
+                            activityTypes: {{ \App\Support\JsLiteral::from($reviseActivityTypes) }},
+                            activityType: {{ \App\Support\JsLiteral::from($reviseActivityType) }},
+                            activityTypeOther: {{ \App\Support\JsLiteral::from($reviseActivityOther) }},
+                            seminarLevel: {{ \App\Support\JsLiteral::from($reviseSeminarLevel) }},
+                            areaScope: {{ \App\Support\JsLiteral::from($reviseAreaScope) }},
+                            areaScopeOther: {{ \App\Support\JsLiteral::from($reviseAreaScopeOther) }},
+                            sponsor: {{ \App\Support\JsLiteral::from($reviseSponsor) }},
+                            sponsorOther: {{ \App\Support\JsLiteral::from($reviseSponsorOther) }},
                             cosponsorCount: {{ (int) $reviseCosponsorCount }},
                             relatedToOrg: {{ $reviseRelatedToOrg ? 'true' : 'false' }},
-                            extensionServices: {{ Js::from($reviseExtension) }},
+                            extensionServices: {{ \App\Support\JsLiteral::from($reviseExtension) }},
                         }">
                         @csrf
                         @method('PATCH')

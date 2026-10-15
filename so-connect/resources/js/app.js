@@ -1,6 +1,6 @@
 import "./bootstrap";
 import "./dashboard";
-import Alpine from "alpinejs";
+import Alpine from "@alpinejs/csp";
 import Collapse from "@alpinejs/collapse";
 import ApexCharts from "apexcharts";
 import { formBuilder } from "./components/form-builder";
@@ -26,6 +26,12 @@ import { postViewer } from "./components/post-viewer";
 import { eventCountdown } from "./components/event-countdown";
 import { organizationDashboard } from "./components/organization-dashboard";
 import { systemDashboard, uptimeClock } from "./components/system-dashboard";
+import registerLandingLayouts from "./csp/landing-layouts";
+import registerBuilder from "./csp/builder";
+import registerForms from "./csp/forms";
+import registerSidebarDash from "./csp/sidebar-dash";
+import registerAdmin from "./csp/admin";
+import registerComponentsMisc from "./csp/components-misc";
 
 // flatpickr
 import flatpickr from "flatpickr";
@@ -35,6 +41,15 @@ import { Calendar } from "@fullcalendar/core";
 
 window.Alpine = Alpine;
 window.ApexCharts = ApexCharts;
+// ApexCharts injects its own <style>; hand it the page's CSP nonce (read from
+// the nonced Vite script tag) so the strict style-src allows it.
+window.Apex = {
+    ...(window.Apex || {}),
+    chart: {
+        ...(window.Apex?.chart || {}),
+        nonce: document.querySelector("script[nonce]")?.nonce || undefined,
+    },
+};
 window.flatpickr = flatpickr;
 window.FullCalendar = Calendar;
 
@@ -63,6 +78,16 @@ Alpine.data("eventCountdown", eventCountdown);
 Alpine.data("organizationDashboard", organizationDashboard);
 Alpine.data("systemDashboard", systemDashboard);
 Alpine.data("uptimeClock", uptimeClock);
+
+// Components extracted from inline x-data/handlers for the CSP build.
+[
+    registerLandingLayouts,
+    registerBuilder,
+    registerForms,
+    registerSidebarDash,
+    registerAdmin,
+    registerComponentsMisc,
+].forEach((register) => register(Alpine));
 
 // Shared by table-input fields (tableSums) and `computed` fields
 // (computedValues) so a computed field can live-recompute from either without

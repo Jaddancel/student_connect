@@ -21,13 +21,13 @@
 @endphp
 <div class="space-y-6"
     x-data="idTemplateEditor({
-        data: {{ Js::from($templateData) }},
+        data: {{ \App\Support\JsLiteral::from($templateData) }},
         storeUrl: '{{ route('superadmin.id-templates.store') }}',
         updateUrl: '{{ $template ? route('superadmin.id-templates.update', $template) : '' }}',
         uploadUrl: '{{ route('superadmin.id-templates.upload-image') }}',
         csrf: '{{ csrf_token() }}',
         assetBase: '/storage',
-        universalKeys: {{ Js::from($scanFieldKeys) }},
+        universalKeys: {{ \App\Support\JsLiteral::from($scanFieldKeys) }},
     })">
 
     {{-- Meta bar: name, toggles, save --}}

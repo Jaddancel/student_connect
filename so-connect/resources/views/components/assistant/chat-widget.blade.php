@@ -5,7 +5,7 @@
 <div x-data="assistantChat({
         endpoint: '{{ route('assistant.chat') }}',
         csrf: '{{ csrf_token() }}',
-        currentPath: {{ Illuminate\Support\Js::from(request()->getPathInfo()) }},
+        currentPath: {{ \App\Support\JsLiteral::from(request()->getPathInfo()) }},
     })" @keydown.escape.window="open = false">
 
     {{-- Trigger — identical size/hover treatment to the theme toggle and notification bell --}}

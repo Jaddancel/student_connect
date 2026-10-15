@@ -85,7 +85,7 @@
 </div>
 
 <div class="grid grid-cols-12 gap-4 md:gap-6"
-     x-data="systemDashboard({ metrics: {{ Js::from($metrics) }}, url: {{ Js::from(route('superadmin.dashboard.metrics')) }} })">
+     x-data="systemDashboard({ metrics: {{ \App\Support\JsLiteral::from($metrics) }}, url: {{ \App\Support\JsLiteral::from(route('superadmin.dashboard.metrics')) }} })">
 
     {{-- ══ KPI CARDS ══════════════════════════════════════════════════════════ --}}
     @foreach ($cards as $card)

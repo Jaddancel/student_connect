@@ -12,12 +12,6 @@
     {{-- Shared light/dark bootstrap (same localStorage key as the dashboard) --}}
     @include('layouts.partials.theme-boot')
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@600;700&display=swap"
-        rel="stylesheet">
-
     <style>
         :root {
             --brand-ink: #173b2e;
@@ -280,7 +274,7 @@
                         @endphp
                         <article
                             data-post-id="{{ $post->post_id }}"
-                            @click="if (!$event.target.closest('video, button')) openPost({{ Js::from($viewerPost) }}, $el.querySelector('[data-open-post]'))"
+                            @click="if (!$event.target.closest('video, button')) openPost({{ \App\Support\JsLiteral::from($viewerPost) }}, $el.querySelector('[data-open-post]'))"
                             class="post-card relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-[color:var(--card-bg)] shadow-sm dark:border-slate-700">
 
                             {{-- Media --}}
@@ -340,7 +334,7 @@
                             </div>
 
                             <button type="button" data-open-post
-                                @click.stop="openPost({{ Js::from($viewerPost) }}, $el)"
+                                @click.stop="openPost({{ \App\Support\JsLiteral::from($viewerPost) }}, $el)"
                                 aria-label="View post: {{ $post->title }}"
                                 class="mx-5 mb-5 rounded-lg border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-emerald-600 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-900/30">
                                 View post
