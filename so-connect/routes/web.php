@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\ProjectRequestController;
 use App\Http\Controllers\Admin\RecognitionRequestController;
 use App\Http\Controllers\Admin\RequestRecordController;
 use App\Http\Controllers\Admin\SemesterController;
+use App\Http\Controllers\Admin\StudentRankingController;
 use App\Http\Controllers\Admin\WorkplanRequestController;
 use App\Http\Controllers\Auth\GoogleLinkController;
 use App\Http\Controllers\Auth\InvitationController;
@@ -512,6 +513,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->name('admin.scoring.index');
     Route::get('/admin/scoring/rankings', [OrganizationScoringController::class, 'rankings'])
         ->name('admin.scoring.rankings');
+    Route::get('/admin/scoring/student-rankings', [StudentRankingController::class, 'index'])
+        ->name('admin.student-rankings.index');
+    Route::post('/admin/scoring/student-rankings/evaluations', [StudentRankingController::class, 'store'])
+        ->name('admin.student-rankings.store');
     Route::get('/admin/scoring/create', [OrganizationScoringController::class, 'create'])
         ->name('admin.scoring.create');
     Route::post('/admin/scoring', [OrganizationScoringController::class, 'store'])
