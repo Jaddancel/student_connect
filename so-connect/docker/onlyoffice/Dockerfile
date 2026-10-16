@@ -9,7 +9,8 @@
 # Because the patch edits DS internals that carry no compatibility guarantee,
 # the script asserts on its anchors and fails the build loudly rather than
 # silently no-op'ing if a future image moves them.
-FROM onlyoffice/documentserver:latest
+# Pinned: the patch anchors match 9.4.0-129; `latest` is now 10.x and moved them.
+FROM onlyoffice/documentserver:9.4.0
 
 COPY patch-plugin-panel.sh /usr/local/bin/patch-plugin-panel.sh
 
