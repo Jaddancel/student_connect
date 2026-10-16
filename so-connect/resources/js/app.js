@@ -1,6 +1,6 @@
 import "./bootstrap";
 import "./dashboard";
-import Alpine from "@alpinejs/csp";
+import Alpine from "alpinejs";
 import Collapse from "@alpinejs/collapse";
 import ApexCharts from "apexcharts";
 import { formBuilder } from "./components/form-builder";

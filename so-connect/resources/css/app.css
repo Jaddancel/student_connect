@@ -16,12 +16,6 @@
 @import './csp/admin.css';
 @import './csp/components-misc.css';
 
-/* Alpine removes x-cloak once a component initialises (CSP-safe replacement
-   for style="display: none" placeholders on x-show elements). */
-[x-cloak] {
-    display: none !important;
-}
-
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';

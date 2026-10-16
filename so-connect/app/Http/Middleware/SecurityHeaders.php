@@ -67,26 +67,29 @@ class SecurityHeaders
         // and the editor would be blocked outright.
         $editor = $this->editorOrigin();
 
-        // No 'unsafe-inline' / 'unsafe-eval': inline <script>/<style> blocks
-        // carry the per-request nonce (@nonce), inline event handlers and
-        // style="" attributes are not used, and Alpine runs from its CSP build.
-        $csp = implode('; ', array_filter([
-            "default-src 'self'",
-            "base-uri 'self'",
-            "object-src 'none'",
-            "frame-ancestors 'self'",
-            "form-action 'self'",
-            "img-src 'self' data: blob: {$cdn} {$editor}",
+        // Strict policy: no 'unsafe-inline' / 'unsafe-eval'. Inline
+        // <script>/<style> blocks carry the per-request nonce (@nonce), inline
+        // event handlers and style="" attributes are not used, and Alpine runs
+        // from its CSP build.
+        $strict = $this->policy($cdn, $editor, [
             "script-src 'self' 'nonce-{$nonce}' {$cdn} {$editor}",
-            // HEIC previews are decoded locally in a blob-backed web worker.
-            "worker-src 'self' blob:",
             "style-src 'self' 'nonce-{$nonce}' {$cdn} {$editor}",
-            "font-src 'self' data: {$cdn} {$editor}",
-            "connect-src 'self' {$cdn} {$editor}",
-            $editor !== '' ? "frame-src 'self' {$editor}" : null,
-        ]));
+        ]);
 
-        $response->headers->set('Content-Security-Policy', $csp);
+        if (config('security.csp_strict')) {
+            $response->headers->set('Content-Security-Policy', $strict);
+        } else {
+            // Until every view is converted (`npm run check:csp` reports 0),
+            // enforce the transitional policy and only report strict-mode
+            // violations, so nothing is blocked. A nonce must not appear in the
+            // enforced policy: browsers ignore 'unsafe-inline' next to one.
+            $response->headers->set('Content-Security-Policy', $this->policy($cdn, $editor, [
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' {$cdn} {$editor}",
+                "style-src 'self' 'unsafe-inline' {$cdn} {$editor}",
+            ]));
+            $response->headers->set('Content-Security-Policy-Report-Only', $strict);
+        }
+
         $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -105,6 +108,32 @@ class SecurityHeaders
         $this->stripFingerprint($response);
 
         return $response;
+    }
+
+    /**
+     * Full policy string with the given script-src/style-src directives.
+     *
+     * @param  array{0: string, 1: string}  $scriptAndStyle
+     */
+    private function policy(string $cdn, string $editor, array $scriptAndStyle): string
+    {
+        [$scriptSrc, $styleSrc] = $scriptAndStyle;
+
+        return implode('; ', array_filter([
+            "default-src 'self'",
+            "base-uri 'self'",
+            "object-src 'none'",
+            "frame-ancestors 'self'",
+            "form-action 'self'",
+            "img-src 'self' data: blob: {$cdn} {$editor}",
+            $scriptSrc,
+            // HEIC previews are decoded locally in a blob-backed web worker.
+            "worker-src 'self' blob:",
+            $styleSrc,
+            "font-src 'self' data: {$cdn} {$editor}",
+            "connect-src 'self' {$cdn} {$editor}",
+            $editor !== '' ? "frame-src 'self' {$editor}" : null,
+        ]));
     }
 
     /**

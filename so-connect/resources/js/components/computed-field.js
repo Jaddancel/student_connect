@@ -1,4 +1,4 @@
-import Alpine from "@alpinejs/csp";
+import Alpine from "alpinejs";
 
 /**
  * Live client-side mirror of App\Forms\FieldCompute's sum/difference/table_sum
