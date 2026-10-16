@@ -40,6 +40,7 @@ class ConfigurationSeeder extends Seeder
                 Log::warning('Seed configuration: '.$warning);
                 $this->command?->warn($warning);
             }
+            $this->call(ReportTemplateSeeder::class);
             ScoringCatalog::flush();
         } finally {
             unlink($path);

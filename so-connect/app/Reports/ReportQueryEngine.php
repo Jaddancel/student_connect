@@ -311,7 +311,7 @@ final class ReportQueryEngine
      *
      * @param  array<int, mixed>  $keys
      * @param  array<int, string>  $path
-     * @return array<string, mixed>  primary key => raw value
+     * @return array<string, mixed> primary key => raw value
      */
     private function resolvePath(string $table, array $keys, array $path): array
     {
@@ -531,6 +531,7 @@ final class ReportQueryEngine
     {
         return match ($parameter['default'] ?? null) {
             ReportDefinitionValidator::DEFAULT_CURRENT_SEMESTER => \App\Models\Semester::current()?->getKey(),
+            ReportDefinitionValidator::DEFAULT_CURRENT_SCHOOL_YEAR => \App\Models\Semester::currentSchoolYear(),
             default => null,
         };
     }

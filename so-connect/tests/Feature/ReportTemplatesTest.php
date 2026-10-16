@@ -1,5 +1,7 @@
 <?php
 
+use App\Forms\SystemFunction;
+use App\Models\Form;
 use App\Models\ReportTemplate;
 use App\Models\Template;
 use App\Reports\ReportDefinitionValidator;
@@ -46,6 +48,23 @@ function rtFixture(): array
     rtOfficer((int) $beta->getKey(), 'officer', 'Bert');
 
     return [$alpha, $beta];
+}
+
+function rtAccredit(int $organizationId, Form $form, string $approvedAt, bool $rejected = false): void
+{
+    $requestId = DB::table('requests')->insertGetId([
+        'action' => 'Accreditation request',
+        'action_type' => 1,
+        'form_id' => $form->getKey(),
+        'organization_id' => $organizationId,
+        'requested_at' => $approvedAt,
+    ], 'request_id');
+
+    DB::table('approvals')->insert([
+        'request' => $requestId,
+        'approved_at' => $approvedAt,
+        'is_rejected' => $rejected,
+    ]);
 }
 
 function rtDefinition(string $name): array
@@ -149,6 +168,59 @@ it('resolves nested groups, filters, formats and optional parameters', function 
 
     $options = $engine->parameterOptions(rtDefinition('Organization Officers')['parameters'][0]);
     expect(array_column($options, 'label'))->toContain('Alpha Organization', 'Beta Organization');
+});
+
+it('filters all three accreditation reports by school year and excludes rejected applications', function () {
+    [$alpha, $beta] = rtFixture();
+    $form = Form::query()->create([
+        'name' => 'Organization Accreditation',
+        'route_name' => 'organization-accreditation-report-test',
+        'system_function' => SystemFunction::ORG_ACCREDITATION,
+        'is_active' => true,
+        'is_published' => true,
+    ]);
+
+    rtAccredit((int) $alpha->getKey(), $form, '2025-09-15 10:00:00');
+    rtAccredit((int) $beta->getKey(), $form, '2026-09-15 10:00:00');
+    rtAccredit((int) $alpha->getKey(), $form, '2026-10-01 10:00:00', rejected: true);
+
+    $engine = app(ReportQueryEngine::class);
+    $organizations = $engine->run(rtDefinition('Accredited School Organizations'), [
+        'school_year' => '2025–2026',
+    ])['data'];
+    $members = $engine->run(rtDefinition('Members of Accredited Organizations'), [
+        'school_year' => '2025–2026',
+    ])['data']['members'];
+    $officers = $engine->run(rtDefinition('Officers of Accredited Organizations'), [
+        'school_year' => '2025–2026',
+    ])['data']['officers'];
+
+    expect($organizations['school_year'])->toBe('2025–2026')
+        ->and($organizations['total_organizations'])->toBe('1')
+        ->and($organizations['organizations'])->toHaveCount(1)
+        ->and($organizations['organizations'][0]['name'])->toBe('Alpha Organization')
+        ->and(array_column($members, 'first_name'))->toBe(['Mark'])
+        ->and(array_column($officers, 'first_name'))->toContain('Olive', 'Paula')
+        ->and(array_column($officers, 'first_name'))->not->toContain('Bert');
+
+    $nextYear = $engine->run(rtDefinition('Accredited School Organizations'), [
+        'school_year' => '2026–2027',
+    ])['data'];
+    expect($nextYear['organizations'])->toHaveCount(1)
+        ->and($nextYear['organizations'][0]['name'])->toBe('Beta Organization');
+});
+
+it('offers school years and defaults accreditation reports to the current school year', function () {
+    \Illuminate\Support\Carbon::setTestNow('2026-10-16 08:00:00');
+    $definition = app(ReportDefinitionValidator::class)
+        ->validate(rtDefinition('Accredited School Organizations'));
+    $parameter = $definition['parameters'][0];
+    $engine = app(ReportQueryEngine::class);
+
+    expect($engine->parameterDefault($parameter))->toBe('2026–2027')
+        ->and(array_column($engine->parameterOptions($parameter), 'value'))->toContain('2026–2027');
+
+    \Illuminate\Support\Carbon::setTestNow();
 });
 
 it('caps rows in preview mode and enforces required parameters', function () {
@@ -324,6 +396,9 @@ it('lists seeded reports and generates them with parameters', function () {
 
     $this->actingAs($admin)->get(route('reports.index'))
         ->assertOk()
+        ->assertSee('Accredited School Organizations')
+        ->assertSee('Members of Accredited Organizations')
+        ->assertSee('Officers of Accredited Organizations')
         ->assertSee('Registered Organizations')
         ->assertSee('Organization Officers')
         ->assertSee('Beta Organization');
