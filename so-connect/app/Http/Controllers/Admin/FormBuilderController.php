@@ -476,6 +476,7 @@ class FormBuilderController extends Controller
         }
 
         $this->enforceFieldKit($validated, $form);
+        $this->enforceRequiredNewEventWaiver($validated, $form);
 
         $validated['fields'] = $this->normalizeImageOptions($validated['fields']);
         $validated['fields'] = $this->normalizeVisibilityConditions($validated['fields']);
@@ -628,6 +629,34 @@ class FormBuilderController extends Controller
         if ($missing !== []) {
             abort(response()->json([
                 'message' => 'This form must include the following required field(s): '.implode(', ', $missing).'.',
+            ], 422));
+        }
+    }
+
+    /**
+     * Every save publishes immediately, so a New Event form must retain a
+     * mandatory waiver attachment before it can be created or updated. Match
+     * by type rather than key because admins may rename the waiver field.
+     *
+     * @param  array<string,mixed>  $validated
+     */
+    private function enforceRequiredNewEventWaiver(array $validated, ?Form $form): void
+    {
+        $systemFunction = $form?->system_function
+            ?? (($validated['system_function'] ?? '') !== '' ? $validated['system_function'] : null);
+
+        if ($systemFunction !== SystemFunction::NEW_EVENT) {
+            return;
+        }
+
+        $hasRequiredWaiver = collect($validated['fields'])->contains(
+            fn (array $field): bool => (string) $field['field_type'] === FieldType::WAIVER_SCAN
+                && (bool) ($field['is_required'] ?? false),
+        );
+
+        if (! $hasRequiredWaiver) {
+            abort(response()->json([
+                'message' => 'The New Event form must include a Waiver scan field marked as required.',
             ], 422));
         }
     }
