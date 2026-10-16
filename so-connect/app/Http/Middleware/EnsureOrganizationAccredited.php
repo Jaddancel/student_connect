@@ -26,7 +26,7 @@ class EnsureOrganizationAccredited
     {
         $user = $request->user();
 
-        if ($user && ! $request->routeIs('org-suspended', 'logout')) {
+        if ($user && ! $request->routeIs('org-suspended', 'logout', 'support-tickets.*')) {
             $userId = (int) $user->getKey();
 
             if ((int) $user->user_type === 3) {

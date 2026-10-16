@@ -47,6 +47,7 @@ use App\Http\Controllers\PromotionRequestsPageController;
 use App\Http\Controllers\RequestDecisionController;
 use App\Http\Controllers\SidebarMenuController;
 use App\Http\Controllers\SuperAdminController;
+use App\Http\Controllers\SupportTicketController;
 use App\Http\Controllers\WorkplanController;
 use App\Http\Resources\ActionRequestResource;
 use App\Http\Resources\ApprovalResource;
@@ -1277,6 +1278,22 @@ Route::get('/id-scan/retry/{side}', [IdScanController::class, 'retryPhoto'])
 // because each call occupies the single local GPU for several seconds.
 Route::post('/assistant/chat', [\App\Http\Controllers\AssistantController::class, 'chat'])
     ->middleware(['auth', 'throttle:20,1'])->name('assistant.chat');
+
+// Assistant hand-off: users can submit the current conversation to the
+// support queue and continue the resulting ticket thread.
+Route::middleware('auth')->group(function () {
+    Route::get('/support-tickets', [SupportTicketController::class, 'index'])->name('support-tickets.index');
+    Route::post('/support-tickets', [SupportTicketController::class, 'store'])
+        ->middleware('throttle:10,1')->name('support-tickets.store');
+    Route::get('/support-tickets/{ticket}', [SupportTicketController::class, 'show'])->name('support-tickets.show');
+    Route::post('/support-tickets/{ticket}/reply', [SupportTicketController::class, 'reply'])
+        ->middleware('throttle:20,1')->name('support-tickets.reply');
+});
+
+Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
+    Route::get('/admin/support-tickets', [SupportTicketController::class, 'adminIndex'])->name('admin.support-tickets.index');
+    Route::patch('/admin/support-tickets/{ticket}', [SupportTicketController::class, 'update'])->name('admin.support-tickets.update');
+});
 
 // ── OnlyOffice Document Server callbacks ────────────────────────────────────
 // Deliberately outside the session-authenticated area: the callers are the

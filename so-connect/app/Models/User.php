@@ -104,6 +104,12 @@ class User extends Authenticatable
         return $this->belongsTo(Profile::class, 'profile', 'profile_id');
     }
 
+    /** Relation alias that does not collide with the integer `profile` column. */
+    public function profileRecord()
+    {
+        return $this->belongsTo(Profile::class, 'profile', 'profile_id');
+    }
+
     public function officers()
     {
         return $this->hasMany(Officer::class, 'user', 'user_id');
@@ -142,6 +148,11 @@ class User extends Authenticatable
     public function formSubmissions()
     {
         return $this->hasMany(FormSubmission::class, 'submitted_by', 'user_id');
+    }
+
+    public function supportTickets()
+    {
+        return $this->hasMany(SupportTicket::class, 'requester_id', 'user_id');
     }
 
     public function generatedDocuments()

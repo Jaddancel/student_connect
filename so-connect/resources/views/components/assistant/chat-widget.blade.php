@@ -4,6 +4,7 @@
 --}}
 <div x-data="assistantChat({
         endpoint: '{{ route('assistant.chat') }}',
+        ticketEndpoint: '{{ route('support-tickets.store') }}',
         csrf: '{{ csrf_token() }}',
         currentPath: {{ \App\Support\JsLiteral::from(request()->getPathInfo()) }},
     })" @keydown.escape.window="open = false">
@@ -111,7 +112,30 @@
             </div>
         </div>
 
-        <form @submit.prevent="send()" class="flex items-end gap-2 border-t border-gray-100 p-3 dark:border-gray-800">
+        <div x-show="ticketCreatedUrl" class="border-t border-success-100 bg-success-50 px-3 py-2 text-xs text-success-700 dark:border-success-500/20 dark:bg-success-500/10 dark:text-success-400">
+            Ticket created. <a :href="ticketCreatedUrl" class="font-semibold underline">Open ticket</a>
+        </div>
+
+        <div x-show="escalating" class="border-t border-gray-100 p-3 dark:border-gray-800">
+            <p class="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-300">Send this conversation to support</p>
+            <input x-model="ticketSubject" maxlength="120" placeholder="Short issue summary"
+                class="mb-2 h-9 w-full rounded-lg border border-gray-200 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
+            <textarea x-model="ticketDescription" maxlength="2000" rows="2" placeholder="What do you still need help with?"
+                class="mb-2 w-full resize-none rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90"></textarea>
+            <p x-show="ticketError" class="mb-2 text-xs text-error-600" x-text="ticketError"></p>
+            <div class="flex justify-end gap-2">
+                <button type="button" @click="escalating = false" class="rounded-lg px-3 py-1.5 text-xs text-gray-500">Cancel</button>
+                <button type="button" @click="createTicket()" :disabled="creatingTicket || !ticketSubject.trim() || !ticketDescription.trim()"
+                    class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40">Submit ticket</button>
+            </div>
+        </div>
+
+        <div x-show="!escalating" class="flex items-center justify-between border-t border-gray-100 px-3 pt-2 dark:border-gray-800">
+            <button type="button" @click="openEscalation()" :disabled="sending"
+                class="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400">Still need help? Contact support</button>
+        </div>
+
+        <form x-show="!escalating" @submit.prevent="send()" class="flex items-end gap-2 p-3">
             <textarea
                 x-model="draft"
                 @keydown.enter.prevent="if (!$event.shiftKey) send()"
