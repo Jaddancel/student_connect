@@ -16,14 +16,6 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class OrganizationScoringController extends Controller
 {
-    private const CATEGORY_LABELS = [
-        OrganizationType::SOCIO_CIVIC             => 'Socio-Civic',
-        OrganizationType::RELIGIOUS               => 'Religious',
-        OrganizationType::FRATERNITIES_SORORITIES => 'Fraternities-Sororities',
-        OrganizationType::SPECIAL_INTEREST        => 'Special Interest',
-        OrganizationType::STUDENT_GOVERNMENT      => 'Student Government',
-    ];
-
     public function index(Request $request)
     {
         $semesters = Semester::query()->orderByDesc('starts_at')->get();
@@ -89,7 +81,10 @@ class OrganizationScoringController extends Controller
             'selectedSemester'   => $selectedSemester,
             'selectedSemesterId' => $selectedSemesterId,
             'groupedRows'        => $groupedRows,
-            'categoryLabels'     => self::CATEGORY_LABELS,
+            'categoryLabels'     => array_diff_key(
+                OrganizationType::options(),
+                [OrganizationType::UNIVERSITY_SANCTIONED => true],
+            ),
             'categoryFilter'     => $categoryFilter,
             'rows'               => $groupedRows->flatten(1),
         ]);

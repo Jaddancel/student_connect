@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-    <div class="grid grid-cols-12 gap-4 md:gap-6">
+    <div class="grid grid-cols-12 gap-4 md:gap-6" data-admin-dashboard>
         <div class="col-span-12">
             <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                 <x-dashboard.type-switcher />

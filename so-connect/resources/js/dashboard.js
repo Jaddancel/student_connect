@@ -644,10 +644,12 @@ document.addEventListener('alpine:init', () => {
 			}
 		},
 
+		// Alpine calls this when the store is registered. The script ships on
+		// every page, so only fetch where the admin dashboard is rendered.
 		init() {
-			this.load();
+			if (document.querySelector('[data-admin-dashboard]')) {
+				this.load();
+			}
 		},
 	});
-
-	Alpine.store('dashboardData').init();
 });

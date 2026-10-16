@@ -6,6 +6,9 @@
     'presidentContact' => null,
     'allSemesters' => null,
     'workplanStatuses' => [],
+    'isSystemAdmin' => false,
+    'calendarOrganizations' => [],
+    'organizationTypes' => [],
 ])
 
 @php
@@ -78,6 +81,44 @@
 
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="custom-calendar">
+            @if ($isSystemAdmin)
+                <div id="calendar-filters" class="relative z-10 px-4 pt-4 sm:px-6">
+                    <label for="calendar-filter-search" class="sr-only">Search organizations and organization types</label>
+                    <input id="calendar-filter-search" type="search" autocomplete="off"
+                        aria-controls="calendar-filter-options" aria-expanded="false"
+                        placeholder="Search organizations or types..."
+                        class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 sm:max-w-md">
+                    <p id="calendar-filter-summary" class="mt-1 text-xs text-gray-500 dark:text-gray-400">No filters selected — showing all organizations</p>
+                    <div id="calendar-filter-options" hidden
+                        class="absolute left-4 right-4 mt-1 max-h-72 overflow-y-auto rounded-xl border border-gray-200 bg-white p-3 shadow-lg dark:border-gray-700 dark:bg-gray-900 sm:left-6 sm:right-auto sm:w-[28rem]">
+                        <button type="button" id="calendar-filter-clear"
+                            class="mb-3 text-xs font-medium text-brand-500 hover:text-brand-600">Clear filters</button>
+                        <fieldset>
+                            <legend class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Organization types</legend>
+                            <div class="space-y-1">
+                                @foreach ($organizationTypes as $typeId => $typeLabel)
+                                    <label data-calendar-filter-option class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.05]">
+                                        <input type="checkbox" data-calendar-filter-kind="type" value="{{ $typeId }}" class="rounded border-gray-300 text-brand-500 focus:ring-brand-500">
+                                        <span>{{ $typeLabel }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </fieldset>
+                        <fieldset class="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+                            <legend class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Organizations</legend>
+                            <div class="space-y-1">
+                                @foreach ($calendarOrganizations as $organization)
+                                    <label data-calendar-filter-option class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.05]">
+                                        <input type="checkbox" data-calendar-filter-kind="organization" value="{{ $organization->organization_id }}" class="rounded border-gray-300 text-brand-500 focus:ring-brand-500">
+                                        <span>{{ $organization->name }}</span>
+                                        <span class="ml-auto text-xs text-gray-400">{{ $organizationTypes[$organization->organization_type] ?? 'Other' }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </fieldset>
+                    </div>
+                </div>
+            @endif
             @php
                 $semesterData = collect($allSemesters ?? [])->map(fn($s) => [
                     'id' => (int) $s->semester_id,
@@ -92,6 +133,7 @@
                 data-semesters="{{ json_encode($semesterData->all()) }}"
                 data-workplan-statuses="{{ json_encode($workplanStatuses ?? []) }}"
                 data-event-scope="current"
+                data-system-admin="{{ $isSystemAdmin ? '1' : '0' }}"
                 data-today="{{ now()->toDateString() }}"></div>
         </div>
     </div>

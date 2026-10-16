@@ -10,6 +10,7 @@ use App\Models\Template;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
 use App\Services\OrganizationAuthorizationService;
+use App\Services\MembershipRequestReviewContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -142,6 +143,7 @@ class SidebarMenuController extends Controller
                         'organization_id' => $organizationId,
                         'display_organization_id' => $requesterOrganizationId,
                         'requester_user_id' => (int) $actionRequest->user,
+                        'requested_role' => (string) ($payload['position'] ?? ''),
                         'summary' => 'Membership Registration',
                         'requested_at' => $actionRequest->requested_at,
                     ];
@@ -304,6 +306,26 @@ class SidebarMenuController extends Controller
                 return $row;
             })
             ->values();
+
+        $membershipContexts = app(MembershipRequestReviewContext::class)->forRequests(
+            $rows
+                ->filter(fn (array $row) => (int) $row['action_type'] === 1)
+                ->mapWithKeys(fn (array $row) => [
+                    (int) $row['request_id'] => [
+                        'organization_id' => (int) $row['organization_id'],
+                        'user_id' => (int) $row['requester_user_id'],
+                        'requested_role' => (string) ($row['requested_role'] ?? ''),
+                    ],
+                ])
+                ->all()
+        );
+        $rows = $rows->map(function (array $row) use ($membershipContexts) {
+            if ((int) $row['action_type'] === 1) {
+                $row['membership_review_context'] = $membershipContexts[(int) $row['request_id']] ?? null;
+            }
+
+            return $row;
+        });
 
         $orgRecognitionForm = Form::query()->where('route_name', 'organization-recognition')->first();
         $orgRecognitionFormId = $orgRecognitionForm ? (int) $orgRecognitionForm->getKey() : 0;

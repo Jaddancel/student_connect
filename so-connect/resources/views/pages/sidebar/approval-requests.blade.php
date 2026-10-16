@@ -59,6 +59,28 @@
                                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                             {{ $row['requested_at']->timezone(config('app.display_timezone'))->format('M d, Y h:i A') }}
                                         </p>
+                                        @if (!empty($row['membership_review_context']))
+                                            <div class="mt-3 grid grid-cols-1 gap-4 text-xs text-gray-600 dark:text-gray-400 sm:grid-cols-2">
+                                                <div>
+                                                    <p class="font-semibold">Requester’s current role(s)</p>
+                                                    @forelse ($row['membership_review_context']['current_roles'] as $currentRole)
+                                                        <p class="mt-1"><span class="font-medium">{{ $currentRole['organization_name'] }}:</span> {{ $currentRole['role'] }}</p>
+                                                    @empty
+                                                        <p class="mt-1">Not currently a member of an organization.</p>
+                                                    @endforelse
+                                                </div>
+                                                <div>
+                                                    <p class="font-semibold">Requested role: {{ $row['membership_review_context']['requested_role'] }}</p>
+                                                    <p class="mt-1 font-medium">Roles in {{ $row['membership_review_context']['organization_name'] }}</p>
+                                                    @forelse ($row['membership_review_context']['officer_roles'] as $officerRole)
+                                                        <p class="mt-1 font-medium">{{ $officerRole['role'] }} ({{ $officerRole['count'] }})</p>
+                                                        <p>{{ implode(', ', $officerRole['names']) }}</p>
+                                                    @empty
+                                                        <p class="mt-1">No officers listed.</p>
+                                                    @endforelse
+                                                </div>
+                                            </div>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                                         {{ $row['requester_name'] }}

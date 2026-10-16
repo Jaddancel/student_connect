@@ -51,6 +51,43 @@
             @endif
         </div>
 
+        @if ($membershipReviewContext)
+            <div class="rounded-2xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Membership Role Review</h3>
+                <div class="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Requester’s Current Role(s)</p>
+                        @if ($membershipReviewContext['current_roles'] === [])
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Not currently a member of an organization.</p>
+                        @else
+                            <ul class="mt-2 space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                                @foreach ($membershipReviewContext['current_roles'] as $currentRole)
+                                    <li><span class="font-medium">{{ $currentRole['organization_name'] }}</span><br>{{ $currentRole['role'] }}</li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Requested Role</p>
+                        <p class="mt-1 text-sm font-medium text-gray-800 dark:text-white/90">{{ $membershipReviewContext['requested_role'] }}</p>
+                        <p class="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Roles in {{ $membershipReviewContext['organization_name'] }}</p>
+                        @if ($membershipReviewContext['officer_roles'] === [])
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">No officers listed.</p>
+                        @else
+                            <ul class="mt-2 space-y-3 text-sm text-gray-700 dark:text-gray-300">
+                                @foreach ($membershipReviewContext['officer_roles'] as $officerRole)
+                                    <li>
+                                        <p class="font-medium">{{ $officerRole['role'] }} ({{ $officerRole['count'] }})</p>
+                                        <p>{{ implode(', ', $officerRole['names']) }}</p>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        @endif
+
         {{-- Submitted answers, labelled by the form's own fields --}}
         @if ($submission)
             <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">

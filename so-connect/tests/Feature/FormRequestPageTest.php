@@ -185,7 +185,23 @@ it('requires president approval before admin enrollment for a membership request
         ->get(route('membership-requests'))
         ->assertOk()
         ->assertSee('Membership Requests')
-        ->assertSee('Membership Registration');
+        ->assertSee('Membership Registration')
+        ->assertSee('Target Org')
+        ->assertSee('Requester’s current role(s)')
+        ->assertSee('Requested role: Secretary')
+        ->assertSee('President');
+
+    $this->actingAs(recordsUser(2))
+        ->get(route('admin.form-requests.show', [$form, $actionRequest->request_id]))
+        ->assertOk()
+        ->assertSee('Membership Role Review')
+        ->assertSee('Home Org')
+        ->assertSee('Target Org')
+        ->assertSee('Officer')
+        ->assertSee('Requested Role')
+        ->assertSee('Secretary')
+        ->assertSee('Roles in Target Org')
+        ->assertSee('President');
 
     $admin = recordsUser(2);
     expect(fn () => app(\App\Services\RequestApprovalService::class)->approve(
@@ -217,6 +233,58 @@ it('requires president approval before admin enrollment for a membership request
     expect($memberRow)->not->toBeNull()
         ->and($memberRow->role)->toBe('member')
         ->and($memberRow->position)->toBe('Secretary');
+});
+
+it('lists president-rejected membership requests as decided', function () {
+    $homeOrg = recordsOrganization('Home Org');
+    $targetOrg = recordsOrganization('Target Org');
+    $applicant = frpOfficer((int) $homeOrg->getKey());
+
+    $president = recordsUser(3);
+    DB::table('organization_officers')->insert([
+        'role' => 'president',
+        'organization' => $targetOrg->getKey(),
+        'user' => (int) $president->getKey(),
+        'yearterm' => null,
+        'member_since' => now(),
+        'registered_at' => now(),
+        'reassigned_at' => now(),
+    ]);
+
+    $form = frpForm([
+        'name' => 'Org Membership',
+        'route_name' => 'org-membership',
+        'system_function' => 'membership_registration',
+    ], 'organization_id');
+
+    FormDescription::create([
+        'form_id' => $form->id, 'field_key' => 'position', 'field_label' => 'Position',
+        'field_type' => 'position-select', 'is_required' => true, 'field_order' => 2,
+    ]);
+
+    $this->actingAs($applicant)
+        ->post(route('forms.render.submit', $form->route_name), [
+            'organization_id' => (string) $targetOrg->getKey(),
+            'position' => 'Secretary',
+        ])
+        ->assertSessionHasNoErrors();
+
+    $actionRequest = ActionRequest::query()
+        ->where('form_id', $form->id)->where('action_type', 1)->firstOrFail();
+
+    app(\App\Services\RequestApprovalService::class)->reject(
+        $actionRequest,
+        (int) $president->getKey(),
+        'Membership not approved',
+        'president',
+    );
+
+    $this->actingAs(recordsUser(2))
+        ->get(route('admin.form-requests.index', $form))
+        ->assertOk()
+        ->assertSee('Recent Decisions')
+        ->assertSee('Rejected')
+        ->assertSee('Membership not approved');
 });
 
 it('has no request page for sign-up, new-event and new-workplan bindings', function () {

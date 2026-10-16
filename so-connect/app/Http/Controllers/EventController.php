@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\OrganizationType;
 use App\Models\EventPlan;
 use App\Models\Semester;
+use App\Models\User;
 use App\Models\Workplan;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\JsonResponse;
@@ -19,13 +21,42 @@ class EventController extends Controller
 
     public function calendarEvents(Request $request)
     {
-        $userId = (int) $request->user()->getKey();
+        $user = $request->user();
+        $userId = (int) $user->getKey();
+        $isSystemAdmin = in_array((int) $user->user_type, [User::TYPE_SUPERADMIN, User::TYPE_ADMIN], true);
 
-        // "all" lists every org the user belongs to; "current" (default) honours
-        // the org selected in the session switcher.
-        $organizationIds = $request->query('scope') === 'all'
-            ? collect(OrganizationAuthorizationService::allMemberOrganizationIdsForUser($userId))
-            : collect(OrganizationAuthorizationService::memberOrganizationIdsForUser($userId));
+        if ($isSystemAdmin) {
+            $validated = $request->validate([
+                'organizations' => ['sometimes', 'array'],
+                'organizations.*' => ['integer', 'distinct', Rule::exists('organizations', 'organization_id')],
+                'types' => ['sometimes', 'array'],
+                'types.*' => ['integer', 'distinct', Rule::in(array_keys(OrganizationType::options()))],
+            ]);
+            $selectedOrganizationIds = collect($validated['organizations'] ?? [])->map(fn ($id) => (int) $id);
+            $selectedTypes = collect($validated['types'] ?? [])->map(fn ($type) => (int) $type);
+
+            $organizationQuery = DB::table('organizations');
+            if ($selectedOrganizationIds->isEmpty() && $selectedTypes->isEmpty()) {
+                $organizationIds = $organizationQuery->pluck('organization_id');
+            } else {
+                $organizationIds = $organizationQuery
+                    ->where(function ($query) use ($selectedOrganizationIds, $selectedTypes) {
+                        if ($selectedOrganizationIds->isNotEmpty()) {
+                            $query->whereIn('organization_id', $selectedOrganizationIds->all());
+                        }
+                        if ($selectedTypes->isNotEmpty()) {
+                            $method = $selectedOrganizationIds->isNotEmpty() ? 'orWhereIn' : 'whereIn';
+                            $query->{$method}('organization_type', $selectedTypes->all());
+                        }
+                    })
+                    ->pluck('organization_id');
+            }
+        } else {
+            // Non-admin calendars remain restricted to their organization membership.
+            $organizationIds = $request->query('scope') === 'all'
+                ? collect(OrganizationAuthorizationService::allMemberOrganizationIdsForUser($userId))
+                : collect(OrganizationAuthorizationService::memberOrganizationIdsForUser($userId));
+        }
 
         if ($organizationIds->isEmpty()) {
             return response()->json([]);

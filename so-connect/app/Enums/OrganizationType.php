@@ -13,15 +13,7 @@ final class OrganizationType
 
     public static function label(int $type): string
     {
-        return match ($type) {
-            self::SOCIO_CIVIC => 'Socio-Civic',
-            self::RELIGIOUS => 'Religious',
-            self::FRATERNITIES_SORORITIES => 'Fraternities-Sororities',
-            self::SPECIAL_INTEREST => 'Special Interest',
-            self::UNIVERSITY_SANCTIONED => 'University-Sanctioned',
-            self::STUDENT_GOVERNMENT => 'Student Government',
-            default => 'Other',
-        };
+        return self::options()[$type] ?? 'Other';
     }
 
     /**
@@ -32,13 +24,6 @@ final class OrganizationType
      */
     public static function options(): array
     {
-        return [
-            self::SOCIO_CIVIC => self::label(self::SOCIO_CIVIC),
-            self::RELIGIOUS => self::label(self::RELIGIOUS),
-            self::FRATERNITIES_SORORITIES => self::label(self::FRATERNITIES_SORORITIES),
-            self::SPECIAL_INTEREST => self::label(self::SPECIAL_INTEREST),
-            self::UNIVERSITY_SANCTIONED => self::label(self::UNIVERSITY_SANCTIONED),
-            self::STUDENT_GOVERNMENT => self::label(self::STUDENT_GOVERNMENT),
-        ];
+        return config('organization_types', []);
     }
 }

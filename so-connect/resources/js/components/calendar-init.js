@@ -38,6 +38,72 @@ export function calendarInit() {
     // "all" = every org the user belongs to. Toggled from the header.
     let eventScope =
         calendarWrapper.dataset.eventScope === "all" ? "all" : "current";
+    const isSystemAdmin = calendarWrapper.dataset.systemAdmin === "1";
+    const calendarFilters = document.getElementById("calendar-filters");
+    const calendarFilterSearch = document.getElementById("calendar-filter-search");
+    const calendarFilterOptions = document.getElementById("calendar-filter-options");
+    const calendarFilterSummary = document.getElementById("calendar-filter-summary");
+    const calendarFilterClear = document.getElementById("calendar-filter-clear");
+    let selectedOrganizationIds = [];
+    let selectedOrganizationTypes = [];
+
+    const updateCalendarFilters = (refetch = true) => {
+        const checkedOptions = calendarFilters?.querySelectorAll(
+            "[data-calendar-filter-kind]:checked",
+        ) ?? [];
+        selectedOrganizationIds = [...checkedOptions]
+            .filter((input) => input.dataset.calendarFilterKind === "organization")
+            .map((input) => input.value);
+        selectedOrganizationTypes = [...checkedOptions]
+            .filter((input) => input.dataset.calendarFilterKind === "type")
+            .map((input) => input.value);
+        const selectedCount = selectedOrganizationIds.length + selectedOrganizationTypes.length;
+        if (calendarFilterSummary) {
+            calendarFilterSummary.textContent = selectedCount
+                ? `${selectedCount} filter${selectedCount === 1 ? "" : "s"} selected`
+                : "No filters selected — showing all organizations";
+        }
+        if (refetch && calendarInstance) calendarInstance.refetchEvents();
+    };
+
+    if (isSystemAdmin && calendarFilters && calendarFilterSearch && calendarFilterOptions) {
+        const filterOptionLabels = calendarFilters.querySelectorAll(
+            "[data-calendar-filter-option]",
+        );
+        const closeFilterOptions = () => {
+            calendarFilterOptions.hidden = true;
+            calendarFilterSearch.setAttribute("aria-expanded", "false");
+        };
+        calendarFilterSearch.addEventListener("focus", () => {
+            calendarFilterOptions.hidden = false;
+            calendarFilterSearch.setAttribute("aria-expanded", "true");
+        });
+        calendarFilterSearch.addEventListener("input", () => {
+            const searchTerm = calendarFilterSearch.value.trim().toLocaleLowerCase();
+            filterOptionLabels.forEach((option) => {
+                option.hidden = !option.textContent.toLocaleLowerCase().includes(searchTerm);
+            });
+            calendarFilterOptions.hidden = false;
+            calendarFilterSearch.setAttribute("aria-expanded", "true");
+        });
+        calendarFilters.addEventListener("change", (event) => {
+            if (event.target.matches("[data-calendar-filter-kind]")) {
+                updateCalendarFilters();
+            }
+        });
+        calendarFilterClear?.addEventListener("click", () => {
+            calendarFilters
+                .querySelectorAll("[data-calendar-filter-kind]:checked")
+                .forEach((input) => { input.checked = false; });
+            updateCalendarFilters();
+        });
+        document.addEventListener("click", (event) => {
+            if (!calendarFilters.contains(event.target)) closeFilterOptions();
+        });
+        calendarFilterSearch.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") closeFilterOptions();
+        });
+    }
 
     const updateScopeButtons = () => {
         const currentBtn = calendarWrapper.querySelector(
@@ -314,7 +380,7 @@ export function calendarInit() {
         initialView: "dayGridMonth",
         initialDate: `${newDate.getFullYear()}-${getDynamicMonth()}-07`,
         headerToolbar: {
-            left: "prev,next scopeCurrent,scopeAll",
+            left: isSystemAdmin ? "prev,next" : "prev,next scopeCurrent,scopeAll",
             center: "title",
             right: "dayGridMonth,listWeek,timeGridDay",
         },
@@ -330,7 +396,18 @@ export function calendarInit() {
         },
         events: {
             url: "/api/events/calendar",
-            extraParams: () => ({ scope: eventScope }),
+            extraParams: () => {
+                if (!isSystemAdmin) return { scope: eventScope };
+
+                const params = {};
+                selectedOrganizationIds.forEach((id, index) => {
+                    params[`organizations[${index}]`] = id;
+                });
+                selectedOrganizationTypes.forEach((type, index) => {
+                    params[`types[${index}]`] = type;
+                });
+                return params;
+            },
             success() {
                 eventsLoaded = true;
             },

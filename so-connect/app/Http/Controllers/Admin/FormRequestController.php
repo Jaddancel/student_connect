@@ -10,6 +10,7 @@ use App\Models\Approval;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Request as ActionRequest;
+use App\Services\MembershipRequestReviewContext;
 use App\Services\RequestApprovalService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -69,10 +70,12 @@ class FormRequestController extends Controller
             $presidentApproval = $isMembership ? $group->firstWhere('stage', 'president') : null;
             $isDecided = $decisionApproval !== null
                 || ($presidentApproval !== null && (bool) $presidentApproval->is_rejected);
+            $displayApproval = $decisionApproval
+                ?? ($presidentApproval !== null && (bool) $presidentApproval->is_rejected ? $presidentApproval : null);
 
             return [
                 'request' => $r,
-                'approval' => $decisionApproval,
+                'approval' => $displayApproval,
                 'president_approval' => $presidentApproval,
                 'is_decided' => $isDecided,
                 'requester_name' => $requesterNames[$r->user] ?? 'Unknown',
@@ -130,6 +133,17 @@ class FormRequestController extends Controller
         }
 
         $isMembership = (int) $actionRequest->action_type === 1;
+        $membershipReviewContext = null;
+        if ($isMembership) {
+            $membershipContexts = app(MembershipRequestReviewContext::class)->forRequests([
+                $requestId => [
+                    'organization_id' => $this->receivingOrganizationId($actionRequest, $payload),
+                    'user_id' => (int) $actionRequest->user,
+                    'requested_role' => (string) ($payload['position'] ?? ''),
+                ],
+            ]);
+            $membershipReviewContext = $membershipContexts[$requestId] ?? null;
+        }
         $presidentApproval = $isMembership
             ? Approval::query()->where('request', $requestId)->where('stage', 'president')->first()
             : null;
@@ -148,6 +162,7 @@ class FormRequestController extends Controller
             'approval' => $decisionApproval,
             'presidentApproval' => $presidentApproval,
             'orgName' => $orgNames[$orgId] ?? 'Unknown Organization',
+            'membershipReviewContext' => $membershipReviewContext,
             'requesterName' => $requesterNames[$actionRequest->user] ?? 'Unknown',
             'kind' => (int) $actionRequest->action_type === 1 ? 'Membership' : ((int) $actionRequest->action_type === NewOrganizationRegistrationHandler::ACTION_TYPE ? 'New Organization' : 'Document'),
             'newOrganizationEmailStatuses' => $newOrganizationEmailStatuses,
@@ -215,7 +230,7 @@ class FormRequestController extends Controller
      */
     private function displayOrganizationId(object $actionRequest, array $payload): int
     {
-        $receivingOrgId = (int) ($actionRequest->organization_id ?? ($payload['organization_id'] ?? 0));
+        $receivingOrgId = $this->receivingOrganizationId($actionRequest, $payload);
 
         if ((int) $actionRequest->action_type !== 1) {
             return $receivingOrgId;
@@ -230,6 +245,18 @@ class FormRequestController extends Controller
         }
 
         return $requesterOrgId > 0 ? $requesterOrgId : $receivingOrgId;
+    }
+
+    private function receivingOrganizationId(object $actionRequest, array $payload): int
+    {
+        $organizationId = (int) ($actionRequest->organization_id ?? ($payload['organization_id'] ?? 0));
+        if ($organizationId > 0) {
+            return $organizationId;
+        }
+
+        $parts = explode('|', (string) $actionRequest->action);
+
+        return isset($parts[0]) && ctype_digit(trim($parts[0])) ? (int) trim($parts[0]) : 0;
     }
 
     /**

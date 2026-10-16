@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\OrganizationType;
 use App\Http\Controllers\Admin\AccomplishmentReportRequestController;
 use App\Http\Controllers\Admin\ActivityRequestController as AdminActivityRequestController;
 use App\Http\Controllers\Admin\AdminAccountCreationController;
@@ -155,6 +156,7 @@ Route::get('/login', fn () => redirect(route('home').'#auth'))->name('login');
 // calender pages
 Route::get('/calendar', function () {
     $user = request()->user();
+    $isSystemAdmin = in_array((int) $user->user_type, [User::TYPE_SUPERADMIN, User::TYPE_ADMIN], true);
     $isOfficerOrPresident = Gate::forUser($user)->allows('access-dashboard', 'officer')
         || Gate::forUser($user)->allows('access-dashboard', 'president');
     $canRequestEvent = $isOfficerOrPresident;
@@ -176,6 +178,18 @@ Route::get('/calendar', function () {
     $lockedOrgIds = [];
     $allSemesters = collect();
     $workplanStatuses = [];
+    $calendarOrganizations = collect();
+
+    if ($isSystemAdmin) {
+        $calendarOrganizations = Organization::query()
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'organizations.detail')
+            ->orderBy('od.name')
+            ->get([
+                'organizations.organization_id',
+                'organizations.organization_type',
+                DB::raw("COALESCE(od.name, 'Unknown Organization') as name"),
+            ]);
+    }
 
     if ($canRequestEvent) {
         $eventRequestOrganizations = Organization::query()
@@ -226,6 +240,9 @@ Route::get('/calendar', function () {
         'presidentContact' => $presidentContact,
         'allSemesters' => $allSemesters,
         'workplanStatuses' => $workplanStatuses,
+        'isSystemAdmin' => $isSystemAdmin,
+        'calendarOrganizations' => $calendarOrganizations,
+        'organizationTypes' => OrganizationType::options(),
     ]);
 })->middleware('auth')->name('calendar');
 

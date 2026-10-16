@@ -54,8 +54,8 @@
 }" @click.away="closeDropdown()">
     <!-- User Button -->
     <button class="flex items-center text-gray-700 dark:text-gray-400" @click.prevent="toggleDropdown()" type="button">
-        <x-common.initial-avatar :name="$displayName !== '' ? $displayName : $f_name" size="h-11 w-11" text="text-base"
-            class="mr-3" />
+        <x-common.initial-avatar :name="$displayName !== '' ? $displayName : $f_name" :photo="$profile?->photo"
+            size="h-11 w-11" text="text-base" class="mr-3" />
 
         <span class="block mr-1 font-medium text-theme-sm">{{ $f_name }}</span>
 
