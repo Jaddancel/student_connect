@@ -153,7 +153,9 @@ Route::get('/org-suspended', function () {
 
 // Auth pages.
 
-Route::get('/login', fn () => redirect(route('home').'#auth'))->name('login');
+Route::get('/login', fn () => view('pages.auth.signin', ['title' => 'Sign In']))
+    ->middleware('guest')
+    ->name('login');
 
 // calender pages
 Route::get('/calendar', function () {
@@ -936,7 +938,7 @@ Route::get('/bar-chart', function () {
 })->name('bar-chart');
 
 // authentication pages
-Route::get('/signin', fn () => redirect()->route('home'))->name('signin');
+Route::get('/signin', fn () => redirect()->route('login'))->name('signin');
 
 // Public sign-up: redirects to the "Sign Up" system-function form (the seeded
 // Directory of Student Officers), forwarding the landing-page Google popup's
