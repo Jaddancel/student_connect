@@ -386,8 +386,10 @@ Route::get('/forms/{routeName}/blank-pdf', [FormBlankPdfController::class, 'show
     ->middleware('track.download:blank_form')
     ->name('forms.blank-pdf');
 Route::get('/forms/{routeName}', [FormRenderController::class, 'show'])->name('forms.render');
+// Rate-limited inside FormRenderController::submit() (20/min), not via
+// throttle middleware — see the comment there.
 Route::post('/forms/{routeName}', [FormRenderController::class, 'submit'])
-    ->middleware('throttle:20,1')->name('forms.render.submit');
+    ->name('forms.render.submit');
 
 // Manual-filling sessions ("drafts"): start freezes the exact partial PDF, then
 // the completed scan is uploaded and parsed. These live outside the auth group

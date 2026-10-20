@@ -62,20 +62,22 @@
                             emits any tag and never produces an <a>, so nothing the model
                             writes can turn into live markup — resources/js/lib/markdown.js.
 
-                            The `typeof` guard is what keeps a build of app.js older than
-                            this template from printing the word "undefined" in every
-                            reply: Alpine writes an expression that throws straight into
-                            innerHTML as `undefined`, so a missing bubbleHtml has to fall
-                            through to the plain-text bubble below instead.
+                            The `$data.renderBubble` guard is what keeps a build of app.js
+                            older than this template from leaving every reply blank: a
+                            missing renderer has to fall through to the plain-text bubble
+                            below instead. (`$data.x` rather than a bare identifier, so a
+                            missing method reads as undefined instead of throwing.)
+                            renderBubble sets innerHTML from x-effect — x-html isn't
+                            available in Alpine's CSP build.
                         --}}
-                        <template x-if="message.role === 'assistant' && !message.failed && typeof bubbleHtml === 'function'">
+                        <template x-if="message.role === 'assistant' && !message.failed && !!$data.renderBubble">
                             <div class="assistant-markdown rounded-2xl rounded-bl-sm bg-gray-100 px-3.5 py-2 text-sm text-gray-800 dark:bg-white/5 dark:text-white/90"
-                                x-html="bubbleHtml(message)"></div>
+                                x-effect="renderBubble($el, message)"></div>
                         </template>
 
                         {{-- The user's own text, the degraded placeholder, and any reply
                              the renderer above couldn't be reached for, stay verbatim. --}}
-                        <template x-if="message.role !== 'assistant' || message.failed || typeof bubbleHtml !== 'function'">
+                        <template x-if="message.role !== 'assistant' || message.failed || !$data.renderBubble">
                             <div
                                 :class="message.role === 'user'
                                     ? 'rounded-2xl rounded-br-sm bg-brand-500 px-3.5 py-2 text-sm text-white'
@@ -138,7 +140,7 @@
         <form x-show="!escalating" @submit.prevent="send()" class="flex items-end gap-2 p-3">
             <textarea
                 x-model="draft"
-                @keydown.enter.prevent="if (!$event.shiftKey) send()"
+                @keydown.enter.prevent="!$event.shiftKey && send()"
                 rows="1"
                 placeholder="Ask a question…"
                 class="dark:bg-dark-900 max-h-24 flex-1 resize-none rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"></textarea>

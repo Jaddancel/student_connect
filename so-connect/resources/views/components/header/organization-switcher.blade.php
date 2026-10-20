@@ -5,36 +5,8 @@
 @endphp
 
 @if ($items->count() > 1)
-    <div class="relative" x-data="{
-            open: false,
-            positionPanel() {
-                const panel = this.$refs.panel;
-                const btn = this.$refs.switcherButton;
-                if (!panel || !btn) return;
-
-                // xl and up keep the right-anchored dropdown (CSS handles it).
-                if (window.innerWidth >= 1280) {
-                    panel.style.removeProperty('position');
-                    panel.style.removeProperty('top');
-                    panel.style.removeProperty('left');
-                    panel.style.removeProperty('width');
-                    return;
-                }
-
-                // Below xl the button can sit anywhere in the header row, so
-                // clamp the panel to the viewport instead of anchoring to it.
-                const rect = btn.getBoundingClientRect();
-                const margin = 16;
-                const width = Math.min(310, window.innerWidth - margin * 2);
-                const left = Math.min(Math.max(rect.left, margin), window.innerWidth - width - margin);
-
-                panel.style.position = 'fixed';
-                panel.style.top = `${rect.bottom + 8}px`;
-                panel.style.left = `${left}px`;
-                panel.style.width = `${width}px`;
-            }
-        }" @click.away="open = false" @resize.window="positionPanel()">
-        <button type="button" x-ref="switcherButton" @click="positionPanel(); open = !open" class="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-700">
+    <div class="relative" x-data="headerOrganizationSwitcher" @click.away="open = false" @resize.window="positionPanel()">
+        <button type="button" x-ref="switcherButton" @click="togglePanel()" class="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-700">
             @if ($activeOrganization)
                 @if (!empty($activeOrganization['logo']))
                     <img src="{{ $activeOrganization['logo'] }}" alt="{{ $activeOrganization['name'] }} logo" class="h-8 w-8 rounded-full object-cover" />

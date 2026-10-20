@@ -27,7 +27,7 @@
 
         <form action="{{ route($storeRoute) }}" method="POST" enctype="multipart/form-data"
             class="space-y-6"
-            x-data="{ advisers: {{ \App\Support\JsLiteral::from(old('faculty_advisers', [''])) }}, addAdviser() { this.advisers.push(''); }, removeAdviser(i) { if (this.advisers.length > 1) this.advisers.splice(i, 1); } }">
+            x-data="adminAccountAdvisers({ advisers: @js(old('faculty_advisers', [''])) })">
             @csrf
 
             {{-- PART 1: Personal Information --}}
@@ -183,7 +183,7 @@
                     </div>
 
                     {{-- Photo --}}
-                    <div x-data="{ preview: null }">
+                    <div x-data="adminPhotoPreview">
                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Profile Photo <span class="ml-1 text-xs font-normal text-gray-400">(JPG/PNG, max 2MB — optional)</span>
                         </label>
@@ -200,7 +200,7 @@
                             <span class="text-sm font-medium text-gray-600 dark:text-gray-400"
                                 x-text="preview ? 'Change photo' : 'Click to upload profile photo'"></span>
                             <input id="photo" name="photo" type="file" accept="image/jpeg,image/png" class="hidden"
-                                @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
+                                @change="pickPreview($event)" />
                         </label>
                         @error('photo')
                             <p class="mt-1 text-xs text-error-500">{{ $message }}</p>

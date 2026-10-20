@@ -99,7 +99,7 @@
                 </button>
                 <button type="button" x-show="cameraOn" @click="stopCamera()" x-cloak
                     class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Stop</button>
-                <button type="button" @click="document.getElementById(scanSide === 'back' ? 'id_photo_back' : 'id_photo_front').click()"
+                <button type="button" @click="pickUploadForSide()"
                     class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Upload instead</button>
             </div>
 

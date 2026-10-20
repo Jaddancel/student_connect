@@ -1,81 +1,105 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="p-5"
-    x-data="{
-        query: '',
-        results: [],
-        loading: false,
-        searched: false,
-        deleteTarget: null,
-        deleting: false,
-        confirmDelete(profile) {
-            this.deleteTarget = profile;
-            this.$dispatch('open-profile-delete-modal');
-        },
-        async deleteProfile() {
-            if (!this.deleteTarget) return;
-            this.deleting = true;
-            const csrf = document.querySelector('meta[name=csrf-token]')?.content || '';
-            try {
-                const res = await fetch(`/superadmin/profiles/${this.deleteTarget.profile_id}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'X-CSRF-TOKEN': csrf,
-                        Accept: 'application/json',
-                    },
-                });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) {
-                    alert(data.message || 'Unable to delete this profile.');
-                    this.deleting = false;
+<script @nonce>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('superadminProfileManager', () => ({
+            query: '',
+            results: [],
+            loading: false,
+            searched: false,
+            deleteTarget: null,
+            deleting: false,
+            confirmDelete(profile) {
+                this.deleteTarget = profile;
+                this.$dispatch('open-profile-delete-modal');
+            },
+            async deleteProfile() {
+                if (!this.deleteTarget) return;
+                this.deleting = true;
+                const csrf = document.querySelector('meta[name=csrf-token]')?.content || '';
+                try {
+                    const res = await fetch(`/superadmin/profiles/${this.deleteTarget.profile_id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': csrf,
+                            Accept: 'application/json',
+                        },
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        alert(data.message || 'Unable to delete this profile.');
+                        this.deleting = false;
+                        return;
+                    }
+                    this.results = this.results.filter(p => p.profile_id !== this.deleteTarget.profile_id);
+                    this.deleteTarget = null;
+                    this.$dispatch('close-profile-delete-modal');
+                } catch (e) {
+                    alert('Unable to delete this profile.');
+                }
+                this.deleting = false;
+            },
+            async search() {
+                if (this.query.trim().length < 2) {
+                    this.results = [];
+                    this.searched = false;
                     return;
                 }
-                this.results = this.results.filter(p => p.profile_id !== this.deleteTarget.profile_id);
-                this.deleteTarget = null;
-                this.$dispatch('close-profile-delete-modal');
-            } catch (e) {
-                alert('Unable to delete this profile.');
-            }
-            this.deleting = false;
-        },
-        async search() {
-            if (this.query.trim().length < 2) {
-                this.results = [];
+                this.loading = true;
                 this.searched = false;
-                return;
-            }
-            this.loading = true;
-            this.searched = false;
-            try {
-                const res = await fetch(`/superadmin/profiles/search?q=${encodeURIComponent(this.query)}&excludeSuperadmin=1`);
-                const data = await res.json();
-                this.results = data.data ?? [];
-            } catch (e) {
-                this.results = [];
-            }
-            this.loading = false;
-            this.searched = true;
-        },
-        avatarColor(name) {
-            const colors = [
-                'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
-                'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',
-                'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
-                'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
-                'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300',
-                'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300',
-                'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300',
-                'bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-300',
-            ];
-            let hash = 0;
-            for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-            return colors[Math.abs(hash) % colors.length];
-        },
-        initials(first, last) {
-            return ((first?.[0] ?? '') + (last?.[0] ?? '')).toUpperCase();
-        }
-    }">
+                try {
+                    const res = await fetch(`/superadmin/profiles/search?q=${encodeURIComponent(this.query)}&excludeSuperadmin=1`);
+                    const data = await res.json();
+                    this.results = data.data ?? [];
+                } catch (e) {
+                    this.results = [];
+                }
+                this.loading = false;
+                this.searched = true;
+            },
+            avatarColor(name) {
+                const colors = [
+                    'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
+                    'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',
+                    'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
+                    'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+                    'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300',
+                    'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300',
+                    'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300',
+                    'bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-300',
+                ];
+                let hash = 0;
+                for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+                return colors[Math.abs(hash) % colors.length];
+            },
+            initials(first, last) {
+                return ((first?.[0] ?? '') + (last?.[0] ?? '')).toUpperCase();
+            },
+
+            avatarColorFor(profile) {
+                return this.avatarColor((profile.first_name ?? '') + (profile.last_name ?? ''));
+            },
+            profileFullName(profile) {
+                return [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(' ');
+            },
+            profileEditUrl(profile) {
+                return `/superadmin/profiles/${profile.profile_id}/edit`;
+            },
+            get deleteTargetName() {
+                return [this.deleteTarget?.first_name, this.deleteTarget?.last_name].filter(Boolean).join(' ');
+            },
+            // Called from inside the delete modal: `open` is the modal's own state.
+            cancelProfileDelete() {
+                this.open = false;
+                this.deleteTarget = null;
+            },
+        }));
+    });
+</script>
+
+<div class="p-5"
+    x-data="superadminProfileManager">
 
     <x-common.page-breadcrumb pageTitle="Profile Manager" />
 
@@ -156,14 +180,14 @@
                         {{-- Avatar --}}
                         <div
                             class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-                            :class="avatarColor((profile.first_name ?? '') + (profile.last_name ?? ''))">
+                            :class="avatarColorFor(profile)">
                             <span x-text="initials(profile.first_name, profile.last_name)"></span>
                         </div>
 
                         {{-- Info --}}
                         <div class="min-w-0">
                             <p class="truncate text-sm font-semibold text-gray-800 dark:text-white/90"
-                                x-text="[profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(' ')">
+                                x-text="profileFullName(profile)">
                             </p>
                             <p x-show="profile.user_email" x-text="profile.user_email"
                                 class="truncate text-xs text-gray-500 dark:text-gray-400"></p>
@@ -190,7 +214,7 @@
                     {{-- Actions --}}
                     <div class="flex shrink-0 items-center gap-2">
                         <a
-                            :href="`/superadmin/profiles/${profile.profile_id}/edit`"
+                            :href="profileEditUrl(profile)"
                             class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3.5 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-brand-600">
                             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 18 18">
                                 <path fill-rule="evenodd" clip-rule="evenodd"
@@ -231,14 +255,14 @@
             <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
                 You're about to permanently delete
                 <span class="font-medium text-gray-800 dark:text-white/90"
-                    x-text="[deleteTarget?.first_name, deleteTarget?.last_name].filter(Boolean).join(' ')"></span>.
+                    x-text="deleteTargetName"></span>.
                 This cannot be undone.
             </p>
 
             <div class="mt-6 flex justify-end gap-3">
                 <button
                     type="button"
-                    @click="open = false; deleteTarget = null"
+                    @click="cancelProfileDelete()"
                     :disabled="deleting"
                     class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5">
                     Cancel

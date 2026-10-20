@@ -34,7 +34,7 @@
                         csrf: @js(csrf_token())
                     })"
                     @if (! $document->partial_pdf_path)
-                        x-effect="if (status === 'awaiting_scan' || status === 'review') window.location.reload()"
+                        x-effect="reloadWhenPrepared()"
                     @endif>
                     <h3 class="font-semibold">Document {{ $loop->iteration }} — {{ $document->template?->template_name ?: 'Printed template' }}</h3>
                     <p class="mt-1 text-sm" x-text="status.replaceAll('_', ' ')"></p>

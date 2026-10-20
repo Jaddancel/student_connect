@@ -56,6 +56,8 @@ class GoogleLinkController extends Controller
             return $this->closePopup(['error' => 'Google sign-in failed or was cancelled. Please try again.']);
         }
 
+        self::rememberVerified($request, (string) $google->getId());
+
         return $this->closePopup(array_merge([
             'google_id' => (string) $google->getId(),
             'email' => (string) $google->getEmail(),
@@ -155,5 +157,37 @@ class GoogleLinkController extends Controller
     private function closePopup(array $payload)
     {
         return response()->view('pages.auth.google-callback', ['payload' => $payload]);
+    }
+
+    private const VERIFIED_SESSION_KEY = 'google_link.verified';
+
+    /**
+     * Record, server-side, a Google account ID this browser session just
+     * proved ownership of. The ID reaches the form through the browser (popup
+     * → hidden input), so on its own it is client-controlled; submissions only
+     * trust a google_id found here (see isVerified()).
+     */
+    public static function rememberVerified(Request $request, string $googleId): void
+    {
+        if ($googleId === '') {
+            return;
+        }
+
+        $verified = (array) $request->session()->get(self::VERIFIED_SESSION_KEY, []);
+        $verified[$googleId] = now()->timestamp;
+        arsort($verified);
+        $request->session()->put(self::VERIFIED_SESSION_KEY, array_slice($verified, 0, 5, true));
+    }
+
+    /**
+     * Whether this session completed the Google OAuth flow for $googleId.
+     */
+    public static function isVerified(Request $request, ?string $googleId): bool
+    {
+        $googleId = trim((string) $googleId);
+
+        return $googleId !== ''
+            && $request->hasSession()
+            && array_key_exists($googleId, (array) $request->session()->get(self::VERIFIED_SESSION_KEY, []));
     }
 }

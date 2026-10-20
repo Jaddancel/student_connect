@@ -14,7 +14,7 @@
                     <div class="org-avatar h-24 w-24 text-2xl shadow-sm">
                         @if ($officer['photo_url'])
                             <img src="{{ $officer['photo_url'] }}" alt="{{ $officer['name'] }}" loading="lazy"
-                                onerror="this.style.display='none';this.nextElementSibling.style.display='inline';" />
+                                data-error-reveal-next="inline" />
                             <span style="display:none;">{{ $officer['initials'] }}</span>
                         @else
                             {{ $officer['initials'] }}
@@ -46,7 +46,7 @@
                     <div class="org-avatar h-11 w-11 text-sm">
                         @if ($member['photo_url'])
                             <img src="{{ $member['photo_url'] }}" alt="{{ $member['name'] }}" loading="lazy"
-                                onerror="this.style.display='none';this.nextElementSibling.style.display='inline';" />
+                                data-error-reveal-next="inline" />
                             <span style="display:none;">{{ $member['initials'] }}</span>
                         @else
                             {{ $member['initials'] }}

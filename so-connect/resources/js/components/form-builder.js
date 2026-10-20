@@ -267,6 +267,26 @@ export function formBuilder(config) {
             return this.fields.find((f) => f.field_key === key) || null;
         },
 
+        // Field-card bindings on the canvas (null-safe lookups by key).
+        fieldCardLabel(key) {
+            return this.field(key)?.field_label;
+        },
+        fieldCardRequired(key) {
+            return this.field(key)?.is_required;
+        },
+        fieldCardVisibleWhen(key) {
+            return this.field(key)?.field_options?.visible_when;
+        },
+        fieldCardType(key) {
+            return this.field(key)?.field_type;
+        },
+        fieldCardTypeLabel(key) {
+            return this.field(key)?.field_type + (this.field(key)?.field_type === "select" && this.field(key)?.field_options?.multiple ? " · multiple" : "");
+        },
+        fieldCardColumns(key) {
+            return this.field(key)?.field_options?.columns || [];
+        },
+
         labelFor(type) {
             return (this.catalog[type] && this.catalog[type].label) || type;
         },
@@ -1101,6 +1121,13 @@ export function formBuilder(config) {
             return null;
         },
 
+        conditionChoicesHaveEmpty(f) {
+            return this.conditionValueChoices(this.conditionController(f)).some((o) => o.value === "");
+        },
+        conditionOptionSelected(opt, f) {
+            return String(opt.value) === String(f.field_options.visible_when.value ?? "");
+        },
+
         // --- dynamic option sources (registered DB-backed entries) ---
         /** Field types that can draw their choices from an OptionSource. */
         supportsSource(type) {
@@ -1305,6 +1332,19 @@ export function formBuilder(config) {
          * A column's type label: the live New Events field's label when the field
          * still exists, else the FieldType catalog label for the stored snapshot.
          */
+        /** Older table-input fields gain an empty row total. */
+        ensureRowTotal(f) {
+            f.field_options.row_total ??= { key: "", label: "Total", op: "multiply", multiply: [] };
+        },
+        setRowTotalMultiply(f, value) {
+            f.field_options.row_total.multiply = value.split(",").map((s) => s.trim()).filter(Boolean);
+        },
+        hasNumberColumns(f) {
+            return (f.field_options.columns || []).some((c) => c.type === "number");
+        },
+        numberColumnKeys(f) {
+            return (f.field_options.columns || []).filter((c) => c.type === "number").map((c) => c.key).join(", ");
+        },
         columnTypeLabel(col) {
             const live = this.eventFieldChoices.find((c) => c.key === col.key);
             if (live) return live.type_label;

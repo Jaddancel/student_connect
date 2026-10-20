@@ -66,6 +66,12 @@ export function manualScanUploader(config = {}) {
             for (const file of list) this.files.push(file);
         },
 
+        // x-effect on documents without a printable PDF yet: reload once the
+        // PDF is ready (status moves to awaiting_scan/review).
+        reloadWhenPrepared() {
+            if (this.status === "awaiting_scan" || this.status === "review") window.location.reload();
+        },
+
         removeFile(index) {
             this.files.splice(index, 1);
         },

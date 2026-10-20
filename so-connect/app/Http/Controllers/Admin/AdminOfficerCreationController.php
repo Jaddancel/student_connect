@@ -52,7 +52,7 @@ class AdminOfficerCreationController extends Controller
             'barangay'             => ['required', 'string', 'max:255'],
             'photo'                => ['nullable', 'file', 'mimes:jpeg,png', 'max:2048'],
             // Optional Google link captured by the "Sign in with Google" popup.
-            'google_id'            => ['nullable', 'string', 'max:255', 'unique:users,google_id'],
+            'google_id'            => ['nullable', 'string', 'max:255', 'unique:users,google_id', new \App\Rules\VerifiedGoogleId($request)],
         ]);
 
         $orgId = (int) $validated['organization_id'];

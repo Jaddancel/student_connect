@@ -20,6 +20,7 @@ use App\Support\OrganizationField;
 use App\Support\SignatureImage;
 use App\Support\SignupRequests;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -348,8 +349,26 @@ class FormRenderController extends Controller
      * @param  \Illuminate\Support\Collection<int,\App\Models\Form\FormDescription>  $fields
      * @return array<string,mixed>
      */
+    /** Builder-form submissions allowed per minute, per user (or per IP when signed out). */
+    private const SUBMISSIONS_PER_MINUTE = 20;
+
     public function submit(Request $request, string $routeName, DocumentGenerationService $docService)
     {
+        // Rate limiting lives here rather than in `throttle` route middleware so
+        // it runs after the session/CSRF checks and a throttled submission is
+        // rejected exactly like any other invalid one: a redirect back to the
+        // form with an error (422 JSON for XHR). A bare 429 page gave otherwise
+        // identical requests a different response depending only on timing,
+        // which scanners (OWASP ZAP's boolean SQL-injection rule) misread as
+        // the payload changing the query result.
+        $limiterKey = 'form-submit:'.($request->user()?->getAuthIdentifier() ?? $request->ip());
+        if (RateLimiter::tooManyAttempts($limiterKey, self::SUBMISSIONS_PER_MINUTE)) {
+            throw ValidationException::withMessages([
+                'form' => 'Too many submissions. Please wait a minute and try again.',
+            ]);
+        }
+        RateLimiter::hit($limiterKey, 60);
+
         $form = Form::query()
             ->where('route_name', $routeName)
             ->where('is_active', true)
@@ -401,6 +420,7 @@ class FormRenderController extends Controller
 
         // Build validation rules dynamically from the field catalog.
         $rules = [];
+        $messages = [];
         foreach ($fields as $field) {
             if (FieldType::isPresentational($field->field_type) || $isHidden($field->field_key)) {
                 continue;
@@ -427,7 +447,9 @@ class FormRenderController extends Controller
                 $options,
             );
             if (! empty($fieldRules)) {
-                $rules[$field->field_key] = $fieldRules;
+                // Allow-list known formats (names, phone, school year) on top.
+                $rules[$field->field_key] = array_merge($fieldRules, \App\Forms\FieldInputPolicy::rulesFor($field));
+                $messages += \App\Forms\FieldInputPolicy::messagesFor($field);
             }
             // Element rules for array-valued types (lists, tables, photo sets).
             foreach (FieldType::nestedValidationRules($field->field_type, $options) as $suffix => $nested) {
@@ -440,7 +462,7 @@ class FormRenderController extends Controller
             }
         }
 
-        $validated = $request->validate($rules);
+        $validated = $request->validate($rules, $messages);
 
         $payload = [];
         $waiverValidations = [];
@@ -643,8 +665,10 @@ class FormRenderController extends Controller
         // The public sign-up form carries a hidden google_id from the OAuth
         // popup; the SignUp approval reads it off the request payload.
         if ($form->system_function === SystemFunction::SIGN_UP) {
+            // Only a Google account this session verified through the OAuth
+            // popup; a forged id would otherwise mark the email as verified.
             $googleId = trim((string) $request->input('google_id', ''));
-            if ($googleId !== '') {
+            if ($googleId !== '' && \App\Http\Controllers\Auth\GoogleLinkController::isVerified($request, $googleId)) {
                 $payload['google_id'] = $googleId;
             }
         }

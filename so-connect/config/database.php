@@ -59,7 +59,14 @@ return [
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? Pdo\Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
+            ]) + [
+                // SQL-injection defence in depth: use real server-side prepared
+                // statements (values never spliced into SQL text), and refuse
+                // stacked queries ("…; DROP TABLE …") even on unprepared paths.
+                // Backup restores use the mysql CLI, not PDO, so they're unaffected.
+                PDO::ATTR_EMULATE_PREPARES => false,
+                (PHP_VERSION_ID >= 80500 ? Pdo\Mysql::ATTR_MULTI_STATEMENTS : PDO::MYSQL_ATTR_MULTI_STATEMENTS) => false,
+            ] : [],
         ],
 
         'mariadb' => [

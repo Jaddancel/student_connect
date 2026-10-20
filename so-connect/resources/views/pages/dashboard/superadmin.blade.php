@@ -84,24 +84,32 @@
     </div>
 </div>
 
+<script @nonce>
+    document.addEventListener('alpine:init', () => {
+        // KPI card count-up animation (eased over 900ms).
+        Alpine.data('superadminKpiCountUp', (target = 0) => ({
+            count: 0,
+            init() {
+                if (target === 0) return;
+                const start = performance.now();
+                const tick = (now) => {
+                    const t = Math.min((now - start) / 900, 1);
+                    this.count = Math.round((1 - Math.pow(1 - t, 3)) * target);
+                    if (t < 1) requestAnimationFrame(tick);
+                };
+                requestAnimationFrame(tick);
+            },
+        }));
+    });
+</script>
+
 <div class="grid grid-cols-12 gap-4 md:gap-6"
      x-data="systemDashboard({ metrics: {{ \App\Support\JsLiteral::from($metrics) }}, url: {{ \App\Support\JsLiteral::from(route('superadmin.dashboard.metrics')) }} })">
 
     {{-- ══ KPI CARDS ══════════════════════════════════════════════════════════ --}}
     @foreach ($cards as $card)
         <div class="col-span-12 sm:col-span-6 xl:col-span-3"
-             x-data="{ count: 0 }"
-             x-init="
-                 const target = {{ (int) $card['value'] }};
-                 if (target === 0) return;
-                 const start = performance.now();
-                 const tick = (now) => {
-                     const t = Math.min((now - start) / 900, 1);
-                     count = Math.round((1 - Math.pow(1 - t, 3)) * target);
-                     if (t < 1) requestAnimationFrame(tick);
-                 };
-                 requestAnimationFrame(tick);
-             ">
+             x-data="superadminKpiCountUp({{ (int) $card['value'] }})">
             <div class="relative h-full overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
                 <div class="absolute inset-x-0 top-0 h-0.5 rounded-t-2xl bg-gradient-to-r {{ $accentBar[$card['accent']] }}"></div>
                 <div class="flex h-11 w-11 items-center justify-center rounded-xl ring-1 {{ $accentIcon[$card['accent']] }}">

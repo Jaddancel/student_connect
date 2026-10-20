@@ -49,7 +49,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <style>
+    <style @nonce>
         @page { size: {{ $size }} {{ $orientation }}; margin: {{ $marginTop }}px 56px {{ $marginBottom }}px 56px; }
         body { font-family: {{ $fontFamily }}; font-size: {{ $fontSize }}px; color: #1a1a1a; line-height: 1.5; }
         h1 { font-size: 20px; font-weight: bold; margin: 0 0 8px; }

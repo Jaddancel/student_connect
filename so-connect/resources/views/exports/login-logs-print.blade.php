@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login Activity Export</title>
-    <style>
+    <style @nonce>
         * {
             box-sizing: border-box;
             margin: 0;
@@ -111,7 +111,10 @@
 </head>
 
 <body>
-    <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
+    <button class="print-btn" id="print-btn" type="button">Print / Save as PDF</button>
+    <script @nonce>
+        document.getElementById('print-btn').addEventListener('click', function () { window.print(); });
+    </script>
     <h1>Login / Logout Activity Export</h1>
     <p class="meta">Generated: {{ now()->format('F j, Y \\a\\t g:i A') }}</p>
 

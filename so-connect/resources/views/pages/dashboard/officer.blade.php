@@ -8,7 +8,7 @@
                 x-data="organizationDashboard(@js($semesterEnd?->toIso8601String()))"
                 class="relative col-span-12 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-sm dark:border-gray-800 dark:bg-gray-900">
                 <div aria-hidden="true" class="pointer-events-none absolute inset-0"
-                    :style="`background: linear-gradient(110deg, rgba(${themeColor}, 0.28), rgba(${themeColor}, 0.06))`"></div>
+                    :style="'background: linear-gradient(110deg, rgba(' + themeColor + ', 0.28), rgba(' + themeColor + ', 0.06))'"></div>
                 <div class="relative flex flex-col gap-5 p-5 sm:flex-row sm:items-center lg:p-6">
                     <div class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-white shadow-theme-sm dark:border-gray-700 dark:bg-gray-800 sm:h-28 sm:w-28">
                         @if ($organizationLogo)

@@ -328,7 +328,7 @@
                 <div class="px-6 py-5">
                     <div class="flex flex-wrap gap-3">
                         <button type="button"
-                            onclick="decideRequest({{ $actionRequest->request_id }}, 'approve')"
+                            data-decide-request="{{ $actionRequest->request_id }}" data-decision="approve"
                             class="inline-flex items-center gap-2 rounded-lg bg-success-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-success-600 active:scale-[0.98]">
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                             Approve
@@ -346,7 +346,7 @@
                                     <textarea id="rejection-reason" rows="3" placeholder="Reason for rejection (optional)"
                                         class="w-full rounded-lg border border-gray-300 bg-transparent px-3.5 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-2 focus:ring-brand-500/10 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
                                     <button type="button"
-                                        onclick="decideRequest({{ $actionRequest->request_id }}, 'reject')"
+                                        data-decide-request="{{ $actionRequest->request_id }}" data-decision="reject"
                                         class="inline-flex items-center gap-2 rounded-lg bg-error-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-error-600 active:scale-[0.98]">
                                         Confirm Rejection
                                     </button>
@@ -367,7 +367,7 @@
 
     </div>
 
-    <script>
+    <script @nonce>
         function decideRequest(requestId, decision) {
             const reason = document.getElementById('rejection-reason')?.value ?? '';
 
@@ -389,5 +389,11 @@
                 alert('Request failed. Please try again.');
             });
         }
+
+        document.querySelectorAll('[data-decide-request]').forEach((button) => {
+            button.addEventListener('click', () => {
+                decideRequest(Number(button.dataset.decideRequest), button.dataset.decision);
+            });
+        });
     </script>
 @endsection

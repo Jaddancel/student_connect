@@ -19,6 +19,22 @@
 
     <!-- Shared light/dark bootstrap (same localStorage key as the dashboard) -->
     @include('layouts.partials.theme-boot')
+
+    {{-- Broken-image fallback (replaces inline onerror handlers, which the CSP blocks):
+         hide the image and show the element right after it. Capture phase, since
+         image `error` events don't bubble. --}}
+    <script @nonce>
+        if (!window.__landingImgFallbackBound) {
+            window.__landingImgFallbackBound = true;
+            document.addEventListener('error', function (event) {
+                var img = event.target;
+                if (img instanceof HTMLImageElement && img.hasAttribute('data-error-reveal-next')) {
+                    img.style.display = 'none';
+                    img.nextElementSibling.style.display = img.getAttribute('data-error-reveal-next');
+                }
+            }, true);
+        }
+    </script>
 </head>
 
 <body id="page-top" class="landing-page">
@@ -200,7 +216,7 @@
                                         @if (!empty($organization['logo_url']))
                                             <img class="feature-card-image" src="{{ $organization['logo_url'] }}"
                                                 alt="{{ $organization['name'] }} logo" loading="lazy"
-                                                onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+                                                data-error-reveal-next="flex" />
                                             <div class="feature-card-initials" style="display:none;">
                                                 {{ $orgInitials }}</div>
                                         @else
@@ -244,7 +260,7 @@
                                     @if (!empty($post->image_path))
                                         <img src="{{ '/storage/' . $post->image_path }}" alt="{{ $post->title }}"
                                             loading="lazy"
-                                            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+                                            data-error-reveal-next="flex" />
                                         <div class="img-placeholder" style="display:none;">
                                             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"
                                                 stroke-width="1.5">

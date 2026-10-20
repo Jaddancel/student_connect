@@ -43,15 +43,7 @@
     }
 @endphp
 
-<div class="relative" x-data="{
-    dropdownOpen: false,
-    toggleDropdown() {
-        this.dropdownOpen = !this.dropdownOpen;
-    },
-    closeDropdown() {
-        this.dropdownOpen = false;
-    }
-}" @click.away="closeDropdown()">
+<div class="relative" x-data="headerUserDropdown" @click.away="closeDropdown()">
     <!-- User Button -->
     <button class="flex items-center text-gray-700 dark:text-gray-400" @click.prevent="toggleDropdown()" type="button">
         <x-common.initial-avatar :name="$displayName !== '' ? $displayName : $f_name" :photo="$profile?->photo"

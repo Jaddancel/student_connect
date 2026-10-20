@@ -34,7 +34,7 @@
 
 @once
     @push('scripts')
-        <script>
+        <script @nonce>
             (function () {
                 var redirectUrl = @json(route('admin.accounts.google.redirect'));
                 var configured = @json(\App\Http\Controllers\Auth\GoogleLinkController::isConfigured());

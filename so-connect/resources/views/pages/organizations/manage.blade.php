@@ -20,7 +20,7 @@
                         </label>
                         <select id="organization_id" name="organization_id"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90"
-                            onchange="this.form.submit()">
+                            data-autosubmit>
                             @foreach ($organizations as $organization)
                                 <option value="{{ $organization->organization_id }}" @selected((int) $selectedOrganizationId === (int) $organization->organization_id)>
                                     {{ $organization->organization_name }} ({{ ucfirst($organization->role_name) }})

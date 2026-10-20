@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Organizations Export</title>
-    <style>
+    <style @nonce>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1f2937; background: #fff; padding: 24px; }
         h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
@@ -22,7 +22,10 @@
 </head>
 
 <body>
-    <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
+    <button class="print-btn" id="print-btn" type="button">Print / Save as PDF</button>
+    <script @nonce>
+        document.getElementById('print-btn').addEventListener('click', function () { window.print(); });
+    </script>
     <h1>Organizations Export</h1>
     <p class="meta">Generated: {{ now()->format('F j, Y \\a\\t g:i A') }}</p>
 

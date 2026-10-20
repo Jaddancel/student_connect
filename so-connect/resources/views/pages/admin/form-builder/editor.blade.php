@@ -160,10 +160,10 @@
                                                         <div class="min-w-0">
                                                             <div class="flex items-center gap-1 text-sm font-medium text-gray-800 dark:text-white/90">
                                                                 <span class="shrink-0 text-gray-300" title="Drag to reorder">⠿</span>
-                                                                <span class="truncate" x-text="field(key)?.field_label"></span>
-                                                                <span x-show="field(key)?.is_required" class="text-error-500" title="Required">*</span>
+                                                                <span class="truncate" x-text="fieldCardLabel(key)"></span>
+                                                                <span x-show="fieldCardRequired(key)" class="text-error-500" title="Required">*</span>
                                                                 {{-- Conditional-visibility indicator: a sharp (almond) eye. --}}
-                                                                <span x-show="field(key)?.field_options?.visible_when" x-cloak
+                                                                <span x-show="fieldCardVisibleWhen(key)" x-cloak
                                                                     data-visibility-indicator
                                                                     class="shrink-0 text-brand-500" :title="visibilityHint(key)" :aria-label="visibilityHint(key)" role="img">
                                                                     <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="miter" stroke-miterlimit="10" aria-hidden="true">
@@ -172,14 +172,14 @@
                                                                     </svg>
                                                                 </span>
                                                             </div>
-                                                            <div class="text-[10px] uppercase tracking-wide text-gray-400" x-text="field(key)?.field_type + (field(key)?.field_type === 'select' && field(key)?.field_options?.multiple ? ' · multiple' : '')"></div>
+                                                            <div class="text-[10px] uppercase tracking-wide text-gray-400" x-text="fieldCardTypeLabel(key)"></div>
                                                             {{-- Activity table: preview the selected columns right on the card. --}}
-                                                            <template x-if="field(key)?.field_type === 'activity-table'">
+                                                            <template x-if="fieldCardType(key) === 'activity-table'">
                                                                 <div class="mt-1.5 rounded-lg border border-gray-200 p-2 dark:border-gray-700">
-                                                                    <template x-if="(field(key)?.field_options?.columns || []).length === 0">
+                                                                    <template x-if="fieldCardColumns(key).length === 0">
                                                                         <p class="text-[10px] text-gray-400">No columns selected yet.</p>
                                                                     </template>
-                                                                    <template x-for="col in (field(key)?.field_options?.columns || [])" :key="col.key">
+                                                                    <template x-for="col in fieldCardColumns(key)" :key="col.key">
                                                                         <div class="flex items-center justify-between gap-2 py-0.5 text-[11px]">
                                                                             <span class="truncate text-gray-700 dark:text-gray-300" x-text="col.label"></span>
                                                                             <span class="shrink-0 text-gray-400" x-text="columnTypeLabel(col)"></span>
@@ -215,7 +215,7 @@
                     {{-- Row settings: header + static text live on the row, shown at
                          the top of that row on the rendered form. --}}
                     <template x-if="selectedRow && rowById(selectedRow) && !selectedKey">
-                        <div class="space-y-3" x-data="{ get row() { return rowById(selectedRow); } }">
+                        <div class="space-y-3" x-data="formBuilderSelectedRow">
                             <div>
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Header</label>
                                 <input type="text" x-model="row.header" placeholder="Section title (optional)"
@@ -235,7 +235,7 @@
                     </template>
 
                     <template x-if="selectedKey && field(selectedKey)">
-                        <div class="space-y-3" x-data="{ get f() { return field(selectedKey); } }">
+                        <div class="space-y-3" x-data="formBuilderSelectedField">
                             <div>
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Label</label>
                                 <input type="text" x-model="f.field_label" @input="onLabelInput(f)" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
@@ -502,7 +502,7 @@
                                 {{-- Only rendered for tables (the panel itself is x-show, so it would
                                      otherwise evaluate for every field); older tables gain an empty total. --}}
                                 <template x-if="f.field_type === 'table-input'">
-                                    <div class="space-y-2" x-init="f.field_options.row_total ??= { key: '', label: 'Total', op: 'multiply', multiply: [] }">
+                                    <div class="space-y-2" x-init="ensureRowTotal(f)">
                                         <label class="mt-2 block text-xs font-medium text-gray-600 dark:text-gray-400">Row total (optional)</label>
                                         <div class="flex items-center gap-1">
                                             <input type="text" x-model="f.field_options.row_total.label" placeholder="Total label"
@@ -522,11 +522,11 @@
                                         </div>
                                         <p class="text-[10px] text-gray-400">Number columns to combine per row, in order (keys, comma-separated):</p>
                                         <input type="text" :value="(f.field_options.row_total.multiply || []).join(', ')"
-                                            @input="f.field_options.row_total.multiply = $event.target.value.split(',').map(s => s.trim()).filter(Boolean)"
+                                            @input="setRowTotalMultiply(f, $event.target.value)"
                                             placeholder="e.g. price_per_unit, quantity"
                                             class="h-8 w-full rounded border border-gray-300 bg-transparent px-2 font-mono text-[10px] dark:border-gray-700 dark:text-white/90" />
-                                        <p class="text-[10px] text-gray-400" x-show="(f.field_options.columns || []).some(c => c.type === 'number')">
-                                            Number columns: <span class="font-mono" x-text="(f.field_options.columns || []).filter(c => c.type === 'number').map(c => c.key).join(', ')"></span>
+                                        <p class="text-[10px] text-gray-400" x-show="hasNumberColumns(f)">
+                                            Number columns: <span class="font-mono" x-text="numberColumnKeys(f)"></span>
                                         </p>
                                         <p class="text-[10px] text-brand-600 dark:text-brand-400" x-show="(f.field_options.row_total.multiply || []).length >= 2">
                                             <span x-text="(f.field_options.row_total.label || 'Total') + ' = '"></span><span class="font-mono"
@@ -630,11 +630,11 @@
                                                         {{-- Suppress the "unset" placeholder when a choice already
                                                              carries an empty value (checkbox → Unchecked), so it
                                                              isn't confused with "not chosen". --}}
-                                                        <template x-if="!conditionValueChoices(conditionController(f)).some((o) => o.value === '')">
+                                                        <template x-if="!conditionChoicesHaveEmpty(f)">
                                                             <option value="">— choose an option —</option>
                                                         </template>
                                                         <template x-for="opt in conditionValueChoices(conditionController(f))" :key="opt.value">
-                                                            <option :value="opt.value" x-text="opt.label" :selected="String(opt.value) === String(f.field_options.visible_when.value ?? '')"></option>
+                                                            <option :value="opt.value" x-text="opt.label" :selected="conditionOptionSelected(opt, f)"></option>
                                                         </template>
                                                     </select>
                                                 </template>

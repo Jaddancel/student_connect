@@ -35,7 +35,9 @@
                                 ? 'bg-brand-500/80 group-hover:bg-brand-500'
                                 : 'bg-gray-200 group-hover:bg-gray-300 dark:bg-gray-700'"
                             x-bind:style="'height: ' + (bucket.count > 0
-                                ? Math.max((bucket.count / $store.dashboardData.maxVolumeCount) * 144, 4)
+                                ? ((bucket.count / $store.dashboardData.maxVolumeCount) * 144 > 4
+                                    ? (bucket.count / $store.dashboardData.maxVolumeCount) * 144
+                                    : 4)
                                 : 2) + 'px'"></div>
                     </div>
                 </template>

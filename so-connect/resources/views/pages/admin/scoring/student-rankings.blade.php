@@ -25,7 +25,7 @@
                             <p class="text-xs text-gray-500 dark:text-gray-400">Students are ranked by average evaluation score for the selected semester.</p>
                         </div>
                         <form method="GET" action="{{ route('admin.student-rankings.index') }}">
-                            <select name="semester_id" onchange="this.form.submit()"
+                            <select name="semester_id" data-autosubmit
                                 class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
                                 <option value="">Select semester</option>
                                 @foreach ($semesters as $semester)
@@ -184,4 +184,7 @@
             </aside>
         </div>
     </div>
+    <script @nonce>
+        if (!window.__csAutoSubmitBound) { window.__csAutoSubmitBound = true; document.addEventListener('change', (e) => { const t = e.target; if (t instanceof HTMLElement && t.dataset.autosubmit !== undefined && t.form) { t.form.submit(); } }); }
+    </script>
 @endsection

@@ -12,7 +12,7 @@
     {{-- Shared light/dark bootstrap (same localStorage key as the dashboard) --}}
     @include('layouts.partials.theme-boot')
 
-    <style>
+    <style @nonce>
         :root {
             --brand-ink: #173b2e;
             --brand-cream: #eefbf3;
@@ -122,6 +122,25 @@
             .post-viewer-details { padding: 1.25rem; }
         }
     </style>
+
+    {{-- Broken-image fallbacks (replaces inline onerror handlers, which the CSP blocks).
+         Capture phase, since image `error` events don't bubble. --}}
+    <script @nonce>
+        if (!window.__landingImgFallbackBound) {
+            window.__landingImgFallbackBound = true;
+            document.addEventListener('error', function (event) {
+                var img = event.target;
+                if (!(img instanceof HTMLImageElement)) return;
+                if (img.hasAttribute('data-error-reveal-next')) {
+                    // Hide the image and show the fallback element right after it.
+                    img.style.display = 'none';
+                    img.nextElementSibling.style.display = img.getAttribute('data-error-reveal-next');
+                } else if (img.hasAttribute('data-error-post-placeholder')) {
+                    img.parentElement.innerHTML = '<div class=\'h-48 w-full flex flex-col items-center justify-center gap-2 bg-slate-100 text-slate-300 dark:bg-[#1c2c24] dark:text-slate-600\'><svg class=\'h-8 w-8\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'currentColor\' stroke-width=\'1.5\'><rect x=\'3\' y=\'3\' width=\'18\' height=\'18\' rx=\'2\'/><circle cx=\'8.5\' cy=\'8.5\' r=\'1.5\'/><polyline points=\'21 15 16 10 5 21\'/></svg><span class=\'text-xs font-semibold uppercase tracking-wide\'>Image unavailable</span></div>';
+                }
+            }, true);
+        }
+    </script>
 </head>
 
 <body x-data="postViewer">
@@ -204,7 +223,7 @@
                 <div class="org-avatar h-20 w-20 text-2xl shadow-md">
                     @if (!empty($organization['logo_url']))
                         <img src="{{ $organization['logo_url'] }}" alt="{{ $organization['name'] }} logo"
-                            onerror="this.style.display='none';this.nextElementSibling.style.display='inline';" />
+                            data-error-reveal-next="inline" />
                         <span style="display:none;">{{ $orgInitials }}</span>
                     @else
                         {{ $orgInitials }}
@@ -274,7 +293,7 @@
                         @endphp
                         <article
                             data-post-id="{{ $post->post_id }}"
-                            @click="if (!$event.target.closest('video, button')) openPost({{ \App\Support\JsLiteral::from($viewerPost) }}, $el.querySelector('[data-open-post]'))"
+                            @click="!$event.target.closest('video, button') && openPost({{ \App\Support\JsLiteral::from($viewerPost) }}, $el.querySelector('[data-open-post]'))"
                             class="post-card relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-[color:var(--card-bg)] shadow-sm dark:border-slate-700">
 
                             {{-- Media --}}
@@ -288,7 +307,7 @@
                                 <figure class="overflow-hidden">
                                     <img src="{{ '/storage/' . $post->image_path }}" alt="{{ $post->title }}"
                                         class="h-48 w-full object-cover" loading="lazy"
-                                        onerror="this.parentElement.innerHTML='<div class=\'h-48 w-full flex flex-col items-center justify-center gap-2 bg-slate-100 text-slate-300 dark:bg-[#1c2c24] dark:text-slate-600\'><svg class=\'h-8 w-8\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'currentColor\' stroke-width=\'1.5\'><rect x=\'3\' y=\'3\' width=\'18\' height=\'18\' rx=\'2\'/><circle cx=\'8.5\' cy=\'8.5\' r=\'1.5\'/><polyline points=\'21 15 16 10 5 21\'/></svg><span class=\'text-xs font-semibold uppercase tracking-wide\'>Image unavailable</span></div>';">
+                                        data-error-post-placeholder>
                                 </figure>
                             @else
                                 {{-- Decorative gradient placeholder --}}

@@ -24,12 +24,13 @@ use Symfony\Component\HttpFoundation\Response;
  * group, so it also covers 404s for unmatched routes and the redirects issued
  * by `auth` (which runs ahead of group middleware by priority).
  *
- * The CSP is nonce-based with no 'unsafe-inline' / 'unsafe-eval' (ZAP: CSP
+ * The strict CSP (config security.csp_strict) is nonce-based with no
+ * 'unsafe-inline' / 'unsafe-eval' for scripts or <style> elements (ZAP: CSP
  * script-src/style-src unsafe-inline, script-src unsafe-eval). Views must:
  *  - mark every inline <script>/<style> with @nonce,
- *  - use no inline on*="" handlers or style="" attributes,
+ *  - use no inline on*="" event handler attributes,
  *  - keep Alpine expressions within the CSP build's syntax
- *    (checked by `npm run check:alpine-csp`).
+ *    (checked by `npm run check:csp`).
  */
 class SecurityHeaders
 {
@@ -67,13 +68,16 @@ class SecurityHeaders
         // and the editor would be blocked outright.
         $editor = $this->editorOrigin();
 
-        // Strict policy: no 'unsafe-inline' / 'unsafe-eval'. Inline
-        // <script>/<style> blocks carry the per-request nonce (@nonce), inline
-        // event handlers and style="" attributes are not used, and Alpine runs
-        // from its CSP build.
+        // Strict policy: no 'unsafe-inline' / 'unsafe-eval' for scripts or
+        // <style> elements. Inline <script>/<style> blocks carry the
+        // per-request nonce (@nonce), inline event handlers are not used, and
+        // Alpine runs from its CSP build. style="" attributes stay allowed
+        // (style-src-attr): they cannot execute script, and Alpine (x-show,
+        // :style), Font Awesome, ApexCharts and flatpickr all set them.
         $strict = $this->policy($cdn, $editor, [
             "script-src 'self' 'nonce-{$nonce}' {$cdn} {$editor}",
             "style-src 'self' 'nonce-{$nonce}' {$cdn} {$editor}",
+            "style-src-attr 'unsafe-inline'",
         ]);
 
         if (config('security.csp_strict')) {
@@ -111,13 +115,15 @@ class SecurityHeaders
     }
 
     /**
-     * Full policy string with the given script-src/style-src directives.
+     * Full policy string with the given script-src/style-src (and optional
+     * style-src-attr) directives.
      *
-     * @param  array{0: string, 1: string}  $scriptAndStyle
+     * @param  array{0: string, 1: string, 2?: string}  $scriptAndStyle
      */
     private function policy(string $cdn, string $editor, array $scriptAndStyle): string
     {
         [$scriptSrc, $styleSrc] = $scriptAndStyle;
+        $styleAttr = $scriptAndStyle[2] ?? null;
 
         return implode('; ', array_filter([
             "default-src 'self'",
@@ -130,6 +136,7 @@ class SecurityHeaders
             // HEIC previews are decoded locally in a blob-backed web worker.
             "worker-src 'self' blob:",
             $styleSrc,
+            $styleAttr,
             "font-src 'self' data: {$cdn} {$editor}",
             "connect-src 'self' {$cdn} {$editor}",
             $editor !== '' ? "frame-src 'self' {$editor}" : null,

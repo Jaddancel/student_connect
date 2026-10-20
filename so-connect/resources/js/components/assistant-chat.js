@@ -8,8 +8,8 @@ import { escapeHtml, renderMarkdown } from "../lib/markdown";
  * placeholder (network error / degraded response) — never sent back to the
  * server as conversation history.
  *
- * Assistant replies are Markdown and are rendered through `bubbleHtml()` at
- * display time — `content` stays the raw reply, so what is persisted and what
+ * Assistant replies are Markdown and are rendered through `bubbleHtml()` (via
+ * `renderBubble()`) at display time — `content` stays the raw reply, so what is persisted and what
  * is replayed to the model is exactly what it sent. Only assistant bubbles go
  * through that path; the user's own text is printed verbatim.
  *
@@ -140,10 +140,20 @@ export function assistantChat(config) {
         },
 
         /**
+         * Writes one assistant bubble's HTML into `el` (called from `x-effect`,
+         * so it re-runs when the message changes). Replaces `x-html`, which
+         * Alpine's CSP build doesn't support; the markup is still exactly what
+         * `bubbleHtml()` produces.
+         */
+        renderBubble(el, message) {
+            el.innerHTML = this.bubbleHtml(message);
+        },
+
+        /**
          * HTML for one assistant bubble. Always returns a non-empty string:
-         * Alpine assigns whatever an `x-html` expression evaluates to straight
-         * into `innerHTML`, and both a throw and an `undefined` result land
-         * there as the literal word "undefined" — which is what a reply the
+         * the result is assigned straight into `innerHTML`, and both a throw
+         * and an `undefined` result would land there as the literal word
+         * "undefined" — which is what a reply the
          * renderer choked on, or one the sidecar returned empty, used to look
          * like in the panel. Anything the renderer can't turn into markup
          * degrades to the escaped text instead.

@@ -17,7 +17,7 @@
      duplicate. So the toggle always alternates between "override" and "follow
      the system", and a choice made months ago can never leave the app stuck
      disagreeing with the browser. --}}
-<script>
+<script @nonce>
     (function () {
         const KEY = 'theme';
 
@@ -126,7 +126,7 @@
     })();
 </script>
 
-<script>
+<script @nonce>
     document.addEventListener('alpine:init', () => {
         Alpine.store('theme', {
             theme: window.appTheme.current,

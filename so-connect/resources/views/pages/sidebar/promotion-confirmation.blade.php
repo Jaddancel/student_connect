@@ -1,6 +1,18 @@
 @extends('layouts.app')
 
 @section('content')
+    <script @nonce>
+        document.addEventListener('alpine:init', () => {
+            // Local preview of the file chosen in a photo/signature input.
+            Alpine.data('promotionConfirmationFilePreview', () => ({
+                preview: null,
+                previewFromInput(event) {
+                    this.preview = event.target.files[0] ? URL.createObjectURL(event.target.files[0]) : null;
+                },
+            }));
+        });
+    </script>
+
     <x-common.page-breadcrumb pageTitle="Confirm Promotion Details" />
 
     <div class="space-y-6">
@@ -79,7 +91,7 @@
                 </div>
 
                 {{-- Photo --}}
-                <div class="mt-4" x-data="{ preview: null }">
+                <div class="mt-4" x-data="promotionConfirmationFilePreview">
                     <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                         Photo <span class="text-error-500">*</span>
                         <span class="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">(2×2 ID photo, JPG/PNG)</span>
@@ -103,7 +115,7 @@
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Click to upload photo</span>
                                 <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
                                 <input id="photo" name="photo" type="file" accept="image/jpeg,image/png" class="hidden"
-                                    @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
+                                    @change="previewFromInput($event)" />
                             </label>
                         </div>
                     </div>
@@ -264,7 +276,7 @@
                 </div>
 
                 {{-- Signature --}}
-                <div class="mt-6" x-data="{ preview: null }">
+                <div class="mt-6" x-data="promotionConfirmationFilePreview">
                     <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                         Signature <span class="text-error-500">*</span>
                         <span class="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">(photo of signature, JPG/PNG)</span>
@@ -284,7 +296,7 @@
                             x-text="preview ? 'Change signature' : 'Click to upload signature'"></span>
                         <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
                         <input id="signature" name="signature" type="file" accept="image/jpeg,image/png" class="hidden"
-                            @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
+                            @change="previewFromInput($event)" />
                     </label>
                     <p class="mt-1 text-center text-xs text-gray-400 dark:text-gray-500">Signature over Printed Name</p>
                 </div>

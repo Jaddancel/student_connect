@@ -161,7 +161,7 @@
                     </div>
 
                     {{-- Photo --}}
-                    <div x-data="{ preview: null }">
+                    <div x-data="adminPhotoPreview">
                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Photo <span class="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">(JPG/PNG, optional)</span>
                         </label>
@@ -178,7 +178,7 @@
                             <span class="text-sm font-medium text-gray-600 dark:text-gray-400" x-text="preview ? 'Change photo' : 'Click to upload photo'"></span>
                             <span class="mt-1 text-xs text-gray-400 dark:text-gray-500">JPG, PNG — max 2 MB</span>
                             <input id="photo" name="photo" type="file" accept="image/jpeg,image/png" class="hidden"
-                                @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null" />
+                                @change="pickPreview($event)" />
                         </label>
                     </div>
                 </div>

@@ -9,7 +9,7 @@
 @section('content')
     <x-common.page-breadcrumb :pageTitle="$report ? 'Edit Report Template' : 'New Report Template'" />
 
-    <style>
+    <style @nonce>
         .rt-preview { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px; }
         .rt-preview th, .rt-preview td { border: 1px solid rgb(229 231 235); padding: 4px 6px; text-align: left; vertical-align: top; }
         .rt-preview th { background: rgb(249 250 251); font-family: ui-monospace, monospace; font-weight: 600; }
@@ -65,7 +65,7 @@
 
                 <div class="min-h-[18rem] space-y-2 rounded-2xl border border-gray-200 bg-palette-surface p-3 dark:border-gray-800 dark:bg-white/[0.03]">
                     <template x-for="entry in flatTokens" :key="entry.token.id">
-                        <div class="flex items-stretch gap-2" :style="`padding-left: ${entry.depth * 1.25}rem`">
+                        <div class="flex items-stretch gap-2" :style="'padding-left: ' + (entry.depth * 1.25) + 'rem'">
                             <span x-show="entry.depth > 0" class="w-0.5 flex-none rounded bg-brand-300 dark:bg-brand-500/40"></span>
                             <button type="button" @click="select(entry.token)"
                                 class="flex min-w-0 flex-1 items-center gap-2 rounded-xl border px-3 py-2 text-left transition"
@@ -123,7 +123,7 @@
 
                     {{-- ---------- GROUP ---------- --}}
                     <template x-if="selected && selected.kind === 'group'">
-                        <div class="space-y-3 leading-9" x-data="{ get t() { return selected; } }">
+                        <div class="space-y-3 leading-9" x-data="reportTemplateSelectedToken">
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="{{ $kw }}">Group</span>
                                 <input type="text" x-model="t.name" @change="normalizeName(t)" class="{{ $pill }} w-36" />
@@ -188,7 +188,7 @@
 
                     {{-- ---------- VALUE ---------- --}}
                     <template x-if="selected && selected.kind === 'value'">
-                        <div class="space-y-3 leading-9" x-data="{ get t() { return selected; } }">
+                        <div class="space-y-3 leading-9" x-data="reportTemplateSelectedToken">
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="{{ $kw }}">Return</span>
                                 <select x-model="t.mode" class="{{ $pill }}">
@@ -270,7 +270,7 @@
                                         </template>
                                     </select>
                                 </template>
-                                <span x-show="parentOf(t) && t.mode !== 'compute'" class="font-mono text-xs text-gray-600 dark:text-gray-300" x-text="contextTable(t) + ' (each ' + (parentOf(t)?.name || '') + ')'"></span>
+                                <span x-show="parentOf(t) && t.mode !== 'compute'" class="font-mono text-xs text-gray-600 dark:text-gray-300" x-text="contextTable(t) + ' (each ' + parentName(t) + ')'"></span>
 
                                 <span class="{{ $kw }}">As</span>
                                 <input type="text" x-model="t.name" @change="normalizeName(t)" class="{{ $pill }} w-36" />
@@ -321,7 +321,7 @@
 
                     {{-- ---------- PARAMETER ---------- --}}
                     <template x-if="selectedParam">
-                        <div class="space-y-3 leading-9" x-data="{ get p() { return selectedParam; } }">
+                        <div class="space-y-3 leading-9" x-data="reportTemplateSelectedParam">
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="{{ $kw }}">Ask</span>
                                 <input type="text" x-model="p.name" @change="normalizeName(p)" class="{{ $pill }} w-32" />
@@ -340,7 +340,7 @@
                             <template x-if="p.type === 'entity'">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="{{ $kw }}">Pick from</span>
-                                    <select x-model="p.entity" @change="p.display = []; if (p.entity !== 'semesters') p.default = ''; loadParamOptions(p)" class="{{ $pill }}">
+                                    <select x-model="p.entity" @change="onParamEntityChange(p)" class="{{ $pill }}">
                                         <option value="">table…</option>
                                         <template x-for="tbl in schema.tables" :key="tbl.name">
                                             <option :value="tbl.name" x-text="tbl.name" :selected="tbl.name === p.entity"></option>
@@ -348,7 +348,7 @@
                                     </select>
                                     <label x-show="p.entity === 'organizations'" class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
                                         <input type="checkbox" :checked="p.context === 'active_organization'"
-                                            @change="p.context = $event.target.checked ? 'active_organization' : ''; if ($event.target.checked) p.required = true" />
+                                            @change="onParamContextChange(p, $event)" />
                                         use the organization selected in the session (never asked)
                                     </label>
                                     <label x-show="p.entity === 'semesters'" class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
@@ -418,7 +418,7 @@
                             <template x-for="(e, ei) in preview.errors" :key="ei"><li x-text="e"></li></template>
                         </ul>
                     </template>
-                    <div class="max-h-[28rem] overflow-auto text-gray-700 dark:text-gray-300" x-html="preview.html"></div>
+                    <div class="max-h-[28rem] overflow-auto text-gray-700 dark:text-gray-300" x-effect="renderPreviewHtml($el, preview.html)"></div>
                     <p x-show="!preview.html && !preview.errors.length" class="text-sm text-gray-400">Define a token to preview its data.</p>
                 </div>
             </div>

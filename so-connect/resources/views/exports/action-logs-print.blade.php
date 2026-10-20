@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Administrator Action Logs Export</title>
-    <style>
+    <style @nonce>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #1f2937; background: #fff; padding: 24px; }
         h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }

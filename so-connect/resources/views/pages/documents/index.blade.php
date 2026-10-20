@@ -10,7 +10,7 @@
             <div class="flex flex-wrap items-center gap-3">
                 <form method="GET" action="{{ route('documents.index') }}" class="flex items-center gap-2">
                     <label for="org-filter" class="text-sm font-medium text-gray-600 dark:text-gray-400">Filter by organization:</label>
-                    <select id="org-filter" name="organization_id" onchange="this.form.submit()"
+                    <select id="org-filter" name="organization_id" data-autosubmit
                         class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-brand-300 focus:ring-2 focus:ring-brand-500/10 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
                         <option value="0" @selected($filterOrgId === 0)>All Organizations</option>
                         @foreach ($orgNames as $org)

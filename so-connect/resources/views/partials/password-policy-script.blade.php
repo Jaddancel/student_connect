@@ -7,7 +7,7 @@
 --}}
 @once
     @push('scripts')
-        <script>
+        <script @nonce>
             window.passwordPolicyTools = function (extra = {}) {
                 return {
                     password: '',
@@ -24,6 +24,10 @@
                     ...extra,
                 };
             };
+            // Registered too so x-data="passwordPolicyTools(...)" resolves under Alpine's CSP build.
+            document.addEventListener('alpine:init', () => {
+                Alpine.data('passwordPolicyTools', window.passwordPolicyTools);
+            });
         </script>
     @endpush
 @endonce

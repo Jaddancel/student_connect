@@ -55,7 +55,7 @@
                                     <a href="{{ route('admin.report-templates.edit', $report) }}"
                                         class="rounded-lg border border-brand-300 px-3 py-1.5 text-xs font-medium text-brand-600 transition hover:bg-brand-50">Edit</a>
                                     <form action="{{ route('admin.report-templates.destroy', $report) }}" method="POST"
-                                        onsubmit="return confirm('Delete this report template and its printed templates?');">
+                                        data-confirm="Delete this report template and its printed templates?">
                                         @csrf @method('DELETE')
                                         <button type="submit" class="rounded-lg border border-error-300 px-3 py-1.5 text-xs font-medium text-error-600 transition hover:bg-error-50">Delete</button>
                                     </form>
@@ -73,4 +73,8 @@
     </div>
 
     <x-common.fab :href="route('admin.report-templates.create')" label="New report template" />
+
+    <script @nonce>
+        if (!window.__csDataConfirmBound) { window.__csDataConfirmBound = true; document.addEventListener('submit', (e) => { const f = e.target; if (f instanceof HTMLFormElement && f.dataset.confirm !== undefined && !e.defaultPrevented && !confirm(f.dataset.confirm)) { e.preventDefault(); } }, true); }
+    </script>
 @endsection

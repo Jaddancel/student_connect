@@ -186,7 +186,7 @@
 @endsection
 
 @push('scripts')
-    <script>
+    <script @nonce>
         document.addEventListener('DOMContentLoaded', () => {
             const feedback = document.getElementById('approval-request-feedback');
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';

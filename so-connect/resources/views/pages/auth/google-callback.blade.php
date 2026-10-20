@@ -7,7 +7,7 @@
 </head>
 <body style="font-family: system-ui, sans-serif; padding: 2rem; color: #374151;">
     <p>Finishing Google sign-in… you can close this window.</p>
-    <script>
+    <script @nonce>
         (function () {
             var payload = Object.assign({ source: 'google-link' }, @json($payload));
             try {

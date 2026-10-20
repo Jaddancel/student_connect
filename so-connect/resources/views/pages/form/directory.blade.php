@@ -3,17 +3,7 @@
 @section('content')
     <x-common.page-breadcrumb pageTitle="Forms" />
 
-    <div x-data="{
-            q: '',
-            forms: {{ \App\Support\JsLiteral::from($forms) }},
-            get filtered() {
-                const q = this.q.trim().toLowerCase();
-                if (!q) return this.forms;
-                return this.forms.filter((f) =>
-                    (f.name || '').toLowerCase().includes(q) ||
-                    (f.purpose || '').toLowerCase().includes(q));
-            },
-        }"
+    <div x-data="formDirectorySearch({ forms: @js($forms) })"
         class="space-y-6">
 
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

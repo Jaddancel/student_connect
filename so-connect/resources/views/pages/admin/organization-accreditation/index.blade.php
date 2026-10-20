@@ -53,7 +53,7 @@
                                                 </button>
                                             </form>
                                             <form method="POST" action="{{ route('superadmin.organizations.purge', $org['id']) }}"
-                                                onsubmit="return confirm('Permanently delete {{ $org['name'] }} and all of its data? This cannot be undone.');">
+                                                data-confirm="Permanently delete {{ $org['name'] }} and all of its data? This cannot be undone.">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit"
@@ -72,4 +72,7 @@
             @endif
         </section>
     </div>
+    <script @nonce>
+        if (!window.__csDataConfirmBound) { window.__csDataConfirmBound = true; document.addEventListener('submit', (e) => { const f = e.target; if (f instanceof HTMLFormElement && f.dataset.confirm !== undefined && !e.defaultPrevented && !confirm(f.dataset.confirm)) { e.preventDefault(); } }, true); }
+    </script>
 @endsection

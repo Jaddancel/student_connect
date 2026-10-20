@@ -329,6 +329,13 @@ final class FieldType
     }
 
     /**
+     * ASCII control characters (NUL, ESC, …; tab and line breaks excepted):
+     * never legitimate in typed text, and a common ingredient of injection
+     * payloads, so free-text fields reject them outright.
+     */
+    public const CONTROL_CHARACTERS = '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/';
+
+    /**
      * Build the Laravel validation rules a single field contributes.
      *
      * @param  array<string,mixed>  $options  the field's `field_options`
@@ -350,11 +357,13 @@ final class FieldType
             case self::TEXT:
                 $rules[] = 'string';
                 $rules[] = 'max:'.(int) ($options['max'] ?? 255);
+                $rules[] = 'not_regex:'.self::CONTROL_CHARACTERS;
                 break;
 
             case self::TEXTAREA:
                 $rules[] = 'string';
                 $rules[] = 'max:'.(int) ($options['max'] ?? 10000);
+                $rules[] = 'not_regex:'.self::CONTROL_CHARACTERS;
                 break;
 
             case self::EMAIL:

@@ -29,6 +29,37 @@
         </div>
     @endif
 
+    <script @nonce>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('superadminProfileEditForm', ({
+                sex = '',
+                birthday = '',
+                age = '',
+                firstName = '',
+                lastName = '',
+                courseYear = '',
+            } = {}) => ({
+                confirmOpen: false,
+                sex,
+                birthday,
+                age,
+                firstName,
+                lastName,
+                courseYear,
+                computeAge() {
+                    if (!this.birthday) return;
+                    const today = new Date(), dob = new Date(this.birthday);
+                    let y = today.getFullYear() - dob.getFullYear();
+                    if (today.getMonth() - dob.getMonth() < 0 || (today.getMonth() - dob.getMonth() === 0 && today.getDate() < dob.getDate())) y--;
+                    this.age = y > 0 ? y : '';
+                },
+                get fullNameLabel() {
+                    return [this.firstName, this.lastName].filter(Boolean).join(' ') || '—';
+                },
+            }));
+        });
+    </script>
+
     <div class="grid grid-cols-12 gap-6">
 
         {{-- ── Left: Form ── --}}
@@ -37,22 +68,14 @@
                 x-ref="profileForm"
                 method="POST"
                 action="{{ route('superadmin.profiles.update', $profile->profile_id) }}"
-                x-data="{
-                    confirmOpen: false,
-                    sex: '{{ old('sex', $profile->sex ?? '') }}',
-                    birthday: '{{ old('birthday', $profile->birthday ?? '') }}',
-                    age: '{{ old('age', $profile->age ?? '') }}',
-                    firstName: '{{ old('first_name', $profile->first_name ?? '') }}',
-                    lastName: '{{ old('last_name', $profile->last_name ?? '') }}',
-                    courseYear: '{{ old('course_year', $profile->course_year ?? '') }}',
-                    computeAge() {
-                        if (!this.birthday) return;
-                        const today = new Date(), dob = new Date(this.birthday);
-                        let y = today.getFullYear() - dob.getFullYear();
-                        if (today.getMonth() - dob.getMonth() < 0 || (today.getMonth() - dob.getMonth() === 0 && today.getDate() < dob.getDate())) y--;
-                        this.age = y > 0 ? y : '';
-                    }
-                }">
+                x-data="superadminProfileEditForm({
+                    sex: @js((string) old('sex', $profile->sex ?? '')),
+                    birthday: @js((string) old('birthday', $profile->birthday ?? '')),
+                    age: @js((string) old('age', $profile->age ?? '')),
+                    firstName: @js((string) old('first_name', $profile->first_name ?? '')),
+                    lastName: @js((string) old('last_name', $profile->last_name ?? '')),
+                    courseYear: @js((string) old('course_year', $profile->course_year ?? '')),
+                })">
                 @csrf
                 @method('PATCH')
 
@@ -264,7 +287,7 @@
                                 <div class="flex justify-between gap-4">
                                     <dt class="text-gray-500 dark:text-gray-400">Name</dt>
                                     <dd class="font-medium text-gray-800 dark:text-white/90 text-right"
-                                        x-text="[firstName, lastName].filter(Boolean).join(' ') || '—'"></dd>
+                                        x-text="fullNameLabel"></dd>
                                 </div>
                                 <div class="flex justify-between gap-4" x-show="courseYear">
                                     <dt class="text-gray-500 dark:text-gray-400">Course & Year</dt>

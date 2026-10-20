@@ -1,4 +1,4 @@
-<script>
+<script @nonce>
     (function () {
         const AUTO_HIDE_MS = 10000;
         const ALERT_SELECTOR = [

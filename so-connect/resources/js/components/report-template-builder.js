@@ -130,6 +130,13 @@ export function reportTemplateBuilder(config) {
             for (let t = candidate; t; t = this.parentOf(t)) if (t === ancestor) return true;
             return false;
         },
+        /** Groups a token can be re-parented into (not itself or its descendants). */
+        moveTargets(token) {
+            return this.groups().filter((g) => g !== token && !this.isDescendant(g, token));
+        },
+        parentName(token) {
+            return this.parentOf(token)?.name || "";
+        },
 
         // ── token editing ────────────────────────────────────────────────
         uniqueName(base, siblings) {
@@ -290,6 +297,15 @@ export function reportTemplateBuilder(config) {
             this.definition.parameters.splice(this.definition.parameters.indexOf(param), 1);
             this.selectedParam = null;
         },
+        onParamEntityChange(param) {
+            param.display = [];
+            if (param.entity !== "semesters") param.default = "";
+            this.loadParamOptions(param);
+        },
+        onParamContextChange(param, event) {
+            param.context = event.target.checked ? "active_organization" : "";
+            if (event.target.checked) param.required = true;
+        },
         paramDisplayPills(param) {
             return this.pills(param.entity, param.display);
         },
@@ -339,6 +355,11 @@ export function reportTemplateBuilder(config) {
             } finally {
                 this.preview.loading = false;
             }
+        },
+
+        /** Replaces x-html for the preview pane (html is built from escaped values by renderPreview). */
+        renderPreviewHtml(el, html) {
+            el.innerHTML = html;
         },
 
         // ── wizard ───────────────────────────────────────────────────────

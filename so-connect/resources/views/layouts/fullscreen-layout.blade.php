@@ -18,7 +18,7 @@
     <!-- Theme Store -->
     @include('layouts.partials.theme-boot')
 
-    <script>
+    <script @nonce>
         document.addEventListener('alpine:init', () => {
             Alpine.store('sidebar', {
                 // Initialize based on screen size
@@ -53,17 +53,7 @@
 
 </head>
 
-<body x-data="{ 'loaded': true}" x-init="$store.sidebar.isExpanded = window.innerWidth >= 1280;
-const checkMobile = () => {
-    if (window.innerWidth < 1280) {
-        $store.sidebar.setMobileOpen(false);
-        $store.sidebar.isExpanded = false;
-    } else {
-        $store.sidebar.isMobileOpen = false;
-        $store.sidebar.isExpanded = true;
-    }
-};
-window.addEventListener('resize', checkMobile);">
+<body x-data="layoutBody">
 
     {{-- preloader --}}
     <x-common.preloader />

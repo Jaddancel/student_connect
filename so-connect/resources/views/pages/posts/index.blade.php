@@ -30,129 +30,195 @@
         $oldImages     = array_values(array_filter((array) old('keep_images', []), 'is_string'));
         $libraryTitles = $accomplishmentMedia->pluck('activity_title', 'file_path');
     @endphp
-    <div x-data="{
-        view: 'cards',
-        modalOpen: {{ $hasFormErrors ? 'true' : 'false' }},
-        editMode: {{ $isOldEdit ? 'true' : 'false' }},
-        editPostId: '{{ $oldEditPostId ?? '' }}',
-        editFormAction: {{ \App\Support\JsLiteral::from($oldFormAction) }},
-        fOrg: {{ \App\Support\JsLiteral::from($oldOrg) }},
-        fTitle: {{ \App\Support\JsLiteral::from($oldTitle) }},
-        fExcerpt: {{ \App\Support\JsLiteral::from($oldExcerpt) }},
-        fBody: {{ \App\Support\JsLiteral::from($oldBody) }},
-        fTag: {{ \App\Support\JsLiteral::from($oldTag) }},
-        fFeatured: {{ $oldFeatured }},
-        fHasVideo: false,
-        /* ordered image set: kept/library/gallery paths, then new uploads */
-        fImages: {{ \App\Support\JsLiteral::from($oldImages) }},
-        uploadCount: 0,
-        maxImages: 20,
-        libraryTitles: {{ \App\Support\JsLiteral::from($libraryTitles) }},
-        /* media picker state */
-        pickerOpen: false,
-        pickerSearch: '',
-        /* form media gallery (expands the editor modal) */
-        galleryOpen: false,
-        gallerySearch: '',
-        galleryOrgOnly: true,
-        galleryItems: {{ \App\Support\JsLiteral::from($afterEventMediaGallery) }},
+    <script @nonce>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('postsIndexPage', ({
+                modalOpen = false,
+                editMode = false,
+                editPostId = '',
+                editFormAction = '',
+                fOrg = '',
+                fTitle = '',
+                fExcerpt = '',
+                fBody = '',
+                fTag = '',
+                fFeatured = false,
+                fImages = [],
+                libraryTitles = {},
+                galleryItems = [],
+                storeUrl = '',
+                defaultOrg = '',
+            } = {}) => ({
+                view: 'cards',
+                modalOpen,
+                editMode,
+                editPostId,
+                editFormAction,
+                fOrg,
+                fTitle,
+                fExcerpt,
+                fBody,
+                fTag,
+                fFeatured,
+                fHasVideo: false,
+                /* ordered image set: kept/library/gallery paths, then new uploads */
+                fImages,
+                uploadCount: 0,
+                maxImages: 20,
+                libraryTitles,
+                /* media picker state */
+                pickerOpen: false,
+                pickerSearch: '',
+                /* form media gallery (expands the editor modal) */
+                galleryOpen: false,
+                gallerySearch: '',
+                galleryOrgOnly: true,
+                galleryItems,
 
-        get filteredGallery() {
-            const term = this.gallerySearch.trim().toLowerCase();
-            return this.galleryItems.filter((item) => {
-                if (this.galleryOrgOnly && String(item.organization_id) !== String(this.fOrg)) return false;
-                if (term === '') return true;
-                return [item.event, item.field, item.organization].some((v) => (v || '').toLowerCase().includes(term));
-            });
-        },
+                get filteredGallery() {
+                    const term = this.gallerySearch.trim().toLowerCase();
+                    return this.galleryItems.filter((item) => {
+                        if (this.galleryOrgOnly && String(item.organization_id) !== String(this.fOrg)) return false;
+                        if (term === '') return true;
+                        return [item.event, item.field, item.organization].some((v) => (v || '').toLowerCase().includes(term));
+                    });
+                },
 
-        get imageTotal() {
-            return this.fImages.length + this.uploadCount;
-        },
+                get imageTotal() {
+                    return this.fImages.length + this.uploadCount;
+                },
 
-        openCreate() {
-            this.$refs.postForm.reset();
-            this.uploadCount = 0;
-            this.fImages = [];
-            this.editMode = false;
-            this.editPostId = '';
-            this.editFormAction = '{{ route('posts.store') }}';
-            this.fOrg = '{{ $orgs->first()?->organization_id ?? '' }}';
-            this.fTitle = '';
-            this.fExcerpt = '';
-            this.fBody = '';
-            this.fTag = '';
-            this.fFeatured = false;
-            this.fHasVideo = false;
-            this.pickerOpen = false;
-            this.galleryOpen = false;
-            this.gallerySearch = '';
-            this.galleryOrgOnly = true;
-            this.modalOpen = true;
-        },
+                openCreate() {
+                    this.$refs.postForm.reset();
+                    this.uploadCount = 0;
+                    this.fImages = [];
+                    this.editMode = false;
+                    this.editPostId = '';
+                    this.editFormAction = storeUrl;
+                    this.fOrg = defaultOrg;
+                    this.fTitle = '';
+                    this.fExcerpt = '';
+                    this.fBody = '';
+                    this.fTag = '';
+                    this.fFeatured = false;
+                    this.fHasVideo = false;
+                    this.pickerOpen = false;
+                    this.galleryOpen = false;
+                    this.gallerySearch = '';
+                    this.galleryOrgOnly = true;
+                    this.modalOpen = true;
+                },
 
-        openEdit(post) {
-            this.$refs.postForm.reset();
-            this.uploadCount = 0;
-            this.fImages = [...post.images];
-            this.editMode = true;
-            this.editPostId = post.post_id;
-            this.editFormAction = '/posts/' + post.post_id;
-            this.fOrg = post.organization;
-            this.fTitle = post.title;
-            this.fExcerpt = post.excerpt;
-            this.fBody = post.body || '';
-            this.fTag = post.tag || '';
-            this.fFeatured = post.is_featured;
-            this.fHasVideo = !!post.video_path;
-            this.pickerOpen = false;
-            this.galleryOpen = false;
-            this.gallerySearch = '';
-            this.galleryOrgOnly = true;
-            this.modalOpen = true;
-        },
+                openEdit(post) {
+                    this.$refs.postForm.reset();
+                    this.uploadCount = 0;
+                    this.fImages = [...post.images];
+                    this.editMode = true;
+                    this.editPostId = post.post_id;
+                    this.editFormAction = '/posts/' + post.post_id;
+                    this.fOrg = post.organization;
+                    this.fTitle = post.title;
+                    this.fExcerpt = post.excerpt;
+                    this.fBody = post.body || '';
+                    this.fTag = post.tag || '';
+                    this.fFeatured = post.is_featured;
+                    this.fHasVideo = !!post.video_path;
+                    this.pickerOpen = false;
+                    this.galleryOpen = false;
+                    this.gallerySearch = '';
+                    this.galleryOrgOnly = true;
+                    this.modalOpen = true;
+                },
     
-        closeModal() { this.modalOpen = false; },
+                closeModal() { this.modalOpen = false; },
     
-        imagePosition(path) {
-            return this.fImages.indexOf(path) + 1;
-        },
+                imagePosition(path) {
+                    return this.fImages.indexOf(path) + 1;
+                },
 
-        toggleImage(path) {
-            const at = this.fImages.indexOf(path);
-            if (at >= 0) {
-                this.fImages.splice(at, 1);
-            } else if (this.imageTotal < this.maxImages) {
-                this.fImages.push(path);
+                toggleImage(path) {
+                    const at = this.fImages.indexOf(path);
+                    if (at >= 0) {
+                        this.fImages.splice(at, 1);
+                    } else if (this.imageTotal < this.maxImages) {
+                        this.fImages.push(path);
+                    }
+                },
+
+                removeImage(index) {
+                    this.fImages.splice(index, 1);
+                },
+
+                moveImage(index, direction) {
+                    const target = index + direction;
+                    if (target < 0 || target >= this.fImages.length) return;
+                    [this.fImages[index], this.fImages[target]] = [this.fImages[target], this.fImages[index]];
+                },
+
+                galleryItemTitle(item) {
+                    return item.event + ' · ' + item.organization;
+                },
+
+                imageSource(path) {
+                    if (path.startsWith('form-uploads/')) return 'After Event gallery';
+                    if (path.startsWith('posts/media/accomplishment/')) return 'Accomplishment library';
+                    return 'Current upload';
+                },
+
+                imageTitle(path) {
+                    const galleryMatch = this.galleryItems.find((item) => item.path === path);
+                    if (galleryMatch) return this.galleryItemTitle(galleryMatch);
+                    return this.libraryTitles[path] || path.split('/').pop();
+                },
+
+                modalPaddingStyle() {
+                    return {
+                        paddingLeft: (window.innerWidth >= 1280) ?
+                            ((this.$store.sidebar.isExpanded || this.$store.sidebar.isHovered) ? 'calc(290px + 1rem)' :
+                                'calc(90px + 1rem)') : '1rem'
+                    };
+                },
+
+                submittedDateLabel(submittedAt) {
+                    return submittedAt ? new Date(submittedAt).toLocaleDateString() : '';
+                },
+
+                noVisiblePickerMatches() {
+                    return document.querySelectorAll('[x-show*=pickerSearch]:not([style*=none])').length === 0;
+                },
+            }));
+        });
+
+        // Table thumbnails: hide a broken image and reveal the placeholder that follows it.
+        document.addEventListener('error', (e) => {
+            const t = e.target;
+            if (t instanceof HTMLImageElement && t.dataset.hideOnError !== undefined) {
+                t.style.display = 'none';
+                t.nextElementSibling.style.display = 'inline-flex';
             }
-        },
+        }, true);
 
-        removeImage(index) {
-            this.fImages.splice(index, 1);
-        },
+        if (!window.__csDataConfirmBound) { window.__csDataConfirmBound = true; document.addEventListener('submit', (e) => { const f = e.target; if (f instanceof HTMLFormElement && f.dataset.confirm !== undefined && !e.defaultPrevented && !confirm(f.dataset.confirm)) { e.preventDefault(); } }, true); }
 
-        moveImage(index, direction) {
-            const target = index + direction;
-            if (target < 0 || target >= this.fImages.length) return;
-            [this.fImages[index], this.fImages[target]] = [this.fImages[target], this.fImages[index]];
-        },
-
-        galleryItemTitle(item) {
-            return item.event + ' · ' + item.organization;
-        },
-
-        imageSource(path) {
-            if (path.startsWith('form-uploads/')) return 'After Event gallery';
-            if (path.startsWith('posts/media/accomplishment/')) return 'Accomplishment library';
-            return 'Current upload';
-        },
-
-        imageTitle(path) {
-            const galleryMatch = this.galleryItems.find((item) => item.path === path);
-            if (galleryMatch) return this.galleryItemTitle(galleryMatch);
-            return this.libraryTitles[path] || path.split('/').pop();
-        },
-    }"
+        if (!window.__csAutoSubmitBound) { window.__csAutoSubmitBound = true; document.addEventListener('change', (e) => { const t = e.target; if (t instanceof HTMLElement && t.dataset.autosubmit !== undefined && t.form) { t.form.submit(); } }); }
+    </script>
+    <div x-data="postsIndexPage({
+        modalOpen: @js($hasFormErrors),
+        editMode: @js($isOldEdit),
+        editPostId: @js((string) ($oldEditPostId ?? '')),
+        editFormAction: @js($oldFormAction),
+        fOrg: @js($oldOrg),
+        fTitle: @js($oldTitle),
+        fExcerpt: @js($oldExcerpt),
+        fBody: @js($oldBody),
+        fTag: @js($oldTag),
+        fFeatured: @js($oldFeatured === 'true'),
+        fImages: @js($oldImages),
+        libraryTitles: @js($libraryTitles),
+        galleryItems: @js($afterEventMediaGallery),
+        storeUrl: @js(route('posts.store')),
+        defaultOrg: @js((string) ($orgs->first()?->organization_id ?? '')),
+    })"
         @keydown.escape.window="modalOpen ? (galleryOpen ? (galleryOpen = false) : closeModal()) : (pickerOpen ? (pickerOpen = false) : null)"
         class="min-w-0 space-y-6">
 
@@ -184,7 +250,7 @@
             class="rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03]">
             <form method="GET" action="{{ route('posts.index') }}" class="flex flex-wrap items-center gap-3">
 
-                <select name="org" onchange="this.form.submit()"
+                <select name="org" data-autosubmit
                     class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 focus:border-palette-lime focus:ring-2 focus:ring-palette-lime/20 focus:outline-none dark:border-gray-700 dark:text-gray-300">
                     <option value="all" @selected($filterOrg === 'all')>All Organizations</option>
                     @foreach ($orgs as $org)
@@ -453,7 +519,7 @@
                                                 <img src="{{ '/storage/' . $post->image_path }}" alt="{{ $post->title }}"
                                                     class="h-10 w-10 rounded-md object-cover ring-1 ring-gray-200 dark:ring-gray-700"
                                                     loading="lazy"
-                                                    onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
+                                                    data-hide-on-error>
                                                 <span
                                                     class="hidden h-10 w-10 items-center justify-center rounded-md bg-gray-100 text-gray-400 ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"
                                                     title="Image unavailable">
@@ -483,7 +549,7 @@
                                                 class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Edit</button>
                                             <span class="text-gray-300 dark:text-gray-700">|</span>
                                             <form method="POST" action="{{ route('posts.destroy', $post->post_id) }}"
-                                                onsubmit="return confirm('Delete this post?')">
+                                                data-confirm="Delete this post?">
                                                 @csrf @method('DELETE')
                                                 <button type="submit"
                                                     class="text-xs font-medium text-error-500 hover:underline">Delete</button>
@@ -507,11 +573,7 @@
 
         {{-- ════════════════ CREATE / EDIT MODAL ════════════════ --}}
         <div x-show="modalOpen" x-cloak class="fixed inset-0 z-[100000] flex items-end sm:items-center justify-center p-4"
-            :style="{
-                paddingLeft: (window.innerWidth >= 1280) ?
-                    (($store.sidebar.isExpanded || $store.sidebar.isHovered) ? 'calc(290px + 1rem)' :
-                        'calc(90px + 1rem)') : '1rem'
-            }">
+            :style="modalPaddingStyle()">
 
             <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" @click="closeModal()"></div>
 
@@ -795,7 +857,7 @@
                                         <p class="truncate text-xs font-semibold text-white" x-text="item.event"></p>
                                         <p class="truncate text-[10px] text-white/80" x-text="item.organization"></p>
                                         <p class="truncate text-[10px] text-white/60"
-                                            x-text="item.submitted_at ? new Date(item.submitted_at).toLocaleDateString() : ''">
+                                            x-text="submittedDateLabel(item.submitted_at)">
                                         </p>
                                     </div>
                                 </button>
@@ -824,11 +886,7 @@
         @if ($accomplishmentMedia->isNotEmpty())
             <div x-show="pickerOpen" x-cloak
                 class="fixed inset-0 z-[100001] flex items-end sm:items-center justify-center p-4"
-                :style="{
-                    paddingLeft: (window.innerWidth >= 1280) ?
-                        (($store.sidebar.isExpanded || $store.sidebar.isHovered) ? 'calc(290px + 1rem)' :
-                            'calc(90px + 1rem)') : '1rem'
-                }">
+                :style="modalPaddingStyle()">
 
                 <div class="absolute inset-0 bg-gray-900/70 backdrop-blur-sm" @click="pickerOpen = false"></div>
 
@@ -906,7 +964,7 @@
 
                         {{-- Empty search state --}}
                         <p class="hidden py-6 text-center text-sm text-gray-400"
-                            x-show="{{ $accomplishmentMedia->count() }} > 0 && pickerSearch !== '' && document.querySelectorAll('[x-show*=pickerSearch]:not([style*=none])').length === 0">
+                            x-show="{{ $accomplishmentMedia->count() }} > 0 && pickerSearch !== '' && noVisiblePickerMatches()">
                             No matching images found.
                         </p>
                     </div>

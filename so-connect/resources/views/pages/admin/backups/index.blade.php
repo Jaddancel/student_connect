@@ -77,7 +77,7 @@
                 </p>
             @else
                 @php($backupNames = array_column($backups, 'name'))
-                <div class="mt-6" x-data="{ all: @js($backupNames), selected: [] }" :class="selected.length > 0 && 'pb-20'">
+                <div class="mt-6" x-data="adminBackupSelection({ all: @js($backupNames) })" :class="selected.length > 0 && 'pb-20'">
                     <form method="POST" action="{{ route('superadmin.backups.bulk') }}" x-show="selected.length > 0" x-cloak
                         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-4"
                         x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150"
@@ -94,10 +94,10 @@
                         </p>
                         <div class="flex items-center gap-2">
                             <button type="submit" name="action" value="archive"
-                                @click="if (! confirm(`Archive ${selected.length} backup(s)? They will be moved to the archived section.`)) $event.preventDefault()"
+                                @click="confirmBulkArchive($event)"
                                 class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-transparent dark:text-gray-300">Archive selected</button>
                             <button type="submit" name="action" value="delete"
-                                @click="if (! confirm(`Delete ${selected.length} backup(s)? This cannot be undone.`)) $event.preventDefault()"
+                                @click="confirmBulkDelete($event)"
                                 class="rounded-lg bg-error-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-error-600">Delete selected</button>
                         </div>
                     </form>
@@ -111,7 +111,7 @@
                                         class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-700"
                                         :checked="selected.length === all.length"
                                         :indeterminate="selected.length > 0 && selected.length < all.length"
-                                        @change="selected = $event.target.checked ? [...all] : []">
+                                        @change="toggleAll($event)">
                                 </th>
                                 <th class="pb-2">Backup</th>
                                 <th class="pb-2">Type</th>
@@ -137,21 +137,21 @@
                                             <a href="{{ route('superadmin.backups.download', $backup['name']) }}"
                                                 class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Download</a>
                                             <form method="POST" action="{{ route('superadmin.backups.restore', $backup['name']) }}"
-                                                onsubmit="return confirm(@js($backup['type'] === \App\Services\BackupService::TYPE_CONFIGURATION
+                                                data-confirm="{{ $backup['type'] === \App\Services\BackupService::TYPE_CONFIGURATION
                                                     ? 'Restore the configuration from this backup? Matching settings, forms, reports, printed templates, waiver templates and tally configurations will be updated and missing ones added; nothing is deleted (a safety configuration backup is taken first).'
-                                                    : 'Restore the database from this backup? The current database will be replaced (a safety backup is taken first).'));">
+                                                    : 'Restore the database from this backup? The current database will be replaced (a safety backup is taken first).' }}">
                                                 @csrf
                                                 <button type="submit"
                                                     class="rounded-lg border border-warning-300 px-3 py-1.5 text-xs font-medium text-warning-600 hover:bg-warning-50 dark:border-warning-500/40">Restore</button>
                                             </form>
                                             <form method="POST" action="{{ route('superadmin.backups.archive', $backup['name']) }}"
-                                                onsubmit="return confirm('Archive this backup? It will be moved to the archived section.');">
+                                                data-confirm="Archive this backup? It will be moved to the archived section.">
                                                 @csrf
                                                 <button type="submit"
                                                     class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Archive</button>
                                             </form>
                                             <form method="POST" action="{{ route('superadmin.backups.destroy', $backup['name']) }}"
-                                                onsubmit="return confirm('Delete this backup?');">
+                                                data-confirm="Delete this backup?">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" title="Delete" aria-label="Delete backup"
@@ -215,4 +215,8 @@
             </div>
         </form>
     </x-ui.modal>
+
+    <script @nonce>
+        if (!window.__csDataConfirmBound) { window.__csDataConfirmBound = true; document.addEventListener('submit', (e) => { const f = e.target; if (f instanceof HTMLFormElement && f.dataset.confirm !== undefined && !e.defaultPrevented && !confirm(f.dataset.confirm)) { e.preventDefault(); } }, true); }
+    </script>
 @endsection

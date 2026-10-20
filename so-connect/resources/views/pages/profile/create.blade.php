@@ -2,20 +2,11 @@
 
 @section('content')
     <div class="grid grid-cols-12 gap-6 p-5"
-        x-data="{
-            sex: '{{ old('sex', '') }}',
-            birthday: '{{ old('birthday', '') }}',
-            age: '{{ old('age', '') }}',
-            computeAge() {
-                if (!this.birthday) return;
-                const today = new Date();
-                const dob = new Date(this.birthday);
-                let years = today.getFullYear() - dob.getFullYear();
-                const m = today.getMonth() - dob.getMonth();
-                if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) years--;
-                this.age = years > 0 ? years : '';
-            }
-        }">
+        x-data="profileSetupForm({
+            sex: @js((string) old('sex', '')),
+            birthday: @js((string) old('birthday', '')),
+            age: @js((string) old('age', ''))
+        })">
 
         {{-- Left column: heading + form --}}
         <div class="col-span-12 xl:col-span-7">

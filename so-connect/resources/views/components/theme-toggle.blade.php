@@ -11,7 +11,7 @@
 @props(['class' => ''])
 
 @once
-    <style>
+    <style @nonce>
         [data-theme-toggle] svg {
             pointer-events: none;
         }
@@ -28,9 +28,20 @@
             display: none;
         }
     </style>
+    <script @nonce>
+        if (!window.__appThemeToggleBound) {
+            window.__appThemeToggleBound = true;
+            document.addEventListener('click', function (event) {
+                var button = event.target instanceof Element ? event.target.closest('[data-theme-toggle]') : null;
+                if (button) {
+                    window.appTheme.toggle();
+                }
+            }, true);
+        }
+    </script>
 @endonce
 
-<button type="button" data-theme-toggle onclick="window.appTheme.toggle()" aria-label="Toggle dark mode"
+<button type="button" data-theme-toggle aria-label="Toggle dark mode"
     title="Toggle dark mode" {{ $attributes->merge(['class' => $class]) }}>
     {{-- Sun: shown while dark is active (click to go back to light). --}}
     <svg data-theme-icon="dark" width="20" height="20" viewBox="0 0 20 20" fill="none"

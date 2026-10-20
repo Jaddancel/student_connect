@@ -40,7 +40,7 @@
                                 <p class="text-xs text-gray-500 dark:text-gray-400">{{ count((array) $template->zones) }} zone(s)</p>
                             </div>
                             <form method="POST" action="{{ route('admin.waiver-templates.destroy', $template->id_template_id) }}"
-                                onsubmit="return confirm('Delete this waiver template?');">
+                                data-confirm="Delete this waiver template?">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="rounded-lg bg-error-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-error-600">Delete</button>
@@ -51,4 +51,8 @@
             @endif
         </section>
     </div>
+
+    <script @nonce>
+        if (!window.__csDataConfirmBound) { window.__csDataConfirmBound = true; document.addEventListener('submit', (e) => { const f = e.target; if (f instanceof HTMLFormElement && f.dataset.confirm !== undefined && !e.defaultPrevented && !confirm(f.dataset.confirm)) { e.preventDefault(); } }, true); }
+    </script>
 @endsection

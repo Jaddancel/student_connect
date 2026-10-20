@@ -52,3 +52,20 @@ it('rejects SQL metacharacters in the scanned student id', function () {
     expect(validator(['student_id' => "ZAP' OR '1'='1' -- "], ['student_id' => $rules])->fails())->toBeTrue()
         ->and(validator(['student_id' => '2021012345'], ['student_id' => $rules])->passes())->toBeTrue();
 });
+
+it('enforces a nonce-based policy without unsafe-inline or unsafe-eval for scripts and style elements', function () {
+    config(['security.csp_strict' => true, 'onlyoffice.public_url' => '']);
+
+    $response = (new SecurityHeaders)->handle(Request::create('/'), fn () => new Response);
+    $directives = collect(explode('; ', $response->headers->get('Content-Security-Policy')))
+        ->mapWithKeys(fn ($d) => [strtok($d, ' ') => $d]);
+    $nonce = \Illuminate\Support\Facades\Vite::cspNonce();
+
+    expect($directives['script-src'])->toContain("'nonce-{$nonce}'")
+        ->not->toContain('unsafe-inline')
+        ->not->toContain('unsafe-eval')
+        ->and($directives['style-src'])->toContain("'nonce-{$nonce}'")
+        ->not->toContain('unsafe-inline')
+        ->and($directives['style-src-attr'])->toBe("style-src-attr 'unsafe-inline'")
+        ->and($response->headers->has('Content-Security-Policy-Report-Only'))->toBeFalse();
+});

@@ -3,27 +3,7 @@
         Multiple Select Options
     </label>
 
-    <div x-data="{
-        open: false,
-        selected: [1, 3],
-        options: [
-            { id: 1, name: 'Option 1' },
-            { id: 2, name: 'Option 2' },
-            { id: 3, name: 'Option 3' },
-            { id: 4, name: 'Option 4' },
-            { id: 5, name: 'Option 5' }
-        ],
-        toggleOption(id) {
-            if (this.selected.includes(id)) {
-                this.selected = this.selected.filter(i => i !== id);
-            } else {
-                this.selected.push(id);
-            }
-        },
-        isSelected(id) {
-            return this.selected.includes(id);
-        }
-    }" class="relative" @click.away="open = false">
+    <div x-data="formDemoMultipleSelect()" class="relative" @click.away="open = false">
         <!-- Hidden input for form submission -->
         <input type="hidden" name="selected_options" :value="selected.join(',')" />
 
@@ -35,7 +15,7 @@
                 <template x-for="id in selected" :key="id">
                     <div
                         class="group flex items-center justify-center rounded-full border-[0.7px] border-transparent bg-gray-100 py-1 pr-2 pl-2.5 text-sm text-gray-800 hover:border-gray-200 dark:bg-gray-800 dark:text-white/90 dark:hover:border-gray-800">
-                        <span x-text="options.find(o => o.id === id).name"></span>
+                        <span x-text="optionName(id)"></span>
                         <button type="button" @click.stop="toggleOption(id)"
                             class="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
                             <svg class="fill-current" role="button" width="14" height="14" viewBox="0 0 14 14"

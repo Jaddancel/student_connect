@@ -11,7 +11,7 @@
                     <p class="text-xs text-gray-500 dark:text-gray-400">Select a semester to view the leaderboard.</p>
                 </div>
                 <form method="GET" action="{{ route('admin.scoring.rankings') }}">
-                    <select name="semester_id" onchange="this.form.submit()"
+                    <select name="semester_id" data-autosubmit
                         class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
                         <option value="">Select semester</option>
                         @foreach ($semesters as $semester)
@@ -96,4 +96,7 @@
             </div>
         @endif
     </div>
+    <script @nonce>
+        if (!window.__csAutoSubmitBound) { window.__csAutoSubmitBound = true; document.addEventListener('change', (e) => { const t = e.target; if (t instanceof HTMLElement && t.dataset.autosubmit !== undefined && t.form) { t.form.submit(); } }); }
+    </script>
 @endsection

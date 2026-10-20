@@ -38,54 +38,15 @@
     }
 @endphp
 
-<div x-data="{
-        rows: {{ \App\Support\JsLiteral::from($oldRows) }},
-        cols: {{ \App\Support\JsLiteral::from($columns) }},
-        operands: {{ \App\Support\JsLiteral::from($rowTotal['columns'] ?? []) }},
-        op: {{ \App\Support\JsLiteral::from($rowTotal['op'] ?? 'multiply') }},
-        hasRowTotal: {{ $hasRowTotal ? 'true' : 'false' }},
-        // Mirrors FieldType::applyRowTotal(): left to right, ÷0 gives 0.
-        rowTotal(row) {
-            if (!this.hasRowTotal) return 0;
-            const values = this.operands.map((k) => parseFloat(row[k]) || 0);
-            const result = values.slice(1).reduce((acc, v) => {
-                if (this.op === 'add') return acc + v;
-                if (this.op === 'subtract') return acc - v;
-                if (this.op === 'divide') return v === 0 ? 0 : acc / v;
-                return acc * v;
-            }, values[0] || 0);
-            return Math.round(result * 100) / 100;
-        },
-        get footer() {
-            if (!this.hasRowTotal) return 0;
-            return Math.round(this.rows.reduce((s, r) => s + this.rowTotal(r), 0) * 100) / 100;
-        },
-        addRow() {
-            const blank = {};
-            this.cols.forEach(c => blank[c.key] = '');
-            this.rows.push(blank);
-        },
-        removeRow(i) { this.rows.splice(i, 1); if (!this.rows.length) this.addRow(); },
-        // Publishes this table's per-column sums (plus its row-total column, if
-        // any) to the shared formCompute store, so `computed` fields referencing
-        // `{{ $key }}.columnKey` live-recompute as rows are typed/added/removed.
-        publishSums() {
-            const sums = {};
-            this.cols.forEach((c) => {
-                if (c.type === 'number') {
-                    sums[c.key] = this.rows.reduce((s, r) => s + (parseFloat(r[c.key]) || 0), 0);
-                }
-            });
-            if (this.hasRowTotal) {
-                sums['{{ $rowTotalKey }}'] = this.footer;
-            }
-            Alpine.store('formCompute').tableSums['{{ $key }}'] = sums;
-        },
-        init() {
-            this.publishSums();
-            this.$watch('rows', () => this.publishSums());
-        },
-    }" class="overflow-x-auto">
+<div x-data="formTableInput({
+        rows: @js($oldRows),
+        cols: @js($columns),
+        operands: @js($rowTotal['columns'] ?? []),
+        op: @js($rowTotal['op'] ?? 'multiply'),
+        hasRowTotal: @js($hasRowTotal),
+        rowTotalKey: @js((string) $rowTotalKey),
+        fieldKey: @js((string) $key),
+    })" class="overflow-x-auto">
     <table class="w-full border-collapse text-sm">
         <thead>
             <tr class="border-b border-gray-200 dark:border-gray-700">

@@ -26,7 +26,7 @@
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <form method="GET" action="{{ route('admin.scoring.index') }}" class="flex flex-wrap items-center gap-2">
-                        <select name="semester_id" onchange="this.form.submit()"
+                        <select name="semester_id" data-autosubmit
                             class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
                             <option value="">Select semester</option>
                             @foreach ($semesters as $semester)
@@ -37,7 +37,7 @@
                         </select>
 
                         @if ($selectedSemester)
-                            <select name="category" onchange="this.form.submit()"
+                            <select name="category" data-autosubmit
                                 class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
                                 <option value="">All categories</option>
                                 @foreach ($categoryLabels as $typeId => $label)
@@ -146,4 +146,7 @@
             @endforeach
         @endif
     </div>
+    <script @nonce>
+        if (!window.__csAutoSubmitBound) { window.__csAutoSubmitBound = true; document.addEventListener('change', (e) => { const t = e.target; if (t instanceof HTMLElement && t.dataset.autosubmit !== undefined && t.form) { t.form.submit(); } }); }
+    </script>
 @endsection
