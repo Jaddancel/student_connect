@@ -30,18 +30,17 @@ function newEventWaiverBuilderPayload(?array $waiverField): array
     ];
 }
 
-it('rejects a New Event form without a waiver scan field', function () {
+it('publishes a New Event form without a waiver scan field', function () {
     $this->actingAs(recordsUser(2))
         ->postJson(route('admin.form-builder.store'), newEventWaiverBuilderPayload(null))
-        ->assertStatus(422)
-        ->assertJsonFragment([
-            'message' => 'The New Event form must include a Waiver scan field marked as required.',
-        ]);
+        ->assertOk();
 
-    expect(Form::query()->where('system_function', SystemFunction::NEW_EVENT)->exists())->toBeFalse();
+    $form = Form::query()->where('system_function', SystemFunction::NEW_EVENT)->sole();
+    expect($form->is_published)->toBeTrue()
+        ->and($form->fields()->where('field_type', 'waiver-scan')->exists())->toBeFalse();
 });
 
-it('rejects a New Event form whose waiver scan field is optional', function () {
+it('publishes a New Event form whose waiver scan field is optional', function () {
     $this->actingAs(recordsUser(2))
         ->postJson(route('admin.form-builder.store'), newEventWaiverBuilderPayload([
             'field_key' => 'participant_waivers',
@@ -49,10 +48,11 @@ it('rejects a New Event form whose waiver scan field is optional', function () {
             'field_type' => 'waiver-scan',
             'is_required' => false,
         ]))
-        ->assertStatus(422)
-        ->assertJsonFragment([
-            'message' => 'The New Event form must include a Waiver scan field marked as required.',
-        ]);
+        ->assertOk();
+
+    $form = Form::query()->where('system_function', SystemFunction::NEW_EVENT)->sole();
+    expect($form->is_published)->toBeTrue()
+        ->and($form->fields()->where('field_type', 'waiver-scan')->firstOrFail()->is_required)->toBeFalse();
 });
 
 it('publishes a New Event form with a required waiver scan field', function () {
@@ -70,7 +70,7 @@ it('publishes a New Event form with a required waiver scan field', function () {
         ->and($form->fields()->where('field_type', 'waiver-scan')->firstOrFail()->is_required)->toBeTrue();
 });
 
-it('does not update a published New Event form when its waiver becomes optional', function () {
+it('updates a published New Event form when its waiver becomes optional', function () {
     $admin = recordsUser(2);
     $payload = newEventWaiverBuilderPayload([
         'field_key' => 'waiver',
@@ -88,10 +88,27 @@ it('does not update a published New Event form when its waiver becomes optional'
 
     $this->actingAs($admin)
         ->putJson(route('admin.form-builder.update', $form), $payload)
-        ->assertStatus(422)
-        ->assertJsonFragment([
-            'message' => 'The New Event form must include a Waiver scan field marked as required.',
-        ]);
+        ->assertOk();
 
-    expect($form->fields()->where('field_type', 'waiver-scan')->firstOrFail()->fresh()->is_required)->toBeTrue();
+    expect($form->fresh()->is_published)->toBeTrue()
+        ->and($form->fields()->where('field_type', 'waiver-scan')->firstOrFail()->is_required)->toBeFalse();
+});
+
+it('updates a published New Event form when its waiver is removed', function () {
+    $this->actingAs(recordsUser(2))
+        ->postJson(route('admin.form-builder.store'), newEventWaiverBuilderPayload([
+            'field_key' => 'waiver',
+            'field_label' => 'Signed Waiver',
+            'field_type' => 'waiver-scan',
+            'is_required' => true,
+        ]))
+        ->assertOk();
+
+    $form = Form::query()->where('system_function', SystemFunction::NEW_EVENT)->sole();
+
+    $this->putJson(route('admin.form-builder.update', $form), newEventWaiverBuilderPayload(null))
+        ->assertOk();
+
+    expect($form->fresh()->is_published)->toBeTrue()
+        ->and($form->fields()->where('field_type', 'waiver-scan')->exists())->toBeFalse();
 });

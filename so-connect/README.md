@@ -96,6 +96,10 @@ Every account, including pending guests and faculty adviser accounts, receives
 a random portrait and a unique synthetic, name-derived 100x100 JPEG signature.
 These are demonstration signatures, not replicas of real people's signatures.
 
+The seeded New Event form requires its Signed Waiver field directly; there is
+no separate "Waiver Required?" selector. Historical demo submissions include
+clearly labeled synthetic waiver images, not official or OCR-validated waivers.
+
 Each organization has 15 current officers: President, Secretary, Auditor,
 Treasurer and eleven unnamed (`Others`) officers. Accepted membership requests
 add **members**, not extra officers. Approved sign-ups fill reserved unnamed

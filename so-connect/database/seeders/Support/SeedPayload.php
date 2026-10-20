@@ -90,7 +90,6 @@ final class SeedPayload
             'persons_involved' => 'Organization officers, student participants and faculty advisers.',
             'problems_encountered' => 'Minor scheduling conflicts resolved by the organizing committee.',
             'university_facilities' => ['Auditorium', 'Sound system'],
-            'waiver_required' => 'option_2',
             'co_sponsored' => fake()->numberBetween(0, 1),
             'dropdown' => [(int) Organization::query()->whereKeyNot($organization->getKey())->inRandomOrder()->value('organization_id')],
             'freshman' => fake()->numberBetween(15, 30),
@@ -135,7 +134,8 @@ final class SeedPayload
                 FieldType::TEXT_LIST => ['Student officers', 'Faculty advisers'],
                 FieldType::TABLE_INPUT => [self::tableRow($options)],
                 FieldType::WORKPLAN_EVENTS, FieldType::ACTIVITY_TABLE => [],
-                FieldType::WORKPLAN_SELECT, FieldType::WAIVER_SCAN => null,
+                FieldType::WAIVER_SCAN => [SeedData::waiver(self::name($user), $date->toDateString())],
+                FieldType::WORKPLAN_SELECT => null,
                 FieldType::COMPUTED => 0,
                 default => throw new RuntimeException('Unsupported seed field type: '.$field->field_type),
             };

@@ -136,6 +136,28 @@ final class SeedData
         );
     }
 
+    public static function waiver(string $participant, string $date): string
+    {
+        $image = imagecreatetruecolor(900, 300);
+        imagefill($image, 0, 0, imagecolorallocate($image, 255, 255, 255));
+        $ink = imagecolorallocate($image, 0, 0, 0);
+        imagestring($image, 5, 30, 30, 'DEMO WAIVER - NOT VALID FOR OFFICIAL USE', $ink);
+        imagestring($image, 4, 30, 90, 'Participant: '.$participant, $ink);
+        imagestring($image, 4, 30, 130, 'Event date: '.$date, $ink);
+        imagestring($image, 4, 30, 190, 'Synthetic attachment for historical demo submissions only.', $ink);
+        ob_start();
+        imagepng($image);
+        $contents = (string) ob_get_clean();
+        imagedestroy($image);
+
+        $path = 'waivers/seed-demo/'.sha1($participant.'|'.$date).'.png';
+        if (! Storage::disk('public')->put($path, $contents)) {
+            throw new RuntimeException("Unable to store seed waiver {$path}.");
+        }
+
+        return $path;
+    }
+
     /** @return list<string> */
     public static function statuses(int $acceptedPercent): array
     {

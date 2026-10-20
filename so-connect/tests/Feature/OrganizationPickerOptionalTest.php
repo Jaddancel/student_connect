@@ -29,7 +29,6 @@ function newEventFieldsWithoutPicker(): array
         ['field_key' => 'event_location', 'field_label' => 'Location', 'field_type' => 'text'],
         ['field_key' => 'event_start_time', 'field_label' => 'Start', 'field_type' => 'time'],
         ['field_key' => 'event_end_time', 'field_label' => 'End', 'field_type' => 'time'],
-        ['field_key' => 'waiver', 'field_label' => 'Signed Waiver', 'field_type' => 'waiver-scan', 'is_required' => true],
     ];
 }
 
@@ -68,7 +67,6 @@ it('files a New Event without an organization picker under the officer\'s organi
         'event_location' => 'Gym',
         'event_start_time' => '09:00',
         'event_end_time' => '11:00',
-        'waiver' => ['waivers/test-waiver.png'],
     ])->assertSessionHasNoErrors();
 
     $submission = FormSubmission::query()->where('form_id', $form->id)->sole();

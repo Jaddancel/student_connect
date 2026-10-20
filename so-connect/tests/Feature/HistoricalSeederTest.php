@@ -16,6 +16,7 @@ use App\Services\AccreditationService;
 use App\Services\AfterEventReportService;
 use App\Services\Scoring\ScoringRuleEngine;
 use App\Services\WorkplanService;
+use Database\Seeders\ConfigurationSeeder;
 use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\Support\SeedData;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,6 +29,24 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     User::query()->where('user_email', 'baseline-superadmin@tests.local')->delete();
+});
+
+it('seeds a required New Event waiver without a separate requirement selector', function () {
+    $this->seed(ConfigurationSeeder::class);
+
+    $form = Form::query()->where('system_function', 'new_event')->sole();
+    $waiver = $form->fields()->where('field_key', 'waiver')->sole();
+
+    expect($waiver->field_type)->toBe(FieldType::WAIVER_SCAN)
+        ->and($waiver->is_required)->toBeTrue()
+        ->and($form->fields()->where('field_key', 'waiver_required')->exists())->toBeFalse();
+
+    $layoutKeys = collect($form->layout['rows'])
+        ->flatMap(fn (array $row) => $row['columns'])
+        ->flatMap(fn (array $column) => $column['fields']);
+
+    expect($layoutKeys->contains('waiver'))->toBeTrue()
+        ->and($layoutKeys->contains('waiver_required'))->toBeFalse();
 });
 
 it('seeds historical accounts and configuration-compliant workflows with exact form caps', function () {

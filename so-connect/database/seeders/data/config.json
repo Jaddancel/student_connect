@@ -1004,7 +1004,6 @@
                                 {
                                     "span": 12,
                                     "fields": [
-                                        "waiver_required",
                                         "waiver"
                                     ]
                                 }
@@ -1246,7 +1245,7 @@
                     "field_key": "waiver",
                     "field_label": "Signed Waiver",
                     "field_type": "waiver-scan",
-                    "is_required": false,
+                    "is_required": true,
                     "field_order": 14,
                     "placeholder_hint": "Scan or upload the signed activity waiver.",
                     "field_options": null,
@@ -1372,27 +1371,6 @@
                         "autofill_now": true
                     },
                     "universal_key": "current_date"
-                },
-                {
-                    "field_key": "waiver_required",
-                    "field_label": "Waiver Required?",
-                    "field_type": "select",
-                    "is_required": true,
-                    "field_order": 24,
-                    "placeholder_hint": null,
-                    "field_options": {
-                        "options": [
-                            {
-                                "label": "Yes",
-                                "value": "option_1"
-                            },
-                            {
-                                "label": "No",
-                                "value": "option_2"
-                            }
-                        ]
-                    },
-                    "universal_key": null
                 },
                 {
                     "field_key": "extension_services",
