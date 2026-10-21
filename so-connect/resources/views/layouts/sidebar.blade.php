@@ -40,12 +40,13 @@
         'justify-start'">
         <a href="{{ route('dashboard') }}">
             <img x-show="$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen"
-                class="dark:hidden" src="/images/logo/logo.svg" alt="Logo" width="150" height="40" />
+                class="dark:hidden" src="/images/brand/student-organization-logo.svg" alt="Student Connect" width="150"
+                height="52" />
             <img x-show="$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen"
-                class="hidden dark:block" src="/images/logo/logo-dark.svg" alt="Logo" width="150"
-                height="40" />
+                class="hidden dark:block dark:rounded dark:bg-white"
+                src="/images/brand/student-organization-logo.svg" alt="Student Connect" width="150" height="52" />
             <img x-show="!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen"
-                src="/images/logo/logo-icon.svg" alt="Logo" width="32" height="32" />
+                src="/images/brand/student-organization-icon.svg" alt="Student Connect" width="40" height="40" />
 
         </a>
     </div>

@@ -45,8 +45,10 @@
 
             <!-- Logo (mobile only) -->
             <a href="{{ route('dashboard') }}" class="xl:hidden">
-                <img class="dark:hidden" src="/images/logo/logo.svg" alt="Logo" width="120" height="32" />
-                <img class="hidden dark:block" src="/images/logo/logo-dark.svg" alt="Logo" width="120" height="32" />
+                <img class="dark:hidden" src="/images/brand/student-organization-logo.svg" alt="Student Connect"
+                    width="120" height="42" />
+                <img class="hidden dark:block dark:rounded dark:bg-white"
+                    src="/images/brand/student-organization-logo.svg" alt="Student Connect" width="120" height="42" />
             </a>
 
             <!-- Application Menu Toggle (mobile only) -->

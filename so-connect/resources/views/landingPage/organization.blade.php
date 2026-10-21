@@ -147,9 +147,10 @@
     <header
         class="sticky top-0 z-30 border-b border-emerald-100/80 bg-white/85 backdrop-blur dark:border-emerald-900/40 dark:bg-[#0d1613]/85">
         <div class="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-            <a href="{{ route('home') }}"
-                class="brand-font text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Student
-                Connect</a>
+            <a href="{{ route('home') }}" aria-label="Student Connect home">
+                <img src="{{ asset('images/brand/student-organization-logo.svg') }}"
+                    class="h-10 w-auto dark:rounded dark:bg-white" alt="Student Connect" width="115" height="40">
+            </a>
 
             <nav class="hidden items-center gap-8 text-sm font-semibold md:flex">
                 <a href="{{ route('home') }}"
