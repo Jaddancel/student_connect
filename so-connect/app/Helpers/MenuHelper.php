@@ -62,6 +62,7 @@ class MenuHelper
             ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
             ['icon' => 'forms', 'name' => 'Forms', 'path' => '/forms'],
             ['icon' => 'pages', 'name' => 'Documents', 'path' => '/documents'],
+            ['icon' => 'support-ticket', 'name' => 'My Support Tickets', 'path' => '/support-tickets'],
         ];
 
         // Officers/presidents get a Drafts entry just below Forms: their
@@ -97,6 +98,7 @@ class MenuHelper
                     ['icon' => 'tables', 'name' => 'Export Data', 'path' => '/superadmin/export'],
                     ['icon' => 'charts', 'name' => 'Score Audit', 'path' => '/superadmin/scoring/audit'],
                     ['icon' => 'task', 'name' => 'Action Logs', 'path' => '/superadmin/action-logs'],
+                    ['icon' => 'support-ticket', 'name' => 'Support Tickets', 'path' => '/admin/support-tickets'],
                 ],
             ];
         }
@@ -120,6 +122,7 @@ class MenuHelper
                     ['icon' => 'task',   'name' => 'Request Records', 'path' => '/admin/request-records'],
                     ['icon' => 'tables', 'name' => 'Database View',   'path' => '/admin/database-view'],
                     ['icon' => 'pages',  'name' => 'Reports',         'path' => '/reports'],
+                    ['icon' => 'support-ticket', 'name' => 'Support Tickets', 'path' => '/admin/support-tickets'],
                 ],
             ];
 
@@ -164,7 +167,8 @@ class MenuHelper
                 'title' => 'Evaluation',
                 'items' => [
                     ['icon' => 'charts', 'name' => 'Organization Scoring', 'path' => '/admin/scoring'],
-                    ['icon' => 'charts', 'name' => 'Rankings', 'path' => '/admin/scoring/rankings'],
+                    ['icon' => 'charts', 'name' => 'Organization Rankings', 'path' => '/admin/scoring/rankings'],
+                    ['icon' => 'user-profile', 'name' => 'Student Rankings', 'path' => '/admin/scoring/student-rankings'],
                     ['icon' => 'task', 'name' => 'Scoring Rules', 'path' => '/admin/scoring-rules'],
                 ],
             ];

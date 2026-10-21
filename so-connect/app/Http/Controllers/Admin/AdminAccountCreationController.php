@@ -72,7 +72,7 @@ class AdminAccountCreationController extends Controller
             'signature' => ['nullable', 'string'],
             'signature_file' => ['nullable', 'file', 'mimes:jpeg,jpg,png,heic', 'max:5120'],
             // Optional Google link captured by the "Sign in with Google" popup.
-            'google_id' => ['nullable', 'string', 'max:255', 'unique:users,google_id'],
+            'google_id' => ['nullable', 'string', 'max:255', 'unique:users,google_id', new \App\Rules\VerifiedGoogleId($request)],
         ]);
 
         $photoPath = null;

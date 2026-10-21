@@ -19,6 +19,20 @@
     };
 @endphp
 
+@once
+    <script @nonce>
+        if (!window.__initialAvatarErrorBound) {
+            window.__initialAvatarErrorBound = true;
+            document.addEventListener('error', function (event) {
+                var target = event.target;
+                if (target instanceof HTMLImageElement && target.hasAttribute('data-remove-on-error')) {
+                    target.remove();
+                }
+            }, true);
+        }
+    </script>
+@endonce
+
 <span {{ $attributes->merge([
     'class' => 'relative inline-flex aspect-square h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/80 bg-white/20 ring-1 ring-slate-200/70 shadow-sm ' . $bgClass . ' ' . $textClass . ' ' . $text . ' ' . $font . ' leading-none',
 ]) }}>
@@ -26,6 +40,6 @@
     @if ($photoUrl)
         {{-- Covers the initial; removed on load failure so the initial shows through. --}}
         <img src="{{ $photoUrl }}" alt="{{ $name }}" loading="lazy"
-            class="absolute inset-0 h-full w-full object-cover" onerror="this.remove()" />
+            class="absolute inset-0 h-full w-full object-cover" data-remove-on-error />
     @endif
 </span>

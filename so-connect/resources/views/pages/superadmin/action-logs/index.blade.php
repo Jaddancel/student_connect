@@ -12,6 +12,42 @@
         ]);
     @endphp
 
+    <script @nonce>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('actionLogsUserFilter', ({ user = '' } = {}) => ({
+                modalOpen: false,
+                userValue: user,
+                userLabel: user,
+                q: '', results: [], loading: false, searched: false,
+                async search() {
+                    if (this.q.trim().length < 2) { this.results = []; this.searched = false; return; }
+                    this.loading = true;
+                    try {
+                        const res = await fetch(`/superadmin/profiles/search?admins=1&q=${encodeURIComponent(this.q)}`, { headers: { Accept: 'application/json' } });
+                        const json = await res.json();
+                        this.results = json.data || [];
+                    } catch (e) { this.results = []; }
+                    this.loading = false; this.searched = true;
+                },
+                pick(r) {
+                    const name = [r.first_name, r.middle_name, r.last_name].filter(Boolean).join(' ');
+                    this.userValue = r.user_email || name;
+                    this.userLabel = name || r.user_email;
+                    this.modalOpen = false;
+                    this.$refs.filterForm.submit();
+                },
+                clearUser() { this.userValue = ''; this.userLabel = ''; this.$refs.filterForm.submit(); },
+                openUserModal() {
+                    this.modalOpen = true;
+                    this.$nextTick(() => this.$refs.q && this.$refs.q.focus());
+                },
+                resultFullName(r) {
+                    return [r.first_name, r.middle_name, r.last_name].filter(Boolean).join(' ');
+                },
+            }));
+        });
+    </script>
+
     <div class="space-y-6">
         {{-- Filters --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
@@ -37,30 +73,7 @@
             </div>
 
             <form method="GET" action="{{ route('superadmin.action-logs.index') }}" x-ref="filterForm"
-                x-data="{
-                    modalOpen: false,
-                    userValue: @js($filters['user'] ?? ''),
-                    userLabel: @js($filters['user'] ?? ''),
-                    q: '', results: [], loading: false, searched: false,
-                    async search() {
-                        if (this.q.trim().length < 2) { this.results = []; this.searched = false; return; }
-                        this.loading = true;
-                        try {
-                            const res = await fetch(`/superadmin/profiles/search?admins=1&q=${encodeURIComponent(this.q)}`, { headers: { Accept: 'application/json' } });
-                            const json = await res.json();
-                            this.results = json.data || [];
-                        } catch (e) { this.results = []; }
-                        this.loading = false; this.searched = true;
-                    },
-                    pick(r) {
-                        const name = [r.first_name, r.middle_name, r.last_name].filter(Boolean).join(' ');
-                        this.userValue = r.user_email || name;
-                        this.userLabel = name || r.user_email;
-                        this.modalOpen = false;
-                        this.$refs.filterForm.submit();
-                    },
-                    clearUser() { this.userValue = ''; this.userLabel = ''; this.$refs.filterForm.submit(); },
-                }"
+                x-data="actionLogsUserFilter({ user: @js($filters['user'] ?? '') })"
                 class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <x-form.date-picker name="from" label="From" :defaultDate="$filters['from'] ?? null" placeholder="Start date" />
                 <x-form.date-picker name="to" label="To" :defaultDate="$filters['to'] ?? null" placeholder="End date" />
@@ -78,7 +91,7 @@
                     <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">User</label>
                     <input type="hidden" name="user" :value="userValue" />
                     <div class="flex gap-1">
-                        <button type="button" @click="modalOpen = true; $nextTick(() => $refs.q && $refs.q.focus())"
+                        <button type="button" @click="openUserModal()"
                             class="flex h-11 flex-1 items-center justify-between gap-2 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.06]">
                             <span class="truncate" x-text="userLabel || 'Users (All)'"></span>
                             <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
@@ -116,7 +129,7 @@
                                     <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-100 text-xs font-semibold text-brand-600 dark:bg-brand-500/20"
                                         x-text="((r.first_name||'')[0]||'') + ((r.last_name||'')[0]||'')"></span>
                                     <span class="min-w-0">
-                                        <span class="block truncate text-sm text-gray-800 dark:text-white/90" x-text="[r.first_name, r.middle_name, r.last_name].filter(Boolean).join(' ')"></span>
+                                        <span class="block truncate text-sm text-gray-800 dark:text-white/90" x-text="resultFullName(r)"></span>
                                         <span class="block truncate text-xs text-gray-400" x-text="r.user_email || ''"></span>
                                     </span>
                                 </button>

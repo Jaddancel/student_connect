@@ -10,12 +10,13 @@
  *    writes to DOM objects, x-html, unregistered x-data) — silently breaks the
  *    component. Expressions go through the real parser, then the AST is
  *    screened for the runtime-only failures.
- *  - :style bindings that are not objects (Alpine applies string styles with
- *    setAttribute('style'), which the CSP blocks).
- *  - inline style="" attributes and on*="" event handler attributes.
+ *  - on*="" event handler attributes.
  *  - inline <script>/<style> elements without @nonce.
- *  - style="" / on*="" inside HTML built by JavaScript (view <script> blocks
- *    and resources/js), which the CSP blocks once inserted.
+ *  - on*="" inside HTML built by JavaScript (view <script> blocks and
+ *    resources/js), which the CSP blocks once inserted.
+ *
+ * style="" attributes are allowed (the policy sets style-src-attr
+ * 'unsafe-inline'), so they are not reported.
  *
  * Usage: npm run check:csp [-- --verbose] [-- path/filter]
  */
@@ -221,9 +222,6 @@ function check(expr, attrName) {
     try {
         const ast = new Parser(new Tokenizer(source).tokenize()).parse();
         screen(ast, issues);
-        if ((attrName === ':style' || attrName === 'x-bind:style') && !isObjectStyle(ast)) {
-            issues.add('string :style is applied with setAttribute(\'style\') and blocked; bind an object, e.g. { width: pct + \'%\' }');
-        }
         const component = ast.type === 'CallExpression' ? ast.callee : ast;
         if (attrName === 'x-data' && component.type === 'Identifier' && !REGISTERED.has(component.name)) {
             issues.add(`x-data component "${component.name}" is not registered with Alpine.data()`);
@@ -233,9 +231,6 @@ function check(expr, attrName) {
     }
     return [...issues];
 }
-
-const isObjectStyle = (node) => node.type === 'ObjectExpression'
-    || (node.type === 'ConditionalExpression' && isObjectStyle(node.consequent) && isObjectStyle(node.alternate));
 
 const filters = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 const wanted = (file) => !filters.length || filters.some((f) => relative(ROOT, file).includes(f));
@@ -250,8 +245,8 @@ const report = (file, raw, pos, what, issues) => {
     issues.forEach((issue) => console.log(`    - ${issue}`));
 };
 
-// style=/on*= written into HTML strings by JavaScript.
-const JS_MARKUP = /(?:^|[\s"'`<])(style|on[a-z]{3,})\s*=\s*\\?["'`$]/g;
+// on*= event handlers written into HTML strings by JavaScript.
+const JS_MARKUP = /(?:^|[\s"'`<])(on[a-z]{3,})\s*=\s*\\?["'`$]/g;
 function checkScript(file, raw, code, offset) {
     for (const m of code.matchAll(JS_MARKUP)) {
         const lineStart = code.lastIndexOf('\n', m.index) + 1;
@@ -276,10 +271,6 @@ for (const file of walk(VIEWS)) {
             }
         }
         for (const attr of tag.attrs) {
-            if (attr.name === 'style') {
-                report(file, raw, attr.pos, `style="${attr.value ?? ''}"`, ['inline style="" attribute is blocked by the CSP; use classes or an object :style binding']);
-                continue;
-            }
             if (/^on[a-z]+$/i.test(attr.name) && attr.value != null && !tagName.startsWith('x-')) {
                 report(file, raw, attr.pos, `${attr.name}="${attr.value}"`, ['inline event handler is blocked by the CSP; use @event or addEventListener']);
                 continue;

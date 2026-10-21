@@ -75,7 +75,7 @@
                                             <a href="{{ route('superadmin.id-templates.edit', $template) }}"
                                                 class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Edit</a>
                                             <form method="POST" action="{{ route('superadmin.id-templates.destroy', $template) }}"
-                                                onsubmit="return confirm('Delete this ID template? This cannot be undone.')">
+                                                data-confirm="Delete this ID template? This cannot be undone.">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit"
@@ -92,4 +92,8 @@
         </div>
 
     </div>
+
+    <script @nonce>
+        if (!window.__csDataConfirmBound) { window.__csDataConfirmBound = true; document.addEventListener('submit', (e) => { const f = e.target; if (f instanceof HTMLFormElement && f.dataset.confirm !== undefined && !e.defaultPrevented && !confirm(f.dataset.confirm)) { e.preventDefault(); } }, true); }
+    </script>
 @endsection

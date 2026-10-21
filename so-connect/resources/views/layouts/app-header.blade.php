@@ -1,11 +1,6 @@
 <header
     class="sticky top-0 flex w-full bg-white border-gray-200 z-99999 dark:border-gray-800 dark:bg-gray-900 xl:border-b"
-    x-data="{
-        isApplicationMenuOpen: false,
-        toggleApplicationMenu() {
-            this.isApplicationMenuOpen = !this.isApplicationMenuOpen;
-        }
-    }">
+    x-data="appHeader">
     <div class="flex flex-col items-center justify-between grow xl:flex-row xl:px-6">
         <div
             class="flex items-center justify-between w-full gap-2 px-3 py-3 border-b border-gray-200 dark:border-gray-800 sm:gap-4 xl:justify-normal xl:border-b-0 xl:px-0 lg:py-4">
@@ -50,8 +45,10 @@
 
             <!-- Logo (mobile only) -->
             <a href="{{ route('dashboard') }}" class="xl:hidden">
-                <img class="dark:hidden" src="/images/logo/logo.svg" alt="Logo" width="120" height="32" />
-                <img class="hidden dark:block" src="/images/logo/logo-dark.svg" alt="Logo" width="120" height="32" />
+                <img class="dark:hidden" src="/images/brand/student-organization-logo.svg" alt="Student Connect"
+                    width="120" height="42" />
+                <img class="hidden dark:block dark:rounded dark:bg-white"
+                    src="/images/brand/student-organization-logo.svg" alt="Student Connect" width="120" height="42" />
             </a>
 
             <!-- Application Menu Toggle (mobile only) -->
@@ -67,63 +64,7 @@
 
             <!-- Search Bar (desktop only) -->
             <div class="hidden xl:block"
-                x-data="{
-                    query: '',
-                    results: [],
-                    open: false,
-                    loading: false,
-                    activeIndex: -1,
-                    async search() {
-                        if (this.query.trim().length < 1) {
-                            this.results = [];
-                            this.open = false;
-                            return;
-                        }
-                        this.loading = true;
-                        try {
-                            const res = await fetch(`/api/dashboard-search?q=${encodeURIComponent(this.query)}`);
-                            this.results = await res.json();
-                            this.open = this.results.length > 0;
-                            this.activeIndex = -1;
-                        } catch (e) {
-                            this.results = [];
-                        }
-                        this.loading = false;
-                    },
-                    navigate(path) {
-                        this.open = false;
-                        this.query = '';
-                        this.results = [];
-                        window.location = path;
-                    },
-                    moveDown() {
-                        if (!this.open) return;
-                        this.activeIndex = (this.activeIndex + 1) % this.results.length;
-                    },
-                    moveUp() {
-                        if (!this.open) return;
-                        this.activeIndex = this.activeIndex <= 0 ? this.results.length - 1 : this.activeIndex - 1;
-                    },
-                    select() {
-                        if (this.activeIndex >= 0 && this.results[this.activeIndex]) {
-                            this.navigate(this.results[this.activeIndex].path);
-                        }
-                    },
-                    close() {
-                        this.open = false;
-                        this.activeIndex = -1;
-                    },
-                    categoryColor(cat) {
-                        const map = {
-                            'General': 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
-                            'Account': 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',
-                            'Forms': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
-                            'Admin': 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
-                            'Superadmin': 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300',
-                        };
-                        return map[cat] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
-                    }
-                }"
+                x-data="appHeaderSearch"
                 @keydown.window.meta.k.prevent="$refs.searchInput.focus()"
                 @click.outside="close()">
                 <div class="relative">

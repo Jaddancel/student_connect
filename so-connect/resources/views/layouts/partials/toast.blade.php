@@ -1,7 +1,7 @@
 {{-- Generic top-right toast: $store.toast.open('Saved!') or .open(msg, 'error').
      Also auto-opens when a controller flashed session('toast') before a
      redirect, so full-page navigations can confirm a save too. --}}
-<script>
+<script @nonce>
     document.addEventListener('alpine:init', () => {
         Alpine.store('toast', {
             show: false,

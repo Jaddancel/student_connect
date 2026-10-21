@@ -3,20 +3,7 @@
     $notifications = $authUser ? \App\Helpers\NotificationBellHelper::buildForUser($authUser, 24) : collect();
 @endphp
 
-<div class="relative" x-data="{
-    dropdownOpen: false,
-    notifying: {{ $notifications->isNotEmpty() ? 'true' : 'false' }},
-    toggleDropdown() {
-        this.dropdownOpen = !this.dropdownOpen;
-        this.notifying = false;
-    },
-    closeDropdown() {
-        this.dropdownOpen = false;
-    },
-    handleItemClick() {
-        this.closeDropdown();
-    }
-}" @click.away="closeDropdown()">
+<div class="relative" x-data="headerNotificationDropdown({ notifying: @js($notifications->isNotEmpty()) })" @click.away="closeDropdown()">
     <button
         class="relative flex items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full hover:text-dark-900 h-11 w-11 hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
         @click="toggleDropdown()" type="button">

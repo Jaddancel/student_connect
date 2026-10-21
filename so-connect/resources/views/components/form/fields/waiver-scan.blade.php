@@ -33,7 +33,7 @@
     })" class="space-y-4">
 
     <template x-for="(entry, index) in items" :key="entry.id">
-        <div x-data="waiverScanItem(entry.initialValue, { scanUrl, csrf, template, expected })"
+        <div x-data="waiverScanItem(entry.initialValue, { scanUrl: scanUrl, csrf: csrf, template: template, expected: expected })"
             class="relative rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03]">
             <div class="mb-3 flex items-center justify-between">
                 <h3 class="text-base font-semibold text-gray-800 dark:text-white/90" x-text="'Waiver ' + (index + 1)"></h3>

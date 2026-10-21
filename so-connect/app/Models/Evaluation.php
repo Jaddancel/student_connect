@@ -17,21 +17,22 @@ class Evaluation extends Model
         'description',
         'author',
         'score',
+        'evaluated_at',
     ];
 
     protected $primaryKey = 'evaluation_id';
 
     public function authorOfEvaluation()
     {
-        return $this->belongsTo(Officer::class, 'author', 'officer_id');
+        return $this->belongsTo(Officer::class, 'author', 'org_officer_id');
     }
 
     public $timestamps = false;
 
-    public function casts()
+    protected function casts(): array
     {
         return [
-            'evaluated_at' => 'dateTime',
+            'evaluated_at' => 'datetime',
         ];
     }
 }

@@ -1,35 +1,7 @@
 <x-common.component-card title="Dropzone">
     <!-- Dropzone -->
     <div 
-        x-data="{
-            isDragging: false,
-            files: [],
-            handleDrop(e) {
-                this.isDragging = false;
-                const droppedFiles = Array.from(e.dataTransfer.files);
-                this.handleFiles(droppedFiles);
-            },
-            handleFiles(selectedFiles) {
-                const validTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
-                const validFiles = selectedFiles.filter(file => validTypes.includes(file.type));
-                
-                if (validFiles.length > 0) {
-                    this.files = [...this.files, ...validFiles];
-                    console.log('Files uploaded:', validFiles);
-                    
-                    // Here you can add logic to upload files to server
-                    this.uploadFiles(validFiles);
-                }
-            },
-            uploadFiles(files) {
-                // Implement your file upload logic here
-                // Example: Use FormData and fetch/axios to upload
-                console.log('Uploading files:', files);
-            },
-            removeFile(index) {
-                this.files.splice(index, 1);
-            }
-        }"
+        x-data="formDemoDropzone()"
         class="transition border border-gray-300 border-dashed cursor-pointer dark:hover:border-brand-500 dark:border-gray-700 rounded-xl hover:border-brand-500"
     >
         <div 
@@ -47,7 +19,7 @@
             <input 
                 x-ref="fileInput"
                 type="file" 
-                @change="handleFiles(Array.from($event.target.files)); $event.target.value = ''"
+                @change="onFileInputChange($event)"
                 accept="image/png,image/jpeg,image/webp,image/svg+xml"
                 multiple
                 class="hidden"

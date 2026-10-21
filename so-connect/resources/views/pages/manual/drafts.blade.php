@@ -85,7 +85,7 @@
                                             @elseif ($draft->partial_pdf_path || $draft->documents->first()?->partial_pdf_path)
                                                 <a href="{{ route('manual.download', $draft) }}" target="_blank" rel="noopener" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">PDF</a>
                                             @endif
-                                            <form method="post" action="{{ route('manual.destroy', $draft) }}" onsubmit="return confirm('Delete this draft?');">
+                                            <form method="post" action="{{ route('manual.destroy', $draft) }}" data-confirm="Delete this draft?">
                                                 @csrf @method('DELETE')
                                                 <button type="submit" class="rounded-lg border border-error-300 px-3 py-1.5 text-xs font-medium text-error-600 transition hover:bg-error-50 dark:border-error-600 dark:text-error-400">Delete</button>
                                             </form>

@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\ProjectRequestController;
 use App\Http\Controllers\Admin\RecognitionRequestController;
 use App\Http\Controllers\Admin\RequestRecordController;
 use App\Http\Controllers\Admin\SemesterController;
+use App\Http\Controllers\Admin\StudentRankingController;
 use App\Http\Controllers\Admin\WorkplanRequestController;
 use App\Http\Controllers\Auth\GoogleLinkController;
 use App\Http\Controllers\Auth\InvitationController;
@@ -46,6 +47,7 @@ use App\Http\Controllers\PromotionRequestsPageController;
 use App\Http\Controllers\RequestDecisionController;
 use App\Http\Controllers\SidebarMenuController;
 use App\Http\Controllers\SuperAdminController;
+use App\Http\Controllers\SupportTicketController;
 use App\Http\Controllers\WorkplanController;
 use App\Http\Resources\ActionRequestResource;
 use App\Http\Resources\ApprovalResource;
@@ -151,7 +153,9 @@ Route::get('/org-suspended', function () {
 
 // Auth pages.
 
-Route::get('/login', fn () => redirect(route('home').'#auth'))->name('login');
+Route::get('/login', fn () => view('pages.auth.signin', ['title' => 'Sign In']))
+    ->middleware('guest')
+    ->name('login');
 
 // calender pages
 Route::get('/calendar', function () {
@@ -382,8 +386,10 @@ Route::get('/forms/{routeName}/blank-pdf', [FormBlankPdfController::class, 'show
     ->middleware('track.download:blank_form')
     ->name('forms.blank-pdf');
 Route::get('/forms/{routeName}', [FormRenderController::class, 'show'])->name('forms.render');
+// Rate-limited inside FormRenderController::submit() (20/min), not via
+// throttle middleware — see the comment there.
 Route::post('/forms/{routeName}', [FormRenderController::class, 'submit'])
-    ->middleware('throttle:20,1')->name('forms.render.submit');
+    ->name('forms.render.submit');
 
 // Manual-filling sessions ("drafts"): start freezes the exact partial PDF, then
 // the completed scan is uploaded and parsed. These live outside the auth group
@@ -512,6 +518,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->name('admin.scoring.index');
     Route::get('/admin/scoring/rankings', [OrganizationScoringController::class, 'rankings'])
         ->name('admin.scoring.rankings');
+    Route::get('/admin/scoring/student-rankings', [StudentRankingController::class, 'index'])
+        ->name('admin.student-rankings.index');
+    Route::post('/admin/scoring/student-rankings/evaluations', [StudentRankingController::class, 'store'])
+        ->name('admin.student-rankings.store');
     Route::get('/admin/scoring/create', [OrganizationScoringController::class, 'create'])
         ->name('admin.scoring.create');
     Route::post('/admin/scoring', [OrganizationScoringController::class, 'store'])
@@ -930,7 +940,7 @@ Route::get('/bar-chart', function () {
 })->name('bar-chart');
 
 // authentication pages
-Route::get('/signin', fn () => redirect()->route('home'))->name('signin');
+Route::get('/signin', fn () => redirect()->route('login'))->name('signin');
 
 // Public sign-up: redirects to the "Sign Up" system-function form (the seeded
 // Directory of Student Officers), forwarding the landing-page Google popup's
@@ -1272,6 +1282,22 @@ Route::get('/id-scan/retry/{side}', [IdScanController::class, 'retryPhoto'])
 // because each call occupies the single local GPU for several seconds.
 Route::post('/assistant/chat', [\App\Http\Controllers\AssistantController::class, 'chat'])
     ->middleware(['auth', 'throttle:20,1'])->name('assistant.chat');
+
+// Assistant hand-off: users can submit the current conversation to the
+// support queue and continue the resulting ticket thread.
+Route::middleware('auth')->group(function () {
+    Route::get('/support-tickets', [SupportTicketController::class, 'index'])->name('support-tickets.index');
+    Route::post('/support-tickets', [SupportTicketController::class, 'store'])
+        ->middleware('throttle:10,1')->name('support-tickets.store');
+    Route::get('/support-tickets/{ticket}', [SupportTicketController::class, 'show'])->name('support-tickets.show');
+    Route::post('/support-tickets/{ticket}/reply', [SupportTicketController::class, 'reply'])
+        ->middleware('throttle:20,1')->name('support-tickets.reply');
+});
+
+Route::middleware(['auth', 'admin.or.superadmin'])->group(function () {
+    Route::get('/admin/support-tickets', [SupportTicketController::class, 'adminIndex'])->name('admin.support-tickets.index');
+    Route::patch('/admin/support-tickets/{ticket}', [SupportTicketController::class, 'update'])->name('admin.support-tickets.update');
+});
 
 // ── OnlyOffice Document Server callbacks ────────────────────────────────────
 // Deliberately outside the session-authenticated area: the callers are the

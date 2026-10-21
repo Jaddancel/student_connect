@@ -107,7 +107,7 @@
                                                     </button>
                                                 </form>
                                                 <form method="POST" action="{{ route('admin.scoring.rules.destroy', $criterion) }}"
-                                                    onsubmit="return confirm('Remove this trigger? The criterion will not be tallied until you add a new one.');">
+                                                    data-confirm="Remove this trigger? The criterion will not be tallied until you add a new one.">
                                                     @csrf @method('DELETE')
                                                     <button type="submit"
                                                         class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">
@@ -117,7 +117,7 @@
                                             @endif
                                             @unless ($criterion->is_system)
                                                 <form method="POST" action="{{ route('admin.scoring.criteria.destroy', $criterion) }}"
-                                                    onsubmit="return confirm('Delete this custom criterion (and its trigger)?');">
+                                                    data-confirm="Delete this custom criterion (and its trigger)?">
                                                     @csrf @method('DELETE')
                                                     <button type="submit"
                                                         class="rounded-lg border border-error-300 px-3 py-1.5 text-xs font-medium text-error-600 transition hover:bg-error-50 dark:border-error-500/40 dark:hover:bg-error-500/10">
@@ -139,4 +139,7 @@
             </div>
         @endforeach
     </div>
+    <script @nonce>
+        if (!window.__csDataConfirmBound) { window.__csDataConfirmBound = true; document.addEventListener('submit', (e) => { const f = e.target; if (f instanceof HTMLFormElement && f.dataset.confirm !== undefined && !e.defaultPrevented && !confirm(f.dataset.confirm)) { e.preventDefault(); } }, true); }
+    </script>
 @endsection

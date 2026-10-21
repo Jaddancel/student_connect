@@ -215,6 +215,11 @@ export function idScanWizard(config = {}) {
             this.scanNote = '';
         },
 
+        // "Upload instead": open the file picker for the side being scanned.
+        pickUploadForSide() {
+            document.getElementById(this.scanSide === 'back' ? 'id_photo_back' : 'id_photo_front').click();
+        },
+
         // --- camera ---
         async startCamera() {
             this.cameraError = '';

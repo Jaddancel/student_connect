@@ -54,6 +54,9 @@ final class ReportDefinitionValidator
     /** A semesters parameter that is the current semester unless another is picked. */
     public const DEFAULT_CURRENT_SEMESTER = 'current_semester';
 
+    /** A school-years parameter that defaults to the current academic year. */
+    public const DEFAULT_CURRENT_SCHOOL_YEAR = 'current_school_year';
+
     private const NAME_PATTERN = '/^[a-z][a-z0-9_]*$/';
 
     /** Names reserved for the universal/system token namespaces. */
@@ -146,6 +149,13 @@ final class ReportDefinitionValidator
                             $normalized['default'] = self::DEFAULT_CURRENT_SEMESTER;
                         } else {
                             $this->errors[] = $label.': only a semesters parameter can default to the current semester.';
+                        }
+                    }
+                    if (($param['default'] ?? null) === self::DEFAULT_CURRENT_SCHOOL_YEAR) {
+                        if ($entity === AccreditationReportSources::SCHOOL_YEARS) {
+                            $normalized['default'] = self::DEFAULT_CURRENT_SCHOOL_YEAR;
+                        } else {
+                            $this->errors[] = $label.': only a school-years parameter can default to the current school year.';
                         }
                     }
                 }

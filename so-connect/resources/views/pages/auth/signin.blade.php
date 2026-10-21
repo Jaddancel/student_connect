@@ -1,190 +1,137 @@
 @extends('layouts.fullscreen-layout')
 
 @section('content')
-    <div class="relative z-1 bg-white p-6 sm:p-0 dark:bg-gray-900">
-        <div class="relative flex h-screen w-full flex-col justify-center sm:p-0 lg:flex-row dark:bg-gray-900">
-            <!-- Form -->
-            <div class="flex w-full flex-1 flex-col lg:w-1/2">
-                <div class="mx-auto flex w-full max-w-md flex-1 flex-col justify-center">
-                    <div>
-                        <div class="mb-5 sm:mb-8">
-                            <h1 class="text-title-sm sm:text-title-md mb-2 font-semibold text-gray-800 dark:text-white/90">
-                                Sign In
-                            </h1>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">
-                                Enter your email and password to sign in!
-                            </p>
+    <main class="min-h-screen bg-slate-50 dark:bg-gray-950 lg:grid lg:grid-cols-[1.05fr_0.95fr]">
+        <section class="relative hidden min-h-screen overflow-hidden lg:flex lg:flex-col lg:justify-between">
+            <img src="{{ asset('images/landing/BG1.jpg') }}" alt="Tarlac Agricultural University campus community" class="absolute inset-0 h-full w-full object-cover">
+            <div class="absolute inset-0 bg-gradient-to-br from-[#10271d]/95 via-[#1a3c2e]/90 to-[#2d6a4f]/80"></div>
+            <div class="absolute -left-24 top-1/3 h-80 w-80 rounded-full border border-amber-300/15"></div>
+            <div class="absolute -left-10 top-1/3 h-56 w-56 rounded-full border border-amber-300/20"></div>
+
+            <a href="{{ route('home') }}" class="relative z-10 m-10 inline-flex w-fit items-center gap-3 text-white">
+                <span class="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-300/40 bg-white/10 text-sm font-bold text-amber-300 backdrop-blur">SO</span>
+                <span><strong class="block text-base tracking-wide">SO Connect</strong><small class="text-white/60">Tarlac Agricultural University</small></span>
+            </a>
+
+            <div class="relative z-10 max-w-xl px-12 pb-12 xl:px-16 xl:pb-16">
+                <p class="mb-5 text-xs font-semibold uppercase tracking-[0.3em] text-amber-300">One connected campus</p>
+                <h1 class="text-4xl font-semibold leading-tight text-white xl:text-5xl">Lead, organize, and grow your student community.</h1>
+                <p class="mt-6 max-w-lg text-base leading-7 text-white/70">Manage organization records, activity requests, documents, and campus participation through one secure platform.</p>
+                <div class="mt-8 grid grid-cols-3 gap-3 text-sm text-white/70">
+                    <div class="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur"><strong class="block text-white">Discover</strong>Organizations</div>
+                    <div class="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur"><strong class="block text-white">Plan</strong>Activities</div>
+                    <div class="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur"><strong class="block text-white">Connect</strong>Students</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8 lg:px-12">
+            <div class="w-full max-w-md">
+                <div class="mb-8 flex items-center justify-between lg:hidden">
+                    <a href="{{ route('home') }}" class="flex items-center gap-3 text-gray-900 dark:text-white">
+                        <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1a3c2e] text-xs font-bold text-amber-300">SO</span>
+                        <strong>SO Connect</strong>
+                    </a>
+                </div>
+
+                <a href="{{ route('home') }}" class="mb-8 hidden w-fit items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-[#2d6a4f] lg:inline-flex dark:text-gray-400">
+                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12.5 15 7.5 10l5-5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                    Back to public site
+                </a>
+
+                <div class="rounded-3xl border border-gray-200 bg-white p-6 shadow-xl shadow-slate-200/60 sm:p-8 dark:border-gray-800 dark:bg-gray-900 dark:shadow-none">
+                    <div class="mb-7">
+                        <span class="mb-4 block h-1 w-10 rounded-full bg-amber-400"></span>
+                        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white">Welcome back</h2>
+                        <p class="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">Sign in with your registered SO Connect account.</p>
+                    </div>
+
+                    @if ($errors->has('user_email'))
+                        <div role="alert" class="mb-5 flex items-start gap-3 rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
+                            <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 0 0-1.5 0v4a.75.75 0 0 0 1.5 0v-4ZM10 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" /></svg>
+                            <span>{{ $errors->first('user_email') }}</span>
                         </div>
+                    @endif
+
+                    <form action="{{ url('/login') }}" method="POST" class="space-y-5">
+                        @csrf
                         <div>
-                            {{-- <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5">
-                                <button
-                                    class="inline-flex items-center justify-center gap-3 rounded-lg bg-gray-100 px-7 py-3 text-sm font-normal text-gray-700 transition-colors hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
-                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"
-                                        xmlns="http://www.w3.org/2000/svg">
-                                        <path
-                                            d="M18.7511 10.1944C18.7511 9.47495 18.6915 8.94995 18.5626 8.40552H10.1797V11.6527H15.1003C15.0011 12.4597 14.4654 13.675 13.2749 14.4916L13.2582 14.6003L15.9087 16.6126L16.0924 16.6305C17.7788 15.1041 18.7511 12.8583 18.7511 10.1944Z"
-                                            fill="#4285F4" />
-                                        <path
-                                            d="M10.1788 18.75C12.5895 18.75 14.6133 17.9722 16.0915 16.6305L13.274 14.4916C12.5201 15.0068 11.5081 15.3666 10.1788 15.3666C7.81773 15.3666 5.81379 13.8402 5.09944 11.7305L4.99473 11.7392L2.23868 13.8295L2.20264 13.9277C3.67087 16.786 6.68674 18.75 10.1788 18.75Z"
-                                            fill="#34A853" />
-                                        <path
-                                            d="M5.10014 11.7305C4.91165 11.186 4.80257 10.6027 4.80257 9.99992C4.80257 9.3971 4.91165 8.81379 5.09022 8.26935L5.08523 8.1534L2.29464 6.02954L2.20333 6.0721C1.5982 7.25823 1.25098 8.5902 1.25098 9.99992C1.25098 11.4096 1.5982 12.7415 2.20333 13.9277L5.10014 11.7305Z"
-                                            fill="#FBBC05" />
-                                        <path
-                                            d="M10.1789 4.63331C11.8554 4.63331 12.9864 5.34303 13.6312 5.93612L16.1511 3.525C14.6035 2.11528 12.5895 1.25 10.1789 1.25C6.68676 1.25 3.67088 3.21387 2.20264 6.07218L5.08953 8.26943C5.81381 6.15972 7.81776 4.63331 10.1789 4.63331Z"
-                                            fill="#EB4335" />
-                                    </svg>
-                                    Sign in with Google
-                                </button>
-                                <button
-                                    class="inline-flex items-center justify-center gap-3 rounded-lg bg-gray-100 px-7 py-3 text-sm font-normal text-gray-700 transition-colors hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
-                                    <svg width="21" class="fill-current" height="20" viewBox="0 0 21 20"
-                                        fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path
-                                            d="M15.6705 1.875H18.4272L12.4047 8.75833L19.4897 18.125H13.9422L9.59717 12.4442L4.62554 18.125H1.86721L8.30887 10.7625L1.51221 1.875H7.20054L11.128 7.0675L15.6705 1.875ZM14.703 16.475H16.2305L6.37054 3.43833H4.73137L14.703 16.475Z" />
-                                    </svg>
-
-                                    Sign in with X
-                                </button>
-                            </div> --}}
-                            {{-- <div class="relative py-3 sm:py-5">
-                                <div class="absolute inset-0 flex items-center">
-                                    <div class="w-full border-t border-gray-200 dark:border-gray-800"></div>
-                                </div>
-                                <div class="relative flex justify-center text-sm">
-                                    <span class="bg-white p-2 text-gray-400 sm:px-5 sm:py-2 dark:bg-gray-900">Or</span>
-                                </div>
-                            </div> --}}
-                            <form action="/login" method="post">
-                                @csrf
-                                <div class="space-y-5">
-
-                                    @if ($errors->has('user_email'))
-                                        <div class="flex items-start gap-3 rounded-lg border border-error-300 bg-error-50 px-4 py-3 dark:border-error-500/40 dark:bg-error-500/10">
-                                            <svg class="mt-0.5 h-4 w-4 shrink-0 text-error-500 dark:text-error-400" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fill-rule="evenodd" clip-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-11.25a.75.75 0 011.5 0v4a.75.75 0 01-1.5 0v-4zm.75 7a1 1 0 100-2 1 1 0 000 2z" />
-                                            </svg>
-                                            <p class="text-sm text-error-700 dark:text-error-400">
-                                                {{ $errors->first('user_email') }}
-                                            </p>
-                                        </div>
-                                    @endif
-
-                                    <!-- Email -->
-                                    <div>
-                                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                                            Email<span class="text-error-500">*</span>
-                                        </label>
-                                        <input type="email" id="email" name="user_email" placeholder="info@gmail.com"
-                                            value="{{ old('user_email') }}"
-                                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 {{ $errors->has('user_email') ? 'border-error-400 dark:border-error-500' : 'border-gray-300 dark:border-gray-700' }}" />
-                                    </div>
-                                    <!-- Password -->
-                                    <div>
-                                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                                            Password<span class="text-error-500">*</span>
-                                        </label>
-                                        <div x-data="{ showPassword: false, capsLock: false, focused: false }" class="relative">
-                                            <input :type="showPassword ? 'text' : 'password'" name="user_password"
-                                                placeholder="Enter your password"
-                                                @keydown="capsLock = $event.getModifierState('CapsLock')"
-                                                @keyup="capsLock = $event.getModifierState('CapsLock')"
-                                                @focus="focused = true; capsLock = $event.getModifierState('CapsLock')"
-                                                @blur="focused = false"
-                                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pr-11 pl-4 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
-                                            <span @click="showPassword = !showPassword"
-                                                class="absolute top-1/2 right-4 z-30 -translate-y-1/2 cursor-pointer text-gray-500 dark:text-gray-400">
-                                                <svg x-show="!showPassword" class="fill-current" width="20"
-                                                    height="20" viewBox="0 0 20 20" fill="none"
-                                                    xmlns="http://www.w3.org/2000/svg">
-                                                    <path fill-rule="evenodd" clip-rule="evenodd"
-                                                        d="M10.0002 13.8619C7.23361 13.8619 4.86803 12.1372 3.92328 9.70241C4.86804 7.26761 7.23361 5.54297 10.0002 5.54297C12.7667 5.54297 15.1323 7.26762 16.0771 9.70243C15.1323 12.1372 12.7667 13.8619 10.0002 13.8619ZM10.0002 4.04297C6.48191 4.04297 3.49489 6.30917 2.4155 9.4593C2.3615 9.61687 2.3615 9.78794 2.41549 9.94552C3.49488 13.0957 6.48191 15.3619 10.0002 15.3619C13.5184 15.3619 16.5055 13.0957 17.5849 9.94555C17.6389 9.78797 17.6389 9.6169 17.5849 9.45932C16.5055 6.30919 13.5184 4.04297 10.0002 4.04297ZM9.99151 7.84413C8.96527 7.84413 8.13333 8.67606 8.13333 9.70231C8.13333 10.7286 8.96527 11.5605 9.99151 11.5605H10.0064C11.0326 11.5605 11.8646 10.7286 11.8646 9.70231C11.8646 8.67606 11.0326 7.84413 10.0064 7.84413H9.99151Z"
-                                                        fill="#98A2B3" />
-                                                </svg>
-                                                <svg x-show="showPassword" class="fill-current" width="20"
-                                                    height="20" viewBox="0 0 20 20" fill="none"
-                                                    xmlns="http://www.w3.org/2000/svg">
-                                                    <path fill-rule="evenodd" clip-rule="evenodd"
-                                                        d="M4.63803 3.57709C4.34513 3.2842 3.87026 3.2842 3.57737 3.57709C3.28447 3.86999 3.28447 4.34486 3.57737 4.63775L4.85323 5.91362C3.74609 6.84199 2.89363 8.06395 2.4155 9.45936C2.3615 9.61694 2.3615 9.78801 2.41549 9.94558C3.49488 13.0957 6.48191 15.3619 10.0002 15.3619C11.255 15.3619 12.4422 15.0737 13.4994 14.5598L15.3625 16.4229C15.6554 16.7158 16.1302 16.7158 16.4231 16.4229C16.716 16.13 16.716 15.6551 16.4231 15.3622L4.63803 3.57709ZM12.3608 13.4212L10.4475 11.5079C10.3061 11.5423 10.1584 11.5606 10.0064 11.5606H9.99151C8.96527 11.5606 8.13333 10.7286 8.13333 9.70237C8.13333 9.5461 8.15262 9.39434 8.18895 9.24933L5.91885 6.97923C5.03505 7.69015 4.34057 8.62704 3.92328 9.70247C4.86803 12.1373 7.23361 13.8619 10.0002 13.8619C10.8326 13.8619 11.6287 13.7058 12.3608 13.4212ZM16.0771 9.70249C15.7843 10.4569 15.3552 11.1432 14.8199 11.7311L15.8813 12.7925C16.6329 11.9813 17.2187 11.0143 17.5849 9.94561C17.6389 9.78803 17.6389 9.61696 17.5849 9.45938C16.5055 6.30925 13.5184 4.04303 10.0002 4.04303C9.13525 4.04303 8.30244 4.17999 7.52218 4.43338L8.75139 5.66259C9.1556 5.58413 9.57311 5.54303 10.0002 5.54303C12.7667 5.54303 15.1323 7.26768 16.0771 9.70249Z"
-                                                        fill="#98A2B3" />
-                                                </svg>
-                                            </span>
-                                            <p x-show="capsLock && !showPassword && focused"
-                                                x-transition:enter="transition ease-out duration-150"
-                                                x-transition:enter-start="opacity-0 -translate-y-1"
-                                                x-transition:enter-end="opacity-100 translate-y-0"
-                                                x-transition:leave="transition ease-in duration-100"
-                                                x-transition:leave-start="opacity-100 translate-y-0"
-                                                x-transition:leave-end="opacity-0 -translate-y-1"
-                                                class="mt-1.5 flex items-center gap-1.5 text-xs text-amber-500 dark:text-amber-400">
-                                                <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                                                </svg>
-                                                Caps Lock is on
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <!-- Forgot password -->
-                                    <div class="flex items-center justify-end">
-                                        <a href="/reset-password"
-                                            class="text-brand-500 hover:text-brand-600 dark:text-brand-400 text-sm">
-                                            Forgot password?
-                                        </a>
-                                    </div>
-                                    <!-- Button -->
-                                    <div>
-                                        <button
-                                            class="bg-brand-500 shadow-theme-xs hover:bg-brand-600 flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-medium text-white transition">
-                                            Sign In
-                                        </button>
-                                    </div>
-                                </div>
-                            </form>
-                            <div class="mt-5">
-                                <p class="text-center text-sm font-normal text-gray-700 sm:text-start dark:text-gray-400">
-                                    Don't have an account?
-                                    <a href="/signup" class="text-brand-500 hover:text-brand-600 dark:text-brand-400">Sign
-                                        Up</a>
-                                </p>
-                            </div>
+                            <label for="login-email" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Email address</label>
+                            <input id="login-email" type="email" name="user_email" value="{{ old('user_email') }}" required autofocus autocomplete="email" placeholder="you@example.com"
+                                class="h-12 w-full rounded-xl border border-gray-300 bg-transparent px-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#2d6a4f] focus:ring-4 focus:ring-emerald-600/10 dark:border-gray-700 dark:text-white">
                         </div>
-                    </div>
-                </div>
-            </div>
 
-            <div class="bg-brand-950 relative hidden h-full w-full items-center lg:grid lg:w-1/2 dark:bg-white/5">
-                <div class="z-1 flex items-center justify-center">
-                    <!-- ===== Common Grid Shape Start ===== -->
-                    <x-common.common-grid-shape />
-                    <div class="flex max-w-xs flex-col items-center">
-                        <a href="/" class="mb-4 block">
-                            <img src="./images/logo/auth-logo.svg" alt="Logo" />
-                        </a>
-                        <p class="text-center text-gray-400 dark:text-white/60">
-                            Free and Open-Source Tailwind CSS Admin Dashboard Template
-                        </p>
+                        <div x-data="{ showPassword: false, capsLock: false }">
+                            <label for="login-password" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+                            <div class="relative">
+                                <input id="login-password" :type="showPassword ? 'text' : 'password'" name="user_password" required autocomplete="current-password" placeholder="Enter your password"
+                                    @keydown="capsLock = $event.getModifierState('CapsLock')" @keyup="capsLock = $event.getModifierState('CapsLock')"
+                                    class="h-12 w-full rounded-xl border border-gray-300 bg-transparent px-4 pr-12 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#2d6a4f] focus:ring-4 focus:ring-emerald-600/10 dark:border-gray-700 dark:text-white">
+                                <button type="button" @click="showPassword = !showPassword" class="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800" :aria-label="showPassword ? 'Hide password' : 'Show password'">
+                                    <svg x-show="!showPassword" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                                    <svg x-show="showPassword" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 3 18 18M10.6 6.15A8.9 8.9 0 0 1 12 6c6 0 9.5 6 9.5 6a15.8 15.8 0 0 1-2.1 2.75M6.2 6.2C3.85 7.8 2.5 12 2.5 12s3.5 6 9.5 6c1.5 0 2.85-.38 4.02-.96M9.9 9.9a3 3 0 0 0 4.2 4.2" stroke-linecap="round"/></svg>
+                                </button>
+                            </div>
+                            <p x-show="capsLock" class="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">Caps Lock is on.</p>
+                        </div>
+
+                        <button type="submit" class="flex h-12 w-full items-center justify-center rounded-xl bg-[#1a3c2e] px-4 text-sm font-semibold text-white transition hover:bg-[#2d6a4f] focus:outline-none focus:ring-4 focus:ring-emerald-700/20">Sign in securely</button>
+                    </form>
+
+                    <div class="my-6 flex items-center gap-3"><span class="h-px flex-1 bg-gray-200 dark:bg-gray-800"></span><span class="text-xs text-gray-400">New to SO Connect?</span><span class="h-px flex-1 bg-gray-200 dark:bg-gray-800"></span></div>
+
+                    <div class="space-y-3">
+                        <button type="button" id="signup-google-btn" data-configured="{{ \App\Http\Controllers\Auth\GoogleLinkController::isConfigured() ? '1' : '0' }}" data-redirect-url="{{ route('admin.accounts.google.redirect') }}" data-signup-url="{{ route('signup') }}"
+                            class="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800">
+                            <svg class="h-4 w-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M21.35 12.27c0-.79-.07-1.55-.2-2.27H12v4.3h5.23a4.47 4.47 0 0 1-1.94 2.93v2.79h3.14c1.84-1.69 2.92-4.19 2.92-7.75Z"/><path fill="#34A853" d="M12 21.75c2.63 0 4.84-.87 6.43-2.36l-3.14-2.43c-.87.58-1.98.92-3.29.92-2.54 0-4.69-1.72-5.46-4.03H3.3v2.88A9.72 9.72 0 0 0 12 21.75Z"/><path fill="#FBBC05" d="M6.54 13.85A5.84 5.84 0 0 1 6.23 12c0-.64.11-1.27.31-1.85V7.27H3.3A9.72 9.72 0 0 0 2.25 12c0 1.71.41 3.33 1.05 4.73l3.24-2.88Z"/><path fill="#EA4335" d="M12 6.12c1.43 0 2.71.49 3.72 1.45l2.78-2.78A9.35 9.35 0 0 0 12 2.25a9.72 9.72 0 0 0-8.7 5.02l3.24 2.88C7.31 7.84 9.46 6.12 12 6.12Z"/></svg>
+                            Register with Google
+                        </button>
+                        <p id="signup-google-status" class="hidden text-center text-xs text-gray-500 dark:text-gray-400"></p>
+                        <a href="{{ route('signup') }}" class="flex h-11 w-full items-center justify-center rounded-xl border border-[#2d6a4f] text-sm font-semibold text-[#2d6a4f] transition hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10">Register as a student officer</a>
                     </div>
                 </div>
+
+                <p class="mt-6 text-center text-xs leading-5 text-gray-400">Authorized student leaders and administrators only. Account activity may be recorded for security.</p>
             </div>
-            <!-- Toggler -->
-            <div class="fixed right-6 bottom-6 z-50">
-                <button
-                    class="bg-brand-500 hover:bg-brand-600 inline-flex size-14 items-center justify-center rounded-full text-white transition-colors"
-                    @click.prevent="$store.theme.toggle()">
-                    <svg class="hidden fill-current dark:block" width="20" height="20" viewBox="0 0 20 20"
-                        fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path fill-rule="evenodd" clip-rule="evenodd"
-                            d="M9.99998 1.5415C10.4142 1.5415 10.75 1.87729 10.75 2.2915V3.5415C10.75 3.95572 10.4142 4.2915 9.99998 4.2915C9.58577 4.2915 9.24998 3.95572 9.24998 3.5415V2.2915C9.24998 1.87729 9.58577 1.5415 9.99998 1.5415ZM10.0009 6.79327C8.22978 6.79327 6.79402 8.22904 6.79402 10.0001C6.79402 11.7712 8.22978 13.207 10.0009 13.207C11.772 13.207 13.2078 11.7712 13.2078 10.0001C13.2078 8.22904 11.772 6.79327 10.0009 6.79327ZM5.29402 10.0001C5.29402 7.40061 7.40135 5.29327 10.0009 5.29327C12.6004 5.29327 14.7078 7.40061 14.7078 10.0001C14.7078 12.5997 12.6004 14.707 10.0009 14.707C7.40135 14.707 5.29402 12.5997 5.29402 10.0001ZM15.9813 5.08035C16.2742 4.78746 16.2742 4.31258 15.9813 4.01969C15.6884 3.7268 15.2135 3.7268 14.9207 4.01969L14.0368 4.90357C13.7439 5.19647 13.7439 5.67134 14.0368 5.96423C14.3297 6.25713 14.8045 6.25713 15.0974 5.96423L15.9813 5.08035ZM18.4577 10.0001C18.4577 10.4143 18.1219 10.7501 17.7077 10.7501H16.4577C16.0435 10.7501 15.7077 10.4143 15.7077 10.0001C15.7077 9.58592 16.0435 9.25013 16.4577 9.25013H17.7077C18.1219 9.25013 18.4577 9.58592 18.4577 10.0001ZM14.9207 15.9806C15.2135 16.2735 15.6884 16.2735 15.9813 15.9806C16.2742 15.6877 16.2742 15.2128 15.9813 14.9199L15.0974 14.036C14.8045 13.7431 14.3297 13.7431 14.0368 14.036C13.7439 14.3289 13.7439 14.8038 14.0368 15.0967L14.9207 15.9806ZM9.99998 15.7088C10.4142 15.7088 10.75 16.0445 10.75 16.4588V17.7088C10.75 18.123 10.4142 18.4588 9.99998 18.4588C9.58577 18.4588 9.24998 18.123 9.24998 17.7088V16.4588C9.24998 16.0445 9.58577 15.7088 9.99998 15.7088ZM5.96356 15.0972C6.25646 14.8043 6.25646 14.3295 5.96356 14.0366C5.67067 13.7437 5.1958 13.7437 4.9029 14.0366L4.01902 14.9204C3.72613 15.2133 3.72613 15.6882 4.01902 15.9811C4.31191 16.274 4.78679 16.274 5.07968 15.9811L5.96356 15.0972ZM4.29224 10.0001C4.29224 10.4143 3.95645 10.7501 3.54224 10.7501H2.29224C1.87802 10.7501 1.54224 10.4143 1.54224 10.0001C1.54224 9.58592 1.87802 9.25013 2.29224 9.25013H3.54224C3.95645 9.25013 4.29224 9.58592 4.29224 10.0001ZM4.9029 5.9637C5.1958 6.25659 5.67067 6.25659 5.96356 5.9637C6.25646 5.6708 6.25646 5.19593 5.96356 4.90303L5.07968 4.01915C4.78679 3.72626 4.31191 3.72626 4.01902 4.01915C3.72613 4.31204 3.72613 4.78692 4.01902 5.07981L4.9029 5.9637Z"
-                            fill="" />
-                    </svg>
-                    <svg class="fill-current dark:hidden" width="20" height="20" viewBox="0 0 20 20" fill="none"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <path
-                            d="M17.4547 11.97L18.1799 12.1611C18.265 11.8383 18.1265 11.4982 17.8401 11.3266C17.5538 11.1551 17.1885 11.1934 16.944 11.4207L17.4547 11.97ZM8.0306 2.5459L8.57989 3.05657C8.80718 2.81209 8.84554 2.44682 8.67398 2.16046C8.50243 1.8741 8.16227 1.73559 7.83948 1.82066L8.0306 2.5459ZM12.9154 13.0035C9.64678 13.0035 6.99707 10.3538 6.99707 7.08524H5.49707C5.49707 11.1823 8.81835 14.5035 12.9154 14.5035V13.0035ZM16.944 11.4207C15.8869 12.4035 14.4721 13.0035 12.9154 13.0035V14.5035C14.8657 14.5035 16.6418 13.7499 17.9654 12.5193L16.944 11.4207ZM16.7295 11.7789C15.9437 14.7607 13.2277 16.9586 10.0003 16.9586V18.4586C13.9257 18.4586 17.2249 15.7853 18.1799 12.1611L16.7295 11.7789ZM10.0003 16.9586C6.15734 16.9586 3.04199 13.8433 3.04199 10.0003H1.54199C1.54199 14.6717 5.32892 18.4586 10.0003 18.4586V16.9586ZM3.04199 10.0003C3.04199 6.77289 5.23988 4.05695 8.22173 3.27114L7.83948 1.82066C4.21532 2.77574 1.54199 6.07486 1.54199 10.0003H3.04199ZM6.99707 7.08524C6.99707 5.52854 7.5971 4.11366 8.57989 3.05657L7.48132 2.03522C6.25073 3.35885 5.49707 5.13487 5.49707 7.08524H6.99707Z"
-                            fill="" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-    </div>
+        </section>
+    </main>
 @endsection
+
+@push('scripts')
+    <script @nonce>
+        document.addEventListener('DOMContentLoaded', function () {
+            var button = document.getElementById('signup-google-btn');
+            var status = document.getElementById('signup-google-status');
+            if (!button || !status) return;
+
+            button.addEventListener('click', function () {
+                status.classList.remove('hidden', 'text-error-600');
+                if (button.dataset.configured !== '1') {
+                    status.classList.add('text-error-600');
+                    status.textContent = 'Google registration is not configured yet.';
+                    return;
+                }
+                status.textContent = 'Opening Google registration…';
+                var width = 500, height = 600;
+                window.open(button.dataset.redirectUrl, 'google-signup', 'width=' + width + ',height=' + height + ',left=' + (window.screenX + (window.outerWidth - width) / 2) + ',top=' + (window.screenY + (window.outerHeight - height) / 2));
+            });
+
+            window.addEventListener('message', function (event) {
+                if (event.origin !== window.location.origin) return;
+                var data = event.data || {};
+                if (data.source !== 'google-link') return;
+                if (data.error) {
+                    status.classList.remove('hidden');
+                    status.classList.add('text-error-600');
+                    status.textContent = data.error;
+                    return;
+                }
+                var params = new URLSearchParams({
+                    google_id: data.google_id || '', first_name: data.first_name || '', last_name: data.last_name || '',
+                    email: data.email || '', sex: data.sex || '', birthday: data.birthday || '', present_address: data.present_address || ''
+                });
+                window.location.href = button.dataset.signupUrl + '?' + params.toString();
+            });
+        });
+    </script>
+@endpush

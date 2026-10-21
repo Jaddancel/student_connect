@@ -147,6 +147,11 @@ class AssistantController extends Controller
         not write raw URLs or markdown links — the token becomes a button the user
         can click, while a link you write yourself is stripped down to its text. If
         nothing above fits the question, say so plainly instead of guessing.
+
+        When the user still needs human help, tell them to use **Still need help?
+        Contact support** below the chat. That creates a tracked ticket and sends
+        this conversation to an administrator; never claim that you contacted
+        support yourself.
         PROMPT;
     }
 

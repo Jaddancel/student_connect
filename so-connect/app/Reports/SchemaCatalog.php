@@ -32,10 +32,16 @@ final class SchemaCatalog
 
     private ScoringTableSources $scoringTables;
 
-    public function __construct(?FormTableSources $formTables = null, ?ScoringTableSources $scoringTables = null)
-    {
+    private AccreditationReportSources $accreditationTables;
+
+    public function __construct(
+        ?FormTableSources $formTables = null,
+        ?ScoringTableSources $scoringTables = null,
+        ?AccreditationReportSources $accreditationTables = null,
+    ) {
         $this->formTables = $formTables ?? new FormTableSources;
         $this->scoringTables = $scoringTables ?? new ScoringTableSources;
+        $this->accreditationTables = $accreditationTables ?? new AccreditationReportSources;
     }
 
     /**
@@ -50,9 +56,11 @@ final class SchemaCatalog
         // Form-table sources follow the live form definitions, so they are
         // merged in after the (cached) schema introspection, as are the
         // scoring tables.
-        return $this->tables = $this->scoringTables->merge($this->withFormTables(
-            Cache::remember($this->cacheKey(), now()->addHours(12), fn () => $this->introspect()),
-        ));
+        return $this->tables = $this->scoringTables->merge(
+            $this->accreditationTables->merge($this->withFormTables(
+                Cache::remember($this->cacheKey(), now()->addHours(12), fn () => $this->introspect()),
+            )),
+        );
     }
 
     /**
@@ -65,7 +73,9 @@ final class SchemaCatalog
      */
     public function query(string $table, ?string $alias = null, array $filters = []): Builder
     {
-        $sql = $this->formTables->sql($table) ?? $this->scoringTables->sql($table, $filters);
+        $sql = $this->formTables->sql($table)
+            ?? $this->scoringTables->sql($table, $filters)
+            ?? $this->accreditationTables->sql($table, $filters);
         if ($sql === null) {
             return DB::table($alias !== null ? $table.' as '.$alias : $table);
         }
@@ -75,12 +85,15 @@ final class SchemaCatalog
 
     public function isVirtual(string $table): bool
     {
-        return $this->formTables->has($table) || $this->scoringTables->has($table);
+        return $this->formTables->has($table)
+            || $this->scoringTables->has($table)
+            || $this->accreditationTables->has($table);
     }
 
     public function forget(): void
     {
         Cache::forget($this->cacheKey());
+        $this->accreditationTables->forget();
         $this->tables = null;
     }
 

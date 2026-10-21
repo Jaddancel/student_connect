@@ -3,12 +3,7 @@
 @section('content')
     <x-common.page-breadcrumb pageTitle="Account Creation Request" />
 
-    <div class="space-y-6" x-data="{
-        reviewOpen: false,
-        current: null,
-        open(row) { this.current = row; this.reviewOpen = true; },
-        close() { this.reviewOpen = false; this.current = null; }
-    }">
+    <div class="space-y-6" x-data="promotionRequestsReview">
 
         {{-- Flash --}}
         @if(session('success'))
@@ -138,11 +133,11 @@
                 {{-- Modal header --}}
                 <div class="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
                     <div>
-                        <h2 class="text-base font-semibold text-gray-900 dark:text-white" x-text="current?.requester_name ?? '—'"></h2>
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white" x-text="currentRequesterName"></h2>
                         <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                            <span x-text="current?.organization_name ?? ''"></span>
-                            <template x-if="current?.display_type === 'role_change'">
-                                <span> &mdash; <span x-text="current?.current_role ?? ''"></span> → <span x-text="current?.requested_role ?? ''"></span></span>
+                            <span x-text="currentOrganizationName"></span>
+                            <template x-if="currentIsRoleChange">
+                                <span> &mdash; <span x-text="currentCurrentRole"></span> → <span x-text="currentRequestedRole"></span></span>
                             </template>
                         </p>
                     </div>
@@ -155,7 +150,7 @@
                 <div class="px-6 py-5">
 
                     {{-- New Officer details --}}
-                    <template x-if="current?.display_type === 'new_officer' && current?.review_payload">
+                    <template x-if="currentIsNewOfficerWithPayload">
                         <div class="space-y-5">
 
                             {{-- Photo + identity --}}
@@ -172,7 +167,7 @@
                                     <div><span class="font-medium text-gray-700 dark:text-gray-300">Email:</span> <span class="text-gray-600 dark:text-gray-400" x-text="current.review_payload.email"></span></div>
                                     <div><span class="font-medium text-gray-700 dark:text-gray-300">Position:</span> <span class="text-gray-600 dark:text-gray-400" x-text="current.review_payload.position"></span></div>
                                     <div><span class="font-medium text-gray-700 dark:text-gray-300">Organization:</span> <span class="text-gray-600 dark:text-gray-400" x-text="current.organization_name"></span></div>
-                                    <div><span class="font-medium text-gray-700 dark:text-gray-300">Semester:</span> <span class="text-gray-600 dark:text-gray-400" x-text="(current.review_payload.semester ?? '') + ' — ' + (current.review_payload.school_year ?? '')"></span></div>
+                                    <div><span class="font-medium text-gray-700 dark:text-gray-300">Semester:</span> <span class="text-gray-600 dark:text-gray-400" x-text="currentSemesterLabel()"></span></div>
                                 </div>
                             </div>
 
@@ -235,7 +230,7 @@
                                 <div class="col-span-2">
                                     <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Financial Support</p>
                                     <p class="mt-0.5 text-gray-800 dark:text-white/90"
-                                        x-text="Array.isArray(current.review_payload.financial_support) ? current.review_payload.financial_support.join(', ') || '—' : (current.review_payload.financial_support || '—')"></p>
+                                        x-text="currentFinancialSupportLabel()"></p>
                                 </div>
                                 <div class="col-span-2" x-show="current.review_payload.faculty_advisers">
                                     <p class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Faculty Advisers</p>
@@ -250,7 +245,7 @@
                     </template>
 
                     {{-- Role Change details --}}
-                    <template x-if="current?.display_type === 'role_change'">
+                    <template x-if="currentIsRoleChange">
                         <div class="space-y-4 text-sm">
                             <div class="grid grid-cols-2 gap-x-6 gap-y-3">
                                 <div>
@@ -286,12 +281,12 @@
                         Cancel
                     </button>
                     <button type="button"
-                        @click="decideRequest(current.request_id, 'reject', $el); close()"
+                        @click="decideAndClose('reject', $el)"
                         class="rounded-lg border border-error-300 px-4 py-2 text-sm font-medium text-error-600 transition hover:bg-error-50 dark:border-error-500/40 dark:text-error-400 dark:hover:bg-error-500/10">
                         Reject
                     </button>
                     <button type="button"
-                        @click="decideRequest(current.request_id, 'approve', $el); close()"
+                        @click="decideAndClose('approve', $el)"
                         class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600">
                         Approve
                     </button>
@@ -302,7 +297,37 @@
 
     </div>
 
-    <script>
+    <script @nonce>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('promotionRequestsReview', () => ({
+                reviewOpen: false,
+                current: null,
+                open(row) { this.current = row; this.reviewOpen = true; },
+                close() { this.reviewOpen = false; this.current = null; },
+
+                get currentRequesterName() { return this.current?.requester_name ?? '—'; },
+                get currentOrganizationName() { return this.current?.organization_name ?? ''; },
+                get currentIsRoleChange() { return this.current?.display_type === 'role_change'; },
+                get currentCurrentRole() { return this.current?.current_role ?? ''; },
+                get currentRequestedRole() { return this.current?.requested_role ?? ''; },
+                get currentIsNewOfficerWithPayload() {
+                    return this.current?.display_type === 'new_officer' && this.current?.review_payload;
+                },
+                currentSemesterLabel() {
+                    return (this.current.review_payload.semester ?? '') + ' — ' + (this.current.review_payload.school_year ?? '');
+                },
+                currentFinancialSupportLabel() {
+                    return Array.isArray(this.current.review_payload.financial_support)
+                        ? this.current.review_payload.financial_support.join(', ') || '—'
+                        : (this.current.review_payload.financial_support || '—');
+                },
+                decideAndClose(decision, btn) {
+                    decideRequest(this.current.request_id, decision, btn);
+                    this.close();
+                },
+            }));
+        });
+
         function decideRequest(requestId, decision, btn) {
             const rows = document.querySelectorAll('#promotion-requests-table tr[data-request-id="' + requestId + '"]');
 

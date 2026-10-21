@@ -8,33 +8,11 @@
     'dateFormat' => 'Y-m-d',
 ])
 
-<div x-data="{
-    flatpickrInstance: null,
-    init() {
-        this.$nextTick(() => {
-            this.flatpickrInstance = flatpickr(this.$refs.dateInput, {
-                mode: '{{ $mode }}',
-                static: true,
-                monthSelectorType: 'static',
-                dateFormat: '{{ $dateFormat }}',
-                defaultDate: {{ $defaultDate ? (is_array($defaultDate) ? json_encode($defaultDate) : "'" . $defaultDate . "'") : 'null' }},
-                onChange: (selectedDates, dateStr, instance) => {
-                    this.$dispatch('date-change', {
-                        selectedDates,
-                        dateStr,
-                        instance
-                    });
-                }
-            });
-        });
-    },
-    destroy() {
-        if (this.flatpickrInstance) {
-            this.flatpickrInstance.destroy();
-            this.flatpickrInstance = null;
-        }
-    }
-}" x-init="init()" x-destroy="destroy()">
+<div x-data="formDatePicker({
+    mode: @js($mode),
+    dateFormat: @js($dateFormat),
+    defaultDate: @js($defaultDate ?: null),
+})" x-init="init()" x-destroy="destroy()">
     @if($label)
         <label for="{{ $id }}" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
             {{ $label }}

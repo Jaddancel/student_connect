@@ -24,7 +24,7 @@
     <title>Field tokens</title>
     <script type="text/javascript" src="{{ $sdkBase }}/sdkjs-plugins/v1/plugins.js"></script>
     <script type="text/javascript" src="{{ $sdkBase }}/sdkjs-plugins/v1/plugins-ui.js"></script>
-    <style>
+    <style @nonce>
         /* Mirrors the form builder's palette (green brand accent, rounded card
            rows, icon column). Kept self-contained: this page can't reach Vite,
            Tailwind or the app's CSS variables. */
@@ -136,7 +136,7 @@
     <script src="{{ asset('js/field-token-tools.js') }}?v={{ @filemtime(public_path('js/field-token-tools.js')) ?: '1' }}"></script>
 
     @verbatim
-    <script type="text/javascript">
+    <script type="text/javascript" @nonce>
         (function () {
             var tokens = JSON.parse(document.getElementById('token-data').textContent) || [];
             var list = document.getElementById('list');

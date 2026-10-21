@@ -18,7 +18,7 @@
     <!-- Theme Store -->
     @include('layouts.partials.theme-boot')
 
-    <script>
+    <script @nonce>
         document.addEventListener('alpine:init', () => {
             Alpine.store('fileAlert', {
                 show: false,
@@ -69,17 +69,7 @@
 
 </head>
 
-<body x-data="{ 'loaded': true }" x-init="$store.sidebar.isExpanded = window.innerWidth >= 1280;
-const checkMobile = () => {
-    if (window.innerWidth < 1280) {
-        $store.sidebar.setMobileOpen(false);
-        $store.sidebar.isExpanded = false;
-    } else {
-        $store.sidebar.isMobileOpen = false;
-        $store.sidebar.isExpanded = true;
-    }
-};
-window.addEventListener('resize', checkMobile);">
+<body x-data="layoutBody">
 
     {{-- preloader --}}
     <x-common.preloader />
@@ -148,13 +138,13 @@ window.addEventListener('resize', checkMobile);">
         </div>
     </div>
 
-    <style>
+    <style @nonce>
         @keyframes file-alert-shrink { from { width: 100%; } to { width: 0%; } }
         [x-cloak] { display: none !important; }
     </style>
 
     {{-- Global file-type validator (runs in capture phase, before Alpine handlers) --}}
-    <script>
+    <script @nonce>
         (function () {
             const MIME_LABELS = {
                 'image/jpeg': 'JPG', 'image/jpg': 'JPG', 'image/png': 'PNG',
@@ -245,7 +235,7 @@ window.addEventListener('resize', checkMobile);">
             </svg>
         </button>
     </div>
-    <script>
+    <script @nonce>
         document.addEventListener('alpine:init', () => {
             Alpine.store('lightbox', {
                 open: false,

@@ -262,7 +262,7 @@
 </div>
 
 @push('scripts')
-<script>
+<script @nonce>
 window.superadminSetupTools = function () {
     return {
         password: '',
@@ -278,6 +278,10 @@ window.superadminSetupTools = function () {
         get passwordsMatch() { return this.confirmPassword !== '' && this.password === this.confirmPassword; },
     };
 };
+// Registered too so x-data="superadminSetupTools()" resolves under Alpine's CSP build.
+document.addEventListener('alpine:init', () => {
+    Alpine.data('superadminSetupTools', window.superadminSetupTools);
+});
 </script>
 @endpush
 @endsection

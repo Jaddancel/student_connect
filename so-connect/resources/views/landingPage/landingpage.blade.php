@@ -19,6 +19,22 @@
 
     <!-- Shared light/dark bootstrap (same localStorage key as the dashboard) -->
     @include('layouts.partials.theme-boot')
+
+    {{-- Broken-image fallback (replaces inline onerror handlers, which the CSP blocks):
+         hide the image and show the element right after it. Capture phase, since
+         image `error` events don't bubble. --}}
+    <script @nonce>
+        if (!window.__landingImgFallbackBound) {
+            window.__landingImgFallbackBound = true;
+            document.addEventListener('error', function (event) {
+                var img = event.target;
+                if (img instanceof HTMLImageElement && img.hasAttribute('data-error-reveal-next')) {
+                    img.style.display = 'none';
+                    img.nextElementSibling.style.display = img.getAttribute('data-error-reveal-next');
+                }
+            }, true);
+        }
+    </script>
 </head>
 
 <body id="page-top" class="landing-page">
@@ -32,8 +48,10 @@
     <!-- Navigation-->
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top" id="mainNav">
         <div class="container">
-            <a class="navbar-brand" href="#page-top" style="font-family: 'Roboto Slab', serif; font-weight: 700;"> SO
-                Connect </a>
+            <a class="navbar-brand" href="#page-top" aria-label="SO Connect home">
+                <img src="{{ asset('images/brand/student-organization-logo-light.svg') }}" alt="SO Connect"
+                    width="114" height="40">
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarResponsive"
                 aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
                 Menu
@@ -56,12 +74,8 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ route('forms.render', 'new-organization-registration') }}">Register Organization</a>
                     </li>
-                    {{-- Login + theme toggle share one nav-item so the toggle stays
-                         beside the button instead of dropping to its own row when
-                         the navbar collapses. --}}
                     <li class="nav-item ms-lg-3 d-flex align-items-center gap-2">
-                        <a class="nav-link btn btn-sm text-uppercase lp-login-btn" href="#auth">Login
-                            / Sign Up</a>
+                        <a class="nav-link btn btn-sm text-uppercase lp-login-btn" href="{{ route('login') }}">Sign In</a>
                         <x-theme-toggle class="lp-theme-toggle" />
                     </li>
                 </ul>
@@ -72,9 +86,13 @@
     <header class="masthead"
         style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('{{ asset('images/landing/BG1.jpg') }}');">
         <div class="container">
-            <div class="masthead-subheading">Welcome to SO Connect!</div>
-            <div class="masthead-heading text-uppercase">Find Your Community</div>
-            <a class="btn btn-primary btn-xl text-uppercase" href="#categories">Explore Organizations</a>
+            <div class="masthead-subheading">Your student community starts here</div>
+            <div class="masthead-heading text-uppercase">Discover. Participate. Lead.</div>
+            <p class="masthead-intro">Explore accredited organizations, upcoming events, and campus initiatives in one connected student hub.</p>
+            <div class="d-flex flex-column flex-sm-row justify-content-center gap-3">
+                <a class="btn btn-primary btn-xl text-uppercase" href="#categories">Explore Organizations</a>
+                <a class="btn btn-outline-light btn-xl text-uppercase" href="{{ route('login') }}">Sign In to SO Connect</a>
+            </div>
         </div>
     </header>
     <!-- Organization Categories -->
@@ -200,7 +218,7 @@
                                         @if (!empty($organization['logo_url']))
                                             <img class="feature-card-image" src="{{ $organization['logo_url'] }}"
                                                 alt="{{ $organization['name'] }} logo" loading="lazy"
-                                                onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+                                                data-error-reveal-next="flex" />
                                             <div class="feature-card-initials" style="display:none;">
                                                 {{ $orgInitials }}</div>
                                         @else
@@ -244,7 +262,7 @@
                                     @if (!empty($post->image_path))
                                         <img src="{{ '/storage/' . $post->image_path }}" alt="{{ $post->title }}"
                                             loading="lazy"
-                                            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+                                            data-error-reveal-next="flex" />
                                         <div class="img-placeholder" style="display:none;">
                                             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"
                                                 stroke-width="1.5">
@@ -337,438 +355,6 @@
             </div>
         </div>
     </section>
-    <!-- Embedded Login Section -->
-    <section id="auth" style="
-        min-height: 100vh;
-        padding: 0;
-        position: relative;
-        overflow: hidden;
-        display: flex;
-        align-items: stretch;
-    ">
-        {{-- Left atmospheric panel --}}
-        <div class="auth-left-panel d-none d-lg-flex" style="
-            flex: 0 0 52%;
-            background:
-                radial-gradient(ellipse at 30% 20%, rgba(201,168,76,0.18) 0%, transparent 55%),
-                radial-gradient(ellipse at 80% 80%, rgba(45,106,79,0.4) 0%, transparent 60%),
-                linear-gradient(160deg, #0f2318 0%, #1A3C2E 40%, #2D6A4F 100%);
-            position: relative;
-            overflow: hidden;
-            flex-direction: column;
-            justify-content: center;
-            padding: 80px 70px;
-        ">
-            {{-- Decorative geometric lines --}}
-            <div style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;overflow:hidden;">
-                <svg width="100%" height="100%" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice" style="position:absolute;top:0;left:0;opacity:0.07;">
-                    <line x1="0" y1="200" x2="600" y2="600" stroke="#C9A84C" stroke-width="1"/>
-                    <line x1="0" y1="400" x2="600" y2="0" stroke="#C9A84C" stroke-width="0.5"/>
-                    <line x1="100" y1="0" x2="100" y2="800" stroke="#C9A84C" stroke-width="0.5"/>
-                    <line x1="500" y1="0" x2="500" y2="800" stroke="#C9A84C" stroke-width="0.5"/>
-                    <circle cx="300" cy="400" r="280" stroke="#C9A84C" stroke-width="0.5" fill="none"/>
-                    <circle cx="300" cy="400" r="180" stroke="#C9A84C" stroke-width="0.3" fill="none"/>
-                    <rect x="60" y="60" width="480" height="680" stroke="#C9A84C" stroke-width="0.5" fill="none" rx="4"/>
-                </svg>
-                {{-- Bottom-right glow --}}
-                <div style="position:absolute;bottom:-100px;right:-100px;width:400px;height:400px;background:radial-gradient(circle,rgba(201,168,76,0.15),transparent 70%);border-radius:50%;"></div>
-            </div>
-
-            {{-- Gold rule --}}
-            <div style="width:48px;height:3px;background:#C9A84C;margin-bottom:36px;position:relative;z-index:1;"></div>
-
-            {{-- Headline --}}
-            <h2 style="
-                font-family: 'Playfair Display', Georgia, serif;
-                font-size: clamp(2.4rem, 3.5vw, 3.2rem);
-                font-weight: 700;
-                color: #fff;
-                line-height: 1.18;
-                letter-spacing: -0.01em;
-                margin-bottom: 24px;
-                position: relative;
-                z-index: 1;
-            ">
-                Your community<br>
-                <em style="color:#C9A84C;font-style:italic;">starts here.</em>
-            </h2>
-
-            <p style="
-                font-family: 'Lato', sans-serif;
-                font-size: 1.05rem;
-                font-weight: 300;
-                color: rgba(255,255,255,0.72);
-                line-height: 1.75;
-                max-width: 380px;
-                margin-bottom: 48px;
-                position: relative;
-                z-index: 1;
-            ">
-                SO Connect is the official student organization management platform of Tarlac Agricultural University — where leaders are recognized, events are organized, and communities thrive.
-            </p>
-
-            {{-- Feature pills --}}
-            <div style="display:flex;flex-direction:column;gap:14px;position:relative;z-index:1;">
-                @php
-                $features = [
-                    ['icon'=>'fa-users','text'=>'46 recognized student organizations'],
-                    ['icon'=>'fa-calendar-check','text'=>'Activity planning & approvals'],
-                    ['icon'=>'fa-id-badge','text'=>'Digital officer directory'],
-                ];
-                @endphp
-                @foreach($features as $f)
-                <div style="display:flex;align-items:center;gap:14px;">
-                    <div style="
-                        width:36px;height:36px;border-radius:50%;
-                        background:rgba(201,168,76,0.15);
-                        border:1px solid rgba(201,168,76,0.35);
-                        display:flex;align-items:center;justify-content:center;
-                        flex-shrink:0;
-                    ">
-                        <i class="fas {{ $f['icon'] }}" style="color:#C9A84C;font-size:0.8rem;"></i>
-                    </div>
-                    <span style="font-family:'Lato',sans-serif;font-size:0.9rem;color:rgba(255,255,255,0.65);font-weight:300;">{{ $f['text'] }}</span>
-                </div>
-                @endforeach
-            </div>
-
-            {{-- Bottom logo/seal --}}
-            <div style="position:absolute;bottom:40px;left:70px;z-index:1;display:flex;align-items:center;gap:10px;opacity:0.45;">
-                <div style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(201,168,76,0.6);display:flex;align-items:center;justify-content:center;">
-                    <i class="fas fa-leaf" style="color:#C9A84C;font-size:0.65rem;"></i>
-                </div>
-                <span style="font-family:'Lato',sans-serif;font-size:0.75rem;color:rgba(255,255,255,0.6);letter-spacing:0.12em;text-transform:uppercase;font-weight:700;">Tarlac Agricultural University</span>
-            </div>
-        </div>
-
-        {{-- Right form panel --}}
-        <div style="
-            flex: 1;
-            background: var(--lp-surface-alt);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 80px 40px;
-            position: relative;
-        ">
-            {{-- Subtle texture overlay --}}
-            <div style="position:absolute;inset:0;background-image:url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%232D6A4F\' fill-opacity=\'0.025\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');pointer-events:none;"></div>
-
-            <div style="width:100%;max-width:420px;position:relative;z-index:1;">
-
-                {{-- Mobile-only top bar --}}
-                <div class="d-lg-none" style="margin-bottom:32px;text-align:center;">
-                    <div style="width:40px;height:3px;background:var(--lp-gold);margin:0 auto 16px;"></div>
-                    <p style="font-family:'Lato',sans-serif;font-size:0.8rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--lp-accent);font-weight:700;">SO Connect</p>
-                </div>
-
-                {{-- Form heading --}}
-                <h3 style="
-                    font-family: 'Playfair Display', Georgia, serif;
-                    font-size: 2rem;
-                    font-weight: 700;
-                    color: var(--lp-heading);
-                    margin-bottom: 6px;
-                    line-height: 1.2;
-                ">Welcome back</h3>
-                <p style="font-family:'Lato',sans-serif;font-size:0.92rem;color:var(--lp-muted);margin-bottom:32px;font-weight:300;">Sign in to your account to continue.</p>
-
-                {{-- Error message --}}
-                @if ($errors->has('user_email'))
-                    <div style="
-                        background:var(--lp-error-bg);
-                        border:1px solid var(--lp-error-border);
-                        border-left:4px solid #dc3545;
-                        border-radius:6px;
-                        padding:12px 16px;
-                        margin-bottom:22px;
-                        display:flex;
-                        align-items:flex-start;
-                        gap:10px;
-                    ">
-                        <i class="fas fa-exclamation-circle" style="color:#dc3545;margin-top:2px;flex-shrink:0;font-size:0.85rem;"></i>
-                        <p style="margin:0;font-family:'Lato',sans-serif;font-size:0.875rem;color:var(--lp-error-text);line-height:1.4;">
-                            {{ $errors->first('user_email') }}
-                        </p>
-                    </div>
-                @endif
-
-                <form action="/login" method="post" id="auth-form">
-                    @csrf
-
-                    {{-- Email --}}
-                    <div style="margin-bottom:20px;">
-                        <label style="
-                            display:block;
-                            font-family:'Lato',sans-serif;
-                            font-size:0.8rem;
-                            font-weight:700;
-                            color:var(--lp-heading);
-                            letter-spacing:0.08em;
-                            text-transform:uppercase;
-                            margin-bottom:8px;
-                        ">Email address</label>
-                        <input
-                            type="email"
-                            name="user_email"
-                            value="{{ old('user_email') }}"
-                            placeholder="you@example.com"
-                            autocomplete="email"
-                            required
-                            style="
-                                width:100%;
-                                padding:13px 16px;
-                                border:1.5px solid {{ $errors->has('user_email') ? '#dc3545' : 'var(--lp-border-strong)' }};
-                                border-radius:8px;
-                                font-family:'Lato',sans-serif;
-                                font-size:0.95rem;
-                                color:var(--lp-heading);
-                                background:var(--lp-surface);
-                                outline:none;
-                                transition:border-color 0.2s,box-shadow 0.2s;
-                            "
-                            onfocus="this.style.borderColor='var(--lp-accent)';this.style.boxShadow='0 0 0 3px rgba(45,106,79,0.12)'"
-                            onblur="this.style.borderColor='{{ $errors->has('user_email') ? '#dc3545' : 'var(--lp-border-strong)' }}';this.style.boxShadow='none'"
-                        />
-                    </div>
-
-                    {{-- Password --}}
-                    <div style="margin-bottom:14px;">
-                        <label style="
-                            display:block;
-                            font-family:'Lato',sans-serif;
-                            font-size:0.8rem;
-                            font-weight:700;
-                            color:var(--lp-heading);
-                            letter-spacing:0.08em;
-                            text-transform:uppercase;
-                            margin-bottom:8px;
-                        ">Password</label>
-                        <div style="position:relative;">
-                            <input
-                                type="password"
-                                name="user_password"
-                                id="auth-password"
-                                placeholder="Enter your password"
-                                autocomplete="current-password"
-                                required
-                                style="
-                                    width:100%;
-                                    padding:13px 48px 13px 16px;
-                                    border:1.5px solid var(--lp-border-strong);
-                                    border-radius:8px;
-                                    font-family:'Lato',sans-serif;
-                                    font-size:0.95rem;
-                                    color:var(--lp-heading);
-                                    background:var(--lp-surface);
-                                    outline:none;
-                                    transition:border-color 0.2s,box-shadow 0.2s;
-                                "
-                                onfocus="this.style.borderColor='var(--lp-accent)';this.style.boxShadow='0 0 0 3px rgba(45,106,79,0.12)'"
-                                onblur="this.style.borderColor='var(--lp-border-strong)';this.style.boxShadow='none'"
-                                onkeyup="document.getElementById('caps-warn').style.display=event.getModifierState('CapsLock')?'flex':'none'"
-                                onkeydown="document.getElementById('caps-warn').style.display=event.getModifierState('CapsLock')?'flex':'none'"
-                            />
-                            <button
-                                type="button"
-                                id="auth-toggle-pw"
-                                onclick="toggleAuthPassword()"
-                                style="
-                                    position:absolute;right:14px;top:50%;transform:translateY(-50%);
-                                    background:none;border:none;cursor:pointer;padding:0;
-                                    color:var(--lp-muted);display:flex;align-items:center;
-                                "
-                                tabindex="-1"
-                            >
-                                <i class="fas fa-eye" id="auth-eye-icon" style="font-size:0.95rem;"></i>
-                            </button>
-                        </div>
-                        {{-- Caps lock warning --}}
-                        <div id="caps-warn" style="display:none;align-items:center;gap:6px;margin-top:6px;">
-                            <i class="fas fa-exclamation-triangle" style="color:#d97706;font-size:0.75rem;"></i>
-                            <span style="font-family:'Lato',sans-serif;font-size:0.8rem;color:#92400e;">Caps Lock is on</span>
-                        </div>
-                    </div>
-
-                    {{-- Forgot password --}}
-                    <div style="text-align:right;margin-bottom:28px;">
-                        <a href="/reset-password" style="
-                            font-family:'Lato',sans-serif;
-                            font-size:0.82rem;
-                            color:var(--lp-accent);
-                            text-decoration:none;
-                            font-weight:700;
-                            letter-spacing:0.02em;
-                        ">Forgot password?</a>
-                    </div>
-
-                    {{-- Submit --}}
-                    <button type="submit" style="
-                        width:100%;
-                        padding:15px 24px;
-                        background: linear-gradient(135deg, #2D6A4F 0%, #1A3C2E 100%);
-                        color:#fff;
-                        border:none;
-                        border-radius:8px;
-                        font-family:'Lato',sans-serif;
-                        font-size:0.9rem;
-                        font-weight:700;
-                        letter-spacing:0.1em;
-                        text-transform:uppercase;
-                        cursor:pointer;
-                        transition:opacity 0.2s, transform 0.15s, box-shadow 0.2s;
-                        box-shadow:0 4px 20px rgba(26,60,46,0.35);
-                        position:relative;
-                        overflow:hidden;
-                    "
-                    onmouseover="this.style.opacity='0.9';this.style.transform='translateY(-1px)';this.style.boxShadow='0 8px 28px rgba(26,60,46,0.45)'"
-                    onmouseout="this.style.opacity='1';this.style.transform='translateY(0)';this.style.boxShadow='0 4px 20px rgba(26,60,46,0.35)'"
-                    >
-                        <i class="fas fa-sign-in-alt" style="margin-right:10px;"></i>
-                        Sign In
-                    </button>
-                </form>
-
-                {{-- Divider --}}
-                <div style="display:flex;align-items:center;gap:14px;margin:28px 0;">
-                    <div style="flex:1;height:1px;background:var(--lp-border-strong);"></div>
-                    <span style="font-family:'Lato',sans-serif;font-size:0.8rem;color:var(--lp-subtle);font-weight:400;">New to SO Connect?</span>
-                    <div style="flex:1;height:1px;background:var(--lp-border-strong);"></div>
-                </div>
-
-                {{-- Sign Up with Google — opens the OAuth popup, then continues to
-                     the officer registration wizard with name/email pre-filled. --}}
-                <button type="button" id="signup-google-btn" onclick="startGoogleSignup()" style="
-                    display:flex;
-                    align-items:center;
-                    justify-content:center;
-                    gap:10px;
-                    width:100%;
-                    padding:13px 24px;
-                    margin-bottom:12px;
-                    background:var(--lp-surface);
-                    color:var(--lp-google-text);
-                    border:1.5px solid var(--lp-border-strong);
-                    border-radius:8px;
-                    font-family:'Lato',sans-serif;
-                    font-size:0.9rem;
-                    font-weight:700;
-                    letter-spacing:0.02em;
-                    cursor:pointer;
-                    transition:background 0.2s,box-shadow 0.2s;
-                "
-                onmouseover="this.style.background='var(--lp-google-hover)'"
-                onmouseout="this.style.background='var(--lp-surface)'"
-                >
-                    <i class="fab fa-google" style="color:#4285F4;font-size:1rem;"></i>
-                    Sign Up with Google
-                </button>
-                <p id="signup-google-status" style="display:none;margin:0 0 12px;font-family:'Lato',sans-serif;font-size:0.8rem;text-align:center;"></p>
-
-                {{-- Sign Up CTA --}}
-                <a href="/signup" style="
-                    display:block;
-                    width:100%;
-                    padding:14px 24px;
-                    background:transparent;
-                    color:var(--lp-accent);
-                    border:1.5px solid var(--lp-accent);
-                    border-radius:8px;
-                    font-family:'Lato',sans-serif;
-                    font-size:0.9rem;
-                    font-weight:700;
-                    letter-spacing:0.08em;
-                    text-transform:uppercase;
-                    text-align:center;
-                    text-decoration:none;
-                    transition:background 0.2s,color 0.2s;
-                "
-                onmouseover="this.style.background='var(--lp-accent)';this.style.color='var(--lp-accent-contrast)'"
-                onmouseout="this.style.background='transparent';this.style.color='var(--lp-accent)'"
-                >
-                    <i class="fas fa-user-plus" style="margin-right:8px;"></i>
-                    Register as Officer
-                </a>
-
-            </div>
-        </div>
-    </section>
-
-    <script>
-    function toggleAuthPassword() {
-        var input = document.getElementById('auth-password');
-        var icon  = document.getElementById('auth-eye-icon');
-        if (input.type === 'password') {
-            input.type = 'text';
-            icon.classList.replace('fa-eye', 'fa-eye-slash');
-        } else {
-            input.type = 'password';
-            icon.classList.replace('fa-eye-slash', 'fa-eye');
-        }
-    }
-    @if ($errors->any())
-    document.addEventListener('DOMContentLoaded', function () {
-        var authSection = document.getElementById('auth');
-        if (authSection) {
-            setTimeout(function () {
-                authSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 120);
-        }
-    });
-    @endif
-
-    // "Sign Up with Google" — opens the stateless Google OAuth popup (shared
-    // with the admin/officer account-creation forms), then hands the
-    // applicant's name/email off to the officer registration wizard
-    // (/signup) as query params for pre-fill. Never logs the visitor in here.
-    function startGoogleSignup() {
-        var status = document.getElementById('signup-google-status');
-        status.style.display = 'block';
-
-        if (!@json(\App\Http\Controllers\Auth\GoogleLinkController::isConfigured())) {
-            status.style.color = '#dc3545';
-            status.textContent = 'Google sign-in is not configured yet. See GOOGLE-AUTH-SETUP.md.';
-            return;
-        }
-
-        status.style.color = 'var(--lp-muted)';
-        status.textContent = 'Opening Google…';
-
-        var w = 500, h = 600;
-        var left = window.screenX + (window.outerWidth - w) / 2;
-        var top = window.screenY + (window.outerHeight - h) / 2;
-        window.open(
-            '{{ route('admin.accounts.google.redirect') }}',
-            'google-signup',
-            'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top
-        );
-    }
-
-    window.addEventListener('message', function (event) {
-        if (event.origin !== window.location.origin) { return; }
-        var data = event.data || {};
-        if (data.source !== 'google-link') { return; }
-
-        var status = document.getElementById('signup-google-status');
-        if (data.error) {
-            status.style.display = 'block';
-            status.style.color = '#dc3545';
-            status.textContent = data.error;
-            return;
-        }
-
-        var params = new URLSearchParams({
-            google_id: data.google_id || '',
-            first_name: data.first_name || '',
-            last_name: data.last_name || '',
-            email: data.email || '',
-            sex: data.sex || '',
-            birthday: data.birthday || '',
-            present_address: data.present_address || '',
-        });
-        window.location.href = '{{ route('signup') }}?' + params.toString();
-    });
-    </script>
     <!-- Recent Activity Section -->
     <section class="page-section bg-light" id="activity">
         <div class="container">
@@ -825,53 +411,6 @@
     <!-- Core theme JS-->
     @vite(['resources/js/scripts.js'])
 
-    @if ($errors->has('user_email'))
-    <div id="login-toast" style="
-        position:fixed;
-        bottom:24px;
-        right:24px;
-        z-index:9999;
-        min-width:300px;
-        max-width:380px;
-        background:var(--lp-surface);
-        border-radius:10px;
-        box-shadow:0 8px 32px rgba(0,0,0,0.18);
-        border-left:4px solid #dc3545;
-        padding:16px 20px;
-        display:flex;
-        align-items:flex-start;
-        gap:12px;
-        animation:toastSlideIn 0.35s cubic-bezier(0.16,1,0.3,1);
-        font-family:'Lato',sans-serif;
-    ">
-        <i class="fas fa-exclamation-circle" style="color:#dc3545;font-size:1.1rem;margin-top:2px;flex-shrink:0;"></i>
-        <div style="flex:1;">
-            <div style="font-weight:700;color:var(--lp-heading);font-size:0.9rem;margin-bottom:4px;">Login Failed</div>
-            <div style="color:var(--lp-muted);font-size:0.85rem;line-height:1.4;">{{ $errors->first('user_email') }}</div>
-        </div>
-        <button onclick="dismissLoginToast()" style="
-            background:none;border:none;cursor:pointer;padding:0;
-            color:var(--lp-subtle);font-size:1.25rem;flex-shrink:0;line-height:1;margin-top:1px;
-        " aria-label="Dismiss">&times;</button>
-    </div>
-    <style>
-    @keyframes toastSlideIn {
-        from { opacity:0; transform:translateX(48px); }
-        to   { opacity:1; transform:translateX(0); }
-    }
-    </style>
-    <script>
-    function dismissLoginToast() {
-        var t = document.getElementById('login-toast');
-        if (!t) return;
-        t.style.transition = 'opacity 0.35s, transform 0.35s';
-        t.style.opacity = '0';
-        t.style.transform = 'translateX(48px)';
-        setTimeout(function() { t.style.display = 'none'; }, 350);
-    }
-    setTimeout(dismissLoginToast, 6000);
-    </script>
-    @endif
 </body>
 
 </html>

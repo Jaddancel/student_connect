@@ -591,7 +591,8 @@ it('replaces the printed template with an uploaded .docx', function () {
 });
 
 it('closes the draft editor before uploading a replacement document', function () {
-    $source = file_get_contents(resource_path('views/components/form-builder/onlyoffice-template.blade.php'));
+    // The editor's methods live in the onlyofficeTemplateEditor Alpine component.
+    $source = file_get_contents(resource_path('js/csp/builder.js'));
     $methodStart = strpos($source, 'async importDocx(event)');
     $methodEnd = strpos($source, 'async boot()', $methodStart);
     $method = substr($source, $methodStart, $methodEnd - $methodStart);

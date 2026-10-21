@@ -80,13 +80,11 @@
                         $oldList = array_map('strval', (array) old($key, $prefill[$key] ?? []));
                         $labelMap = collect($pairs)->mapWithKeys(fn ($p) => [(string) $p['value'] => $p['label']]);
                     @endphp
-                    <div x-data="{
-                            open: false,
-                            selected: {{ \App\Support\JsLiteral::from(array_values(array_intersect($oldList, $labelMap->keys()->all()))) }},
-                            labels: {{ \App\Support\JsLiteral::from($labelMap) }},
-                            order: {{ \App\Support\JsLiteral::from($labelMap->keys()->values()) }},
-                            summary() { return this.order.filter((v) => this.selected.includes(v)).map((v) => this.labels[v]).join(', '); },
-                        }"
+                    <div x-data="formMultiSelect({
+                            selected: @js(array_values(array_intersect($oldList, $labelMap->keys()->all()))),
+                            labels: @js($labelMap),
+                            order: @js($labelMap->keys()->values()),
+                        })"
                         class="relative" @click.outside="open = false" @keydown.escape="open = false" data-multi-select="{{ $key }}">
                         <button type="button" id="{{ $key }}" @click="open = !open"
                             :aria-expanded="open.toString()" aria-haspopup="listbox"
@@ -193,23 +191,28 @@
                 @break
 
             @case(FieldType::DATE)
-                @php $nowDefault = (empty($old) && ! empty($opts['autofill_now'])) ? ", defaultDate: 'today'" : ''; @endphp
+                @php
+                    $flatpickrOptions = ['dateFormat' => 'Y-m-d'];
+                    if (empty($old) && ! empty($opts['autofill_now'])) {
+                        $flatpickrOptions['defaultDate'] = 'today';
+                    }
+                @endphp
                 <input type="text" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder ?: 'Select a date' }}"
-                    x-data x-init="window.flatpickr && window.flatpickr($el, { dateFormat: 'Y-m-d'{!! $nowDefault !!} })"
+                    x-data="formFlatpickrInput({ options: @js($flatpickrOptions) })"
                     class="{{ $inputClass }}" autocomplete="off" />
                 @break
 
             @case(FieldType::TIME)
-                @php $nowDefault = (empty($old) && ! empty($opts['autofill_now'])) ? ", defaultDate: new Date()" : ''; @endphp
+                @php $defaultNow = empty($old) && ! empty($opts['autofill_now']); @endphp
                 <input type="text" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder ?: 'Select a time' }}"
-                    x-data x-init="window.flatpickr && window.flatpickr($el, { enableTime: true, noCalendar: true, dateFormat: 'H:i', time_24hr: true{!! $nowDefault !!} })"
+                    x-data="formFlatpickrInput({ options: { enableTime: true, noCalendar: true, dateFormat: 'H:i', time_24hr: true }, defaultNow: @js($defaultNow) })"
                     class="{{ $inputClass }}" autocomplete="off" />
                 @break
 
             @case(FieldType::DATETIME)
-                @php $nowDefault = (empty($old) && ! empty($opts['autofill_now'])) ? ", defaultDate: new Date()" : ''; @endphp
+                @php $defaultNow = empty($old) && ! empty($opts['autofill_now']); @endphp
                 <input type="text" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder ?: 'Select a date and time' }}"
-                    x-data x-init="window.flatpickr && window.flatpickr($el, { enableTime: true, dateFormat: 'Y-m-d H:i', time_24hr: true{!! $nowDefault !!} })"
+                    x-data="formFlatpickrInput({ options: { enableTime: true, dateFormat: 'Y-m-d H:i', time_24hr: true }, defaultNow: @js($defaultNow) })"
                     class="{{ $inputClass }}" autocomplete="off" />
                 @break
 
@@ -239,17 +242,20 @@
             @case(FieldType::EMAIL)
             @case(FieldType::NEW_OFFICER_EMAIL)
             @case(FieldType::NEW_PRESIDENT_EMAIL)
-                <input type="email" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder ?: 'name@example.com' }}"
-                    @if (in_array($type, [FieldType::NEW_OFFICER_EMAIL, FieldType::NEW_PRESIDENT_EMAIL], true))
-                        x-data="{ status: null, check() { if (! this.$el.value) { this.status = null; return; } fetch(@js(route('email-availability.check')) + '?email=' + encodeURIComponent(this.$el.value)).then(r => r.json()).then(d => this.status = d.registered ? 'registered' : 'available').catch(() => this.status = null); } }"
-                        @blur="check()"
-                    @endif
-                    class="{{ $inputClass }}" />
                 @if (in_array($type, [FieldType::NEW_OFFICER_EMAIL, FieldType::NEW_PRESIDENT_EMAIL], true))
-                    <div class="mt-1 text-xs">
-                        <template x-if="status === 'registered'"><p class="text-brand-600 dark:text-brand-400">This email is already registered.</p></template>
-                        <template x-if="status === 'available'"><p class="text-success-600 dark:text-success-500">This email is available.</p></template>
+                    {{-- One scope for the input and its availability messages. --}}
+                    <div x-data="formEmailAvailability({ url: @js(route('email-availability.check')) })">
+                        <input type="email" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder ?: 'name@example.com' }}"
+                            @blur="check($event)"
+                            class="{{ $inputClass }}" />
+                        <div class="mt-1 text-xs">
+                            <template x-if="status === 'registered'"><p class="text-brand-600 dark:text-brand-400">This email is already registered.</p></template>
+                            <template x-if="status === 'available'"><p class="text-success-600 dark:text-success-500">This email is available.</p></template>
+                        </div>
                     </div>
+                @else
+                    <input type="email" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" placeholder="{{ $placeholder ?: 'name@example.com' }}"
+                        class="{{ $inputClass }}" />
                 @endif
                 @break
 
@@ -274,7 +280,7 @@
                                 <button type="button" @click="$store.lightbox.show(preview, @js($field->field_label))"
                                     class="group block cursor-zoom-in overflow-hidden rounded-lg border border-gray-200 bg-white p-1 transition hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700"
                                     title="Click to view full size">
-                                    <img :src="preview" :alt="@js($field->field_label).' preview '+(index + 1)"
+                                    <img :src="preview" :alt="@js($field->field_label) + ' preview ' + (index + 1)"
                                         class="h-32 w-48 object-contain transition group-hover:scale-[1.02]" />
                                 </button>
                             </template>
@@ -449,18 +455,8 @@
             @case(FieldType::EVENT_SELECT)
                 @php $events = $special['events'] ?? []; $autofillMap = (array) ($opts['autofill_map'] ?? []); @endphp
                 <select id="{{ $key }}" name="{{ $key }}" class="{{ $inputClass }}"
-                    x-data
-                    @change="
-                        const opt = $el.selectedOptions[0];
-                        if (!opt) return;
-                        const map = {{ \App\Support\JsLiteral::from($autofillMap) }};
-                        for (const [attr, target] of Object.entries(map)) {
-                            const val = opt.dataset[attr];
-                            if (val === undefined) continue;
-                            const el = document.querySelector('[name=&quot;' + target + '&quot;]');
-                            if (el && !el.value) { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); }
-                        }
-                    ">
+                    x-data="formEventSelect({ map: @js($autofillMap) })"
+                    @change="autofillFromEvent($el)">
                     <option value="">{{ $placeholder ?: 'Select an approved event' }}</option>
                     @foreach ($events as $event)
                         <option value="{{ $event['id'] }}" @selected((string) $old === (string) $event['id'])
@@ -521,12 +517,12 @@
 
             @case(FieldType::TEXT_LIST)
                 @php $oldRows = array_values(array_filter((array) old($key, $prefill[$key] ?? []), fn ($v) => $v !== null)); if (! count($oldRows)) { $oldRows = ['']; } @endphp
-                <div x-data="{ rows: {{ \App\Support\JsLiteral::from($oldRows) }} }" class="space-y-2">
+                <div x-data="formTextList({ rows: @js($oldRows) })" class="space-y-2">
                     <template x-for="(row, i) in rows" :key="i">
                         <div class="flex items-center gap-2">
                             <input type="text" :name="'{{ $key }}[]'" x-model="rows[i]" placeholder="{{ $placeholder }}"
                                 class="{{ $inputClass }}" />
-                            <button type="button" @click="rows.splice(i, 1); if (!rows.length) rows.push('')"
+                            <button type="button" @click="removeRow(i)"
                                 class="shrink-0 rounded-lg border border-gray-300 px-2.5 py-2 text-xs text-error-500 dark:border-gray-700">✕</button>
                         </div>
                     </template>

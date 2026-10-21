@@ -4,52 +4,12 @@
     <x-common.page-breadcrumb pageTitle="Reports" />
 
     <div class="space-y-6"
-        x-data="{
-            busy: false,
-            label: '',
-            error: '',
-            // Generation can take a while (document conversion), so run it
-            // through fetch: the modal stays up until the file arrives, then the
-            // blob is saved without leaving the page.
-            async generate(event) {
-                const form = event.target;
-                const format = event.submitter?.value || 'pdf';
-                const url = new URL(form.action, window.location.origin);
-                for (const [key, value] of new FormData(form)) {
-                    if (value !== '') url.searchParams.append(key, value);
-                }
-                url.searchParams.set('format', format);
-
-                this.error = '';
-                this.label = form.dataset.report + ' (' + (format === 'docx' ? 'Word' : 'PDF') + ')';
-                this.busy = true;
-                try {
-                    const response = await fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
-                    if (!response.ok) {
-                        const json = await response.json().catch(() => ({}));
-                        const first = json.errors ? Object.values(json.errors).flat()[0] : null;
-                        throw new Error(first || json.message || 'The report could not be generated.');
-                    }
-                    const disposition = response.headers.get('Content-Disposition') || '';
-                    const name = (disposition.match(/filename=&quot;?([^&quot;;]+)/) || [])[1] || 'report.' + format;
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(await response.blob());
-                    link.download = name;
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                    URL.revokeObjectURL(link.href);
-                    this.busy = false;
-                } catch (e) {
-                    this.error = e.message || 'The report could not be generated.';
-                }
-            },
-        }">
+        x-data="adminReportGenerator">
 
         {{-- Generation progress / error modal --}}
         <div x-show="busy" x-cloak x-transition.opacity
             class="fixed inset-0 z-[100000] flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm"
-            role="dialog" aria-modal="true" aria-live="polite" @keydown.escape.window="if (error) busy = false">
+            role="dialog" aria-modal="true" aria-live="polite" @keydown.escape.window="dismissOnEscape()">
             <div class="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-xl dark:border-gray-800 dark:bg-gray-900">
                 <template x-if="!error">
                     <div>
@@ -66,7 +26,7 @@
                         </div>
                         <h3 class="mt-5 text-base font-semibold text-gray-800 dark:text-white/90">Report could not be generated</h3>
                         <p class="mt-2 text-sm text-gray-500 dark:text-gray-400" x-text="error"></p>
-                        <button type="button" @click="busy = false; error = ''"
+                        <button type="button" @click="closeError()"
                             class="mt-5 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">Close</button>
                     </div>
                 </template>

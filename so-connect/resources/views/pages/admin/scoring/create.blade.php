@@ -37,7 +37,7 @@
         <form method="POST"
             action="{{ $isEdit ? route('admin.scoring.update', $score->organization_score_id) : route('admin.scoring.store') }}"
             class="space-y-5"
-            x-data="{
+            x-data="adminOrgScoreForm({
                 cat1_seminar_college:        {{ $pv('cat1_seminar_college') }},
                 cat1_seminar_univ:           {{ $pv('cat1_seminar_univ') }},
                 cat1_activities_related:     {{ $pv('cat1_activities_related') }},
@@ -80,119 +80,8 @@
                 cat6_documents:              {{ $pv('cat6_documents') }},
                 cat6_meetings:               {{ $pv('cat6_meetings') }},
                 cat6_leadership:             {{ $pv('cat6_leadership') }},
-                cat6_transparency:           {{ $pv('cat6_transparency') }},
-
-                n(v) { return Math.max(0, parseInt(v) || 0); },
-
-                get cat1_total() {
-                    return Math.min(100,
-                        this.n(this.cat1_seminar_college) * 10 +
-                        this.n(this.cat1_seminar_univ) * 15 +
-                        this.n(this.cat1_activities_related) * 10 +
-                        this.n(this.cat1_activities_not_related) * 7 +
-                        this.n(this.cat1_donation_cash) * 2 +
-                        this.n(this.cat1_donation_kinds) * 10 +
-                        this.n(this.cat1_cosponsor_pts) +
-                        this.n(this.cat1_income)
-                    );
-                },
-                get cat2_total() {
-                    return Math.min(100,
-                        this.n(this.cat2_other_orgs) * 10 +
-                        this.n(this.cat2_rep_local) * 2 +
-                        this.n(this.cat2_rep_provincial) * 3 +
-                        this.n(this.cat2_rep_regional) * 5 +
-                        this.n(this.cat2_rep_national) * 7 +
-                        this.n(this.cat2_rep_international) * 10 +
-                        this.n(this.cat2_ssc_osa_activities) * 10 +
-                        this.n(this.cat2_ssc_seminars) * 10 +
-                        this.n(this.cat2_other_seminars) * 7 +
-                        this.n(this.cat2_osa_seminars) * 5 +
-                        this.n(this.cat2_ssc_meeting_rep) * 2 +
-                        this.n(this.cat2_ssc_meeting_proxy) * 1 +
-                        this.n(this.cat2_help_ssc_osa) * 5 +
-                        this.n(this.cat2_help_others) * 3
-                    );
-                },
-                get cat3_total() {
-                    return Math.min(50,
-                        this.n(this.cat3_group_intl) * 20 +
-                        this.n(this.cat3_group_national) * 15 +
-                        this.n(this.cat3_group_regional) * 10 +
-                        this.n(this.cat3_group_provincial) * 7 +
-                        this.n(this.cat3_group_local) * 5 +
-                        this.n(this.cat3_individual_intl) * 15 +
-                        this.n(this.cat3_individual_national) * 10 +
-                        this.n(this.cat3_individual_regional) * 7 +
-                        this.n(this.cat3_individual_provincial) * 5 +
-                        this.n(this.cat3_individual_local) * 3
-                    );
-                },
-                get cat4_total() {
-                    return Math.min(100, this.n(this.cat4_extension_groups) * 10);
-                },
-                get cat5_total() {
-                    return Math.min(100, this.n(this.cat5_tangible_projects) * 100);
-                },
-                get cat6_total() {
-                    return Math.min(100,
-                        this.n(this.cat6_documents) * 50 +
-                        this.n(this.cat6_meetings) * 25 +
-                        this.n(this.cat6_leadership) * 15 +
-                        this.n(this.cat6_transparency) * 10
-                    );
-                },
-                get grand_total() {
-                    return this.cat1_total + this.cat2_total + this.cat3_total + this.cat4_total + this.cat5_total + this.cat6_total;
-                },
-
-                // Manual-input modal
-                modalOpen: false,
-                modalField: '',
-                modalLabel: '',
-                modalType: '',
-                modalDivisor: 1,
-                modalDesc: '',
-                modalBasis: {},
-                modalBinaryOn: false,
-                modalConfig: {
-                    cat6_leadership: { label: 'Leadership Training', type: 'binary', desc: 'Check if the organization participated in leadership training.' },
-                },
-                openModal(field) {
-                    const cfg = this.modalConfig[field];
-                    this.modalField   = field;
-                    this.modalLabel   = cfg.label;
-                    this.modalType    = cfg.type;
-                    this.modalDivisor = cfg.divisor || 1;
-                    this.modalDesc    = cfg.desc;
-                    if (this.modalBasis[field] !== undefined) {
-                        if (cfg.type === 'binary') this.modalBinaryOn = !!this.modalBasis[field];
-                    } else {
-                        const cur = this.n(this[field]);
-                        if (cfg.type === 'pesos') {
-                            this.modalBasis[field] = String(cur * (cfg.divisor || 1));
-                        } else if (cfg.type === 'count') {
-                            this.modalBasis[field] = String(cur);
-                        } else {
-                            this.modalBinaryOn = cur === 1;
-                            this.modalBasis[field] = cur;
-                        }
-                    }
-                    this.modalOpen = true;
-                    this.$nextTick(() => { const el = this.$el.querySelector('.modal-autofocus'); if (el) el.focus(); });
-                },
-                get modalPreview() {
-                    if (this.modalType === 'binary') return this.modalBinaryOn ? 1 : 0;
-                    const raw = Math.max(0, parseInt(this.modalBasis[this.modalField] ?? 0) || 0);
-                    return this.modalType === 'pesos' ? Math.floor(raw / this.modalDivisor) : raw;
-                },
-                applyModal() {
-                    const instances = this.modalPreview;
-                    if (this.modalType === 'binary') this.modalBasis[this.modalField] = instances;
-                    this[this.modalField] = instances;
-                    this.modalOpen = false;
-                },
-            }">
+                cat6_transparency:           {{ $pv('cat6_transparency') }}
+            })">
             @csrf
             @if ($isEdit) @method('PUT') @endif
 
@@ -490,7 +379,7 @@
                                         class="h-8 w-20 rounded-lg border border-gray-300 bg-transparent px-2 text-center text-sm text-gray-800 focus:border-brand-400 focus:ring-1 focus:ring-brand-400 focus:outline-hidden dark:border-gray-700 dark:text-white/90" />
                                 </td>
                                 <td class="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300"
-                                    x-text="Math.min(100, n(cat5_tangible_projects) * 100)"></td>
+                                    x-text="mathMin(100, n(cat5_tangible_projects) * 100)"></td>
                             </tr>
                         </tbody>
                         <tfoot>
@@ -558,7 +447,7 @@
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300"
-                                        x-text="Math.min(1, n({{ $field }})) * {{ $ppi }}"></td>
+                                        x-text="mathMin(1, n({{ $field }})) * {{ $ppi }}"></td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -623,9 +512,9 @@
                 </div>
                 <div class="mt-3 h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                     <div class="h-full rounded-full bg-brand-500 transition-all duration-300"
-                        :style="'width:' + Math.min(100, Math.round(grand_total / 550 * 100)) + '%'"></div>
+                        :style="'width:' + grandPercent + '%'"></div>
                 </div>
-                <p class="mt-1 text-right text-xs text-gray-400" x-text="Math.min(100, Math.round(grand_total / 550 * 100)) + '% of max'"></p>
+                <p class="mt-1 text-right text-xs text-gray-400" x-text="grandPercent + '% of max'"></p>
             </div>
 
             </fieldset>

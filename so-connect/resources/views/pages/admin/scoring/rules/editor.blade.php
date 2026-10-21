@@ -43,7 +43,7 @@
         </div>
 
         {{-- WHEN --}}
-        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6" x-data="adminTallyEditorHelpers">
             <div class="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <span class="font-semibold">When</span>
                 <select x-model="source" class="h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
@@ -54,20 +54,20 @@
                     class="h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                     <option value="">— choose a form —</option>
                     <template x-for="f in variables.forms" :key="f.id">
-                        <option :value="f.id" x-text="f.name" :selected="String(f.id) === String(formId)"></option>
+                        <option :value="f.id" x-text="f.name" :selected="sameValue(f.id, formId)"></option>
                     </template>
                 </select>
                 <span>is <strong x-text="linkedForm ? 'filed' : 'approved'">approved</strong>,</span>
             </div>
             <p x-show="linkedForm" x-cloak class="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 After-event reports need no approval — every filed report counts. Fields of the
-                <span x-text="linkedForm?.name"></span> submission that created the reported event are available
+                <span x-text="linkedFormName"></span> submission that created the reported event are available
                 under “<span x-text="linkedForm ? linkedForm.name + ' (linked event)' : ''"></span>” in the variable picker.
             </p>
         </div>
 
         {{-- IF (condition groups) --}}
-        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6" x-data="adminTallyEditorHelpers">
             <p class="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">If</p>
 
             {{-- root group --}}
@@ -89,7 +89,7 @@
                                 <label class="flex items-center gap-1 text-xs text-gray-500">
                                     <input type="checkbox" x-model="child.not" class="h-3.5 w-3.5 rounded border-gray-300 text-brand-500" /> not
                                 </label>
-                                <select x-model="child.var" @change="$nextTick(() => normalizeRow(child))" class="h-9 min-w-[10rem] rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                <select x-model="child.var" @change="normalizeRowNextTick(child)" class="h-9 min-w-[10rem] rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                                     <option value="">— variable —</option>
                                     <template x-for="g in variableGroups" :key="g.label">
                                         <optgroup :label="g.label">
@@ -110,7 +110,7 @@
                                             <select x-model="child.value" class="h-9 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                                                 <option value="">— value —</option>
                                                 <template x-for="opt in optionsFor(child)" :key="opt.value">
-                                                    <option :value="opt.value" x-text="opt.label" :selected="String(opt.value) === String(child.value)"></option>
+                                                    <option :value="opt.value" x-text="opt.label" :selected="sameValue(opt.value, child.value)"></option>
                                                 </template>
                                             </select>
                                         </template>
@@ -139,7 +139,7 @@
                                 <template x-for="(gc, gci) in child.children" :key="gci">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <label class="flex items-center gap-1 text-xs text-gray-500"><input type="checkbox" x-model="gc.not" class="h-3.5 w-3.5 rounded border-gray-300 text-brand-500" /> not</label>
-                                        <select x-model="gc.var" @change="$nextTick(() => normalizeRow(gc))" class="h-9 min-w-[9rem] rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                        <select x-model="gc.var" @change="normalizeRowNextTick(gc)" class="h-9 min-w-[9rem] rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                                             <option value="">— variable —</option>
                                             <template x-for="g in variableGroups" :key="g.label">
                                                 <optgroup :label="g.label">
@@ -159,7 +159,7 @@
                                                 <template x-if="optionsFor(gc)">
                                                     <select x-model="gc.value" class="h-9 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                                                         <option value="">— value —</option>
-                                                        <template x-for="opt in optionsFor(gc)" :key="opt.value"><option :value="opt.value" x-text="opt.label" :selected="String(opt.value) === String(gc.value)"></option></template>
+                                                        <template x-for="opt in optionsFor(gc)" :key="opt.value"><option :value="opt.value" x-text="opt.label" :selected="sameValue(opt.value, gc.value)"></option></template>
                                                     </select>
                                                 </template>
                                                 <template x-if="!optionsFor(gc)">

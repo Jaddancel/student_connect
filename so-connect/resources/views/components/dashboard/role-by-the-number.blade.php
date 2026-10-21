@@ -35,7 +35,7 @@
             x-show="$store.dashboardData.roleStats.showAccreditation" x-cloak>
             <p class="text-xs text-gray-500 dark:text-gray-400">Organizations Not Meeting Accreditation</p>
             <p class="mt-2 text-2xl font-semibold text-gray-800 dark:text-white/90"
-                x-text="$store.dashboardData.roleStats.nonCompliantOrganizationsCount ?? '—'"></p>
+                x-text="$store.dashboardData.roleStats.nonCompliantOrganizationsCount == null ? '—' : $store.dashboardData.roleStats.nonCompliantOrganizationsCount"></p>
             <p class="mt-1 text-xs text-gray-400 dark:text-gray-500"
                 x-text="$store.dashboardData.roleStats.accreditationSemesterLabel
                     ? 'Current semester · ' + $store.dashboardData.roleStats.accreditationSemesterLabel

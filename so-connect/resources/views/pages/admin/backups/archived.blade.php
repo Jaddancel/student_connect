@@ -67,7 +67,7 @@
                                                     class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Unarchive</button>
                                             </form>
                                             <form method="POST" action="{{ route('superadmin.backups.destroy', ['filename' => $backup['name'], 'archived' => 1]) }}"
-                                                onsubmit="return confirm('Delete this archived backup?');">
+                                                data-confirm="Delete this archived backup?">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" title="Delete" aria-label="Delete archived backup"
@@ -87,4 +87,7 @@
             @endif
         </section>
     </div>
+    <script @nonce>
+        if (!window.__csDataConfirmBound) { window.__csDataConfirmBound = true; document.addEventListener('submit', (e) => { const f = e.target; if (f instanceof HTMLFormElement && f.dataset.confirm !== undefined && !e.defaultPrevented && !confirm(f.dataset.confirm)) { e.preventDefault(); } }, true); }
+    </script>
 @endsection

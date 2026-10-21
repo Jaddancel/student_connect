@@ -11,11 +11,10 @@ use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
 
 /**
- * Recreates the two formerly hardcoded admin reports — "Registered
- * Organizations" and "Organization Officers" — plus the "Financial Report"
- * and the "Organization Scoring Report" as report templates (token definition
- * + printed .docx). Idempotent: existing templates with the same name are
- * left untouched.
+ * Creates the sponsor-required accreditation reports plus the legacy roster,
+ * financial and scoring reports as report templates (token definition +
+ * printed .docx). Idempotent: existing templates with the same name are left
+ * untouched.
  */
 class ReportTemplateSeeder extends Seeder
 {
@@ -58,7 +57,7 @@ class ReportTemplateSeeder extends Seeder
         ];
         $forSemester = [['column' => 'semester_id', 'op' => '=', 'param' => 'semester']];
 
-        return [
+        $definitions = [
             'Registered Organizations' => [
                 'description' => 'Every registered organization with its type and officer count.',
                 'icon' => 'tables',
@@ -341,6 +340,201 @@ class ReportTemplateSeeder extends Seeder
                 },
             ],
         ];
+
+        return self::accreditationDefinitions($text, $count) + $definitions;
+    }
+
+    /**
+     * @param  callable(string): array<string, mixed>  $text
+     * @param  array<string, mixed>  $count
+     * @return array<string, array{description:string, icon:string, definition:array, layout:callable(Section):void}>
+     */
+    private static function accreditationDefinitions(callable $text, array $count): array
+    {
+        $schoolYear = [[
+            'name' => 'school_year',
+            'label' => 'School Year',
+            'type' => 'entity',
+            'entity' => 'school_years',
+            'display' => ['label'],
+            'required' => true,
+            'default' => 'current_school_year',
+        ]];
+        $forSchoolYear = [['column' => 'school_year', 'op' => '=', 'param' => 'school_year']];
+        $selectedSchoolYear = [
+            'id' => 'selected_school_year',
+            'kind' => 'value',
+            'name' => 'school_year',
+            'mode' => 'field',
+            'from' => 'school_years',
+            'path' => ['label'],
+            'where' => [['column' => 'school_year', 'op' => '=', 'param' => 'school_year']],
+            'format' => $text('—'),
+        ];
+        $value = fn (string $id, string $name, string $path, array $format) => [
+            'id' => $id,
+            'kind' => 'value',
+            'name' => $name,
+            'mode' => 'field',
+            'path' => [$path],
+            'format' => $format,
+        ];
+
+        return [
+            'Accredited School Organizations' => [
+                'description' => 'Accredited school organizations for the selected school year.',
+                'icon' => 'tables',
+                'definition' => [
+                    'parameters' => $schoolYear,
+                    'tokens' => [
+                        $selectedSchoolYear,
+                        [
+                            'id' => 'accredited_org_count',
+                            'kind' => 'value',
+                            'name' => 'total_organizations',
+                            'mode' => 'aggregate',
+                            'from' => 'accredited_organizations',
+                            'fn' => 'count',
+                            'column' => null,
+                            'where' => $forSchoolYear,
+                            'format' => $count,
+                        ],
+                        [
+                            'id' => 'accredited_orgs',
+                            'kind' => 'group',
+                            'name' => 'organizations',
+                            'entity' => 'accredited_organizations',
+                            'where' => $forSchoolYear,
+                            'order' => [['column' => 'organization_name', 'dir' => 'asc']],
+                            'limit' => null,
+                            'children' => [
+                                $value('accredited_org_name', 'name', 'organization_name', $text('Unnamed Organization')),
+                                $value('accredited_org_initials', 'initials', 'organization_initials', $text('—')),
+                                $value('accredited_org_type', 'type', 'organization_type', $text('—')),
+                                $value('accredited_org_date', 'accredited_at', 'accredited_at', ['type' => 'date', 'pattern' => 'F j, Y', 'fallback' => '—']),
+                            ],
+                        ],
+                    ],
+                ],
+                'layout' => function (Section $section) {
+                    self::accreditationHeader($section, 'Accredited School Organizations');
+                    $table = self::table($section);
+                    self::row($table, ['Organization', 'Initials', 'Type', 'Accredited On'], true, [3900, 1300, 1900, 1800]);
+                    self::row($table, [
+                        '{{organizations.name#}}',
+                        '{{organizations.initials#}}',
+                        '{{organizations.type#}}',
+                        '{{organizations.accredited_at#}}',
+                    ], false, [3900, 1300, 1900, 1800]);
+                    $section->addTextBreak();
+                    $section->addText('Total accredited organizations: {{total_organizations}}', ['bold' => true]);
+                },
+            ],
+
+            'Members of Accredited Organizations' => [
+                'description' => 'Members of organizations accredited in the selected school year.',
+                'icon' => 'user-profile',
+                'definition' => [
+                    'parameters' => $schoolYear,
+                    'tokens' => [
+                        $selectedSchoolYear,
+                        [
+                            'id' => 'accredited_members',
+                            'kind' => 'group',
+                            'name' => 'members',
+                            'entity' => 'accredited_organization_members',
+                            'where' => $forSchoolYear,
+                            'order' => [
+                                ['column' => 'organization_name', 'dir' => 'asc'],
+                                ['column' => 'last_name', 'dir' => 'asc'],
+                                ['column' => 'first_name', 'dir' => 'asc'],
+                            ],
+                            'limit' => null,
+                            'children' => [
+                                $value('member_org', 'organization', 'organization_name', $text('Unnamed Organization')),
+                                $value('member_last', 'last_name', 'last_name', $text()),
+                                $value('member_first', 'first_name', 'first_name', $text()),
+                                $value('member_middle', 'middle_name', 'middle_name', $text()),
+                                $value('member_student_id', 'student_id', 'student_id', $text('—')),
+                                $value('member_email', 'email', 'email', $text('—')),
+                                $value('member_course', 'course', 'course', $text('—')),
+                                $value('member_year_section', 'year_section', 'year_section', $text('—')),
+                            ],
+                        ],
+                    ],
+                ],
+                'layout' => function (Section $section) {
+                    self::accreditationHeader($section, 'Members of Accredited Organizations');
+                    $table = self::table($section);
+                    self::row($table, ['Organization', 'Member Name', 'Student ID', 'Email', 'Course', 'Year / Section'], true,
+                        [2200, 2500, 1400, 2400, 1400, 1400]);
+                    self::row($table, [
+                        '{{members.organization#}}',
+                        '{{members.last_name#}}, {{members.first_name#}} {{members.middle_name#}}',
+                        '{{members.student_id#}}',
+                        '{{members.email#}}',
+                        '{{members.course#}}',
+                        '{{members.year_section#}}',
+                    ], false, [2200, 2500, 1400, 2400, 1400, 1400]);
+                },
+            ],
+
+            'Officers of Accredited Organizations' => [
+                'description' => 'Officers and presidents of organizations accredited in the selected school year.',
+                'icon' => 'user-profile',
+                'definition' => [
+                    'parameters' => $schoolYear,
+                    'tokens' => [
+                        $selectedSchoolYear,
+                        [
+                            'id' => 'accredited_officers',
+                            'kind' => 'group',
+                            'name' => 'officers',
+                            'entity' => 'accredited_organization_officers',
+                            'where' => $forSchoolYear,
+                            'order' => [
+                                ['column' => 'organization_name', 'dir' => 'asc'],
+                                ['column' => 'role', 'dir' => 'desc'],
+                                ['column' => 'last_name', 'dir' => 'asc'],
+                            ],
+                            'limit' => null,
+                            'children' => [
+                                $value('officer_org', 'organization', 'organization_name', $text('Unnamed Organization')),
+                                $value('officer_last', 'last_name', 'last_name', $text()),
+                                $value('officer_first', 'first_name', 'first_name', $text()),
+                                $value('officer_middle', 'middle_name', 'middle_name', $text()),
+                                $value('officer_student_id', 'student_id', 'student_id', $text('—')),
+                                $value('officer_email', 'email', 'email', $text('—')),
+                                $value('officer_position', 'position', 'position', $text('—')),
+                                $value('officer_role', 'role', 'role', ['type' => 'title', 'pattern' => null, 'fallback' => '—']),
+                            ],
+                        ],
+                    ],
+                ],
+                'layout' => function (Section $section) {
+                    self::accreditationHeader($section, 'Officers of Accredited Organizations');
+                    $table = self::table($section);
+                    self::row($table, ['Organization', 'Officer Name', 'Student ID', 'Email', 'Position', 'Role'], true,
+                        [2200, 2500, 1400, 2400, 1800, 1100]);
+                    self::row($table, [
+                        '{{officers.organization#}}',
+                        '{{officers.last_name#}}, {{officers.first_name#}} {{officers.middle_name#}}',
+                        '{{officers.student_id#}}',
+                        '{{officers.email#}}',
+                        '{{officers.position#}}',
+                        '{{officers.role#}}',
+                    ], false, [2200, 2500, 1400, 2400, 1800, 1100]);
+                },
+            ],
+        ];
+    }
+
+    private static function accreditationHeader(Section $section, string $title): void
+    {
+        $section->addText($title, ['bold' => true, 'size' => 18]);
+        $section->addText('School Year {{school_year}}', ['bold' => true, 'size' => 11]);
+        $section->addText('Generated {{system.current_datetime}}', ['size' => 9, 'color' => '6B7280']);
+        $section->addTextBreak();
     }
 
     private static function header(Section $section, string $title): void

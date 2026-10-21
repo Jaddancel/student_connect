@@ -8,8 +8,8 @@ import { escapeHtml, renderMarkdown } from "../lib/markdown";
  * placeholder (network error / degraded response) — never sent back to the
  * server as conversation history.
  *
- * Assistant replies are Markdown and are rendered through `bubbleHtml()` at
- * display time — `content` stays the raw reply, so what is persisted and what
+ * Assistant replies are Markdown and are rendered through `bubbleHtml()` (via
+ * `renderBubble()`) at display time — `content` stays the raw reply, so what is persisted and what
  * is replayed to the model is exactly what it sent. Only assistant bubbles go
  * through that path; the user's own text is printed verbatim.
  *
@@ -20,6 +20,7 @@ import { escapeHtml, renderMarkdown } from "../lib/markdown";
 export function assistantChat(config) {
     return {
         endpoint: config.endpoint,
+        ticketEndpoint: config.ticketEndpoint,
         csrf: config.csrf,
         currentPath: config.currentPath || "",
 
@@ -27,6 +28,12 @@ export function assistantChat(config) {
         sending: false,
         draft: "",
         messages: [],
+        escalating: false,
+        creatingTicket: false,
+        ticketSubject: "",
+        ticketDescription: "",
+        ticketError: "",
+        ticketCreatedUrl: "",
 
         init() {
             const saved = sessionStorage.getItem(this.storageKey());
@@ -75,6 +82,47 @@ export function assistantChat(config) {
             sessionStorage.removeItem(this.storageKey());
         },
 
+        openEscalation() {
+            const lastQuestion = [...this.messages]
+                .reverse()
+                .find((message) => message.role === "user" && !message.failed)?.content;
+            this.ticketSubject = (lastQuestion || "Assistant support request").slice(0, 120);
+            this.ticketDescription = lastQuestion || "I still need help with this conversation.";
+            this.ticketError = "";
+            this.ticketCreatedUrl = "";
+            this.escalating = true;
+        },
+
+        async createTicket() {
+            if (this.creatingTicket || !this.ticketSubject.trim() || !this.ticketDescription.trim()) return;
+            this.creatingTicket = true;
+            this.ticketError = "";
+            try {
+                const response = await fetch(this.ticketEndpoint, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        "X-CSRF-TOKEN": this.csrf,
+                    },
+                    body: JSON.stringify({
+                        subject: this.ticketSubject.trim(),
+                        description: this.ticketDescription.trim(),
+                        current_path: this.currentPath,
+                        messages: this.messages.filter((message) => !message.failed).slice(-20)
+                            .map((message) => ({ role: message.role, content: message.content })),
+                    }),
+                });
+                const data = await response.json();
+                if (!response.ok || !data.ok || typeof data.url !== "string") throw new Error("ticket failed");
+                this.ticketCreatedUrl = data.url;
+                this.escalating = false;
+            } catch (error) {
+                this.ticketError = "The ticket could not be created. Please try again.";
+            }
+            this.creatingTicket = false;
+        },
+
         storageKey() {
             return `assistantChat.messages.${encodeURIComponent(this.currentPath || "/")}`;
         },
@@ -92,10 +140,20 @@ export function assistantChat(config) {
         },
 
         /**
+         * Writes one assistant bubble's HTML into `el` (called from `x-effect`,
+         * so it re-runs when the message changes). Replaces `x-html`, which
+         * Alpine's CSP build doesn't support; the markup is still exactly what
+         * `bubbleHtml()` produces.
+         */
+        renderBubble(el, message) {
+            el.innerHTML = this.bubbleHtml(message);
+        },
+
+        /**
          * HTML for one assistant bubble. Always returns a non-empty string:
-         * Alpine assigns whatever an `x-html` expression evaluates to straight
-         * into `innerHTML`, and both a throw and an `undefined` result land
-         * there as the literal word "undefined" — which is what a reply the
+         * the result is assigned straight into `innerHTML`, and both a throw
+         * and an `undefined` result would land there as the literal word
+         * "undefined" — which is what a reply the
          * renderer choked on, or one the sidecar returned empty, used to look
          * like in the panel. Anything the renderer can't turn into markup
          * degrades to the escaped text instead.

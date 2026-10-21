@@ -1,29 +1,4 @@
-<div x-data="{
-    isOpen: false,
-    popperInstance: null,
-    init() {
-        this.$nextTick(() => {
-            this.popperInstance = createPopper(this.$refs.button, this.$refs.content, {
-                placement: 'bottom-end',
-                strategy: 'fixed',
-                modifiers: [
-                    {
-                        name: 'offset',
-                        options: {
-                            offset: [0, 4],
-                        },
-                    },
-                ],
-            });
-        });
-    },
-    toggle() {
-        this.isOpen = !this.isOpen;
-        if (this.popperInstance) {
-            this.popperInstance.update();
-        }
-    }
-}"
+<div x-data="commonTableDropdown"
 @click.away="isOpen = false">
     <div @click="toggle()" x-ref="button" class="cursor-pointer">
         {{ $button }}

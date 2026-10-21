@@ -55,27 +55,11 @@
     $reviseSelected = array_values(array_map('intval', $plan->persons_responsible ?? []));
 @endphp
 
-<div x-data="{
-    open: false,
-    showCreateForm: false,
-    showReviseForm: false,
-    reviseOfficers: [],
-    reviseSelected: {{ \App\Support\JsLiteral::from($reviseSelected) }},
-    reviseLoading: false,
-    async openReviseForm() {
-        this.showReviseForm = !this.showReviseForm;
-        const isEventRequest = {{ $isEventRequest ? 'true' : 'false' }};
-        if (!isEventRequest && this.showReviseForm && this.reviseOfficers.length === 0) {
-            this.reviseLoading = true;
-            try {
-                const r = await fetch('/api/organizations/{{ (int) $plan->organization_id }}/officers');
-                this.reviseOfficers = await r.json();
-            } finally {
-                this.reviseLoading = false;
-            }
-        }
-    }
-}"
+<div x-data="eventPlanCard({
+    reviseSelected: @js($reviseSelected),
+    isEventRequest: @js((bool) $isEventRequest),
+    organizationId: @js((int) $plan->organization_id),
+})"
     class="group relative overflow-hidden rounded-xl border border-gray-100 bg-white transition-shadow duration-200 hover:shadow-sm dark:border-gray-800 dark:bg-white/[0.02]">
     {{-- Status accent line --}}
     <div class="absolute left-0 top-0 h-full w-0.5 {{ $accentLine }}"></div>
@@ -166,7 +150,7 @@
 
                 @if (in_array($status, ['pending', 'approved']))
                     <form method="POST" action="{{ route('event-plans.junk', $plan->event_plan_id) }}"
-                        onsubmit="return confirm('Are you sure you want to junk this event plan?')">
+                        data-confirm="Are you sure you want to junk this event plan?">
                         @csrf
                         @method('PATCH')
                         <button type="submit"
@@ -199,33 +183,21 @@
                         $reviseExtension      = old('extension_services', $plan->extension_services ? 'yes' : 'no');
                     @endphp
                     <form method="POST" action="{{ route('event-plans.revise', $plan->event_plan_id) }}"
-                        class="space-y-3" x-data="{
-                            facilities: {{ \App\Support\JsLiteral::from($reviseFacilities) }},
-                            addFacility() {
-                                if (this.facilities.length < 10) this.facilities.push('');
-                            },
-                            removeFacility(index) {
-                                if (this.facilities.length > 1) this.facilities.splice(index, 1);
-                            },
-                            advisers: {{ \App\Support\JsLiteral::from($reviseAdvisers) }},
-                            addAdviser() {
-                                this.advisers.push('');
-                            },
-                            removeAdviser(index) {
-                                if (this.advisers.length > 1) this.advisers.splice(index, 1);
-                            },
-                            activityTypes: {{ \App\Support\JsLiteral::from($reviseActivityTypes) }},
-                            activityType: {{ \App\Support\JsLiteral::from($reviseActivityType) }},
-                            activityTypeOther: {{ \App\Support\JsLiteral::from($reviseActivityOther) }},
-                            seminarLevel: {{ \App\Support\JsLiteral::from($reviseSeminarLevel) }},
-                            areaScope: {{ \App\Support\JsLiteral::from($reviseAreaScope) }},
-                            areaScopeOther: {{ \App\Support\JsLiteral::from($reviseAreaScopeOther) }},
-                            sponsor: {{ \App\Support\JsLiteral::from($reviseSponsor) }},
-                            sponsorOther: {{ \App\Support\JsLiteral::from($reviseSponsorOther) }},
-                            cosponsorCount: {{ (int) $reviseCosponsorCount }},
-                            relatedToOrg: {{ $reviseRelatedToOrg ? 'true' : 'false' }},
-                            extensionServices: {{ \App\Support\JsLiteral::from($reviseExtension) }},
-                        }">
+                        class="space-y-3" x-data="eventPlanReviseForm({
+                            facilities: @js($reviseFacilities),
+                            advisers: @js($reviseAdvisers),
+                            activityTypes: @js($reviseActivityTypes),
+                            activityType: @js($reviseActivityType),
+                            activityTypeOther: @js($reviseActivityOther),
+                            seminarLevel: @js($reviseSeminarLevel),
+                            areaScope: @js($reviseAreaScope),
+                            areaScopeOther: @js($reviseAreaScopeOther),
+                            sponsor: @js($reviseSponsor),
+                            sponsorOther: @js($reviseSponsorOther),
+                            cosponsorCount: @js((int) $reviseCosponsorCount),
+                            relatedToOrg: @js((bool) $reviseRelatedToOrg),
+                            extensionServices: @js($reviseExtension),
+                        })">
                         @csrf
                         @method('PATCH')
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
