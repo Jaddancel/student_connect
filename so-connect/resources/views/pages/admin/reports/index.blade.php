@@ -74,18 +74,44 @@
                                 This template refers to data that no longer exists. Edit it to fix its tokens.
                             </p>
                         @else
+                            @php
+                                // Reports with both organization filters (the accredited
+                                // organization reports) filter by one of them, chosen by a radio.
+                                $orgParams = collect($entry['parameters'])->keyBy('name')->only(['organization_type', 'organization']);
+                                $orgFilter = $orgParams->count() === 2;
+                                $firstOrgParam = $orgFilter ? collect($entry['parameters'])->first(fn ($p) => $orgParams->has($p['name']))['name'] : null;
+                                $orgFilterBy = ($orgParams['organization']['selected'] ?? null) && ! ($orgParams['organization_type']['selected'] ?? null)
+                                    ? 'organization' : 'organization_type';
+                            @endphp
                             <form method="GET" action="{{ route('reports.generate', $report) }}" data-report="{{ $report->name }}"
+                                @if ($orgFilter) x-data="adminReportOrgFilter({ filterBy: @js($orgFilterBy) })" @endif
                                 @submit.prevent="generate($event)" class="mt-5 space-y-3">
                                 @if ($entry['notice'])
                                     <p class="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600 dark:bg-white/[0.03] dark:text-gray-400">{{ $entry['notice'] }}</p>
                                 @endif
                                 @foreach ($entry['parameters'] as $parameter)
-                                    <div>
+                                    @php $isOrgParam = $orgFilter && $orgParams->has($parameter['name']); @endphp
+                                    @if ($isOrgParam && $parameter['name'] === $firstOrgParam)
+                                        <fieldset>
+                                            <legend class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Filter by</legend>
+                                            <div class="flex flex-wrap gap-x-5 gap-y-2">
+                                                @foreach (['organization_type' => $orgParams['organization_type']['label'], 'organization' => $orgParams['organization']['label']] as $value => $text)
+                                                    <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                                        <input type="radio" value="{{ $value }}" x-model="filterBy"
+                                                            class="h-4 w-4 border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600" />
+                                                        <span>{{ $text }}</span>
+                                                    </label>
+                                                @endforeach
+                                            </div>
+                                        </fieldset>
+                                    @endif
+                                    <div @if ($isOrgParam) x-show="{{ $parameter['name'] === 'organization' ? 'byOrganization' : 'byType' }}" x-cloak @endif>
                                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                             {{ $parameter['label'] }}@if ($parameter['required']) <span class="text-error-500">*</span>@endif
                                         </label>
                                         @if ($parameter['type'] === 'entity')
                                             <select name="params[{{ $parameter['name'] }}]" @required($parameter['required'])
+                                                @if ($isOrgParam) :disabled="{{ $parameter['name'] === 'organization' ? 'byType' : 'byOrganization' }}" @endif
                                                 class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
                                                 <option value="">{{ $parameter['required'] ? 'Choose…' : 'All' }}</option>
                                                 @foreach ($parameter['options'] ?? [] as $option)

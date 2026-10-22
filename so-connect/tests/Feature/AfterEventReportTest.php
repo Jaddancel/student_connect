@@ -60,12 +60,13 @@ function aeEvent(int $organizationId, string $name, Carbon $endedAt): Event
     ]);
 }
 
-function aeForm(): Form
+function aeForm(bool $autoApprove = true): Form
 {
     $form = Form::query()->create([
         'name' => 'After Event Report',
         'route_name' => 'after-event-report',
         'system_function' => SystemFunction::AFTER_EVENT_REPORT,
+        'auto_approve_submissions' => $autoApprove,
         'is_active' => true,
         'is_published' => true,
         'layout' => ['rows' => []],
@@ -239,6 +240,68 @@ it('generates the report immediately with New Event tokens and marks the event f
     ])->assertRedirect(route('after-event-reports.index'))
         ->assertSessionHasErrors(AfterEventReportService::ERROR_ALREADY_FILED);
     expect(FormSubmission::query()->where('form_id', $form->id)->count())->toBe(1);
+});
+
+it('holds the report for admin approval when auto-approve is off, then generates it on approval', function () {
+    $form = aeForm(false);
+    $org = recordsOrganization('After Org');
+    $officer = aeOfficial((int) $org->getKey());
+    $event = aeEvent((int) $org->getKey(), 'Due Seminar', now()->subDays(5));
+    aeNewEventSource($event, $officer, 'Leadership Seminar');
+
+    $captured = [];
+    aeMockDocx($captured);
+
+    $this->actingAs($officer)->post(route('forms.render.submit', $form->route_name), [
+        'summary' => 'It went well.',
+        AfterEventReportHandler::EVENT_INPUT => $event->getKey(),
+    ])->assertRedirect(route('after-event-reports.index'))
+        ->assertSessionHas('success');
+
+    $submission = FormSubmission::query()->where('form_id', $form->id)->sole();
+    $actionRequest = ActionRequest::query()->where('form_id', $form->id)->sole();
+    expect((int) $submission->event_id)->toBe((int) $event->getKey())
+        ->and($submission->generatedDocuments()->count())->toBe(0);
+
+    $this->actingAs($officer)->get(route('after-event-reports.index'))->assertSee('Pending approval');
+
+    $admin = recordsUser(2);
+    $this->actingAs($admin)->get(route('admin.form-requests.index', $form))->assertOk();
+    $this->actingAs($admin)
+        ->post(route('admin.form-requests.decide', [$form, $actionRequest->request_id]), ['decision' => 'approve'])
+        ->assertRedirect(route('admin.form-requests.index', $form));
+
+    expect($submission->generatedDocuments()->where('status', 'generated')->count())->toBe(1);
+    $this->actingAs($officer)->get(route('after-event-reports.index'))->assertSee('View document');
+});
+
+it('frees the event for a new report when an admin rejects the pending one', function () {
+    $form = aeForm(false);
+    $org = recordsOrganization('After Org');
+    $officer = aeOfficial((int) $org->getKey());
+    $event = aeEvent((int) $org->getKey(), 'Due Seminar', now()->subDays(5));
+
+    $this->actingAs($officer)->post(route('forms.render.submit', $form->route_name), [
+        'summary' => 'Draft',
+        AfterEventReportHandler::EVENT_INPUT => $event->getKey(),
+    ])->assertRedirect(route('after-event-reports.index'));
+
+    $actionRequest = ActionRequest::query()->where('form_id', $form->id)->sole();
+    expect(app(AfterEventReportService::class)->isFiled((int) $event->getKey()))->toBeTrue();
+
+    $this->actingAs(recordsUser(2))
+        ->post(route('admin.form-requests.decide', [$form, $actionRequest->request_id]), [
+            'decision' => 'reject',
+            'rejection_reason' => 'Missing photos',
+        ])->assertRedirect(route('admin.form-requests.index', $form));
+
+    expect(app(AfterEventReportService::class)->isFiled((int) $event->getKey()))->toBeFalse();
+
+    $this->actingAs($officer)->post(route('forms.render.submit', $form->route_name), [
+        'summary' => 'Corrected',
+        AfterEventReportHandler::EVENT_INPUT => $event->getKey(),
+    ])->assertRedirect(route('after-event-reports.index'))
+        ->assertSessionHasNoErrors();
 });
 
 it('refuses filing for an event from an elapsed semester', function () {

@@ -35,7 +35,6 @@ class RequestTypeService
             SystemFunction::NEW_EVENT,
             SystemFunction::NEW_WORKPLAN,
             SystemFunction::NEW_ORGANIZATION_REGISTRATION,
-            SystemFunction::AFTER_EVENT_REPORT,
         ], true);
 
         if ($excepted) {

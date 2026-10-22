@@ -360,7 +360,29 @@ class ReportTemplateSeeder extends Seeder
             'required' => true,
             'default' => 'current_school_year',
         ]];
-        $forSchoolYear = [['column' => 'school_year', 'op' => '=', 'param' => 'school_year']];
+        $filterParameters = [
+            [
+                'name' => 'organization_type',
+                'label' => 'Organization Type',
+                'type' => 'entity',
+                'entity' => 'organization_types',
+                'display' => ['label'],
+                'required' => false,
+            ],
+            [
+                'name' => 'organization',
+                'label' => 'Organization',
+                'type' => 'entity',
+                'entity' => 'organizations',
+                'display' => ['detail', 'name'],
+                'required' => false,
+            ],
+        ];
+        $forSchoolYear = [
+            ['column' => 'school_year', 'op' => '=', 'param' => 'school_year'],
+            ['column' => 'organization_type', 'op' => '=', 'param' => 'organization_type'],
+            ['column' => 'organization_id', 'op' => '=', 'param' => 'organization'],
+        ];
         $selectedSchoolYear = [
             'id' => 'selected_school_year',
             'kind' => 'value',
@@ -385,7 +407,7 @@ class ReportTemplateSeeder extends Seeder
                 'description' => 'Accredited school organizations for the selected school year.',
                 'icon' => 'tables',
                 'definition' => [
-                    'parameters' => $schoolYear,
+                    'parameters' => [...$schoolYear, ...$filterParameters],
                     'tokens' => [
                         $selectedSchoolYear,
                         [
@@ -435,7 +457,7 @@ class ReportTemplateSeeder extends Seeder
                 'description' => 'Members of organizations accredited in the selected school year.',
                 'icon' => 'user-profile',
                 'definition' => [
-                    'parameters' => $schoolYear,
+                    'parameters' => [...$schoolYear, ...$filterParameters],
                     'tokens' => [
                         $selectedSchoolYear,
                         [
@@ -483,7 +505,7 @@ class ReportTemplateSeeder extends Seeder
                 'description' => 'Officers and presidents of organizations accredited in the selected school year.',
                 'icon' => 'user-profile',
                 'definition' => [
-                    'parameters' => $schoolYear,
+                    'parameters' => [...$schoolYear, ...$filterParameters],
                     'tokens' => [
                         $selectedSchoolYear,
                         [

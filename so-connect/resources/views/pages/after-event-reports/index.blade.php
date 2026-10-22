@@ -102,7 +102,9 @@
                                         <td class="px-6 py-3">{{ $event['organization_name'] }}</td>
                                     @endif
                                     <td class="px-6 py-3">
-                                        @if ($event['filed'])
+                                        @if ($event['filed'] && ! $event['document_id'])
+                                            <span class="rounded-full bg-warning-50 px-2.5 py-1 text-xs font-medium text-warning-600 dark:bg-warning-500/15 dark:text-orange-400">Pending approval</span>
+                                        @elseif ($event['filed'])
                                             <span class="rounded-full bg-success-50 px-2.5 py-1 text-xs font-medium text-success-600 dark:bg-success-500/15 dark:text-success-500">Filed</span>
                                         @else
                                             <span class="rounded-full bg-warning-50 px-2.5 py-1 text-xs font-medium text-warning-600 dark:bg-warning-500/15 dark:text-orange-400">Not filed</span>
@@ -116,7 +118,7 @@
                                                 <a href="{{ route('download-files.download', $event['document_id']) }}"
                                                     class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">View document</a>
                                             @else
-                                                <span class="text-xs text-gray-400">Filed</span>
+                                                <span class="text-xs text-gray-400">Awaiting admin approval</span>
                                             @endif
                                         @elseif ($enabled)
                                             <a href="{{ route('forms.render', ['routeName' => $form->route_name, 'event' => $event['event_id']]) }}"

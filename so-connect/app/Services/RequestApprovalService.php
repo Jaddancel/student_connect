@@ -212,7 +212,34 @@ class RequestApprovalService
             }
         }
 
+        if ($this->isDocumentGenerationRequest($actionType, $systemKey)) {
+            $this->releaseRejectedAfterEventReport($actionRequest);
+        }
+
         return $approval;
+    }
+
+    /**
+     * A rejected After Event Report frees its event so the officers can file a
+     * corrected report (an event takes one report; see AfterEventReportService).
+     */
+    private function releaseRejectedAfterEventReport(ActionRequest $actionRequest): void
+    {
+        $submissionId = (int) (((array) ($actionRequest->payload ?? []))['submission_id'] ?? 0);
+        if ($submissionId <= 0 || $actionRequest->form_id === null) {
+            return;
+        }
+
+        $isAfterEvent = \App\Models\Form::query()
+            ->whereKey((int) $actionRequest->form_id)
+            ->where('system_function', \App\Forms\SystemFunction::AFTER_EVENT_REPORT)
+            ->exists();
+
+        if ($isAfterEvent) {
+            \App\Models\FormSubmission::query()
+                ->whereKey($submissionId)
+                ->update(['event_id' => null]);
+        }
     }
 
     private function shouldAutoApproveForPresident(ActionRequest $actionRequest, int $requesterUserId): bool

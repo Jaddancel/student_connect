@@ -18,8 +18,11 @@ use Illuminate\Validation\ValidationException;
 /**
  * After Event Report: filed by an organization official for one concluded
  * event (carried as the hidden `after_event_event_id` input the renderer adds
- * for `?event=`). Unlike the other system functions there is no approval step —
- * the printed document is generated right away and the event is marked filed.
+ * for `?event=`). With the form's auto-approve option on (the default) the
+ * printed document is generated right away; otherwise the submission becomes a
+ * pending request on the form's admin request page and the document is
+ * generated when an admin approves it. Either way the event is marked filed
+ * (a rejection releases it, see RequestApprovalService::reject).
  * An event takes exactly one report: a second attempt is sent back to the
  * After Event Form page with an "already filed" dialog.
  */
@@ -61,6 +64,19 @@ class AfterEventReportHandler implements SystemFunctionHandler
             $this->discard($form, $submission);
             $this->redirectIfAlreadyFiled($exception);
             throw $exception;
+        }
+
+        if (! $form->auto_approve_submissions) {
+            app(DocumentGenerationService::class)->createDocumentGenerationRequest(
+                (int) $event['organization_id'],
+                (int) $submission->getKey(),
+                (int) $form->getKey(),
+                (int) $request->user()->getKey(),
+            );
+
+            return redirect()
+                ->route('after-event-reports.index')
+                ->with('success', 'After-event report for "'.$event['name'].'" submitted for approval — its document will be generated once an admin approves it.');
         }
 
         try {

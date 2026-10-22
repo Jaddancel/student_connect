@@ -145,6 +145,8 @@ class MenuHelper
                         ->orWhereIn('system_function', [
                             \App\Forms\SystemFunction::MEMBERSHIP_REGISTRATION,
                             \App\Forms\SystemFunction::ORG_ACCREDITATION,
+                            \App\Forms\SystemFunction::NEW_ORGANIZATION_REGISTRATION,
+                            \App\Forms\SystemFunction::AFTER_EVENT_REPORT,
                         ]);
                 })
                 ->orderBy('name')
@@ -278,10 +280,11 @@ class MenuHelper
             ->count();
 
         // One grouped count feeds every per-form request page badge
-        // (membership + doc-gen requests, keyed by the indexed form_id).
+        // (membership, doc-gen and new-organization requests, keyed by the
+        // indexed form_id).
         $pendingPerForm = DB::table('requests')
             ->whereNotNull('form_id')
-            ->whereIn('action_type', [1, 3])
+            ->whereIn('action_type', [1, 3, \App\Forms\Handlers\NewOrganizationRegistrationHandler::ACTION_TYPE])
             ->whereNotIn('request_id', $approvedIds)
             ->groupBy('form_id')
             ->selectRaw('form_id, COUNT(*) as pending')

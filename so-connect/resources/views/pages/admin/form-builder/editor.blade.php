@@ -779,7 +779,7 @@
                         </p>
                     </div>
 
-                    <div x-show="!system_function" x-cloak class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                    <div x-show="!system_function || system_function === @js(\App\Forms\SystemFunction::AFTER_EVENT_REPORT)" x-cloak class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
                         <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                             <input type="checkbox" x-model="auto_approve_submissions"
                                 class="h-4 w-4 rounded border-gray-300 text-brand-500" />
@@ -787,7 +787,8 @@
                         </label>
                         <p class="mt-1 text-xs text-gray-400">
                             Submissions to this form will be approved immediately and the printed document generated without admin review.
-                            System-function forms use their own approval flow.
+                            When off, submissions wait on this form's admin request page until an admin approves them.
+                            Other system-function forms use their own approval flow.
                         </p>
                     </div>
 

@@ -111,6 +111,14 @@ export default function registerAdmin(Alpine) {
         },
     }));
 
+    // pages/admin/reports/index: filter a report by organization type OR by
+    // one organization. The unused select is disabled so it is not submitted.
+    Alpine.data("adminReportOrgFilter", ({ filterBy = 'organization_type' } = {}) => ({
+        filterBy,
+        get byType() { return this.filterBy === 'organization_type'; },
+        get byOrganization() { return this.filterBy === 'organization'; },
+    }));
+
     // pages/admin/scoring/create: live category totals + manual-input modal.
     // `values` carries the per-field initial counts rendered by Blade.
     Alpine.data("adminOrgScoreForm", (values = {}) => ({

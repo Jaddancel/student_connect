@@ -50,12 +50,10 @@
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Rank</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Organization
                                 </th>
-                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Sole</th>
-                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Active</th>
-                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Awards</th>
-                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Ext</th>
-                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Tangible</th>
-                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Admin</th>
+                                @foreach ($categories as $category)
+                                    <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                        {{ $category['label'] }} / 100</th>
+                                @endforeach
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Total / 100
                                 </th>
                             </tr>
@@ -64,7 +62,7 @@
                             @foreach ($rows as $row)
                                 @php
                                     $score = $row['score'];
-                                    $raw = $row['raw'] ?? [];
+                                    $categoryScores = $row['categories'] ?? [];
                                     $rank = $loop->iteration;
                                     $rowClass = match ($rank) {
                                         1 => 'bg-amber-50/70 dark:bg-amber-500/10',
@@ -78,13 +76,16 @@
                                     </td>
                                     <td class="px-6 py-4 font-medium text-gray-800 dark:text-white/90">
                                         {{ $row['org_name'] }}</td>
-                                    <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ $raw['sole'] ?? 0 }}</td>
-                                    <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ $raw['active'] ?? 0 }}</td>
-                                    <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ $raw['awards'] ?? 0 }}</td>
-                                    <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ $raw['extension'] ?? 0 }}
-                                    </td>
-                                    <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ $raw['tangible'] ?? 0 }}</td>
-                                    <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ $raw['admin'] ?? 0 }}</td>
+                                    @foreach ($categories as $categoryKey => $category)
+                                        @php
+                                            $categoryScore = (float) ($categoryScores[$categoryKey] ?? 0);
+                                            $categoryCap = (float) $category['cap'];
+                                            $normalized = $categoryCap > 0 ? $categoryScore / $categoryCap * 100 : 0;
+                                        @endphp
+                                        <td class="whitespace-nowrap px-6 py-4 text-gray-600 dark:text-gray-400"
+                                            title="{{ $categoryScore + 0 }} / {{ $categoryCap + 0 }} raw points">
+                                            {{ number_format($normalized, 2) }}</td>
+                                    @endforeach
                                     <td class="px-6 py-4 font-semibold text-gray-800 dark:text-white/90">
                                         {{ number_format((float) $score->total_weighted_score, 2) }}
                                     </td>

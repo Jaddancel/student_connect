@@ -167,7 +167,7 @@ class ScoringRuleEngine
         }
 
         if ($formId === (int) (SystemFunction::form(SystemFunction::AFTER_EVENT_REPORT)?->getKey() ?? 0)) {
-            return $this->filedAfterEventReports($submissions);
+            return $this->filedAfterEventReports($this->withoutUnapprovedRequests($formId, $submissions));
         }
 
         $submissionIds = $submissions->pluck('form_submission_id')->map(fn ($id) => (int) $id)->all();
@@ -190,6 +190,43 @@ class ScoringRuleEngine
                 'user_id' => (int) ($s->submitted_by ?? 0),
             ])
             ->values();
+    }
+
+    /**
+     * Drop submissions whose admin request is still pending or was rejected.
+     * Auto-approved reports have no request and always stay.
+     *
+     * @param  Collection<int,object>  $submissions
+     * @return Collection<int,object>
+     */
+    private function withoutUnapprovedRequests(int $formId, Collection $submissions): Collection
+    {
+        $requests = DB::table('requests')
+            ->where('form_id', $formId)
+            ->where('action_type', FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION)
+            ->get(['request_id', 'payload']);
+
+        if ($requests->isEmpty()) {
+            return $submissions;
+        }
+
+        $approvedRequestIds = DB::table('approvals')
+            ->whereIn('request', $requests->pluck('request_id')->all())
+            ->where('is_rejected', false)
+            ->pluck('request')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $unapproved = [];
+        foreach ($requests as $request) {
+            if (in_array((int) $request->request_id, $approvedRequestIds, true)) {
+                continue;
+            }
+            $payload = is_string($request->payload) ? json_decode($request->payload, true) : (array) $request->payload;
+            $unapproved[(int) ($payload['submission_id'] ?? 0)] = true;
+        }
+
+        return $submissions->reject(fn ($s) => isset($unapproved[(int) $s->form_submission_id]))->values();
     }
 
     /**

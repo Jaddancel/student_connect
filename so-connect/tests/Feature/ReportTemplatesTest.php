@@ -210,6 +210,47 @@ it('filters all three accreditation reports by school year and excludes rejected
         ->and($nextYear['organizations'][0]['name'])->toBe('Beta Organization');
 });
 
+it('filters all three accreditation reports by organization type and organization', function () {
+    [$alpha, $beta] = rtFixture();
+    $form = Form::query()->create([
+        'name' => 'Organization Accreditation',
+        'route_name' => 'organization-accreditation-report-test',
+        'system_function' => SystemFunction::ORG_ACCREDITATION,
+        'is_active' => true,
+        'is_published' => true,
+    ]);
+    rtAccredit((int) $alpha->getKey(), $form, '2026-09-15 10:00:00');
+    rtAccredit((int) $beta->getKey(), $form, '2026-09-16 10:00:00');
+
+    $engine = app(ReportQueryEngine::class);
+    $validator = app(ReportDefinitionValidator::class);
+    $year = ['school_year' => '2026–2027'];
+
+    foreach (['Accredited School Organizations', 'Members of Accredited Organizations', 'Officers of Accredited Organizations'] as $name) {
+        $definition = $validator->validate(rtDefinition($name));
+        expect(array_column($definition['parameters'], 'name'))->toContain('organization_type', 'organization');
+    }
+
+    $byType = $engine->run(rtDefinition('Accredited School Organizations'), $year + ['organization_type' => '2'])['data'];
+    expect($byType['organizations'])->toHaveCount(1)
+        ->and($byType['organizations'][0]['name'])->toBe('Beta Organization')
+        ->and($byType['total_organizations'])->toBe('1');
+
+    $byOrg = $engine->run(rtDefinition('Accredited School Organizations'), $year + ['organization' => (string) $alpha->getKey()])['data'];
+    expect(array_column($byOrg['organizations'], 'name'))->toBe(['Alpha Organization']);
+
+    $members = $engine->run(rtDefinition('Members of Accredited Organizations'), $year + ['organization' => (string) $alpha->getKey()])['data']['members'];
+    $officers = $engine->run(rtDefinition('Officers of Accredited Organizations'), $year + ['organization_type' => '2'])['data']['officers'];
+    expect(array_column($members, 'first_name'))->toBe(['Mark'])
+        ->and(array_column($officers, 'first_name'))->toBe(['Bert']);
+
+    $none = $engine->run(rtDefinition('Members of Accredited Organizations'), $year + ['organization_type' => '2', 'organization' => (string) $alpha->getKey()])['data']['members'];
+    expect($none)->toBeEmpty();
+
+    $options = $engine->parameterOptions(rtDefinition('Accredited School Organizations')['parameters'][1]);
+    expect(array_column($options, 'label'))->toContain('Socio-Civic', 'Religious');
+});
+
 it('offers school years and defaults accreditation reports to the current school year', function () {
     \Illuminate\Support\Carbon::setTestNow('2026-10-16 08:00:00');
     $definition = app(ReportDefinitionValidator::class)
@@ -402,6 +443,11 @@ it('lists seeded reports and generates them with parameters', function () {
         ->assertSee('Registered Organizations')
         ->assertSee('Organization Officers')
         ->assertSee('Beta Organization');
+
+    // Only the three accredited organization reports (which have both organization filters) get the radio.
+    $page = $this->actingAs($admin)->get(route('reports.index'))->getContent();
+    expect(substr_count($page, 'x-data="adminReportOrgFilter('))->toBe(3)
+        ->and(substr_count($page, 'x-model="filterBy"'))->toBe(6);
 
     $captured = null;
     $this->partialMock(DocxTemplateService::class, function ($mock) use (&$captured) {

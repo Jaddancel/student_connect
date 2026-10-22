@@ -356,10 +356,12 @@ class OrganizationScoringController extends Controller
                     ->all();
             }
 
+            $calculator = app(\App\Services\Scoring\ScoreCalculator::class);
+
             $rows = $scores->map(fn (OrganizationScore $score) => [
-                'score'    => $score,
-                'org_name' => $orgNames[$score->organization_id] ?? 'Unknown Organization',
-                'raw'      => (array) ($score->raw_scores ?? []),
+                'score'      => $score,
+                'org_name'   => $orgNames[$score->organization_id] ?? 'Unknown Organization',
+                'categories' => $calculator->sheet((int) $score->organization_id, $selectedSemester, $score)['categories'],
             ]);
         }
 
@@ -369,6 +371,7 @@ class OrganizationScoringController extends Controller
             'selectedSemester'   => $selectedSemester,
             'selectedSemesterId' => $selectedSemesterId,
             'rows'               => $rows,
+            'categories'         => \App\Services\Scoring\ScoringCatalog::categories(),
         ]);
     }
 

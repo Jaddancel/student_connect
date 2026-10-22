@@ -129,6 +129,9 @@ class FormBuilderController extends Controller
                     ->with('toast_error', 'The "'.SystemFunction::label($function).'" function already has a form.');
             }
             $editorData['system_function'] = $function;
+            // The After Event Report has always generated its document
+            // immediately; new forms keep that unless an admin opts out.
+            $editorData['auto_approve_submissions'] = $function === SystemFunction::AFTER_EVENT_REPORT;
             $kit = $function;
         }
 
@@ -463,7 +466,9 @@ class FormBuilderController extends Controller
         ]);
 
         $systemFunction = $form?->system_function ?? (($validated['system_function'] ?? '') !== '' ? $validated['system_function'] : null);
-        if (($validated['auto_approve_submissions'] ?? false) && $systemFunction !== null) {
+        if (($validated['auto_approve_submissions'] ?? false)
+            && $systemFunction !== null
+            && $systemFunction !== SystemFunction::AFTER_EVENT_REPORT) {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'auto_approve_submissions' => 'Automatic approval is only available for forms without a system function.',
             ]);

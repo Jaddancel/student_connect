@@ -2,6 +2,7 @@
 
 namespace App\Reports;
 
+use App\Enums\OrganizationType;
 use App\Forms\SystemFunction;
 use App\Models\Semester;
 use Illuminate\Support\Carbon;
@@ -22,6 +23,8 @@ final class AccreditationReportSources
 {
     public const SCHOOL_YEARS = 'school_years';
 
+    public const ORGANIZATION_TYPES = 'organization_types';
+
     public const ACCREDITED_ORGANIZATIONS = 'accredited_organizations';
 
     public const ACCREDITED_MEMBERS = 'accredited_organization_members';
@@ -33,6 +36,10 @@ final class AccreditationReportSources
         self::SCHOOL_YEARS => [
             'school_year' => ['text', 'VARCHAR(20)'],
             'label' => ['text', 'VARCHAR(20)'],
+        ],
+        self::ORGANIZATION_TYPES => [
+            'organization_type' => ['number', 'INT'],
+            'label' => ['text', 'VARCHAR(100)'],
         ],
         self::ACCREDITED_ORGANIZATIONS => [
             'accreditation_record_id' => ['number', 'BIGINT'],
@@ -49,6 +56,7 @@ final class AccreditationReportSources
             'school_year' => ['text', 'VARCHAR(20)'],
             'organization_name' => ['text', 'VARCHAR(255)'],
             'organization_initials' => ['text', 'VARCHAR(100)'],
+            'organization_type' => ['number', 'INT'],
             'first_name' => ['text', 'VARCHAR(255)'],
             'middle_name' => ['text', 'VARCHAR(255)'],
             'last_name' => ['text', 'VARCHAR(255)'],
@@ -64,6 +72,7 @@ final class AccreditationReportSources
             'school_year' => ['text', 'VARCHAR(20)'],
             'organization_name' => ['text', 'VARCHAR(255)'],
             'organization_initials' => ['text', 'VARCHAR(100)'],
+            'organization_type' => ['number', 'INT'],
             'first_name' => ['text', 'VARCHAR(255)'],
             'middle_name' => ['text', 'VARCHAR(255)'],
             'last_name' => ['text', 'VARCHAR(255)'],
@@ -98,6 +107,14 @@ final class AccreditationReportSources
                 self::SCHOOL_YEARS,
                 'School Years',
                 'school_year',
+            );
+        }
+
+        if (! isset($tables[self::ORGANIZATION_TYPES])) {
+            $tables[self::ORGANIZATION_TYPES] = $this->table(
+                self::ORGANIZATION_TYPES,
+                'Organization Types',
+                'organization_type',
             );
         }
 
@@ -156,9 +173,10 @@ final class AccreditationReportSources
 
         $rows = match ($name) {
             self::SCHOOL_YEARS => $this->schoolYearRows(),
-            self::ACCREDITED_ORGANIZATIONS => $this->accreditationRows($filters['school_year'] ?? []),
-            self::ACCREDITED_MEMBERS => $this->rosterRows($filters['school_year'] ?? [], ['member']),
-            self::ACCREDITED_OFFICERS => $this->rosterRows($filters['school_year'] ?? [], ['officer', 'president']),
+            self::ORGANIZATION_TYPES => $this->organizationTypeRows(),
+            self::ACCREDITED_ORGANIZATIONS => $this->accreditationRows($filters),
+            self::ACCREDITED_MEMBERS => $this->rosterRows($filters, ['member']),
+            self::ACCREDITED_OFFICERS => $this->rosterRows($filters, ['officer', 'president']),
         };
 
         $columns = [];
@@ -215,13 +233,24 @@ final class AccreditationReportSources
         return $years->map(fn (string $year) => ['school_year' => $year, 'label' => $year])->all();
     }
 
+    /** @return array<int, array{organization_type: int, label: string}> */
+    private function organizationTypeRows(): array
+    {
+        return collect(OrganizationType::options())
+            ->map(fn (string $label, int|string $type) => ['organization_type' => (int) $type, 'label' => $label])
+            ->values()
+            ->all();
+    }
+
     /**
-     * @param  array<int, mixed>  $schoolYears
+     * @param  array<string, array<int, mixed>>  $filters
      * @return array<int, array<string, mixed>>
      */
-    private function accreditationRows(array $schoolYears): array
+    private function accreditationRows(array $filters): array
     {
-        $allowed = collect($schoolYears)->map('strval')->filter()->flip();
+        $allowed = $this->allowed($filters['school_year'] ?? []);
+        $types = $this->allowed($filters['organization_type'] ?? []);
+        $organizations = $this->allowed($filters['organization_id'] ?? []);
 
         return $this->approvedAccreditations()
             ->map(function (object $approval): array {
@@ -240,6 +269,12 @@ final class AccreditationReportSources
             ->when($allowed->isNotEmpty(), fn ($rows) => $rows->filter(
                 fn (array $row) => $allowed->has($row['school_year']),
             ))
+            ->when($types->isNotEmpty(), fn ($rows) => $rows->filter(
+                fn (array $row) => $types->has((string) $row['organization_type']),
+            ))
+            ->when($organizations->isNotEmpty(), fn ($rows) => $rows->filter(
+                fn (array $row) => $organizations->has((string) $row['organization_id']),
+            ))
             ->sortBy([['school_year', 'asc'], ['organization_id', 'asc'], ['accredited_at', 'desc']])
             ->unique(fn (array $row) => $row['school_year'].'|'.$row['organization_id'])
             ->values()
@@ -247,13 +282,22 @@ final class AccreditationReportSources
     }
 
     /**
-     * @param  array<int, mixed>  $schoolYears
+     * @param  array<int, mixed>  $values
+     * @return \Illuminate\Support\Collection<string, int>
+     */
+    private function allowed(array $values): \Illuminate\Support\Collection
+    {
+        return collect($values)->map('strval')->filter(fn (string $value) => $value !== '')->flip();
+    }
+
+    /**
+     * @param  array<string, array<int, mixed>>  $filters
      * @param  array<int, string>  $roles
      * @return array<int, array<string, mixed>>
      */
-    private function rosterRows(array $schoolYears, array $roles): array
+    private function rosterRows(array $filters, array $roles): array
     {
-        $accreditations = collect($this->accreditationRows($schoolYears));
+        $accreditations = collect($this->accreditationRows($filters));
         $organizationIds = $accreditations->pluck('organization_id')->unique()->values();
         if ($organizationIds->isEmpty()) {
             return [];
@@ -282,6 +326,7 @@ final class AccreditationReportSources
                     'school_year' => $accreditation['school_year'],
                     'organization_name' => $accreditation['organization_name'],
                     'organization_initials' => $accreditation['organization_initials'],
+                    'organization_type' => $accreditation['organization_type'],
                     'first_name' => (string) ($person->first_name ?? ''),
                     'middle_name' => (string) ($person->middle_name ?? ''),
                     'last_name' => (string) ($person->last_name ?? ''),
