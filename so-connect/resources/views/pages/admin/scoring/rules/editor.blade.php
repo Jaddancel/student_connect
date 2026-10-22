@@ -212,7 +212,12 @@
                             class="h-9 w-24 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                     </span>
                 </template>
-                <span x-text="add.kind === 'floor_div' ? '.' : 'instance(s).'">instance(s).</span>
+                <span x-show="add.kind === 'const'">instance(s)</span>
+                <span class="flex items-center gap-2">which are limited to
+                    <input type="number" min="1" step="1" x-model="add.max" placeholder="infinite" title="Maximum instances this rule can tally per semester — leave blank for no limit"
+                        class="h-9 w-24 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                </span>
+                <span>instance(s) per semester.</span>
             </div>
         </div>
 

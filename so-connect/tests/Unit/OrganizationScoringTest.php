@@ -78,3 +78,28 @@ it('counts text list rows in scoring rule comparisons and tallies', function () 
         ->and($contribution(['kind' => 'floor_div', 'var' => 'field:faculty_advisers', 'divisor' => 2], $record))->toBe(1)
         ->and($passes($compare('>=', 1), ['values' => ['faculty_advisers' => []], 'user_id' => 0]))->toBeFalse();
 });
+
+it('caps a rule\'s semester tally at its "limited to" amount', function () {
+    $engine = new \App\Services\Scoring\ScoringRuleEngine();
+    $records = array_fill(0, 5, ['values' => [], 'user_id' => 0]);
+    $trigger = fn (?int $max) => ['then' => ['add' => array_filter(['kind' => 'const', 'value' => 1, 'max' => $max], fn ($v) => $v !== null)]];
+
+    expect($engine->tallyRecords($trigger(null), $records))->toBe(5)
+        ->and($engine->tallyRecords($trigger(3), $records))->toBe(3)
+        ->and($engine->tallyRecords($trigger(10), $records))->toBe(5);
+});
+
+it('validates the optional "limited to" amount', function () {
+    $trigger = fn ($max) => [
+        'when' => ['source' => 'event_plan'],
+        'then' => ['add' => ['kind' => 'const', 'value' => 1, 'max' => $max]],
+    ];
+
+    (new TriggerValidator())->validate($trigger(4));
+    (new TriggerValidator())->validate($trigger(null));
+
+    expect(fn () => (new TriggerValidator())->validate($trigger(0)))
+        ->toThrow(ValidationException::class, 'limited to')
+        ->and(fn () => (new TriggerValidator())->validate($trigger(2.5)))
+        ->toThrow(ValidationException::class, 'limited to');
+});

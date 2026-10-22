@@ -20,6 +20,8 @@ use Illuminate\Validation\ValidationException;
  *   then.add := {kind: const, value: int 1..1000}
  *             | {kind: floor_div, var, divisor: number > 0}
  *             | {kind: count_list, var}
+ *             (+ optional max: int >= 1 capping the rule's semester total;
+ *              absent/null = unlimited)
  *   var      := "field:<key>" | "universal:<key>" | "plan:<column>"
  *             | "new_event:<key>" (After Event form triggers only — reads the
  *               New Event submission that created the reported event)
@@ -74,6 +76,11 @@ class TriggerValidator
                 || $this->fail('A "count rows" add needs a list variable.'),
             default => $this->fail('Unknown "add" kind.'),
         };
+
+        $max = $add['max'] ?? null;
+        if ($max !== null && (! is_numeric($max) || (int) $max != $max || (int) $max < 1)) {
+            $this->fail('The "limited to" amount must be a whole number of at least 1, or left blank for no limit.');
+        }
 
         if ($this->usesNewEventVars) {
             $afterEventFormId = (int) (SystemFunction::form(SystemFunction::AFTER_EVENT_REPORT)?->getKey() ?? 0);

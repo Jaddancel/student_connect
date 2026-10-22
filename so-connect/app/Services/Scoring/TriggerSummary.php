@@ -76,6 +76,17 @@ final class TriggerSummary
      */
     private static function adder(array $add): string
     {
+        $max = $add['max'] ?? null;
+        $limit = is_numeric($max) && (int) $max > 0 ? ', limited to '.(int) $max.' instance(s) per semester' : '';
+
+        return self::uncappedAdder($add).$limit;
+    }
+
+    /**
+     * @param  array<string,mixed>  $add
+     */
+    private static function uncappedAdder(array $add): string
+    {
         return match ($add['kind'] ?? null) {
             'const' => ((int) ($add['value'] ?? 1)).' instance(s)',
             'floor_div' => '1 instance per count of '.self::varLabel((string) ($add['var'] ?? '')).' divided by '.(string) ($add['divisor'] ?? 1),

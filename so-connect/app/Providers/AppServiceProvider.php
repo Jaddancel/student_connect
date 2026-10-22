@@ -63,8 +63,8 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(Login::class, SendLoginNotification::class);
 
         CalendarEvent::observe(EventCreatedObserver::class);
-        \App\Models\Request::observe(\App\Observers\RequestActionLogObserver::class);
-        \App\Models\Approval::observe(\App\Observers\ApprovalActionLogObserver::class);
+        // \App\Models\Request::observe(\App\Observers\RequestActionLogObserver::class);
+        // \App\Models\Approval::observe(\App\Observers\ApprovalActionLogObserver::class);
 
         Gate::policy(Officer::class, RolePolicy::class);
 

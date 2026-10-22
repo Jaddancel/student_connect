@@ -221,6 +221,7 @@ export function tallyEditor(config) {
                 value: add.value ?? 1,
                 var: add.var ?? '',
                 divisor: add.divisor ?? 1,
+                max: add.max ?? '',
             };
         },
 
@@ -304,9 +305,11 @@ export function tallyEditor(config) {
         },
 
         addToAst() {
-            if (this.add.kind === 'const') return { kind: 'const', value: parseInt(this.add.value, 10) || 1 };
-            if (this.add.kind === 'floor_div') return { kind: 'floor_div', var: this.add.var, divisor: parseFloat(this.add.divisor) || 1 };
-            return { kind: 'count_list', var: this.add.var };
+            const max = parseInt(this.add.max, 10);
+            const limit = max > 0 ? { max } : {};
+            if (this.add.kind === 'const') return { kind: 'const', value: parseInt(this.add.value, 10) || 1, ...limit };
+            if (this.add.kind === 'floor_div') return { kind: 'floor_div', var: this.add.var, divisor: parseFloat(this.add.divisor) || 1, ...limit };
+            return { kind: 'count_list', var: this.add.var, ...limit };
         },
 
         coerce(value) {
@@ -334,6 +337,11 @@ export function tallyEditor(config) {
             }
             if (this.add.kind === 'floor_div' && !(parseFloat(this.add.divisor) > 0)) {
                 this.error = 'The number to divide by must be greater than 0.';
+                return;
+            }
+            if (this.add.max !== '' && this.add.max !== null
+                && !(Number.isInteger(Number(this.add.max)) && Number(this.add.max) >= 1)) {
+                this.error = 'The "limited to" amount must be a whole number of at least 1, or left blank for no limit.';
                 return;
             }
             if (!this.linkedForm && this.usesVarPrefix('new_event:')) {

@@ -70,12 +70,7 @@ class ScoringRuleEngine
                     continue;
                 }
 
-                $total = 0;
-                foreach ($records as $record) {
-                    $total += $this->tallyRecord($trigger, $record);
-                }
-
-                $instances[$rule->criterion->key] = $total;
+                $instances[$rule->criterion->key] = $this->tallyRecords($trigger, $records);
             } catch (\Throwable $e) {
                 // A broken rule must never take scoring down; skip it loudly.
                 Log::warning('Scoring rule evaluation failed', [
@@ -86,6 +81,24 @@ class ScoringRuleEngine
         }
 
         return $instances;
+    }
+
+    /**
+     * Semester tally for one rule: the sum over every record, capped by the
+     * optional `then.add.max` (absent/null = unlimited).
+     *
+     * @param  iterable<array<string,mixed>>  $records
+     */
+    public function tallyRecords(array $trigger, iterable $records): int
+    {
+        $total = 0;
+        foreach ($records as $record) {
+            $total += $this->tallyRecord($trigger, $record);
+        }
+
+        $max = $trigger['then']['add']['max'] ?? null;
+
+        return is_numeric($max) && (int) $max > 0 ? min($total, (int) $max) : $total;
     }
 
     /** Evaluate one record using the same conditions and contribution as the semester tally. */

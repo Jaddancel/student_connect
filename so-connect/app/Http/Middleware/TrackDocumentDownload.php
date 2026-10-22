@@ -37,7 +37,7 @@ class TrackDocumentDownload
                 $request->route()?->parameters() ?? [],
             );
 
-            ActionLogger::log(
+            if (false) ActionLogger::log(
                 ActionLogger::CATEGORY_DOCUMENT_GENERATION,
                 'document_download',
                 'Downloaded '.str_replace('_', ' ', $kind),
