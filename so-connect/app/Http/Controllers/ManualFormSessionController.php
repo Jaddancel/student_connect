@@ -8,6 +8,7 @@ use App\Jobs\ParseManualFormScan;
 use App\Models\Form;
 use App\Models\ManualFormSession;
 use App\Models\ManualFormSessionDocument;
+use App\Services\ActionLogger;
 use App\Services\ManualForm\ManualFormSessionService;
 use App\Services\ManualForm\ParseProgress;
 use Illuminate\Http\JsonResponse;
@@ -48,6 +49,13 @@ class ManualFormSessionController extends Controller
         }
 
         ['session' => $session, 'token' => $token] = $this->sessions->start($form, $request);
+
+        ActionLogger::log(
+            ActionLogger::CATEGORY_DOCUMENT_GENERATION,
+            'partial_form_generated',
+            'Generated partial form for "'.$form->name.'"',
+            ['form_id' => (int) $form->getKey(), 'session_id' => (string) $session->getKey()],
+        );
 
         return response()->json([
             'ok' => true,
@@ -281,6 +289,7 @@ class ManualFormSessionController extends Controller
 
         ParseProgress::clear($session);
         ParseManualFormScan::dispatch((string) $session->getKey());
+        $this->logPartialFormUpload($session, count($paths));
 
         return response()->json(['ok' => true, 'status' => $session->status]);
     }
@@ -343,8 +352,26 @@ class ManualFormSessionController extends Controller
         $this->sessions->syncDocuments($session);
         ParseProgress::clear($document);
         ParseManualFormScan::dispatch((string) $session->getKey(), (int) $document->getKey());
+        $this->logPartialFormUpload($session, count($paths), (int) $document->getKey());
 
         return response()->json(['ok' => true, 'status' => $document->status]);
+    }
+
+    private function logPartialFormUpload(ManualFormSession $session, int $files, ?int $documentId = null): void
+    {
+        $formName = $session->form()->value('name');
+
+        ActionLogger::log(
+            ActionLogger::CATEGORY_DOCUMENT_GENERATION,
+            'partial_form_uploaded',
+            'Uploaded completed partial form'.($formName ? ' for "'.$formName.'"' : ''),
+            array_filter([
+                'form_id' => $session->form_id !== null ? (int) $session->form_id : null,
+                'session_id' => (string) $session->getKey(),
+                'document_id' => $documentId,
+                'files' => $files,
+            ], fn ($value) => $value !== null),
+        );
     }
 
     public function retryDocument(Request $request, ManualFormSession $session, ManualFormSessionDocument $document): JsonResponse

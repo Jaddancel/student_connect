@@ -93,6 +93,20 @@ class DocxTemplateData
                 continue;
             }
 
+            // Workplan picker: the stored value is a workplan id. Print its
+            // approved activities instead — `{{key}}`/`{{key#}}` as "Title —
+            // Date" items, and `{{key.title#}}`/`{{key.date#}}` as parallel
+            // columns so a table clones one row per activity.
+            if ($type === FieldType::WORKPLAN_SELECT) {
+                $raw = $payload[$key] ?? null;
+                $activities = SpecialFieldLabel::workplanActivities($raw);
+                $values[$key.'.title'] = array_column($activities, 'title');
+                $values[$key.'.date'] = array_column($activities, 'date');
+                $values[$key] = SpecialFieldLabel::workplanActivityLabels($raw);
+
+                continue;
+            }
+
             // Table field: the stored value is a list of row objects keyed by
             // column key. Like the Activity Table, emit one parallel array per
             // column (and per-row computed column) under a dotted `{{key.col#}}`

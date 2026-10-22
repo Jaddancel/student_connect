@@ -405,3 +405,87 @@ it('never lists another form\'s requests', function () {
         ->get(route('admin.form-requests.show', [$formB, $actionRequest->request_id]))
         ->assertNotFound();
 });
+
+it('links an accreditation request to the requests of its workplan\'s approved events', function () {
+    $org = recordsOrganization('Accredited Society');
+    $officer = frpOfficer((int) $org->getKey());
+
+    $semester = \App\Models\Semester::query()->create([
+        'name' => '1st Semester AY 2026-2027', 'semester_number' => 1,
+        'starts_at' => '2026-08-01', 'ends_at' => '2026-12-15', 'vacation_days' => 30,
+    ]);
+    $workplan = \App\Models\Workplan::query()->create([
+        'organization_id' => $org->getKey(), 'semester_id' => $semester->getKey(), 'status' => 'finalized',
+    ]);
+
+    $eventRequest = fn () => ActionRequest::query()->create([
+        'action' => 'document_generation', 'requested_at' => now(), 'user' => $officer->getKey(),
+        'action_type' => \App\Helpers\FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION, 'payload' => [],
+    ]);
+    $plan = fn (string $title, string $date, string $status = 'approved', array $extra = []) => \App\Models\EventPlan::query()->create(array_merge([
+        'organization_id' => $org->getKey(), 'created_by' => $officer->getKey(),
+        'title' => $title, 'target_date' => $date, 'status' => $status,
+    ], $extra));
+
+    // A parent activity whose request lives on its approved child schedule.
+    $childRequest = $eventRequest();
+    $parent = $plan('Acquaintance Party', '2026-09-05');
+    $plan('Acquaintance Party', '2026-09-05', 'approved', [
+        'parent_plan_id' => $parent->getKey(), 'request_id' => $childRequest->getKey(),
+    ]);
+    // A plan filed under an already-approved workplan carries its own request.
+    $ownRequest = $eventRequest();
+    $plan('Tree Planting', '2026-10-12', 'approved', ['request_id' => $ownRequest->getKey()]);
+    $plan('Pending Seminar', '2026-11-03', 'pending');
+    $plan('Last Year Outreach', '2025-10-01');
+
+    $form = Form::create([
+        'name' => 'Organization Accreditation', 'route_name' => 'org-accreditation-test',
+        'system_function' => \App\Forms\SystemFunction::ORG_ACCREDITATION, 'is_active' => true, 'is_published' => true,
+        'layout' => ['rows' => []],
+        'pdf_template' => ['html' => '<p>x</p>', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ]);
+    FormDescription::create([
+        'form_id' => $form->id, 'field_key' => 'workplan_id', 'field_label' => 'Workplan',
+        'field_type' => \App\Forms\FieldType::WORKPLAN_SELECT, 'field_order' => 1,
+    ]);
+    $submission = \App\Models\FormSubmission::query()->create([
+        'form_id' => $form->id, 'organization_id' => $org->getKey(), 'submitted_by' => $officer->getKey(),
+        'payload' => ['workplan_id' => (string) $workplan->getKey()],
+    ]);
+    $accreditationRequest = ActionRequest::query()->create([
+        'action' => 'document_generation', 'requested_at' => now(), 'user' => $officer->getKey(),
+        'action_type' => \App\Helpers\FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION,
+        'form_id' => $form->getKey(), 'organization_id' => $org->getKey(),
+        'payload' => ['submission_id' => $submission->getKey()],
+    ]);
+
+    $html = $this->actingAs(recordsUser(2))
+        ->get(route('admin.form-requests.show', [$form, $accreditationRequest->getKey()]))
+        ->assertOk()
+        ->assertSeeInOrder([
+            'Workplan Event Requests',
+            'Acquaintance Party',
+            route('admin.activity-requests.show', $childRequest->getKey()),
+            'Tree Planting',
+            route('admin.activity-requests.show', $ownRequest->getKey()),
+        ], false)
+        ->getContent();
+
+    expect($html)->not->toContain('Pending Seminar')
+        ->and($html)->not->toContain('Last Year Outreach');
+});
+
+it('shows no workplan event section for forms without a workplan picker', function () {
+    $form = frpForm();
+    $actionRequest = ActionRequest::query()->create([
+        'action' => 'document_generation', 'requested_at' => now(), 'user' => recordsUser(3)->getKey(),
+        'action_type' => \App\Helpers\FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION,
+        'form_id' => $form->getKey(), 'payload' => [],
+    ]);
+
+    $this->actingAs(recordsUser(2))
+        ->get(route('admin.form-requests.show', [$form, $actionRequest->getKey()]))
+        ->assertOk()
+        ->assertDontSee('Workplan Event Requests');
+});

@@ -336,11 +336,16 @@ class OrganizationScoringController extends Controller
             ? $semesters->firstWhere('semester_id', $selectedSemesterId)
             : null;
 
+        $typeFilter = $request->integer('organization_type') ?: null;
         $rows = collect();
 
         if ($selectedSemesterId) {
             $scores = OrganizationScore::query()
                 ->where('semester_id', $selectedSemesterId)
+                ->when($typeFilter, fn ($query) => $query->whereIn(
+                    'organization_id',
+                    DB::table('organizations')->select('organization_id')->where('organization_type', $typeFilter),
+                ))
                 ->orderByDesc('total_weighted_score')
                 ->get();
 
@@ -372,6 +377,11 @@ class OrganizationScoringController extends Controller
             'selectedSemesterId' => $selectedSemesterId,
             'rows'               => $rows,
             'categories'         => \App\Services\Scoring\ScoringCatalog::categories(),
+            'typeLabels'         => array_diff_key(
+                OrganizationType::options(),
+                [OrganizationType::UNIVERSITY_SANCTIONED => true],
+            ),
+            'typeFilter'         => $typeFilter,
         ]);
     }
 

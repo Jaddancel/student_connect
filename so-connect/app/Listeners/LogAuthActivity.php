@@ -17,8 +17,8 @@ class LogAuthActivity
             'logged_at'   => now(),
         ]);
 
-        // Dual-write into the administrator action log (the legacy
-        // login_logs table keeps feeding the existing Audit Logs page).
+        // Dual-write into the action log (the legacy login_logs table keeps
+        // feeding the login-activity exports).
         ActionLogger::log(
             ActionLogger::CATEGORY_AUTH,
             $event instanceof Login ? 'login' : 'logout',

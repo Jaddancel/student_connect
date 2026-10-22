@@ -221,7 +221,7 @@ final class PdfTemplateRenderer
             return $nodes ?: [$dom->createTextNode('')];
         }
 
-        if (in_array($type, [FieldType::ORG_SELECT, FieldType::EVENT_SELECT, FieldType::WORKPLAN_EVENTS], true)) {
+        if (in_array($type, [FieldType::ORG_SELECT, FieldType::EVENT_SELECT, FieldType::WORKPLAN_SELECT, FieldType::WORKPLAN_EVENTS], true)) {
             return [$dom->createTextNode(SpecialFieldLabel::forField($type, $payload[$key] ?? null))];
         }
 

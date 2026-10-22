@@ -7,9 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Single writer for the administrator action log. Instrumented call sites
- * (auth events, scoring saves, form-builder and ID-template CRUD, scoring
- * rule-editor changes) call the static log() and never worry about failures —
+ * Single writer for the action log. Instrumented call sites (auth events,
+ * scoring saves, form-builder and ID-template CRUD, scoring rule-editor
+ * changes, requests sent/accepted, document downloads and manual partial
+ * forms) call the static log() and never worry about failures —
  * logging must never break the request that triggered it.
  */
 class ActionLogger
@@ -32,6 +33,10 @@ class ActionLogger
 
     public const CATEGORY_ORGANIZATION_OFFICERS = 'organization_officers';
 
+    public const CATEGORY_REQUESTS = 'requests';
+
+    public const CATEGORY_DOCUMENT_GENERATION = 'document_generation';
+
     /**
      * Human labels for the category filter dropdown/exports.
      *
@@ -49,6 +54,8 @@ class ActionLogger
             self::CATEGORY_REPORTS => 'Report Templates / Generation',
             self::CATEGORY_SUPPORT => 'Support Tickets',
             self::CATEGORY_ORGANIZATION_OFFICERS => 'Organization Officers',
+            self::CATEGORY_REQUESTS => 'Requests',
+            self::CATEGORY_DOCUMENT_GENERATION => 'Document Generation',
         ];
     }
 

@@ -61,11 +61,20 @@ export default function registerAdmin(Alpine) {
         },
     }));
 
-    // pages/admin/reports/index: generate a report via fetch behind a progress/error modal.
+    // pages/admin/reports/index: selecting a report card opens its filter
+    // panel; the report is then generated via fetch behind a progress/error modal.
     Alpine.data("adminReportGenerator", () => ({
         busy: false,
         label: '',
         error: '',
+        selected: null,
+        get hasSelection() { return this.selected !== null; },
+        isSelected(id) { return this.selected === id; },
+        select(id) {
+            this.selected = this.selected === id ? null : id;
+            if (this.selected !== null) window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        clearSelection() { this.selected = null; },
         // Generation can take a while (document conversion), so run it
         // through fetch: the modal stays up until the file arrives, then the
         // blob is saved without leaving the page.
@@ -111,12 +120,10 @@ export default function registerAdmin(Alpine) {
         },
     }));
 
-    // pages/admin/reports/index: filter a report by organization type OR by
-    // one organization. The unused select is disabled so it is not submitted.
-    Alpine.data("adminReportOrgFilter", ({ filterBy = 'organization_type' } = {}) => ({
-        filterBy,
-        get byType() { return this.filterBy === 'organization_type'; },
-        get byOrganization() { return this.filterBy === 'organization'; },
+    // pages/admin/reports/index: the organization type chosen in a report's
+    // filter (x-model) narrows its organization search (x-effect="setGroup(orgType)").
+    Alpine.data("adminReportOrgScope", ({ orgType = '' } = {}) => ({
+        orgType,
     }));
 
     // pages/admin/scoring/create: live category totals + manual-input modal.

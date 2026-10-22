@@ -15,7 +15,7 @@ use Maatwebsite\Excel\Facades\Excel;
 /**
  * Superadmin viewer for the administrator action log: searchable by user,
  * category and date range, exportable as PDF (dompdf), Excel and JSON.
- * Mirrors {@see AuditLogController}, which stays dedicated to login activity.
+ * {@see AuditLogController} serves the same log to admins, scoped to officers.
  */
 class ActionLogController extends Controller
 {

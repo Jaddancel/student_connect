@@ -191,6 +191,11 @@ it('queues partial PDF preparation instead of blocking the start request', funct
 
     $session = ManualFormSession::query()->findOrFail($response->json('session_id'));
     expect($session->partial_pdf_path)->toBeNull();
+    $this->assertDatabaseHas('action_logs', [
+        'user_id' => $officer->getKey(),
+        'category' => \App\Services\ActionLogger::CATEGORY_DOCUMENT_GENERATION,
+        'action' => 'partial_form_generated',
+    ]);
     Queue::assertPushed(
         PrepareManualFormSession::class,
         fn ($job) => $job->sessionId === (string) $session->getKey(),
@@ -439,6 +444,13 @@ it('stores uploaded scans under their own document and rejects cross-session upl
     $this->postJson("/test-manual/{$other->getKey()}/documents/{$document->getKey()}/scans", [
         'scans' => [UploadedFile::fake()->image('page.png')],
     ])->assertNotFound();
+    $uploads = \App\Models\ActionLog::query()->where('action', 'partial_form_uploaded')->get();
+    expect($uploads)->toHaveCount(1)
+        ->and((int) $uploads->first()->user_id)->toBe((int) $owner->getKey())
+        ->and($uploads->first()->meta)->toMatchArray([
+            'session_id' => (string) $session->getKey(),
+            'document_id' => (int) $document->getKey(),
+        ]);
 });
 
 it('shows separately downloadable documents on the manual resume page', function () {

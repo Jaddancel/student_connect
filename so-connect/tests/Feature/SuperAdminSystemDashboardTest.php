@@ -146,6 +146,12 @@ it('logs only successful tracked downloads', function () {
 
     expect(DB::table('document_downloads')->count())->toBe(1);
     $this->assertDatabaseHas('document_downloads', ['kind' => 'test', 'user_id' => $superadmin->getKey()]);
+    $this->assertDatabaseHas('action_logs', [
+        'user_id' => $superadmin->getKey(),
+        'category' => \App\Services\ActionLogger::CATEGORY_DOCUMENT_GENERATION,
+        'action' => 'document_download',
+    ]);
+    expect(DB::table('action_logs')->where('action', 'document_download')->count())->toBe(1);
 });
 
 it('compares the current error rate against the previous period', function () {

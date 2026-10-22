@@ -66,3 +66,53 @@ it('lists the picked workplan\'s approved activities as "name - date" on the acc
     expect($html)->not->toContain('Pending Seminar')
         ->and($html)->not->toContain('Last Year Outreach');
 });
+
+it('prints the picked workplan\'s approved activity titles and dates instead of its id', function () {
+    $organization = recordsOrganization('Accredited Society');
+    $officer = recordsUser(3);
+
+    $semester = Semester::query()->create([
+        'name' => '1st Semester AY 2026-2027', 'semester_number' => 1,
+        'starts_at' => '2026-08-01', 'ends_at' => '2026-12-15', 'vacation_days' => 30,
+    ]);
+    $workplan = Workplan::query()->create([
+        'organization_id' => $organization->getKey(),
+        'semester_id' => $semester->getKey(),
+        'status' => 'finalized',
+    ]);
+
+    $plan = fn (string $title, string $date, string $status = 'approved') => EventPlan::query()->create([
+        'organization_id' => $organization->getKey(), 'created_by' => $officer->getKey(),
+        'title' => $title, 'target_date' => $date, 'status' => $status, 'parent_plan_id' => null,
+    ]);
+    $plan('Tree Planting', '2026-10-12');
+    $plan('Acquaintance Party', '2026-09-05');
+    $plan('Pending Seminar', '2026-11-03', 'pending');
+
+    $field = new FormDescription([
+        'field_key' => 'workplan_id',
+        'field_type' => FieldType::WORKPLAN_SELECT,
+    ]);
+
+    $values = app(\App\Forms\DocxTemplateData::class)
+        ->build(['workplan_id' => (string) $workplan->getKey()], collect([$field]))['values'];
+
+    expect($values['workplan_id.title'])->toBe(['Acquaintance Party', 'Tree Planting'])
+        ->and($values['workplan_id.date'])->toBe(['September 5, 2026', 'October 12, 2026'])
+        ->and($values['workplan_id'])->toBe([
+            'Acquaintance Party — September 5, 2026',
+            'Tree Planting — October 12, 2026',
+        ]);
+});
+
+it('prints nothing for an empty or unknown workplan pick', function () {
+    $field = new FormDescription([
+        'field_key' => 'workplan_id',
+        'field_type' => FieldType::WORKPLAN_SELECT,
+    ]);
+
+    $build = fn (array $payload) => app(\App\Forms\DocxTemplateData::class)->build($payload, collect([$field]))['values'];
+
+    expect($build([])['workplan_id'])->toBe([])
+        ->and($build(['workplan_id' => '999999'])['workplan_id.title'])->toBe([]);
+});

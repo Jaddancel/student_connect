@@ -21,21 +21,39 @@
 
         {{-- Organization picker --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-            @if ($organizations->isEmpty())
+            @if ($organizations->isEmpty() && ! $typeFilter)
                 <p class="text-sm text-gray-500 dark:text-gray-400">There are no active organizations to manage.</p>
             @else
-                <form method="GET" action="{{ route('admin.organization-manager.index') }}">
-                    <label for="organization_id" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Organization</label>
-                    <select id="organization_id" name="organization_id" data-autosubmit
-                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden md:max-w-md dark:border-gray-700 dark:text-white/90">
-                        @foreach ($organizations as $organization)
-                            <option value="{{ $organization->organization_id }}" @selected($selectedOrganizationId === $organization->organization_id)>
-                                {{ $organization->name }}
-                            </option>
-                        @endforeach
-                    </select>
+                <form method="GET" action="{{ route('admin.organization-manager.index') }}" class="flex flex-col gap-4 md:flex-row md:items-end">
+                    <div class="w-full md:max-w-xs">
+                        <label for="organization_type" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Organization Type</label>
+                        <select id="organization_type" name="organization_type" data-autosubmit
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                            <option value="">All organization types</option>
+                            @foreach ($typeOptions as $typeId => $typeLabel)
+                                <option value="{{ $typeId }}" @selected($typeFilter === $typeId)>{{ $typeLabel }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="w-full md:max-w-md">
+                        <label for="organization_id" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Organization</label>
+                        @if ($organizations->isEmpty())
+                            <p class="flex h-11 items-center text-sm text-gray-500 dark:text-gray-400">
+                                No active {{ $typeOptions[$typeFilter] ?? '' }} organizations.
+                            </p>
+                        @else
+                            <select id="organization_id" name="organization_id" data-autosubmit
+                                class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                                @foreach ($organizations as $organization)
+                                    <option value="{{ $organization->organization_id }}" @selected($selectedOrganizationId === $organization->organization_id)>
+                                        {{ $organization->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        @endif
+                    </div>
                     <noscript>
-                        <button type="submit" class="mt-3 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Load</button>
+                        <button type="submit" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Load</button>
                     </noscript>
                 </form>
             @endif

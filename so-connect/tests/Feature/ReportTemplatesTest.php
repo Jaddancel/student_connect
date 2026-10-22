@@ -444,10 +444,16 @@ it('lists seeded reports and generates them with parameters', function () {
         ->assertSee('Organization Officers')
         ->assertSee('Beta Organization');
 
-    // Only the three accredited organization reports (which have both organization filters) get the radio.
+    // Report cards are selectable; each opens its own filter panel with its parameters.
     $page = $this->actingAs($admin)->get(route('reports.index'))->getContent();
-    expect(substr_count($page, 'x-data="adminReportOrgFilter('))->toBe(3)
-        ->and(substr_count($page, 'x-model="filterBy"'))->toBe(6);
+    $accredited = ReportTemplate::query()->where('name', 'Accredited School Organizations')->sole()->getKey();
+    expect(substr_count($page, 'x-show="hasSelection"'))->toBe(1)
+        ->and(substr_count($page, 'data-report-filter='))->toBe(substr_count($page, 'data-report-card='))
+        ->and($page)->toContain('@click="select('.$accredited.')"')
+        ->and($page)->toContain('x-show="isSelected('.$accredited.')"')
+        ->and($page)->toContain('id="report-'.$accredited.'-school_year"')
+        ->and($page)->toContain('id="report-'.$accredited.'-organization_type"')
+        ->and($page)->toContain('id="report-'.$accredited.'-organization"');
 
     $captured = null;
     $this->partialMock(DocxTemplateService::class, function ($mock) use (&$captured) {

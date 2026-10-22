@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\OrganizationType;
 use App\Http\Controllers\Controller;
 use App\Services\OrganizationOfficerManager;
 use Illuminate\Http\JsonResponse;
@@ -16,7 +17,13 @@ class OrganizationManagerController extends Controller
 
     public function index(Request $request): View
     {
-        $organizations = $this->manager->activeOrganizations();
+        $typeOptions = OrganizationType::options();
+        $typeFilter = (int) $request->query('organization_type', 0);
+        if (! array_key_exists($typeFilter, $typeOptions)) {
+            $typeFilter = null;
+        }
+
+        $organizations = $this->manager->activeOrganizations($typeFilter);
         $allowedIds = $organizations->pluck('organization_id')->all();
 
         $selectedOrganizationId = (int) $request->query('organization_id', 0);
@@ -28,6 +35,8 @@ class OrganizationManagerController extends Controller
             'title' => 'Organization Manager',
             'organizations' => $organizations,
             'selectedOrganizationId' => $selectedOrganizationId,
+            'typeOptions' => $typeOptions,
+            'typeFilter' => $typeFilter,
             'board' => $selectedOrganizationId > 0 ? $this->manager->board($selectedOrganizationId) : null,
         ]);
     }

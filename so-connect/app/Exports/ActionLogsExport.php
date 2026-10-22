@@ -9,7 +9,7 @@ use Maatwebsite\Excel\Concerns\WithTitle;
 
 class ActionLogsExport implements FromCollection, WithHeadings, WithTitle
 {
-    public function __construct(private array $logs) {}
+    public function __construct(private array $logs, private string $title = 'Administrator Actions') {}
 
     public function collection(): Collection
     {
@@ -31,6 +31,6 @@ class ActionLogsExport implements FromCollection, WithHeadings, WithTitle
 
     public function title(): string
     {
-        return 'Administrator Actions';
+        return $this->title;
     }
 }

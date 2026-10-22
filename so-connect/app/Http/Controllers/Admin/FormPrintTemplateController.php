@@ -545,6 +545,27 @@ class FormPrintTemplateController extends Controller
                 }
             }
 
+            // The workplan picker stores a workplan id, so it inserts a table
+            // of the chosen workplan's approved activities: one row per
+            // activity via `{{key.title#}}` / `{{key.date#}}`.
+            if ((string) $field->field_type === FieldType::WORKPLAN_SELECT) {
+                $token['insert'] = 'table';
+                $token['children'] = [
+                    [
+                        'key' => $key.'.title',
+                        'label' => 'Activity',
+                        'icon' => (string) ($catalog[FieldType::TEXT]['icon'] ?? 'text'),
+                        'type_label' => FieldType::label(FieldType::TEXT),
+                    ],
+                    [
+                        'key' => $key.'.date',
+                        'label' => 'Date',
+                        'icon' => (string) ($catalog[FieldType::DATE]['icon'] ?? 'date'),
+                        'type_label' => FieldType::label(FieldType::DATE),
+                    ],
+                ];
+            }
+
             // A Table field inserts a table the same way: a heading row of
             // column labels and a data row of `{{key.col#}}` tokens that repeat
             // per submitted row. Its sub-fields are its declared columns plus

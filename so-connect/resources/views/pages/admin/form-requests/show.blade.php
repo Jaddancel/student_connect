@@ -178,6 +178,42 @@
             </div>
         @endif
 
+        {{-- Approved events of the submitted workplan, each linking to the
+             activity request(s) that approved it. --}}
+        @if ($workplanEventRequests !== null)
+            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Workplan Event Requests</h3>
+                </div>
+                @if ($workplanEventRequests === [])
+                    <p class="px-6 py-5 text-sm text-gray-500 dark:text-gray-400">The submitted workplan has no approved events.</p>
+                @else
+                    <ul class="divide-y divide-gray-100 text-sm dark:divide-gray-800">
+                        @foreach ($workplanEventRequests as $plan)
+                            <li class="flex flex-wrap items-center justify-between gap-3 px-6 py-3">
+                                <div>
+                                    <p class="font-medium text-gray-800 dark:text-white/90">{{ $plan['title'] !== '' ? $plan['title'] : 'Untitled event' }}</p>
+                                    @if ($plan['date'] !== '')
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $plan['date'] }}</p>
+                                    @endif
+                                </div>
+                                <div class="flex flex-wrap gap-3">
+                                    @forelse ($plan['request_ids'] as $eventRequestId)
+                                        <a href="{{ route('admin.activity-requests.show', $eventRequestId) }}"
+                                            class="font-medium text-brand-500 hover:text-brand-600 hover:underline dark:text-brand-400">
+                                            {{ count($plan['request_ids']) > 1 ? 'View request #'.$eventRequestId : 'View request' }}
+                                        </a>
+                                    @empty
+                                        <span class="text-xs text-gray-400">No request on file</span>
+                                    @endforelse
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </div>
+        @endif
+
         {{-- Completed-by-hand scan provenance, when the request came from a
              manual-filling draft. --}}
         <x-admin.manual-source :payload="$submissionPayload" />

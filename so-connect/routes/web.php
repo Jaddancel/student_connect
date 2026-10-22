@@ -570,10 +570,12 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
     Route::get('/admin/audit-logs', [AuditLogController::class, 'index'])
         ->name('admin.audit-logs.index');
+    Route::get('/admin/audit-logs/officers', [AuditLogController::class, 'searchOfficers'])
+        ->name('admin.audit-logs.officers');
     Route::get('/admin/audit-logs/export/json', [AuditLogController::class, 'exportJson'])
         ->name('admin.audit-logs.export.json');
-    Route::get('/admin/audit-logs/export/print', [AuditLogController::class, 'exportPrint'])
-        ->name('admin.audit-logs.export.print');
+    Route::get('/admin/audit-logs/export/pdf', [AuditLogController::class, 'exportPdf'])
+        ->name('admin.audit-logs.export.pdf');
     Route::get('/admin/audit-logs/export/xlsx', [AuditLogController::class, 'exportXlsx'])
         ->name('admin.audit-logs.export.xlsx');
 

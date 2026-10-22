@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Administrator Action Logs Export</title>
+    <title>{{ $title ?? 'Administrator Action Logs' }} Export</title>
     <style @nonce>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #1f2937; background: #fff; padding: 24px; }
@@ -19,7 +19,7 @@
 </head>
 
 <body>
-    <h1>Administrator Action Logs</h1>
+    <h1>{{ $title ?? 'Administrator Action Logs' }}</h1>
     <p class="meta">
         Generated {{ now()->toDateTimeString() }}
         @if (!empty($filters['from']) || !empty($filters['to']))
@@ -27,6 +27,9 @@
         @endif
         @if (!empty($filters['category']))
             · Category: {{ $categories[$filters['category']] ?? $filters['category'] }}
+        @endif
+        @if (!empty($filters['org_id']))
+            · Organization: {{ $organizationName ?? $filters['org_id'] }}
         @endif
         @if (!empty($filters['user']))
             · User: {{ $filters['user'] }}

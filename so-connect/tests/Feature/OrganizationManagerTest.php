@@ -90,6 +90,40 @@ it('lists only active organizations and shows the officer board', function () {
     expect(substr_count($response->getContent(), 'data-other-officer'))->toBe(1);
 });
 
+it('filters the organization select by organization type', function () {
+    $religious = recordsOrganization('Faith Circle');
+    $religious->update(['organization_type' => 2]);
+    $other = recordsOrganization('Another Socio Club');
+
+    $this->actingAs($this->admin);
+
+    $this->get(route('admin.organization-manager.index', ['organization_type' => 2]))
+        ->assertOk()
+        ->assertSee('Faith Circle')
+        ->assertDontSee('Manager Guild')
+        ->assertDontSee('Another Socio Club')
+        ->assertViewHas('selectedOrganizationId', (int) $religious->getKey());
+
+    // A selected organization outside the chosen type falls back to the first match.
+    $this->get(route('admin.organization-manager.index', ['organization_type' => 2, 'organization_id' => $other->getKey()]))
+        ->assertViewHas('selectedOrganizationId', (int) $religious->getKey());
+
+    $this->get(route('admin.organization-manager.index', ['organization_type' => 1]))
+        ->assertSee('Manager Guild')
+        ->assertSee('Another Socio Club')
+        ->assertDontSee('Faith Circle');
+
+    $this->get(route('admin.organization-manager.index', ['organization_type' => 6]))
+        ->assertOk()
+        ->assertSee('No active Student Government organizations.')
+        ->assertViewHas('board', null);
+
+    $this->get(route('admin.organization-manager.index', ['organization_type' => 999]))
+        ->assertSee('Faith Circle')
+        ->assertSee('Manager Guild')
+        ->assertViewHas('typeFilter', null);
+});
+
 it('replaces a position holder, keeping them as an Others officer', function () {
     $old = managerSeat($this->org, 'officer', 'Secretary');
     $new = managerSeat($this->org, 'member', null, ['first_name' => 'Nina', 'last_name' => 'New']);

@@ -2,18 +2,23 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Forms\FieldType;
 use App\Forms\Handlers\NewOrganizationRegistrationHandler;
 use App\Forms\SystemFunction;
 use App\Helpers\FormTemplateHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Approval;
+use App\Models\EventPlan;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Request as ActionRequest;
+use App\Models\Workplan;
 use App\Services\MembershipRequestReviewContext;
 use App\Services\RequestApprovalService;
+use App\Services\WorkplanService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
 /**
@@ -152,13 +157,17 @@ class FormRequestController extends Controller
             ? Approval::query()->where('request', $requestId)->where('stage', 'admin')->first()
             : Approval::query()->where('request', $requestId)->first();
 
+        $fields = $form->fields()->get();
+        $submissionPayload = $submission ? (array) ($submission->payload ?? []) : [];
+
         return view('pages.admin.form-requests.show', [
             'title' => $form->name.' Requests',
             'form' => $form,
-            'fields' => $form->fields()->get(),
+            'fields' => $fields,
             'actionRequest' => $actionRequest,
             'submission' => $submission,
-            'submissionPayload' => $submission ? (array) ($submission->payload ?? []) : [],
+            'submissionPayload' => $submissionPayload,
+            'workplanEventRequests' => $this->workplanEventRequests($fields, $submissionPayload),
             'approval' => $decisionApproval,
             'presidentApproval' => $presidentApproval,
             'orgName' => $orgNames[$orgId] ?? 'Unknown Organization',
@@ -211,6 +220,80 @@ class FormRequestController extends Controller
             SystemFunction::NEW_EVENT,
             SystemFunction::NEW_WORKPLAN,
         ], true), 404);
+    }
+
+    /**
+     * The approved event plans of the workplan(s) picked on the submission
+     * (e.g. an accreditation application), each with the ids of the activity
+     * requests that approved it. A root plan carries its own request when it
+     * was filed under an approved workplan; otherwise the request lives on
+     * its approved child plan(s). Null when the form has no workplan picker.
+     *
+     * @param  Collection<int,\App\Models\Form\FormDescription>  $fields
+     * @param  array<string,mixed>  $submissionPayload
+     * @return array<int,array{title:string,date:string,request_ids:int[]}>|null
+     */
+    private function workplanEventRequests(Collection $fields, array $submissionPayload): ?array
+    {
+        $workplanFields = $fields->where('field_type', FieldType::WORKPLAN_SELECT);
+        if ($workplanFields->isEmpty()) {
+            return null;
+        }
+
+        $workplanIds = $workplanFields
+            ->map(fn ($field) => $submissionPayload[$field->field_key] ?? null)
+            ->filter(fn ($value) => is_numeric($value) && (int) $value > 0)
+            ->map(fn ($value) => (int) $value)
+            ->unique()
+            ->values()
+            ->all();
+        if ($workplanIds === []) {
+            return [];
+        }
+
+        $service = app(WorkplanService::class);
+        $plans = Workplan::query()->with('semester')->whereIn('workplan_id', $workplanIds)->get()
+            ->filter(fn (Workplan $workplan) => $workplan->semester !== null)
+            ->flatMap(fn (Workplan $workplan) => $service->getApprovedPlansForWorkplan($workplan))
+            ->unique('event_plan_id')
+            ->sortBy('target_date')
+            ->values();
+        if ($plans->isEmpty()) {
+            return [];
+        }
+
+        $childRequestIds = EventPlan::query()
+            ->whereIn('parent_plan_id', $plans->pluck('event_plan_id')->all())
+            ->where('status', 'approved')
+            ->whereNotNull('request_id')
+            ->orderBy('event_plan_id')
+            ->get(['parent_plan_id', 'request_id'])
+            ->groupBy('parent_plan_id')
+            ->map(fn (Collection $children) => $children->pluck('request_id')->all());
+
+        $candidateIds = $plans->pluck('request_id')
+            ->concat($childRequestIds->flatten())
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+        $existingIds = $candidateIds === []
+            ? []
+            : array_flip(ActionRequest::query()->whereIn('request_id', $candidateIds)->pluck('request_id')->map(fn ($id) => (int) $id)->all());
+
+        return $plans->map(fn (EventPlan $plan) => [
+            'title' => (string) $plan->title,
+            'date' => optional($plan->target_date)->format('M d, Y') ?? '',
+            'request_ids' => collect([$plan->request_id])
+                ->concat($childRequestIds->get($plan->event_plan_id, []))
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => isset($existingIds[$id]))
+                ->unique()
+                ->values()
+                ->all(),
+        ])->all();
     }
 
     private function requestForForm(Form $form, int $requestId): ActionRequest

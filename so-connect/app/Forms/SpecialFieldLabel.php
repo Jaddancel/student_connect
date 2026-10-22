@@ -5,9 +5,10 @@ namespace App\Forms;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Resolves id-valued special fields (organization / event / workplan-events)
- * to human-readable labels for the printed PDF. Non-numeric values (e.g. the
- * "[Field]" placeholders used in admin preview) pass through unchanged.
+ * Resolves id-valued special fields (organization / event / workplan /
+ * workplan-events) to human-readable labels for the printed PDF. Non-numeric
+ * values (e.g. the "[Field]" placeholders used in admin preview) pass through
+ * unchanged.
  */
 final class SpecialFieldLabel
 {
@@ -28,6 +29,7 @@ final class SpecialFieldLabel
                 ? \App\Enums\OrganizationType::label((int) $value)
                 : (string) $value,
             FieldType::EVENT_SELECT => self::eventPlanTitle($value),
+            FieldType::WORKPLAN_SELECT => implode(', ', self::workplanActivityLabels($value)),
             FieldType::WORKPLAN_EVENTS => implode(', ', array_filter(array_map(
                 fn ($id) => self::eventPlanTitle($id),
                 (array) $value,
@@ -90,6 +92,53 @@ final class SpecialFieldLabel
         }
 
         return self::$plansWithDate[$id];
+    }
+
+    /**
+     * The approved activities of a workplan-picker's stored workplan id, in
+     * date order — the same list the live form previews under the picker.
+     * Resolved live (not cached) so a long-running worker prints activities
+     * approved since it booted.
+     *
+     * @return array<int,array{title:string,date:string}>
+     */
+    public static function workplanActivities(mixed $value): array
+    {
+        if (! is_numeric($value)) {
+            return [];
+        }
+
+        $workplan = \App\Models\Workplan::query()->with('semester')->find((int) $value);
+        if ($workplan === null || $workplan->semester === null) {
+            return [];
+        }
+
+        return app(\App\Services\WorkplanService::class)
+            ->getApprovedPlansForWorkplan($workplan)
+            ->map(fn ($plan) => [
+                'title' => (string) $plan->title,
+                'date' => $plan->target_date ? self::formatDate((string) $plan->target_date) : '',
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * "Title — Date" per approved activity of a workplan-picker value. A
+     * non-numeric value (admin preview placeholder) passes through as-is.
+     *
+     * @return array<int,string>
+     */
+    public static function workplanActivityLabels(mixed $value): array
+    {
+        if (! is_numeric($value)) {
+            return ($value === null || $value === '') ? [] : [(string) $value];
+        }
+
+        return array_map(
+            fn (array $activity) => trim($activity['title'].($activity['date'] !== '' ? ' — '.$activity['date'] : '')),
+            self::workplanActivities($value),
+        );
     }
 
     private static function formatDate(string $value): string

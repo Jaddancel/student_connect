@@ -89,14 +89,45 @@ class RecordQueryService
     }
 
     /**
-     * Administrator action logs, filterable by user (name/email), category
-     * and date range — the same shape as loginLogsQuery().
+     * Action logs, filterable by user (name/email), category, organization
+     * and date range — the same shape as loginLogsQuery(). $userType scopes
+     * the result to actors of that account type (e.g. officers for the admin
+     * Audit Logs page); null keeps every actor (superadmin Action Logs).
+     * $scope limits the visible entries to the given categories, each mapped
+     * to its allowed actions (null = every action in that category).
      *
-     * @param  array{from?: string, to?: string, category?: string, user?: string}  $filters
+     * @param  array{from?: string, to?: string, category?: string, user?: string, org_id?: string}  $filters
+     * @param  array<string, list<string>|null>  $scope
      */
-    public function actionLogsQuery(array $filters = []): Builder
+    public function actionLogsQuery(array $filters = [], ?int $userType = null, array $scope = []): Builder
     {
         $query = ActionLog::with(['user.profile'])->orderByDesc('created_at');
+
+        if ($userType !== null) {
+            $query->whereHas('user', fn ($userQuery) => $userQuery->where('user_type', $userType));
+        }
+
+        if ($scope !== []) {
+            $query->where(function ($scopeQuery) use ($scope) {
+                foreach ($scope as $category => $actions) {
+                    $scopeQuery->orWhere(function ($categoryQuery) use ($category, $actions) {
+                        $categoryQuery->where('category', $category);
+                        if ($actions !== null) {
+                            $categoryQuery->whereIn('action', $actions);
+                        }
+                    });
+                }
+            });
+        }
+
+        if (! empty($filters['org_id'])) {
+            $orgId = $filters['org_id'];
+            $query->whereIn('user_id', function ($subQuery) use ($orgId) {
+                $subQuery->select('user')
+                    ->from('organization_officers')
+                    ->where('organization', $orgId);
+            });
+        }
 
         if (! empty($filters['from'])) {
             $query->where('created_at', '>=', Carbon::parse($filters['from'])->startOfDay());
@@ -151,11 +182,12 @@ class RecordQueryService
     }
 
     /**
-     * @param  array{from?: string, to?: string, category?: string, user?: string}  $filters
+     * @param  array{from?: string, to?: string, category?: string, user?: string, org_id?: string}  $filters
+     * @param  array<string, list<string>|null>  $scope
      */
-    public function getActionLogs(array $filters = []): array
+    public function getActionLogs(array $filters = [], ?int $userType = null, array $scope = []): array
     {
-        return $this->actionLogsQuery($filters)
+        return $this->actionLogsQuery($filters, $userType, $scope)
             ->get()
             ->map(fn (ActionLog $log) => $this->mapActionLog($log))
             ->all();

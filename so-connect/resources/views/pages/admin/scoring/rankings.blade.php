@@ -8,9 +8,9 @@
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Semester Rankings</h3>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Select a semester to view the leaderboard.</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Select a semester and optional organization type to view the leaderboard.</p>
                 </div>
-                <form method="GET" action="{{ route('admin.scoring.rankings') }}">
+                <form method="GET" action="{{ route('admin.scoring.rankings') }}" class="flex flex-wrap items-center gap-2">
                     <select name="semester_id" data-autosubmit
                         class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
                         <option value="">Select semester</option>
@@ -18,6 +18,13 @@
                             <option value="{{ $semester->semester_id }}" @selected($selectedSemester?->semester_id === $semester->semester_id)>
                                 {{ $semester->name }}
                             </option>
+                        @endforeach
+                    </select>
+                    <select name="organization_type" data-autosubmit
+                        class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
+                        <option value="">All organization types</option>
+                        @foreach ($typeLabels as $typeId => $label)
+                            <option value="{{ $typeId }}" @selected($typeFilter === $typeId)>{{ $label }}</option>
                         @endforeach
                     </select>
                 </form>
@@ -32,7 +39,13 @@
         @elseif ($rows->isEmpty())
             <div
                 class="rounded-2xl border border-gray-200 bg-white p-10 text-center dark:border-gray-800 dark:bg-white/[0.03]">
-                <p class="text-sm text-gray-400 dark:text-gray-500">No organizations have been scored for this semester.</p>
+                <p class="text-sm text-gray-400 dark:text-gray-500">
+                    @if ($typeFilter)
+                        No {{ $typeLabels[$typeFilter] ?? 'matching' }} organizations have been scored for this semester.
+                    @else
+                        No organizations have been scored for this semester.
+                    @endif
+                </p>
             </div>
         @else
             <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
@@ -54,7 +67,8 @@
                                     <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">
                                         {{ $category['label'] }} / 100</th>
                                 @endforeach
-                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Total / 100
+                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Total /
+                                    {{ collect($categories)->sum('cap') }}
                                 </th>
                             </tr>
                         </thead>

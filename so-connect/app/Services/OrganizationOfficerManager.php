@@ -26,11 +26,12 @@ class OrganizationOfficerManager
      *
      * @return Collection<int, object{organization_id:int, name:string}>
      */
-    public function activeOrganizations(): Collection
+    public function activeOrganizations(?int $organizationType = null): Collection
     {
         return DB::table('organizations as o')
             ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
             ->where('o.accreditation_status', '!=', AccreditationService::STATUS_DISABLED)
+            ->when($organizationType, fn ($query) => $query->where('o.organization_type', $organizationType))
             ->orderBy('od.name')
             ->get(['o.organization_id', DB::raw("COALESCE(od.name, 'Unnamed Organization') as name")])
             ->map(fn ($row) => (object) [
