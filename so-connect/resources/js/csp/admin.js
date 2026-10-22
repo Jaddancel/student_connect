@@ -247,4 +247,82 @@ export default function registerAdmin(Alpine) {
             this.$nextTick(() => this.normalizeRow(row));
         },
     }));
+
+    // pages/admin/organization-manager/index: "Change Officer" modal with a
+    // debounced search over the selected organization's members.
+    Alpine.data("adminOrganizationOfficerChange", ({ candidatesUrl = "" } = {}) => ({
+        candidatesUrl,
+        open: false,
+        position: "",
+        currentHolder: "",
+        query: "",
+        results: [],
+        loading: false,
+        error: "",
+        selectedId: null,
+        selectedName: "",
+        searchTimer: null,
+        requestSeq: 0,
+        openFor(event) {
+            const button = event.currentTarget;
+            this.position = button.dataset.position || "";
+            this.currentHolder = button.dataset.holder || "";
+            this.query = "";
+            this.results = [];
+            this.error = "";
+            this.selectedId = null;
+            this.selectedName = "";
+            this.open = true;
+            this.fetchCandidates();
+            this.$nextTick(() => this.$refs.search?.focus());
+        },
+        close() {
+            this.open = false;
+            clearTimeout(this.searchTimer);
+        },
+        onSearchInput() {
+            clearTimeout(this.searchTimer);
+            this.searchTimer = setTimeout(() => this.fetchCandidates(), 250);
+        },
+        async fetchCandidates() {
+            const seq = ++this.requestSeq;
+            this.loading = true;
+            this.error = "";
+            try {
+                const url = new URL(this.candidatesUrl, window.location.origin);
+                url.searchParams.set("q", this.query.trim());
+                const response = await fetch(url, {
+                    headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" },
+                    credentials: "same-origin",
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const json = await response.json();
+                if (seq !== this.requestSeq) return;
+                this.results = Array.isArray(json.data) ? json.data : [];
+            } catch (e) {
+                if (seq !== this.requestSeq) return;
+                this.results = [];
+                this.error = "Could not load members. Please try again.";
+            } finally {
+                if (seq === this.requestSeq) this.loading = false;
+            }
+        },
+        isCurrent(candidate) {
+            return candidate.current === this.position;
+        },
+        choose(candidate) {
+            if (this.isCurrent(candidate)) return;
+            this.selectedId = candidate.user_id;
+            this.selectedName = candidate.name;
+        },
+        isSelected(candidate) {
+            return this.selectedId === candidate.user_id;
+        },
+        get canSubmit() {
+            return this.selectedId !== null;
+        },
+        get showEmpty() {
+            return !this.loading && this.error === "" && this.results.length === 0;
+        },
+    }));
 }

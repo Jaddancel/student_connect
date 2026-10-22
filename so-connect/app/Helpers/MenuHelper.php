@@ -112,6 +112,7 @@ class MenuHelper
                     ['icon' => 'pages',    'name' => 'Report Templates',   'path' => '/admin/report-templates'],
                     ['icon' => 'calendar', 'name' => 'Semester Management', 'path' => '/admin/semesters'],
                     ['icon' => 'pages',    'name' => 'Waiver Templates',   'path' => '/admin/waiver-templates'],
+                    ['icon' => 'user-profile', 'name' => 'Organization Manager', 'path' => '/admin/organization-manager'],
                 ],
             ];
 

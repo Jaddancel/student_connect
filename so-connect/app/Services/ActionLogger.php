@@ -30,6 +30,8 @@ class ActionLogger
 
     public const CATEGORY_SUPPORT = 'support';
 
+    public const CATEGORY_ORGANIZATION_OFFICERS = 'organization_officers';
+
     /**
      * Human labels for the category filter dropdown/exports.
      *
@@ -46,6 +48,7 @@ class ActionLogger
             self::CATEGORY_SETTINGS => 'Settings',
             self::CATEGORY_REPORTS => 'Report Templates / Generation',
             self::CATEGORY_SUPPORT => 'Support Tickets',
+            self::CATEGORY_ORGANIZATION_OFFICERS => 'Organization Officers',
         ];
     }
 

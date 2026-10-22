@@ -38,7 +38,7 @@ final class UniversalField
      * - `type`           a {@see FieldType} constant
      * - `source`         'profile' | 'org'
      * - `profile_column` the {@see Profile} column (profile source only)
-     * - `group`          palette grouping: name | contact | academic | personal | organization | officer_contact
+     * - `group`          palette grouping: name | contact | academic | personal | organization | officer_contact | org_date
      * - `format`         optional presentation format applied in valueFor() (e.g. `date:F j, Y`)
      *
      * @return array<string, array{label:string, type:string, source:string, group:string, profile_column?:string, format?:string}>
@@ -78,6 +78,10 @@ final class UniversalField
             'org_treasurer'  => ['label' => 'Organization Treasurer', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_secretary'  => ['label' => 'Organization Secretary', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_category'   => ['label' => 'Organization Category',  'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
+            // The org's registration date (`organizations.created_at`, the dashboard's
+            // "Founded on"), as Y-m-d. Its own group so the Step 1 builder can list it
+            // under Organization on date and text fields only.
+            'org_founding_date' => ['label' => 'Organization Founding Date', 'type' => FieldType::DATE, 'source' => 'org', 'group' => 'org_date'],
             'org_president_signature' => ['label' => 'Organization President Signature', 'type' => FieldType::SIGNATURE, 'source' => 'org', 'group' => 'organization'],
             'org_treasurer_signature' => ['label' => 'Organization Treasurer Signature', 'type' => FieldType::SIGNATURE, 'source' => 'org', 'group' => 'organization'],
             'org_auditor_signature' => ['label' => 'Organization Auditor Signature', 'type' => FieldType::SIGNATURE, 'source' => 'org', 'group' => 'organization'],

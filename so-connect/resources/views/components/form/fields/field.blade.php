@@ -471,23 +471,29 @@
 
             @case(FieldType::WORKPLAN_SELECT)
                 @php $workplans = $special['workplans'] ?? []; @endphp
-                <select id="{{ $key }}" name="{{ $key }}" class="{{ $inputClass }}"
-                    x-data="{ picked: @js((string) $old) }" x-model="picked">
-                    <option value="">{{ $placeholder ?: 'Select a workplan' }}</option>
+                <div x-data="formWorkplanSelect({ picked: @js((string) $old) })">
+                    <select id="{{ $key }}" name="{{ $key }}" class="{{ $inputClass }}" x-model="picked">
+                        <option value="">{{ $placeholder ?: 'Select a workplan' }}</option>
+                        @foreach ($workplans as $wp)
+                            <option value="{{ $wp['id'] }}" @selected((string) $old === (string) $wp['id'])>{{ $wp['label'] }}</option>
+                        @endforeach
+                    </select>
                     @foreach ($workplans as $wp)
-                        <option value="{{ $wp['id'] }}">{{ $wp['label'] }}</option>
+                        <div x-show="isPicked({{ (int) $wp['id'] }})" x-cloak
+                            class="mt-2 rounded-lg border border-gray-200 p-3 text-xs dark:border-gray-700" data-workplan-activities="{{ $wp['id'] }}">
+                            <p class="mb-1 font-medium text-gray-600 dark:text-gray-300">Approved activities:</p>
+                            @if (count($wp['activities']))
+                                <ul class="list-disc space-y-0.5 pl-4 text-gray-500 dark:text-gray-400">
+                                    @foreach ($wp['activities'] as $activity)
+                                        <li>{{ $activity['title'] }} - {{ $activity['date'] }}</li>
+                                    @endforeach
+                                </ul>
+                            @else
+                                <p class="text-gray-400">No approved activities in this workplan.</p>
+                            @endif
+                        </div>
                     @endforeach
-                </select>
-                @foreach ($workplans as $wp)
-                    <div x-show="picked === '{{ $wp['id'] }}'" x-cloak class="mt-2 rounded-lg border border-gray-200 p-3 text-xs dark:border-gray-700">
-                        <p class="mb-1 font-medium text-gray-600 dark:text-gray-300">Approved activities:</p>
-                        <ul class="list-disc space-y-0.5 pl-4 text-gray-500 dark:text-gray-400">
-                            @foreach ($wp['activities'] as $activity)
-                                <li>{{ $activity['title'] }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @endforeach
+                </div>
                 @break
 
             @case(FieldType::WORKPLAN_EVENTS)

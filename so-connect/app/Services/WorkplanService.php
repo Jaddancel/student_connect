@@ -142,6 +142,57 @@ class WorkplanService
     }
 
     /**
+     * Side effects of an admin approving a New Workplan request: finalize the
+     * org's workplan for the submission's semester (so it is offered by the
+     * workplan pickers and unlocks PDF/event gating) and turn its approved
+     * plans into calendar events. Returns null for non-workplan requests.
+     */
+    public function finalizeFromApprovedRequest(ActionRequest $request): ?Workplan
+    {
+        $form = SystemFunction::form(SystemFunction::NEW_WORKPLAN);
+        $payload = (array) ($request->payload ?? []);
+
+        if ($form === null || (int) ($payload['form_id'] ?? 0) !== (int) $form->getKey()) {
+            return null;
+        }
+
+        $orgId = (int) ($payload['organization_id'] ?? $request->organization_id ?? 0);
+        if ($orgId <= 0) {
+            return null;
+        }
+
+        $submission = FormSubmission::query()->find((int) ($payload['submission_id'] ?? 0));
+        $semesterId = (int) (((array) ($submission?->payload ?? []))['semester_id'] ?? 0);
+        $semesterId = $semesterId > 0 ? $semesterId : (int) ($payload['semester_id'] ?? 0);
+
+        $workplan = $semesterId > 0
+            ? Workplan::query()
+                ->where('organization_id', $orgId)
+                ->where('semester_id', $semesterId)
+                ->first()
+            : Workplan::query()
+                ->where('organization_id', $orgId)
+                ->orderByDesc('semester_id')
+                ->first();
+
+        if ($workplan === null) {
+            return null;
+        }
+
+        if ($workplan->status === 'active') {
+            $workplan->update([
+                'status' => 'finalized',
+                'finalized_at' => now(),
+                'finalized_by' => (int) ($payload['requester_user_id'] ?? $request->requested_by ?? 0) ?: null,
+            ]);
+        }
+
+        $this->convertApprovedPlansToCalendarEvents($workplan);
+
+        return $workplan;
+    }
+
+    /**
      * Convert approved, workplan-backed event plans into calendar events when a
      * workplan request is accepted. Only plans still not linked to a calendar
      * event are processed, and the return count is the number of new events.

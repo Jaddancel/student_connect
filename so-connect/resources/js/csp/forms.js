@@ -112,6 +112,15 @@ export default function registerForms(Alpine) {
         },
     }));
 
+    // components/form/fields/field.blade.php — workplan picker that shows the
+    // picked workplan's approved activities below it.
+    Alpine.data("formWorkplanSelect", (opts = {}) => ({
+        picked: opts.picked ?? "",
+        isPicked(id) {
+            return String(this.picked) === String(id);
+        },
+    }));
+
     // components/form/fields/field.blade.php — repeatable text list.
     Alpine.data("formTextList", (opts = {}) => ({
         rows: opts.rows,

@@ -112,3 +112,38 @@ it('updates a published New Event form when its waiver is removed', function () 
     expect($form->fresh()->is_published)->toBeTrue()
         ->and($form->fields()->where('field_type', 'waiver-scan')->exists())->toBeFalse();
 });
+
+it('rejects a submission when a required waiver scan field is left blank', function () {
+    $form = Form::query()->create([
+        'name' => 'Waiver Required',
+        'route_name' => 'waiver-required',
+        'is_active' => true,
+        'is_published' => true,
+        'layout' => ['rows' => []],
+        'pdf_template' => ['html' => '<p>x</p>', 'page' => ['size' => 'a4', 'orientation' => 'portrait']],
+    ]);
+    \App\Models\Form\FormDescription::query()->create([
+        'form_id' => $form->id, 'field_key' => 'waiver', 'field_label' => 'Waiver',
+        'field_type' => 'waiver-scan', 'field_order' => 1, 'is_required' => true,
+    ]);
+
+    $officer = recordsUser(3);
+    \Illuminate\Support\Facades\DB::table('organization_officers')->insert([
+        'role' => 'officer',
+        'organization' => (int) recordsOrganization('Waiver Org', 'WO')->getKey(),
+        'user' => (int) $officer->getKey(),
+        'yearterm' => null,
+        'member_since' => now(),
+        'registered_at' => now(),
+        'reassigned_at' => now(),
+    ]);
+
+    // The widget's hidden input posts an empty string when nothing is captured.
+    $this->actingAs($officer)
+        ->post(route('forms.render.submit', $form->route_name), ['waiver' => ['']])
+        ->assertSessionHasErrors('waiver');
+
+    $this->actingAs($officer)
+        ->post(route('forms.render.submit', $form->route_name), [])
+        ->assertSessionHasErrors('waiver');
+});

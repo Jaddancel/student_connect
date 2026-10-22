@@ -6,6 +6,7 @@ use App\Models\EventPlan;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Services\DocumentGenerationService;
+use App\Services\WorkplanService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -88,6 +89,10 @@ class NewWorkplanHandler implements SystemFunctionHandler
         $enriched = array_merge($payload, [
             'organization_id' => $organizationId,
             'organization' => $orgName,
+            // Links the submission to its semester's workplan — approval
+            // finalizes that workplan and the review/gating lookups match on it.
+            'semester_id' => (int) ($payload['semester_id'] ?? 0)
+                ?: (int) app(WorkplanService::class)->getActiveSemester()?->getKey(),
             'workplan_rows' => $rows->all(),
             'activities' => $rows->pluck('title')->all(),
             'target' => $rows->pluck('target')->all(),

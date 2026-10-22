@@ -192,6 +192,11 @@ If OCR is unreachable, the app logs a warning and continues—ID scanning fails 
 - **Printing:** template slots are `templates` rows with `report_template_id`, edited in the same OnlyOffice draft editor (`shared/printed-template-draft.js`). `ReportDocxRenderer` expands `{{#group}} … {{/group}}` blocks (nested groups re-keyed per row as `group__N.child`) before the normal `{{key}}`/`{{key#}}` fill; `{{profile.*}}`/`{{system.*}}` are universal tokens.
 - **Seeded:** `ReportTemplateSeeder` recreates "Registered Organizations" and "Organization Officers" (run `artisan db:seed --class=ReportTemplateSeeder` on existing installs).
 
+### Organization Manager (user type 2)
+
+- **Page:** `/admin/organization-manager` (sidebar → Admin → Organization Manager; `Admin\OrganizationManagerController`, view `pages/admin/organization-manager/index.blade.php`, Alpine `adminOrganizationOfficerChange` in `resources/js/csp/admin.js`). Pick an accreditation-active organization, then **Change** a President / Secretary / Auditor / Treasurer row to open the "Change Officer" modal, which searches the org's members via `/admin/organization-manager/{org}/candidates?q=`. Officers whose position is `Others` are listed read-only under **Other**.
+- **Rules:** `App\Services\OrganizationOfficerManager::assign()` (one transaction). A position is held by an `organization_officers` row with `role = president`, or `role = officer` plus a matching `position`. Only officer accounts (`user_type = 3`) that are already in the org can be picked. The replaced holder becomes `officer` / `Others`. A candidate who held another named position moves, leaving that position vacant. Old `presidents` rows are removed, and each change is written to the action log (`organization_officers` category).
+
 ### System Dashboard (user type 1)
 
 - **Page:** `/dashboard` for superadmins (`SuperAdminController::monitoringDashboard`, view `pages/dashboard/superadmin.blade.php`, Alpine `system-dashboard.js`). The "Data View" period (3 Days / Weekly / Quarterly / Semester / Yearly) refetches `/superadmin/dashboard/metrics?period=`.

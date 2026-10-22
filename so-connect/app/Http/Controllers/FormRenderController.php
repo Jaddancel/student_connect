@@ -418,6 +418,20 @@ class FormRenderController extends Controller
         );
         $isHidden = fn (string $key): bool => ($visibility[$key] ?? true) === false;
 
+        // The waiver widget always posts a hidden `key[]` input, so an empty
+        // scan arrives as [null]. Drop blank items first, otherwise `required`
+        // / `min:1` would see a non-empty array and let it through.
+        foreach ($fields as $field) {
+            if ($field->field_type === FieldType::WAIVER_SCAN && $request->has($field->field_key)) {
+                $request->merge([
+                    $field->field_key => array_values(array_filter(
+                        (array) $request->input($field->field_key),
+                        fn ($v) => $v !== null && $v !== '',
+                    )),
+                ]);
+            }
+        }
+
         // Build validation rules dynamically from the field catalog.
         $rules = [];
         $messages = [];

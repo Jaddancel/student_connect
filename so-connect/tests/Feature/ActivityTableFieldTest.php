@@ -179,6 +179,43 @@ it('creates calendar events automatically for approved activities when a workpla
         ->and(Event::query()->latest('event_id')->first()->detailOfEvent->name)->toBe($approvedPlan->title);
 });
 
+it('finalizes the workplan on approval so the workplan picker offers it', function () {
+    [$officer, $orgId] = atOfficer();
+    $semester = atActiveSemester();
+    $workplan = atWorkplan($orgId, $semester);
+    $newEventForm = atNewEventForm();
+    atApprovedActivity($orgId, (int) $officer->getKey(), $newEventForm);
+
+    $workplanForm = Form::query()->create([
+        'name' => 'Workplan', 'route_name' => 'workplan-'.\Illuminate\Support\Str::random(6),
+        'system_function' => 'new_workplan', 'is_active' => true,
+    ]);
+    $submission = FormSubmission::query()->create([
+        'form_id' => (int) $workplanForm->getKey(), 'organization_id' => $orgId,
+        'submitted_by' => (int) $officer->getKey(), 'submitted_at' => now(),
+        'payload' => ['semester_id' => (int) $semester->getKey()],
+    ]);
+    $request = app(DocumentGenerationService::class)->createDocumentGenerationRequest(
+        $orgId, (int) $submission->getKey(), (int) $workplanForm->getKey(), (int) $officer->getKey(),
+    );
+
+    $pickerIds = fn () => collect(\App\Forms\OptionSource::options(
+        \App\Forms\OptionSource::FINALIZED_WORKPLANS, $officer, scoped: true,
+    ))->pluck('value')->all();
+
+    expect($pickerIds())->toBe([]);
+
+    $finalized = app(WorkplanService::class)->finalizeFromApprovedRequest($request);
+
+    $workplan->refresh();
+    expect($finalized?->getKey())->toBe($workplan->getKey())
+        ->and($workplan->status)->toBe('finalized')
+        ->and($workplan->finalized_at)->not->toBeNull()
+        ->and((int) $workplan->finalized_by)->toBe((int) $officer->getKey())
+        ->and($pickerIds())->toBe([(string) $workplan->getKey()])
+        ->and(Event::query()->where('organization', $orgId)->count())->toBe(1);
+});
+
 it('snapshots the approved activities on submit, ignoring client input', function () {
     [$officer, $orgId] = atOfficer();
     $semester = atActiveSemester();

@@ -12,6 +12,10 @@
     // pulled out of the static all-types list and rendered behind an x-if below.
     $officerContactOptions = $universalGroups['officer_contact'] ?? [];
     unset($universalGroups['officer_contact']);
+    // The org founding date is a Y-m-d value: listed under Organization, but
+    // only on date/text fields.
+    $orgDateOptions = $universalGroups['org_date'] ?? [];
+    unset($universalGroups['org_date']);
     $universalGroupLabels = [
         'name' => 'Name', 'contact' => 'Contact', 'personal' => 'Personal',
         'academic' => 'Academic', 'id' => 'Identity', 'organization' => 'Organization',
@@ -288,6 +292,13 @@
                                             @foreach ($entries as $ukey => $meta)
                                                 <option value="{{ $ukey }}">{{ $meta['label'] }}</option>
                                             @endforeach
+                                            @if ($group === 'organization')
+                                                @foreach ($orgDateOptions as $ukey => $meta)
+                                                    <template x-if="['date', 'text'].includes(f.field_type)">
+                                                        <option value="{{ $ukey }}">{{ $meta['label'] }}</option>
+                                                    </template>
+                                                @endforeach
+                                            @endif
                                         </optgroup>
                                     @endforeach
                                     @if ($officerContactOptions !== [])

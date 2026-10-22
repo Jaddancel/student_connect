@@ -226,22 +226,7 @@ class WorkplanRequestController extends Controller
         }
 
         if ($validated['decision'] === 'approve') {
-            $orgId = (int) ($payload['organization_id'] ?? $actionRequest->organization_id ?? 0);
-            $semesterId = (int) ($payload['semester_id'] ?? 0);
-
-            $workplan = $semesterId > 0
-                ? Workplan::query()
-                    ->where('organization_id', $orgId)
-                    ->where('semester_id', $semesterId)
-                    ->first()
-                : Workplan::query()
-                    ->where('organization_id', $orgId)
-                    ->orderByDesc('semester_id')
-                    ->first();
-
-            if ($workplan) {
-                app(WorkplanService::class)->convertApprovedPlansToCalendarEvents($workplan);
-            }
+            app(WorkplanService::class)->finalizeFromApprovedRequest($actionRequest);
         }
 
         $message = $validated['decision'] === 'approve'

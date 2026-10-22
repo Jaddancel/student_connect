@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Auth;
 /**
  * Resolves the organization-scoped universal fields (`org_name`,
  * `org_president`, `org_treasurer`, `org_auditor`, `org_secretary`, `adviser`,
- * and the officers' `org_*_contact` numbers) that
+ * `org_founding_date`, and the officers' `org_*_contact` numbers) that
  * {@see UniversalField} declares but cannot read off a profile. Values come
  * from the submitter's organization: its registered name for `org_name`,
  * current officeholders for the role fields and their saved profile signatures,
@@ -76,6 +76,10 @@ final class OrganizationField
             return $type !== null && $type !== ''
                 ? \App\Enums\OrganizationType::label((int) $type)
                 : null;
+        }
+
+        if ($key === 'org_founding_date') {
+            return $organization->created_at?->toDateString();
         }
 
         $signaturePosition = match ($key) {

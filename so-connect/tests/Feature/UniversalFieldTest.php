@@ -47,7 +47,7 @@ it('leaves an unparseable birthday untouched and null when empty', function () {
 it('separates profile-source from org-source keys', function () {
     expect(UniversalField::keysBySource('org'))
         ->toEqualCanonicalizing([
-            'org_name', 'adviser', 'org_president', 'org_treasurer', 'org_auditor', 'org_secretary', 'org_category',
+            'org_name', 'adviser', 'org_president', 'org_treasurer', 'org_auditor', 'org_secretary', 'org_category', 'org_founding_date',
             'org_president_signature', 'org_treasurer_signature', 'org_auditor_signature', 'org_secretary_signature',
             'org_president_contact', 'org_treasurer_contact', 'org_auditor_contact', 'org_secretary_contact',
         ])

@@ -210,7 +210,7 @@ final class SpecialFieldData
                     'label' => trim(($workplan->semester?->name ?? 'Workplan').' — '.$plans->count().' activities'),
                     'activities' => $plans->map(fn ($plan) => [
                         'title' => (string) $plan->title,
-                        'date' => (string) $plan->target_date,
+                        'date' => $plan->target_date?->format('F j, Y') ?? '',
                         'resources' => (string) ($plan->resources_needed ?? ''),
                     ])->values()->all(),
                 ];

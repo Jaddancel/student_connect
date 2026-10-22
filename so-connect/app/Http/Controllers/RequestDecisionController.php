@@ -20,6 +20,7 @@ use App\Models\RequestType;
 use App\Models\User;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
+use App\Services\WorkplanService;
 use App\Support\OfficerProfileData;
 use App\Support\SignupRequests;
 use Illuminate\Http\JsonResponse;
@@ -133,6 +134,10 @@ class RequestDecisionController extends Controller
             \App\Models\GeneratedDocument::where('request_id', (int) $actionRequest->getKey())
                 ->where('status', 'generated')
                 ->update(['approval_id' => (int) $approval->approval_id]);
+        }
+
+        if ($this->isDocumentGenerationRequest($actionType, $systemKey) && $validated['decision'] === 'approve') {
+            app(WorkplanService::class)->finalizeFromApprovedRequest($actionRequest);
         }
 
         if ($this->isRoleChangeRequest($actionType, $systemKey) && $validated['decision'] === 'approve') {
@@ -356,6 +361,8 @@ class RequestDecisionController extends Controller
                 ->where('status', 'generated')
                 ->update(['approval_id' => (int) $approval->approval_id]);
         }
+
+        app(WorkplanService::class)->finalizeFromApprovedRequest($actionRequest);
 
         return response()->json([
             'message'               => 'Request approved successfully.',

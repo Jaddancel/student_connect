@@ -431,6 +431,15 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/semesters/{semester}/edit', [SemesterController::class, 'edit'])->name('admin.semesters.edit');
     Route::patch('/admin/semesters/{semester}', [SemesterController::class, 'update'])->name('admin.semesters.update');
 
+    Route::get('/admin/organization-manager', [\App\Http\Controllers\Admin\OrganizationManagerController::class, 'index'])
+        ->name('admin.organization-manager.index');
+    Route::get('/admin/organization-manager/{organization}/candidates', [\App\Http\Controllers\Admin\OrganizationManagerController::class, 'candidates'])
+        ->whereNumber('organization')
+        ->name('admin.organization-manager.candidates');
+    Route::post('/admin/organization-manager/{organization}/officers', [\App\Http\Controllers\Admin\OrganizationManagerController::class, 'update'])
+        ->whereNumber('organization')
+        ->name('admin.organization-manager.update');
+
     // Generic per-form request pages: every form page has its own queue
     // (forms bound to sign-up/new-event/new-workplan 404 — dedicated flows).
     Route::get('/admin/form-requests/{form}', [\App\Http\Controllers\Admin\FormRequestController::class, 'index'])
