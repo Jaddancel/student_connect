@@ -63,6 +63,8 @@
                                     <td class="px-5 py-4">
                                         @if(($row['display_type'] ?? '') === 'new_officer')
                                             <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-500/15 dark:text-purple-400">New Officer</span>
+                                        @elseif(($row['display_type'] ?? '') === 'existing_officer')
+                                            <span class="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700 dark:bg-orange-500/15 dark:text-orange-400">Existing Officers</span>
                                         @else
                                             <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">Role Change</span>
                                         @endif
@@ -70,6 +72,9 @@
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">
                                         @if(($row['display_type'] ?? '') === 'new_officer')
                                             New → Officer
+                                        @elseif(($row['display_type'] ?? '') === 'existing_officer')
+                                            Join {{ $row['target_organization_name'] }}
+                                            <span class="block text-xs text-gray-400 dark:text-gray-500">as {{ $row['requested_role'] }}</span>
                                         @else
                                             {{ ucfirst($row['current_role']) }} → {{ ucfirst($row['requested_role']) }}
                                         @endif
@@ -93,11 +98,14 @@
                                             <span class="inline-flex items-center rounded-full bg-error-100 px-2.5 py-0.5 text-xs font-medium text-error-700 dark:bg-error-500/15 dark:text-error-400">Rejected</span>
                                         @else
                                             <span class="inline-flex items-center rounded-full bg-warning-100 px-2.5 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-500/15 dark:text-warning-400">Pending</span>
+                                            @if($row['awaiting_president'] ?? false)
+                                                <span class="mt-1 block text-xs text-gray-400 dark:text-gray-500">Awaiting president</span>
+                                            @endif
                                         @endif
                                     </td>
                                     <td class="px-5 py-4">
                                         <div class="flex items-center gap-2 flex-wrap">
-                                            <a href="{{ route('promotion-requests.show', $row['request_id']) }}"
+                                            <a href="{{ $row['review_url'] ?? route('promotion-requests.show', $row['request_id']) }}"
                                                 class="inline-flex items-center gap-1.5 rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-600/40 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20">
                                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                                 Review

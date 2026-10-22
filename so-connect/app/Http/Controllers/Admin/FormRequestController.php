@@ -46,6 +46,11 @@ class FormRequestController extends Controller
     {
         $this->assertHasRequestPage($form);
 
+        // Membership requests are reviewed on the merged Promotion Requests page.
+        if ($this->isMembershipForm($form)) {
+            return redirect()->route('promotion-requests');
+        }
+
         $requests = ActionRequest::query()
             ->where('form_id', (int) $form->getKey())
             ->whereIn('action_type', self::ACTION_TYPES)
@@ -175,6 +180,7 @@ class FormRequestController extends Controller
             'requesterName' => $requesterNames[$actionRequest->user] ?? 'Unknown',
             'kind' => (int) $actionRequest->action_type === 1 ? 'Membership' : ((int) $actionRequest->action_type === NewOrganizationRegistrationHandler::ACTION_TYPE ? 'New Organization' : 'Document'),
             'newOrganizationEmailStatuses' => $newOrganizationEmailStatuses,
+            'backUrl' => $this->queueUrl($form),
         ]);
     }
 
@@ -202,14 +208,27 @@ class FormRequestController extends Controller
                 return back()->withErrors(['request' => $throwable->getMessage()]);
             }
 
-            return redirect()->route('admin.form-requests.index', $form)
+            return redirect($this->queueUrl($form))
                 ->with('success', 'Request approved.');
         }
 
         $approvalService->reject($actionRequest, $userId, $validated['rejection_reason'] ?? null, $stage);
 
-        return redirect()->route('admin.form-requests.index', $form)
+        return redirect($this->queueUrl($form))
             ->with('success', 'Request rejected — the requester can submit the form again.');
+    }
+
+    private function isMembershipForm(Form $form): bool
+    {
+        return (string) $form->system_function === SystemFunction::MEMBERSHIP_REGISTRATION;
+    }
+
+    /** The list page a form's requests are reviewed from. */
+    private function queueUrl(Form $form): string
+    {
+        return $this->isMembershipForm($form)
+            ? route('promotion-requests')
+            : route('admin.form-requests.index', $form);
     }
 
     /** Forms bound to the excepted system functions have dedicated flows. */

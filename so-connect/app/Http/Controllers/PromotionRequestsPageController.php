@@ -169,6 +169,24 @@ class PromotionRequestsPageController extends Controller
             ]);
         })->values();
 
+        // Membership requests from existing officers (the membership-registration
+        // form's queue) are reviewed on this page too.
+        if ($isAdmin) {
+            $membershipRows = $this->membershipRows();
+            foreach ($membershipRows as $row) {
+                match ($row['status']) {
+                    'pending' => $pendingCount++,
+                    'approved' => $approvedCount++,
+                    'rejected' => $rejectedCount++,
+                    default => null,
+                };
+            }
+
+            $rows = $rows->concat($membershipRows)
+                ->sortByDesc(fn (array $row) => \Illuminate\Support\Carbon::parse($row['requested_at'])->getTimestamp())
+                ->values();
+        }
+
         return view('pages.sidebar.promotion-requests', [
             'title' => 'Promotion Requests',
             'rows' => $rows,
@@ -355,6 +373,117 @@ class PromotionRequestsPageController extends Controller
             return redirect()->route('promotion-requests')
                 ->with('status', 'Details saved, but document generation failed: '.$e->getMessage());
         }
+    }
+
+    /**
+     * Rows for requests filed through membership-registration forms. These
+     * are two-stage: the receiving org's president approves first, then an
+     * admin casts the final decision on the form request review page.
+     */
+    private function membershipRows(): \Illuminate\Support\Collection
+    {
+        $formIds = Form::query()
+            ->where('system_function', \App\Forms\SystemFunction::MEMBERSHIP_REGISTRATION)
+            ->pluck('id')
+            ->all();
+        if ($formIds === []) {
+            return collect();
+        }
+
+        $requests = ActionRequest::query()
+            ->whereIn('form_id', $formIds)
+            ->where('action_type', 1)
+            ->orderByDesc('requested_at')
+            ->get(['request_id', 'form_id', 'action', 'organization_id', 'user', 'payload', 'requested_at']);
+        if ($requests->isEmpty()) {
+            return collect();
+        }
+
+        $approvals = Approval::query()
+            ->whereIn('request', $requests->pluck('request_id')->all())
+            ->get(['request', 'stage', 'is_rejected', 'approved_at'])
+            ->groupBy('request');
+
+        $userIds = $requests->pluck('user')->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
+
+        // Fallback requester org (president role first) when the payload
+        // didn't capture it at submission.
+        $fallbackOrgByUser = $userIds === [] ? [] : DB::table('organization_officers')
+            ->whereIn('user', $userIds)
+            ->orderByRaw("FIELD(role, 'president') DESC")
+            ->get(['user', 'organization'])
+            ->groupBy('user')
+            ->map(fn ($officerRows) => (int) $officerRows->first()->organization)
+            ->all();
+
+        $prepared = $requests->map(function ($actionRequest) use ($fallbackOrgByUser) {
+            $payload = (array) ($actionRequest->payload ?? []);
+            $userId = (int) $actionRequest->user;
+
+            $targetOrgId = (int) ($actionRequest->organization_id ?? ($payload['organization_id'] ?? 0));
+            if ($targetOrgId <= 0) {
+                $parts = explode('|', (string) $actionRequest->action);
+                $targetOrgId = isset($parts[0]) && ctype_digit(trim($parts[0])) ? (int) trim($parts[0]) : 0;
+            }
+
+            $requesterOrgId = (int) ($payload['requester_organization_id'] ?? 0);
+            if ($requesterOrgId <= 0) {
+                $requesterOrgId = (int) ($fallbackOrgByUser[$userId] ?? 0);
+            }
+
+            return [
+                'request' => $actionRequest,
+                'user_id' => $userId,
+                'target_org_id' => $targetOrgId,
+                'requester_org_id' => $requesterOrgId > 0 ? $requesterOrgId : $targetOrgId,
+                'position' => (string) ($payload['position'] ?? ''),
+            ];
+        });
+
+        $orgNameMap = $this->orgNameMap(
+            $prepared->flatMap(fn ($p) => [$p['target_org_id'], $p['requester_org_id']])->filter()->unique()->values()->all()
+        );
+        $userNameMap = $this->userNameMap($userIds);
+
+        return $prepared->map(function (array $p) use ($approvals, $orgNameMap, $userNameMap) {
+            $actionRequest = $p['request'];
+            $group = $approvals->get($actionRequest->request_id) ?? collect();
+            $adminApproval = $group->firstWhere('stage', 'admin');
+            $presidentApproval = $group->firstWhere('stage', 'president');
+
+            if ($adminApproval !== null) {
+                $status = $adminApproval->is_rejected ? 'rejected' : 'approved';
+                $decidedAt = $adminApproval->approved_at;
+            } elseif ($presidentApproval !== null && $presidentApproval->is_rejected) {
+                $status = 'rejected';
+                $decidedAt = $presidentApproval->approved_at;
+            } else {
+                $status = 'pending';
+                $decidedAt = null;
+            }
+
+            return [
+                'request_id'               => (int) $actionRequest->request_id,
+                'target_user_id'           => $p['user_id'],
+                'organization_id'          => $p['requester_org_id'],
+                'current_role'             => 'officer',
+                'requested_role'           => $p['position'] !== '' ? $p['position'] : 'member',
+                'requested_at'             => $actionRequest->requested_at,
+                'member_initiated'         => true,
+                'display_type'             => 'existing_officer',
+                'payload_name'             => null,
+                'review_payload'           => null,
+                'organization_name'        => $orgNameMap[$p['requester_org_id']] ?? 'Unknown Organization',
+                'target_organization_name' => $orgNameMap[$p['target_org_id']] ?? 'Unknown Organization',
+                'requester_name'           => $userNameMap[$p['user_id']] ?? 'Unknown User',
+                'status'                   => $status,
+                'awaiting_president'       => $status === 'pending' && $presidentApproval === null,
+                'approved_at'              => $decidedAt,
+                'can_decide'               => $status === 'pending',
+                'submission_id'            => null,
+                'review_url'               => route('admin.form-requests.show', [(int) $actionRequest->form_id, (int) $actionRequest->request_id]),
+            ];
+        })->values();
     }
 
     private function parseNewOfficerAction(?string $action): array

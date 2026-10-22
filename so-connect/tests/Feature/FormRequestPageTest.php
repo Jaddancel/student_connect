@@ -279,12 +279,56 @@ it('lists president-rejected membership requests as decided', function () {
         'president',
     );
 
-    $this->actingAs(recordsUser(2))
+    $admin = recordsUser(2);
+
+    $this->actingAs($admin)
         ->get(route('admin.form-requests.index', $form))
+        ->assertRedirect(route('promotion-requests'));
+
+    $this->actingAs($admin)
+        ->get(route('promotion-requests'))
         ->assertOk()
-        ->assertSee('Recent Decisions')
+        ->assertSee('Existing Officers')
+        ->assertSee('Join Target Org')
+        ->assertSee('Home Org')
         ->assertSee('Rejected')
-        ->assertSee('Membership not approved');
+        ->assertSee(route('admin.form-requests.show', [$form, $actionRequest->request_id]), false);
+});
+
+it('lists pending existing-officer membership requests on the promotion requests page', function () {
+    $homeOrg = recordsOrganization('Home Org');
+    $targetOrg = recordsOrganization('Target Org');
+    $applicant = frpOfficer((int) $homeOrg->getKey());
+
+    $form = frpForm([
+        'name' => 'Org Membership',
+        'route_name' => 'org-membership',
+        'system_function' => 'membership_registration',
+    ], 'organization_id');
+
+    FormDescription::create([
+        'form_id' => $form->id, 'field_key' => 'position', 'field_label' => 'Position',
+        'field_type' => 'position-select', 'is_required' => true, 'field_order' => 2,
+    ]);
+
+    $this->actingAs($applicant)
+        ->post(route('forms.render.submit', $form->route_name), [
+            'organization_id' => (string) $targetOrg->getKey(),
+            'position' => 'Secretary',
+        ])
+        ->assertSessionHasNoErrors();
+
+    $actionRequest = ActionRequest::query()
+        ->where('form_id', $form->id)->where('action_type', 1)->firstOrFail();
+
+    $this->actingAs(recordsUser(2))
+        ->get(route('promotion-requests'))
+        ->assertOk()
+        ->assertSee('Existing Officers')
+        ->assertSee('Join Target Org')
+        ->assertSee('as Secretary')
+        ->assertSee('Awaiting president')
+        ->assertSee(route('admin.form-requests.show', [$form, $actionRequest->request_id]), false);
 });
 
 it('has no request page for sign-up, new-event and new-workplan bindings', function () {

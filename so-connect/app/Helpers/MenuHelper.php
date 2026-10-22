@@ -138,12 +138,12 @@ class MenuHelper
                 ['icon' => 'user-profile', 'name' => 'Promotion Requests', 'path' => '/promotion-requests', 'badge' => $badges['promotion_requests']],
             ];
 
+            // Membership-registration forms are reviewed on Promotion Requests.
             $formRequestPages = \App\Models\Form::query()
                 ->where('is_active', true)
                 ->where(function ($query) {
                     $query->whereNull('system_function')
                         ->orWhereIn('system_function', [
-                            \App\Forms\SystemFunction::MEMBERSHIP_REGISTRATION,
                             \App\Forms\SystemFunction::ORG_ACCREDITATION,
                             \App\Forms\SystemFunction::NEW_ORGANIZATION_REGISTRATION,
                             \App\Forms\SystemFunction::AFTER_EVENT_REPORT,
@@ -278,6 +278,22 @@ class MenuHelper
             ->whereIn('action_type', [7, 11])
             ->whereNotIn('request_id', DB::table('approvals')->select('request')->whereNotNull('request'))
             ->count();
+
+        // Existing-officer membership requests share the Promotion Requests
+        // page: pending until the admin decides or the president rejects.
+        $membershipFormIds = \App\Models\Form::query()
+            ->where('system_function', \App\Forms\SystemFunction::MEMBERSHIP_REGISTRATION)
+            ->pluck('id')
+            ->all();
+        if ($membershipFormIds !== []) {
+            $pendingPromotions += (int) DB::table('requests')
+                ->whereIn('form_id', $membershipFormIds)
+                ->where('action_type', 1)
+                ->whereNotIn('request_id', DB::table('approvals')->select('request')->whereNotNull('request')
+                    ->where(fn ($query) => $query->where('stage', 'admin')
+                        ->orWhere(fn ($q) => $q->where('stage', 'president')->where('is_rejected', true))))
+                ->count();
+        }
 
         // One grouped count feeds every per-form request page badge
         // (membership, doc-gen and new-organization requests, keyed by the

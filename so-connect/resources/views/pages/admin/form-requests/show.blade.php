@@ -295,8 +295,8 @@
         @endif
 
         <div class="pb-2">
-            <a href="{{ route('admin.form-requests.index', $form) }}" class="text-sm text-brand-500 hover:underline">
-                ← Back to {{ $form->name }} requests
+            <a href="{{ $backUrl ?? route('admin.form-requests.index', $form) }}" class="text-sm text-brand-500 hover:underline">
+                ← Back to {{ (string) $form->system_function === \App\Forms\SystemFunction::MEMBERSHIP_REGISTRATION ? 'Promotion Requests' : $form->name.' requests' }}
             </a>
         </div>
     </div>
