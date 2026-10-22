@@ -215,6 +215,27 @@ it('returns ok:false when Gemini returns an error', function () {
         ->assertJson(['ok' => false, 'reply' => '', 'links' => []]);
 });
 
+it('falls back to the fallback model when the primary model is overloaded', function () {
+    config()->set('services.gemini.fallback_model', 'gemini-3.5-flash');
+    Http::fake([
+        'https://generativelanguage.googleapis.test/v1beta/models/gemini-3.8-flash:*' => Http::response('', 503),
+        'https://generativelanguage.googleapis.test/v1beta/models/gemini-3.5-flash:*' => Http::response([
+            'candidates' => [['content' => ['parts' => [['text' => 'Fallback answer']]]]],
+        ], 200),
+    ]);
+
+    $admin = recordsUser(2);
+
+    $this->actingAs($admin)
+        ->postJson(route('assistant.chat'), [
+            'messages' => [['role' => 'user', 'content' => 'hi']],
+        ])
+        ->assertOk()
+        ->assertJson(['ok' => true, 'reply' => 'Fallback answer']);
+
+    Http::assertSentCount(2);
+});
+
 it('degrades without calling Gemini when its API key is missing', function () {
     config()->set('services.gemini.api_key', '');
     Http::fake();

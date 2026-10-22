@@ -68,7 +68,9 @@ return [
         'api_key' => env('GEMINI_API_KEY'),
         'url' => env('GEMINI_API_URL', 'https://generativelanguage.googleapis.com/v1beta'),
         'timeout' => (int) env('GEMINI_TIMEOUT', 30),
-        'model' => env('GEMINI_MODEL', 'gemini-3.8-flash'),
+        'model' => env('GEMINI_MODEL', 'gemini-3.6-flash'),
+        // Tried when the primary model is overloaded (429/5xx) or unreachable.
+        'fallback_model' => env('GEMINI_FALLBACK_MODEL', 'gemini-3.5-flash'),
     ],
 
     // Google OAuth for the admin/officer "Sign in with Google" pre-fill. See

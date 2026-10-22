@@ -23,12 +23,15 @@ manager:
 GEMINI_API_KEY=your-api-key
 GEMINI_API_URL=https://generativelanguage.googleapis.com/v1beta
 GEMINI_TIMEOUT=30
-GEMINI_MODEL=gemini-3.8-flash
+GEMINI_MODEL=gemini-3.6-flash
+GEMINI_FALLBACK_MODEL=gemini-3.5-flash
 ```
 
 `GEMINI_MODEL` is configurable because model availability can vary by project
 and change over time. Use a Gemini text model available to your project; see
 the [Gemini model guide](https://ai.google.dev/gemini-api/docs/models).
+`GEMINI_FALLBACK_MODEL` is tried automatically when the primary model returns
+429/5xx (e.g. "high demand" 503s) or cannot be reached; leave it blank to disable.
 
 Clear Laravel's cached configuration after changing the environment, then
 restart the application:
