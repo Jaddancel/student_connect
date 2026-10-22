@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class StudentRankingService
 {
+    public function __construct(private readonly LevelingService $levels) {}
+
     /**
      * @return Collection<int, array<string, mixed>>
      */
@@ -86,12 +88,7 @@ final class StudentRankingService
     /** @return array{number:int,label:string,color:string} */
     public function level(float $average): array
     {
-        return match (true) {
-            $average >= 90 => ['number' => 4, 'label' => 'Outstanding', 'color' => 'success'],
-            $average >= 80 => ['number' => 3, 'label' => 'Advanced', 'color' => 'brand'],
-            $average >= 70 => ['number' => 2, 'label' => 'Proficient', 'color' => 'warning'],
-            default => ['number' => 1, 'label' => 'Developing', 'color' => 'gray'],
-        };
+        return $this->levels->studentLevel($average);
     }
 
     private function studentName(object $student): string

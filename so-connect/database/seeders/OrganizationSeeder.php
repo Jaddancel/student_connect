@@ -42,7 +42,8 @@ class OrganizationSeeder extends Seeder
     {
 
         //  Org Type
-        // 1 - Socio Civic, 2 - Religous, 3 - Fraternities and Sororities, 4 - Special Interest, 5 - University Sanctioned, Student Councils
+        // 1 Socio-Civic, 2 Religious, 3 Fraternities/Sororities, 4 Special Interest,
+        // 5 University Sanctioned, 6 Supreme Student Council, 7 College Student Council, 8 Academic.
 
         $orgNameAndTypes = [
             ['Buklod-Lahi', 1],
@@ -88,13 +89,13 @@ class OrganizationSeeder extends Seeder
             ['Performing Guild', 5],
             ['Chorale', 5],
             ['A.K.D.A.', 5],
-            ['College of Agriculture and Forestry - Student Council', 6],
-            ['College of Arts and Sciences - Student Council', 6],
-            ['College of Veterinary Medicine - Student Council', 6],
-            ['College of Engineering and Technology - Student Council', 6],
-            ['College of Business Management - Student Council', 6],
-            ['College of Education - Student Council', 6],
-            ['Laboratory School - Student Council', 6],
+            ['College of Agriculture and Forestry - Student Council', 7],
+            ['College of Arts and Sciences - Student Council', 7],
+            ['College of Veterinary Medicine - Student Council', 7],
+            ['College of Engineering and Technology - Student Council', 7],
+            ['College of Business Management - Student Council', 7],
+            ['College of Education - Student Council', 7],
+            ['Laboratory School - Student Council', 7],
             ['Supreme Student Council', 6],
             ['TAU Lakas Angkan Youth Fellowship', 2],
             ['TAU Latter-Day Saints Student Association', 2],

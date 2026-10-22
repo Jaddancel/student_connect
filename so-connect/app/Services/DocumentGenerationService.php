@@ -166,6 +166,11 @@ class DocumentGenerationService
             throw new RuntimeException('Form submission and requested form do not match.');
         }
 
+        // Approval is the final fail-closed boundary. This protects older
+        // pending requests and direct/API approval attempts even when client-
+        // side validation or the normal submission route was bypassed.
+        app(AccreditationAttachmentChecklist::class)->assertApprovable($submission);
+
         $submissionOrgId = (int) ($submission->organization_id ?? 0);
         if ($submissionOrgId !== $organizationId) {
             throw new RuntimeException('Form submission organization does not match request organization.');

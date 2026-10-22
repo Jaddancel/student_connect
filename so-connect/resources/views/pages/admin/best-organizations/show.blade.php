@@ -1,0 +1,33 @@
+@extends('layouts.app')
+
+@section('content')
+    <x-common.page-breadcrumb :pageTitle="$cycle->title" />
+    <div class="space-y-6">
+        @if(session('success'))<div class="rounded-xl bg-success-50 px-4 py-3 text-sm text-success-700">{{ session('success') }}</div>@endif
+        @if($errors->any())<div class="rounded-xl bg-error-50 px-4 py-3 text-sm text-error-700">{{ $errors->first() }}</div>@endif
+
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[.03]">
+            <div class="flex flex-wrap items-start justify-between gap-4"><div><a href="{{ route('admin.best-organizations.index') }}" class="text-xs text-brand-500">← All cycles</a><h2 class="mt-1 text-xl font-semibold text-gray-800 dark:text-white">{{ $cycle->title }}</h2><p class="text-sm text-gray-500">{{ $cycle->semester->name }} · School Year {{ $cycle->semester->schoolYear() }}</p></div><span class="rounded-full bg-brand-50 px-3 py-1.5 text-xs font-semibold uppercase text-brand-600">{{ $cycle->status }}</span></div>
+            <div class="mt-5 grid gap-3 sm:grid-cols-3"><div class="rounded-xl bg-gray-50 p-3 text-sm dark:bg-white/5"><strong>{{ $cycle->candidates->count() }}</strong><br><span class="text-gray-500">Verified candidates</span></div><div class="rounded-xl bg-gray-50 p-3 text-sm dark:bg-white/5"><strong>{{ $cycle->candidates->where('status','finalist')->count() }}</strong><br><span class="text-gray-500">Finalists</span></div><div class="rounded-xl bg-gray-50 p-3 text-sm dark:bg-white/5"><strong>{{ $cycle->winner?->detailRecord?->name ?? '—' }}</strong><br><span class="text-gray-500">Awarded organization</span></div></div>
+            @if($cycle->status === 'draft')
+                <div class="mt-5 flex flex-wrap gap-2"><form method="POST" action="{{ route('admin.best-organizations.sync', $cycle) }}">@csrf<button class="rounded-lg border border-brand-300 px-4 py-2 text-sm text-brand-600">Sync verified scores</button></form><form method="POST" action="{{ route('admin.best-organizations.start', $cycle) }}">@csrf<button class="rounded-lg bg-brand-500 px-4 py-2 text-sm text-white">Start evaluation</button></form></div>
+            @endif
+            @if($cycle->status === 'awarded' && $cycle->selection_notes)<div class="mt-5 rounded-xl border border-success-200 bg-success-50 p-4"><p class="text-xs font-semibold uppercase text-success-700">Selection rationale</p><p class="mt-1 whitespace-pre-wrap text-sm text-success-800">{{ $cycle->selection_notes }}</p></div>@endif
+        </div>
+
+        <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[.03]">
+            <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-800"><h3 class="font-semibold text-gray-800 dark:text-white">Candidate review</h3><p class="text-xs text-gray-500">Only organizations with a verified score for this semester appear here.</p></div>
+            <div class="overflow-x-auto"><table class="w-full min-w-[900px] text-left text-sm"><thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-white/[.02]"><tr><th class="px-4 py-3">Rank</th><th class="px-4 py-3">Organization</th><th class="px-4 py-3">Verified score</th><th class="px-4 py-3">Review status</th><th class="px-4 py-3">Notes / action</th></tr></thead><tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                @forelse($cycle->candidates as $candidate)
+                    <tr class="{{ $candidate->status === 'winner' ? 'bg-success-50/60 dark:bg-success-500/10' : '' }}"><td class="px-4 py-3 font-semibold">#{{ $candidate->rank_snapshot }}</td><td class="px-4 py-3"><p class="font-medium text-gray-800 dark:text-white">{{ $candidate->organization?->detailRecord?->name ?? 'Unknown Organization' }}</p>@if($candidate->organization_score_id)<a href="{{ route('admin.scoring.edit', $candidate->organization_score_id) }}" class="text-xs text-brand-500">Review scoring evidence →</a>@else<span class="text-xs text-gray-400">Original score archived; snapshot retained.</span>@endif</td><td class="px-4 py-3 font-semibold">{{ number_format((float)$candidate->score_snapshot, 2) }}</td><td class="px-4 py-3 uppercase text-xs">{{ $candidate->status }}</td><td class="px-4 py-3">
+                        @if($cycle->status === 'evaluation')<form method="POST" action="{{ route('admin.best-organizations.candidates.review', [$cycle,$candidate]) }}" class="flex items-center gap-2">@csrf @method('PATCH')<x-common.predictive-select name="status" :selected="$candidate->status" :allow-clear="false" :options="[['value'=>'eligible','label'=>'Eligible'],['value'=>'finalist','label'=>'Finalist'],['value'=>'disqualified','label'=>'Disqualified']]" class="w-40" /><input name="review_notes" value="{{ $candidate->review_notes }}" placeholder="Review notes" class="h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700" /><button class="rounded-lg bg-brand-500 px-3 py-2 text-xs text-white">Save</button></form>@else<span class="text-xs text-gray-500">{{ $candidate->review_notes ?: 'No review notes' }}</span>@endif
+                    </td></tr>
+                @empty<tr><td colspan="5" class="px-5 py-10 text-center text-gray-400">No candidates. Sync verified scores first.</td></tr>@endforelse
+            </tbody></table></div>
+        </div>
+
+        @if($cycle->status === 'evaluation')
+            <form method="POST" action="{{ route('admin.best-organizations.finalize', $cycle) }}" class="rounded-2xl border border-warning-200 bg-warning-50 p-5 dark:border-warning-500/30 dark:bg-warning-500/10">@csrf<h3 class="font-semibold text-warning-800 dark:text-orange-300">Finalize award</h3><p class="mb-4 text-xs text-warning-700">This locks the score snapshot and publishes the winner. Only reviewed finalists may be selected.</p><div class="grid gap-3 md:grid-cols-[1fr_2fr_auto]"><x-common.predictive-select name="candidate_id" :allow-clear="false" :required="true" search-placeholder="Search finalist…" :options="$cycle->candidates->where('status','finalist')->map(fn($candidate) => ['value'=>$candidate->id,'label'=>($candidate->organization?->detailRecord?->name ?? 'Unknown').' · '.$candidate->score_snapshot])->values()->all()" /><textarea name="selection_notes" required minlength="20" placeholder="Required selection rationale and committee decision…" class="rounded-lg border border-warning-300 bg-white px-3 py-2 text-sm"></textarea><button class="rounded-lg bg-warning-600 px-5 text-sm font-medium text-white" onclick="return confirm('Finalize and publish this award?')">Finalize winner</button></div></form>
+        @endif
+    </div>
+@endsection

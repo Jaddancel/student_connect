@@ -31,16 +31,7 @@
                         <label for="organization_id" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Organization <span class="text-error-500">*</span>
                         </label>
-                        <select id="organization_id" name="organization_id"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
-                            <option value="">Select organization</option>
-                            @foreach ($organizations as $org)
-                                <option value="{{ $org->organization_id }}"
-                                    {{ old('organization_id') == $org->organization_id ? 'selected' : '' }}>
-                                    {{ $org->organization_name }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <x-common.predictive-select id="organization_id" name="organization_id" :selected="old('organization_id')" placeholder="Select organization" search-placeholder="Search organization…" :allow-clear="false" :required="true" :options="collect($organizations)->map(fn($org) => ['value'=>$org->organization_id,'label'=>$org->organization_name])->all()" />
                     </div>
 
                     <div>

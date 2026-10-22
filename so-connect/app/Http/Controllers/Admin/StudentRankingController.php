@@ -7,6 +7,7 @@ use App\Models\Evaluation;
 use App\Models\Officer;
 use App\Models\Semester;
 use App\Services\ActionLogger;
+use App\Services\LevelingService;
 use App\Services\StudentRankingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,12 +26,19 @@ final class StudentRankingController extends Controller
             ? $semesters->firstWhere('semester_id', $selectedSemesterId)
             : null;
 
+        $rows = $selectedSemester ? $rankings->rankings($selectedSemester) : collect();
+        if ($selectedSemester) {
+            $levels = app(LevelingService::class);
+            $rows->each(fn (array $row) => $levels->recordStudent($selectedSemester, $row));
+        }
+
         return view('pages.admin.scoring.student-rankings', [
             'title' => 'Student Rankings',
             'semesters' => $semesters,
             'selectedSemester' => $selectedSemester,
             'selectedSemesterId' => $selectedSemesterId,
-            'rows' => $selectedSemester ? $rankings->rankings($selectedSemester) : collect(),
+            'rows' => $rows,
+            'levelThresholds' => app(LevelingService::class)->thresholds(\App\Models\LevelThreshold::STUDENT),
             'students' => $this->studentMemberships(),
             'canEvaluate' => $selectedSemester !== null && $selectedSemester->starts_at->lte(today()),
         ]);
@@ -82,6 +90,12 @@ final class StudentRankingController extends Controller
             ],
             $evaluation,
         );
+
+        $row = app(StudentRankingService::class)->rankings($semester)
+            ->firstWhere('user_id', (int) $membership->getAttribute('user'));
+        if ($row) {
+            app(LevelingService::class)->recordStudent($semester, $row);
+        }
 
         return redirect()->route('admin.student-rankings.index', ['semester_id' => $semester->getKey()])
             ->with('success', 'Student evaluation saved and rankings updated.');

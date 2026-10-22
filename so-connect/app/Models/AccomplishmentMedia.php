@@ -11,13 +11,21 @@ class AccomplishmentMedia extends Model
     protected $fillable = [
         'form_submission_id',
         'organization_id',
+        'event_id',
         'file_path',
+        'field_key',
         'activity_title',
+        'original_name',
+        'mime_type',
+        'file_size',
+        'tags',
         'submitted_at',
     ];
 
     protected $casts = [
         'submitted_at' => 'datetime',
+        'tags' => 'array',
+        'file_size' => 'integer',
     ];
 
     public function formSubmission()

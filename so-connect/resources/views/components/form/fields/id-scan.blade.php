@@ -14,7 +14,7 @@
 @endphp
 
 <div x-data="idScanWizard({ scanUrl: '{{ route('id-scan.scan') }}', csrf: '{{ csrf_token() }}', orientation: '{{ $scannerOrientation }}', templates: {{ \App\Support\JsLiteral::from($scannerTemplates) }}, retry: {{ \App\Support\JsLiteral::from($scannerRetry) }}, hasErrors: {{ $errors->any() ? 'true' : 'false' }} })"
-    x-init="init()" class="space-y-4">
+    x-init="init()" class="space-y-4" aria-live="polite">
 
     {{-- Hidden capture inputs the wizard writes into (fixed names). --}}
     <input type="file" id="id_photo_front" name="id_photo_front" accept="image/jpeg,image/png" class="hidden" @change="onUpload($event, 'front')" />
@@ -23,12 +23,22 @@
     {{-- Collapsed summary once both sides are captured --}}
     <div x-show="step === 2" x-cloak class="flex flex-wrap items-center gap-3 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm dark:border-success-500/30 dark:bg-success-500/10">
         <svg class="h-4 w-4 text-success-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-        <span class="font-medium text-success-700 dark:text-success-400">ID scanned — details below were pre-filled where possible.</span>
-        <button type="button" @click="backToScan()" class="text-xs font-semibold text-brand-500 transition hover:text-brand-600">Rescan</button>
+        <span class="font-medium text-success-700 dark:text-success-400">ID scan complete. Review and correct the pre-filled details below.</span>
+        <button type="button" @click="backToScan()" class="ml-auto rounded-lg border border-success-300 px-3 py-1.5 text-xs font-semibold text-success-700 transition hover:bg-success-100 dark:border-success-500/40 dark:text-success-400">Rescan ID</button>
     </div>
 
-    <div x-show="step === 1" class="rounded-2xl border border-gray-200 bg-palette-surface p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-        <h3 class="mb-1 text-base font-semibold text-gray-800 dark:text-white/90">Scan both sides of your ID</h3>
+    <div x-show="step === 1" class="overflow-hidden rounded-2xl border border-gray-200 bg-gray-50/70 dark:border-gray-700 dark:bg-gray-900/40">
+        <div class="border-b border-gray-200 bg-white px-5 py-4 dark:border-gray-700 dark:bg-white/[0.03]">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-[#2d6a4f] dark:text-emerald-400">Identity verification</p>
+                    <h3 class="mt-1 text-base font-semibold text-gray-800 dark:text-white/90">Scan both sides of your student ID</h3>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Use a clear, well-lit image. Your photos are used only to verify and pre-fill your registration.</p>
+                </div>
+                <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">Front + back required</span>
+            </div>
+        </div>
+        <div class="p-5">
 
         {{-- ID-type chooser — shown while 2+ templates are active and none is picked --}}
         <div x-show="needsChooser" x-cloak>
@@ -76,7 +86,7 @@
                 </template>
             </div>
 
-            <div class="relative mx-auto aspect-video w-full max-w-md overflow-hidden rounded-xl bg-black">
+            <div class="relative mx-auto aspect-video w-full max-w-2xl overflow-hidden rounded-2xl bg-gray-950 shadow-inner">
                 <video x-ref="video" playsinline muted class="h-full w-full object-cover"></video>
                 <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
                     <div x-ref="finder" class="rounded-xl border-2 border-palette-lime shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"
@@ -152,13 +162,14 @@
                 </div>
             </template>
 
-            <div class="mt-6 flex items-center justify-end gap-3">
+            <div class="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-4 dark:border-gray-700">
                 <span x-show="!canContinue" x-cloak class="text-xs text-gray-400">Capture both sides to continue.</span>
                 <button type="button" @click="continueToForm()" :disabled="!canContinue"
-                    class="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
-                    Done scanning ↓
+                    class="rounded-xl bg-brand-500 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
+                    Review my details ↓
                 </button>
             </div>
+        </div>
         </div>
     </div>
 
@@ -166,6 +177,6 @@
     <div>
         <input type="text" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}" inputmode="numeric"
             placeholder="{{ $placeholder ?: 'Student ID number' }}" class="{{ $inputClass }}" autocomplete="off" />
-        <p class="mt-1 text-xs text-gray-400">Scanning fills this automatically — you can correct it if needed.</p>
+        <p class="mt-1 text-xs text-gray-400">Filled automatically from the scan when detected. You can correct it before submitting.</p>
     </div>
 </div>

@@ -31,6 +31,7 @@ class Form extends Model
     protected $fillable = [
         'name',
         'description_text',
+        'category_id',
         'request_type_id',
         'sidebar_group',
         'organization_id',
@@ -60,6 +61,11 @@ class Form extends Model
             'layout' => 'array',
             'pdf_template' => 'array',
         ];
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(ContentCategory::class, 'category_id');
     }
 
     public static function sidebarGroupOptions(): array

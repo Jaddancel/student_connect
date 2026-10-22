@@ -43,17 +43,9 @@
                     @csrf @method('PATCH')
                     <h3 class="mb-4 font-semibold text-gray-800 dark:text-white/90">Manage ticket</h3>
                     <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Status</label>
-                    <select name="status" class="mb-4 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
-                        @foreach($statuses as $value => $label)<option value="{{ $value }}" @selected($ticket->status === $value)>{{ $label }}</option>@endforeach
-                    </select>
+                    <x-common.predictive-select name="status" :selected="$ticket->status" :allow-clear="false" search-placeholder="Search status…" :options="collect($statuses)->map(fn($label,$value) => ['value'=>$value,'label'=>$label])->values()->all()" class="mb-4" />
                     <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Assigned to</label>
-                    <select name="assigned_to" class="mb-4 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
-                        <option value="">Unassigned</option>
-                        @foreach($agents as $agent)
-                            @php($agentName = collect([$agent->profileRecord?->first_name, $agent->profileRecord?->last_name])->filter()->implode(' ') ?: $agent->user_email)
-                            <option value="{{ $agent->getKey() }}" @selected((int)$ticket->assigned_to === (int)$agent->getKey())>{{ $agentName }}</option>
-                        @endforeach
-                    </select>
+                    <x-common.predictive-select name="assigned_to" :selected="$ticket->assigned_to" placeholder="Unassigned" search-placeholder="Search support agent…" :options="$agents->map(fn($agent) => ['value'=>$agent->getKey(),'label'=>collect([$agent->profileRecord?->first_name,$agent->profileRecord?->last_name])->filter()->implode(' ') ?: $agent->user_email,'keywords'=>$agent->user_email])->all()" class="mb-4" />
                     <button class="w-full rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white">Update ticket</button>
                 </form>
             @endif

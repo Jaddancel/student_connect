@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Form;
+use App\Models\ContentCategory;
 use App\Services\FormPrintTemplateService;
 use Illuminate\Http\Request;
 
@@ -32,9 +33,10 @@ class FormDirectoryController extends Controller
                 ->where('is_published', true)
                 ->where('is_active', true)
                 ->directoryEligible()
+                ->with('category')
                 ->whereHas('templates', fn ($query) => $query->where('is_active', true))
                 ->orderBy('name')
-                ->get(['id', 'name', 'route_name', 'description_text'])
+                ->get(['id', 'name', 'route_name', 'description_text', 'category_id'])
                 // A template row whose .docx vanished from storage can't print —
                 // keep the directory in step with what the endpoint will serve.
                 ->filter(fn (Form $form) => $templates->activeTemplates($form)->isNotEmpty())
@@ -47,8 +49,11 @@ class FormDirectoryController extends Controller
                 'name' => $form->name,
                 'purpose' => (string) ($form->description_text ?? ''),
                 'template_name' => (string) ($template->template_name ?: $form->name),
+                'category_id' => $form->category_id,
+                'category' => $form->category?->name ?? 'Uncategorized',
                 'url' => route('forms.blank-pdf', ['routeName' => $form->route_name, 'template' => $template->getKey()]),
             ]))->values(),
+            'categories' => ContentCategory::query()->active()->ordered()->get(['id', 'name']),
         ]);
     }
 }

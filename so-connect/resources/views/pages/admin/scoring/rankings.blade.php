@@ -10,17 +10,12 @@
                     <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Semester Rankings</h3>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Select a semester to view the leaderboard.</p>
                 </div>
-                <form method="GET" action="{{ route('admin.scoring.rankings') }}">
-                    <select name="semester_id" data-autosubmit
-                        class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
-                        <option value="">Select semester</option>
-                        @foreach ($semesters as $semester)
-                            <option value="{{ $semester->semester_id }}" @selected($selectedSemester?->semester_id === $semester->semester_id)>
-                                {{ $semester->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </form>
+                <div class="flex flex-wrap items-center gap-2"><a href="{{ route('admin.levels.index', ['semester_id' => $selectedSemesterId, 'scope' => 'organization']) }}" class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 dark:border-gray-700 dark:text-gray-300">Level settings & history</a><a href="{{ route('admin.best-organizations.index') }}" class="rounded-lg border border-brand-300 px-3 py-2 text-xs font-medium text-brand-600">Best Organization workflow →</a><form method="GET" action="{{ route('admin.scoring.rankings') }}"><x-common.predictive-select name="semester_id" :selected="$selectedSemester?->semester_id" placeholder="Select semester" search-placeholder="Search semester…" :auto-submit="true" :options="$semesters->map(fn($semester) => ['value'=>$semester->semester_id,'label'=>$semester->name])->all()" class="w-64" /></form></div>
+            </div>
+            <div class="mt-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                @foreach ($levelThresholds as $threshold)
+                    <div class="rounded-lg bg-gray-50 px-3 py-2 text-gray-700 dark:bg-white/[0.04] dark:text-gray-300"><strong>Level {{ $threshold->level_number }}</strong><br>{{ number_format((float) $threshold->minimum_score, 2) }}%+ {{ $threshold->label }}</div>
+                @endforeach
             </div>
         </div>
 
@@ -56,8 +51,8 @@
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Ext</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Tangible</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Admin</th>
-                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Total / 100
-                                </th>
+                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Total / {{ $maximumScore }}</th>
+                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Level</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -87,6 +82,10 @@
                                     <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ $raw['admin'] ?? 0 }}</td>
                                     <td class="px-6 py-4 font-semibold text-gray-800 dark:text-white/90">
                                         {{ number_format((float) $score->total_weighted_score, 2) }}
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">Level {{ $row['level']['number'] }} · {{ $row['level']['label'] }}</span>
+                                        <p class="mt-1 text-[10px] text-gray-400">{{ number_format((float) $row['level']['normalized_score'], 2) }}%</p>
                                     </td>
                                 </tr>
                             @endforeach

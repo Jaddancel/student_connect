@@ -78,9 +78,10 @@ class FormBuilderController extends Controller
         return response()->json(['data' => $data]);
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $forms = Form::query()
+            ->with('category')
             ->withCount('fields')
             ->orderBy('name')
             ->get();
@@ -107,9 +108,13 @@ class FormBuilderController extends Controller
             'title' => 'Form Builder',
             // Regular forms table excludes function-bound forms (they live in
             // the System Functions / Sign Up sections).
-            'forms' => $forms->whereNull('system_function')->values(),
+            'forms' => $forms->whereNull('system_function')
+                ->when($request->filled('category'), fn ($items) => $items->where('category_id', $request->integer('category')))
+                ->values(),
             'signUpSlot' => $signUpSlot,
             'slots' => $slots,
+            'categories' => \App\Models\ContentCategory::query()->withCount('forms')->ordered()->get(),
+            'categoryFilter' => (string) $request->query('category', ''),
         ]);
     }
 
@@ -141,6 +146,7 @@ class FormBuilderController extends Controller
             'eventFieldChoices' => $kit === SystemFunction::NEW_WORKPLAN ? $this->eventFieldChoices() : [],
             'lockedFunction' => $function !== '' ? $function : null,
             'iconChoices' => $this->iconChoices(),
+            'categories' => \App\Models\ContentCategory::query()->active()->ordered()->get(),
         ]);
     }
 
@@ -158,6 +164,7 @@ class FormBuilderController extends Controller
             // A form's system-function binding is immutable after creation.
             'lockedFunction' => $form->system_function ?: null,
             'iconChoices' => $this->iconChoices(),
+            'categories' => \App\Models\ContentCategory::query()->where(fn ($q) => $q->where('is_active', true)->orWhereKey($form->category_id))->ordered()->get(),
             'manualSchema' => $this->manualSchemaStatus($form),
             'submissionLimitUsage' => ($semester = \App\Models\Semester::current())
                 ? ['semester' => $semester, 'accepted' => \App\Forms\SemesterSubmissionLimit::acceptedCount($form, $semester)]
@@ -222,6 +229,7 @@ class FormBuilderController extends Controller
             $form = Form::create([
                 'name' => $data['name'],
                 'description_text' => $data['description_text'],
+                'category_id' => $data['category_id'],
                 'route_name' => $data['route_name'],
                 'icon' => $data['icon'],
                 'show_in_sidebar' => $data['show_in_sidebar'],
@@ -270,6 +278,7 @@ class FormBuilderController extends Controller
             $form->update([
                 'name' => $data['name'],
                 'description_text' => $data['description_text'],
+                'category_id' => $data['category_id'],
                 'route_name' => $data['route_name'],
                 'icon' => $data['icon'],
                 'show_in_sidebar' => $data['show_in_sidebar'],
@@ -351,6 +360,7 @@ class FormBuilderController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description_text' => ['nullable', 'string', 'max:5000'],
+            'category_id' => ['nullable', 'integer', 'exists:content_categories,id'],
             'route_name' => [
                 'required', 'string', 'max:255', 'regex:/^[a-z0-9-]+$/',
                 Rule::unique('forms', 'route_name')->ignore($formId),
@@ -486,6 +496,7 @@ class FormBuilderController extends Controller
         return [
             'name' => $validated['name'],
             'description_text' => $validated['description_text'] ?? null,
+            'category_id' => $validated['category_id'] ?? null,
             'route_name' => $validated['route_name'],
             'icon' => ($validated['icon'] ?? '') !== '' ? $validated['icon'] : null,
             'show_in_sidebar' => (bool) ($validated['show_in_sidebar'] ?? true),
@@ -980,6 +991,7 @@ class FormBuilderController extends Controller
         return [
             'name' => '',
             'description_text' => '',
+            'category_id' => null,
             'route_name' => '',
             'icon' => '',
             'show_in_sidebar' => true,
@@ -1028,6 +1040,7 @@ class FormBuilderController extends Controller
         return [
             'name' => $form->name,
             'description_text' => $form->description_text,
+            'category_id' => $form->category_id,
             'route_name' => $form->route_name,
             'icon' => (string) ($form->icon ?? ''),
             'show_in_sidebar' => (bool) ($form->show_in_sidebar ?? true),

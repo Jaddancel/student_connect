@@ -7,8 +7,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Form;
 use App\Models\ScoringCriterion;
 use App\Models\ScoringRule;
+use App\Models\ScoringRubricVersion;
 use App\Services\ActionLogger;
 use App\Services\Scoring\ScoringCatalog;
+use App\Services\Scoring\ScoringRubricVersionService;
 use App\Services\Scoring\TriggerValidator;
 use App\Support\UniversalField;
 use Illuminate\Http\Request;
@@ -40,7 +42,7 @@ class ScoringRuleController extends Controller
         ['key' => 'target_date', 'label' => 'Target date', 'type' => 'text'],
     ];
 
-    public function index()
+    public function index(Request $request)
     {
         $criteria = ScoringCriterion::query()
             ->with('rule')
@@ -53,6 +55,15 @@ class ScoringRuleController extends Controller
             'title' => 'Scoring Rules',
             'criteriaByCategory' => $criteria,
             'categories' => ScoringCatalog::categories(),
+            'currentRubricVersion' => app(ScoringRubricVersionService::class)->current($request->user()?->user_id),
+        ]);
+    }
+
+    public function versions()
+    {
+        return view('pages.admin.scoring.rules.versions', [
+            'title' => 'Scoring Rubric Versions',
+            'versions' => ScoringRubricVersion::query()->orderByDesc('version')->paginate(20),
         ]);
     }
 
@@ -80,6 +91,7 @@ class ScoringRuleController extends Controller
             'is_active' => true,
         ]);
         ScoringCatalog::flush();
+        $this->publishRubricVersion($request);
 
         ActionLogger::log(
             ActionLogger::CATEGORY_SCORING_CONFIG,
@@ -105,6 +117,7 @@ class ScoringRuleController extends Controller
 
         $criterion->update($validated);
         ScoringCatalog::flush();
+        $this->publishRubricVersion($request);
 
         ActionLogger::log(
             ActionLogger::CATEGORY_SCORING_CONFIG,
@@ -118,12 +131,13 @@ class ScoringRuleController extends Controller
             ->with('toast', 'Saved!');
     }
 
-    public function destroyCriterion(ScoringCriterion $criterion)
+    public function destroyCriterion(Request $request, ScoringCriterion $criterion)
     {
         abort_if($criterion->is_system, 403, 'System criteria cannot be deleted.');
 
         $criterion->delete();
         ScoringCatalog::flush();
+        $this->publishRubricVersion($request);
 
         ActionLogger::log(
             ActionLogger::CATEGORY_SCORING_CONFIG,
@@ -168,6 +182,7 @@ class ScoringRuleController extends Controller
                 'updated_by' => $request->user()?->getKey(),
             ],
         );
+        $rubricVersion = $this->publishRubricVersion($request);
 
         ActionLogger::log(
             ActionLogger::CATEGORY_SCORING_CONFIG,
@@ -182,6 +197,7 @@ class ScoringRuleController extends Controller
         return response()->json([
             'message' => 'Saved!',
             'redirect' => self::indexUrl($criterion),
+            'rubric_version' => $rubricVersion->version,
         ]);
     }
 
@@ -191,6 +207,7 @@ class ScoringRuleController extends Controller
         abort_unless($rule, 404);
 
         $rule->update(['enabled' => ! $rule->enabled, 'updated_by' => $request->user()?->getKey()]);
+        $this->publishRubricVersion($request);
 
         ActionLogger::log(
             ActionLogger::CATEGORY_SCORING_CONFIG,
@@ -204,9 +221,10 @@ class ScoringRuleController extends Controller
             ->with('toast', 'Saved!');
     }
 
-    public function destroyRule(ScoringCriterion $criterion)
+    public function destroyRule(Request $request, ScoringCriterion $criterion)
     {
         $criterion->rule?->delete();
+        $this->publishRubricVersion($request);
 
         ActionLogger::log(
             ActionLogger::CATEGORY_SCORING_CONFIG,
@@ -225,6 +243,11 @@ class ScoringRuleController extends Controller
     private static function indexUrl(ScoringCriterion $criterion): string
     {
         return route('admin.scoring.rules.index').'#category-'.$criterion->category_key;
+    }
+
+    private function publishRubricVersion(Request $request): ScoringRubricVersion
+    {
+        return app(ScoringRubricVersionService::class)->current($request->user()?->user_id);
     }
 
     /**

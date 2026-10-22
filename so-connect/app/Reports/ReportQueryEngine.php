@@ -30,6 +30,9 @@ final class ReportQueryEngine
 
     private bool $truncated = false;
 
+    /** @var array{organization?:int,organization_status?:string} */
+    private array $scope = [];
+
     public function __construct(
         private readonly SchemaCatalog $catalog,
         private readonly ReportDefinitionValidator $validator,
@@ -42,18 +45,24 @@ final class ReportQueryEngine
      *
      * @throws ValidationException
      */
-    public function run(array $definition, array $parameterValues = [], bool $preview = false): array
+    public function run(array $definition, array $parameterValues = [], bool $preview = false, array $scope = []): array
     {
         $definition = $this->validator->validate($definition);
         $this->preview = $preview;
         $this->truncated = false;
+        $this->scope = array_filter([
+            'organization' => ($scope['organization'] ?? '') !== ''
+                ? (int) $scope['organization']
+                : null,
+            'organization_status' => trim((string) ($scope['organization_status'] ?? '')),
+        ], fn ($value) => $value !== '' && $value !== null);
         $this->params = $this->resolveParameters($definition['parameters'], $parameterValues, $preview);
         if ($this->usesActiveOrganization($definition)) {
-            $active = $this->activeOrganization();
-            if ($active === null && ! $preview) {
+            $organizationId = $this->scope['organization'] ?? $this->activeOrganization()['id'] ?? null;
+            if ($organizationId === null && ! $preview) {
                 throw ValidationException::withMessages(['parameters' => ['Select an organization in the organization switcher first.']]);
             }
-            $this->params[ReportDefinitionValidator::SESSION_ORGANIZATION] = $active['id'] ?? null;
+            $this->params[ReportDefinitionValidator::SESSION_ORGANIZATION] = $organizationId;
         }
 
         $data = [];
@@ -68,6 +77,34 @@ final class ReportQueryEngine
         $data += $this->computeTokens($definition['tokens'], $raws);
 
         return ['data' => $data, 'params' => $this->params, 'truncated' => $this->truncated];
+    }
+
+    /**
+     * Common scope filters supported by at least one top-level data source in
+     * this report. A filter is never shown when it cannot affect the output.
+     *
+     * @return array<int,string>
+     */
+    public function scopeAvailability(array $definition): array
+    {
+        $definition = $this->validator->validate($definition);
+        $available = [];
+
+        foreach ($definition['tokens'] as $token) {
+            $table = $token['kind'] === 'group' ? ($token['entity'] ?? null) : ($token['from'] ?? null);
+            if (! is_string($table) || $table === '') {
+                continue;
+            }
+            if ($this->catalog->hasColumn($table, 'organization_id')) {
+                $available['organization'] = true;
+            }
+            if ($table === 'organizations') {
+                $available['organization'] = true;
+                $available['organization_status'] = true;
+            }
+        }
+
+        return array_keys($available);
     }
 
     /**
@@ -105,6 +142,7 @@ final class ReportQueryEngine
         $primary = (string) $this->catalog->primaryKey($table);
 
         $query = $this->catalog->query($table, null, $this->filtersOf($token['where']))->select($this->selectColumns($table, $token['children']));
+        $this->applyScope($query, $table);
         $this->applyConditions($query, $token['where']);
         $this->applyOrder($query, $token['order'], $primary);
         $cap = $this->cap($token['limit']);
@@ -122,6 +160,7 @@ final class ReportQueryEngine
 
         if ($token['mode'] === 'aggregate') {
             $query = $this->catalog->query($table, null, $this->filtersOf($token['where']));
+            $this->applyScope($query, $table);
             $this->applyConditions($query, $token['where']);
 
             $raw = $this->aggregate($query, $token['fn'], $token['column']);
@@ -131,6 +170,7 @@ final class ReportQueryEngine
 
         $primary = $this->catalog->primaryKey($table);
         $query = $this->catalog->query($table, null, $this->filtersOf($token['where']));
+        $this->applyScope($query, $table);
         $this->applyConditions($query, $token['where']);
 
         if ($primary === null || count($token['path']) === 1) {
@@ -419,6 +459,26 @@ final class ReportQueryEngine
         }
     }
 
+    private function applyScope(Builder $query, string $table): void
+    {
+        if (isset($this->scope['organization']) && $this->catalog->hasColumn($table, 'organization_id')) {
+            $query->where('organization_id', $this->scope['organization']);
+        }
+
+        if ($table === 'organizations' && isset($this->scope['organization_status'])) {
+            $method = $this->scope['organization_status'] === 'accredited' ? 'whereExists' : 'whereNotExists';
+            $query->{$method}(function ($approval) {
+                $approval->selectRaw('1')
+                    ->from('requests as scope_requests')
+                    ->join('forms as scope_forms', 'scope_forms.id', '=', 'scope_requests.form_id')
+                    ->join('approvals as scope_approvals', 'scope_approvals.request', '=', 'scope_requests.request_id')
+                    ->whereColumn('scope_requests.organization_id', 'organizations.organization_id')
+                    ->where('scope_forms.system_function', \App\Forms\SystemFunction::ORG_ACCREDITATION)
+                    ->where('scope_approvals.is_rejected', false);
+            });
+        }
+    }
+
     /**
      * The `=` / `in` conditions as column => allowed values (parameters
      * resolved, unset ones skipped), for derived sources to narrow by.
@@ -484,17 +544,22 @@ final class ReportQueryEngine
         $errors = [];
         foreach ($parameters as $parameter) {
             if (($parameter['context'] ?? null) === ReportDefinitionValidator::CONTEXT_ACTIVE_ORGANIZATION) {
-                $active = $this->activeOrganization();
-                if ($active === null && ! $preview) {
+                $organizationId = $this->scope['organization'] ?? $this->activeOrganization()['id'] ?? null;
+                if ($organizationId === null && ! $preview) {
                     $errors[] = 'Select an organization in the organization switcher first.';
                 }
-                $resolved[$parameter['name']] = $active['id'] ?? null;
+                $resolved[$parameter['name']] = $organizationId;
 
                 continue;
             }
 
             $raw = $values[$parameter['name']] ?? null;
             $raw = is_string($raw) ? trim($raw) : $raw;
+            if ($raw === '__all__') {
+                $resolved[$parameter['name']] = null;
+
+                continue;
+            }
             if (($raw === null || $raw === '') && isset($parameter['default'])) {
                 $raw = $this->parameterDefault($parameter);
             }

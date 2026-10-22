@@ -97,7 +97,10 @@ class SecurityHeaders
         $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
-        $response->headers->set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+        // Camera capture is a first-party feature used by the student-ID and
+        // waiver scanners. Keep it same-origin only; `camera=()` would override
+        // the user's browser permission and make getUserMedia fail every time.
+        $response->headers->set('Permissions-Policy', 'geolocation=(), microphone=(), camera=(self)');
 
         if ($request->isSecure()) {
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');

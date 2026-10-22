@@ -737,6 +737,11 @@
                             class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:text-white/90"></textarea>
                     </div>
 
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Purpose category</label>
+                        <x-common.predictive-select x-model="category_id" placeholder="Uncategorized" search-placeholder="Search purpose category…" :options="$categories->map(fn($category) => ['value'=>$category->id,'label'=>$category->name,'keywords'=>$category->description])->all()" />
+                    </div>
+
                     {{-- Sidebar icon picker: the glyph shown beside this form in the nav. --}}
                     <div>
                         <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Sidebar icon</label>

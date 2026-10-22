@@ -40,14 +40,7 @@
                     <div class="md:col-span-2">
                         <label for="organization_id"
                             class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Organization</label>
-                        <select id="organization_id" name="organization_id"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
-                            @foreach ($organizations as $organization)
-                                <option value="{{ $organization->organization_id }}" @selected((int) $selectedOrganizationId === (int) $organization->organization_id)>
-                                    {{ $organization->organization_name }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <x-common.predictive-select id="organization_id" name="organization_id" :selected="$selectedOrganizationId" :allow-clear="false" search-placeholder="Search organization…" :options="$organizations->map(fn($organization) => ['value'=>$organization->organization_id,'label'=>$organization->organization_name])->all()" />
                     </div>
                     <div class="flex items-end">
                         <button type="submit"
@@ -65,32 +58,15 @@
                     <div class="md:col-span-2">
                         <label for="target_user_id"
                             class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Member to Promote</label>
-                        <select id="target_user_id" name="target_user_id"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
-                            <option value="">Select member</option>
-                            @foreach ($members as $member)
-                                @php
-                                    $nextRole = $member->member_role === 'member' ? 'officer' : ($member->member_role === 'officer' ? 'president' : 'president');
-                                    $fullName = trim(
-                                        implode(
-                                            ' ',
-                                            array_filter([
-                                                $member->first_name,
-                                                $member->middle_name,
-                                                $member->last_name,
-                                            ]),
-                                        ),
-                                    );
-                                @endphp
-
-                                @if ($member->member_role !== 'president')
-                                    <option value="{{ $member->user_id }}" @selected((int) old('target_user_id') === (int) $member->user_id)>
-                                        {{ $fullName !== '' ? $fullName : $member->user_email }}
-                                        ({{ ucfirst($member->member_role) }} -> {{ ucfirst($nextRole) }})
-                                    </option>
-                                @endif
-                            @endforeach
-                        </select>
+                        @php
+                            $memberOptions = $members->where('member_role', '!=', 'president')->map(function ($member) {
+                                $nextRole = $member->member_role === 'member' ? 'officer' : 'president';
+                                $fullName = trim(implode(' ', array_filter([$member->first_name, $member->middle_name, $member->last_name])));
+                                $name = $fullName !== '' ? $fullName : $member->user_email;
+                                return ['value' => $member->user_id, 'label' => $name.' ('.ucfirst($member->member_role).' → '.ucfirst($nextRole).')', 'keywords' => $member->user_email.' '.$member->member_role];
+                            })->values()->all();
+                        @endphp
+                        <x-common.predictive-select id="target_user_id" name="target_user_id" :selected="old('target_user_id')" placeholder="Select member" search-placeholder="Search member, email, or role…" :options="$memberOptions" />
                     </div>
 
                     <div class="flex items-end">

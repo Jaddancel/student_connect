@@ -32,6 +32,21 @@
             <p class="text-sm text-gray-500 dark:text-gray-400">Fixed flows (events, workplans, membership, accreditation). Each is disabled until a form is created for it.</p>
         </div>
 
+        <form method="GET" class="flex flex-wrap items-center gap-2">
+            <x-common.predictive-select name="category" :selected="$categoryFilter" placeholder="All categories" search-placeholder="Search categories…" :auto-submit="true"
+                :options="$categories->map(fn($category) => ['value' => $category->id, 'label' => $category->name, 'keywords' => $category->description])->all()" class="w-72" />
+            @if($categoryFilter !== '')<a href="{{ route('admin.form-builder.index') }}" class="text-sm text-brand-500">Clear filter</a>@endif
+        </form>
+
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            @foreach($categories as $category)
+                <a href="{{ route('admin.form-builder.index', ['category' => $category->id]) }}" class="rounded-xl border p-4 transition hover:border-brand-400 {{ (string)$category->id === $categoryFilter ? 'border-brand-500 bg-brand-50/50' : 'border-gray-200 dark:border-gray-800' }}">
+                    <div class="flex items-center justify-between"><strong class="text-sm text-gray-800 dark:text-white">{{ $category->name }}</strong><span class="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-500">{{ $category->forms_count }}</span></div>
+                    <p class="mt-1 line-clamp-2 text-xs text-gray-500">{{ $category->description }}</p>
+                </a>
+            @endforeach
+        </div>
+
         @include('pages.admin.form-builder.partials.slots-table', ['slots' => $slots])
 
         <div class="pt-2">
@@ -44,6 +59,7 @@
                 <thead class="border-b border-gray-200 bg-gray-50 text-xs uppercase text-gray-500 dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-400">
                     <tr>
                         <th class="px-5 py-3">Name</th>
+                        <th class="px-5 py-3">Category</th>
                         <th class="px-5 py-3">Route</th>
                         <th class="px-5 py-3">Fields</th>
                         <th class="px-5 py-3">Status</th>
@@ -54,6 +70,7 @@
                     @forelse ($forms as $form)
                         <tr class="text-gray-700 dark:text-gray-300">
                             <td class="px-5 py-3 font-medium text-gray-800 dark:text-white/90">{{ $form->name }}</td>
+                            <td class="px-5 py-3 text-xs">{{ $form->category?->name ?? 'Uncategorized' }}</td>
                             <td class="px-5 py-3 font-mono text-xs text-gray-500">{{ $form->route_name }}</td>
                             <td class="px-5 py-3">{{ $form->fields_count }}</td>
                             <td class="px-5 py-3">
@@ -79,7 +96,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-5 py-8 text-center text-gray-400">No forms yet. Create your first form.</td>
+                            <td colspan="6" class="px-5 py-8 text-center text-gray-400">No forms match this category.</td>
                         </tr>
                     @endforelse
                 </tbody>

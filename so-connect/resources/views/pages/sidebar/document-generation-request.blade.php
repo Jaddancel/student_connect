@@ -42,14 +42,7 @@
                         <label for="form_id" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Select Form
                         </label>
-                        <select id="form_id" name="form_id"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
-                            @foreach ($forms as $form)
-                                <option value="{{ $form->id }}" @selected((int) $selectedFormId === (int) $form->id)>
-                                    {{ $form->name }} (Org #{{ (int) ($form->organization_id ?? 0) }})
-                                </option>
-                            @endforeach
-                        </select>
+                        <x-common.predictive-select id="form_id" name="form_id" :selected="$selectedFormId" :allow-clear="false" search-placeholder="Search form or organization…" :options="$forms->map(fn($form) => ['value'=>$form->id,'label'=>$form->name.' (Org #'.(int)($form->organization_id ?? 0).')','keywords'=>'organization '.(int)($form->organization_id ?? 0)])->all()" />
                     </div>
                     <div class="flex items-end">
                         <button type="submit"

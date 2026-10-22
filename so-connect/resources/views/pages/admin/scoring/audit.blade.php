@@ -8,15 +8,7 @@
         {{-- Filter + Export bar --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
             <form method="GET" action="{{ route('admin.scoring.audit') }}" class="flex flex-wrap items-center gap-3">
-                <select name="semester_id"
-                        class="h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 focus:border-brand-400 focus:ring-1 focus:ring-brand-400 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                    <option value="">All Semesters</option>
-                    @foreach ($semesters as $sem)
-                        <option value="{{ $sem->semester_id }}" @selected($semesterFilter == $sem->semester_id)>
-                            {{ $sem->name }}
-                        </option>
-                    @endforeach
-                </select>
+                <x-common.predictive-select name="semester_id" :selected="$semesterFilter" placeholder="All semesters" search-placeholder="Search semester…" :options="$semesters->map(fn($semester) => ['value'=>$semester->semester_id,'label'=>$semester->name])->all()" class="w-64" />
                 <button type="submit"
                         class="h-9 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600">
                     Filter

@@ -12,6 +12,8 @@ export function formConditions(config = {}) {
     return {
         conditions: config.conditions || {},
         values: {},
+        submitting: false,
+        registrationStep: Number(config.registrationStep || 0),
 
         init() {
             this.$nextTick(() => this.seed());
@@ -24,6 +26,10 @@ export function formConditions(config = {}) {
         track(event) {
             const el = event.target;
             if (el && el.name) this.read(el);
+        },
+
+        startSubmit() {
+            this.submitting = true;
         },
 
         read(el) {

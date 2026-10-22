@@ -31,8 +31,20 @@ class ScoringRuleEngine
      */
     public function instancesFor(int $organizationId, Semester $semester): array
     {
+        return $this->evaluationFor($organizationId, $semester)['instances'];
+    }
+
+    /**
+     * Evaluate the rubric while retaining the exact record behind every
+     * positive contribution. This powers evidence links and review without
+     * changing the existing instance totals.
+     *
+     * @return array{instances:array<string,int>,evidence:array<int,array<string,mixed>>}
+     */
+    public function evaluationFor(int $organizationId, Semester $semester): array
+    {
         if (! Schema::hasTable('scoring_rules')) {
-            return [];
+            return ['instances' => [], 'evidence' => []];
         }
 
         $rules = ScoringRule::query()
@@ -42,7 +54,7 @@ class ScoringRuleEngine
             ->filter(fn (ScoringRule $rule) => $rule->criterion && $rule->criterion->is_active);
 
         if ($rules->isEmpty()) {
-            return [];
+            return ['instances' => [], 'evidence' => []];
         }
 
         $semesterStart = $semester->starts_at;
@@ -53,6 +65,7 @@ class ScoringRuleEngine
         $submissionRecords = [];
 
         $instances = [];
+        $evidence = [];
         foreach ($rules as $rule) {
             $trigger = (array) $rule->trigger;
             $when = (array) ($trigger['when'] ?? []);
@@ -72,7 +85,25 @@ class ScoringRuleEngine
 
                 $total = 0;
                 foreach ($records as $record) {
-                    $total += $this->tallyRecord($trigger, $record);
+                    $contribution = $this->tallyRecord($trigger, $record);
+                    $total += $contribution;
+                    if ($contribution > 0) {
+                        $meta = (array) ($record['evidence'] ?? []);
+                        $quality = app(EvidenceQualityEvaluator::class)->evaluate(
+                            (array) ($record['values'] ?? []),
+                            (array) ($meta['attachment_paths'] ?? []),
+                        );
+                        $evidence[] = array_merge($meta, [
+                            'criterion_key' => (string) $rule->criterion->key,
+                            'criterion_label' => (string) $rule->criterion->label,
+                            'instances' => $contribution,
+                            'rule_points' => $contribution * (int) $rule->criterion->weight,
+                            'awarded_points' => $contribution * (int) $rule->criterion->weight,
+                            'quality_score' => $quality['score'],
+                            'quality_status' => $quality['status'],
+                            'quality_notes' => $quality['notes'],
+                        ]);
+                    }
                 }
 
                 $instances[$rule->criterion->key] = $total;
@@ -85,7 +116,7 @@ class ScoringRuleEngine
             }
         }
 
-        return $instances;
+        return ['instances' => $instances, 'evidence' => $evidence];
     }
 
     /** Evaluate one record using the same conditions and contribution as the semester tally. */
@@ -115,7 +146,7 @@ class ScoringRuleEngine
                 'ep.event_plan_id', 'ep.event_id', 'ep.title', 'ep.target_date',
                 'ep.activity_types', 'ep.seminar_level', 'ep.related_to_organization',
                 'ep.extension_services', 'ep.sponsor', 'ep.cosponsor_count',
-                'ep.area_scope', 'ep.created_by',
+                'ep.area_scope', 'ep.created_by', 'ep.request_id',
             ])
             ->get();
 
@@ -136,6 +167,13 @@ class ScoringRuleEngine
                     'members_attended' => $membersByEvent[(int) ($p->event_id ?? 0)] ?? 0,
                 ],
                 'user_id' => (int) ($p->created_by ?? 0),
+                'evidence' => [
+                    'source_type' => 'event_plan',
+                    'source_id' => (int) $p->event_plan_id,
+                    'evidence_label' => (string) ($p->title ?: 'Event plan #'.$p->event_plan_id),
+                    'evidence_url' => $p->request_id ? '/admin/activity-requests/'.(int) $p->request_id : null,
+                    'attachment_paths' => [],
+                ],
             ];
         });
     }
@@ -167,28 +205,46 @@ class ScoringRuleEngine
         }
 
         if ($formId === (int) (SystemFunction::form(SystemFunction::AFTER_EVENT_REPORT)?->getKey() ?? 0)) {
-            return $this->filedAfterEventReports($submissions);
+            return $this->filedAfterEventReports($submissions, $formId);
         }
 
         $submissionIds = $submissions->pluck('form_submission_id')->map(fn ($id) => (int) $id)->all();
 
-        $approvedIds = DB::table('requests as r')
+        $approvedRequests = DB::table('requests as r')
             ->join('approvals as a', 'a.request', '=', 'r.request_id')
             ->where('r.action_type', FormTemplateHelper::ACTION_TYPE_DOCUMENT_GENERATION)
             ->where('r.organization_id', $organizationId)
             ->where('a.is_rejected', false)
             ->whereNotNull('a.approved_at')
-            ->get(['r.payload'])
-            ->map(fn ($row) => (int) ((is_string($row->payload) ? json_decode($row->payload, true) : (array) $row->payload)['submission_id'] ?? 0))
-            ->filter(fn ($id) => in_array($id, $submissionIds, true))
-            ->all();
+            ->get(['r.request_id', 'r.payload'])
+            ->mapWithKeys(function ($row) use ($submissionIds) {
+                $payload = is_string($row->payload) ? json_decode($row->payload, true) : (array) $row->payload;
+                $submissionId = (int) ($payload['submission_id'] ?? 0);
+
+                return in_array($submissionId, $submissionIds, true)
+                    ? [$submissionId => (int) $row->request_id]
+                    : [];
+            });
 
         return $submissions
-            ->filter(fn ($s) => in_array((int) $s->form_submission_id, $approvedIds, true))
-            ->map(fn ($s) => [
-                'values' => is_string($s->payload) ? (json_decode($s->payload, true) ?: []) : (array) $s->payload,
-                'user_id' => (int) ($s->submitted_by ?? 0),
-            ])
+            ->filter(fn ($s) => $approvedRequests->has((int) $s->form_submission_id))
+            ->map(function ($s) use ($approvedRequests, $formId) {
+                $values = is_string($s->payload) ? (json_decode($s->payload, true) ?: []) : (array) $s->payload;
+                $submissionId = (int) $s->form_submission_id;
+                $requestId = (int) $approvedRequests->get($submissionId);
+
+                return [
+                    'values' => $values,
+                    'user_id' => (int) ($s->submitted_by ?? 0),
+                    'evidence' => [
+                        'source_type' => 'form_submission',
+                        'source_id' => $submissionId,
+                        'evidence_label' => (string) ($values['title'] ?? $values['activity_title'] ?? 'Form submission #'.$submissionId),
+                        'evidence_url' => '/admin/form-requests/'.$formId.'/'.$requestId,
+                        'attachment_paths' => $this->attachmentPaths($values),
+                    ],
+                ];
+            })
             ->values();
     }
 
@@ -196,26 +252,59 @@ class ScoringRuleEngine
      * @param  Collection<int,object>  $submissions
      * @return Collection<int,array{values:array<string,mixed>, user_id:int, linked_values:array<string,mixed>}>
      */
-    private function filedAfterEventReports(Collection $submissions): Collection
+    private function filedAfterEventReports(Collection $submissions, int $formId): Collection
     {
         $service = app(AfterEventReportService::class);
         $linked = [];
 
         return $submissions
-            ->map(function ($s) use ($service, &$linked) {
+            ->map(function ($s) use ($service, &$linked, $formId) {
                 $eventId = (int) ($s->event_id ?? 0);
                 if ($eventId > 0 && ! array_key_exists($eventId, $linked)) {
                     $payload = $service->sourceSubmission($eventId)?->payload;
                     $linked[$eventId] = is_string($payload) ? (json_decode($payload, true) ?: []) : (array) ($payload ?? []);
                 }
 
+                $values = is_string($s->payload) ? (json_decode($s->payload, true) ?: []) : (array) $s->payload;
+
                 return [
-                    'values' => is_string($s->payload) ? (json_decode($s->payload, true) ?: []) : (array) $s->payload,
+                    'values' => $values,
                     'user_id' => (int) ($s->submitted_by ?? 0),
                     'linked_values' => $eventId > 0 ? $linked[$eventId] : [],
+                    'evidence' => [
+                        'source_type' => 'form_submission',
+                        'source_id' => (int) $s->form_submission_id,
+                        'evidence_label' => (string) ($values['title'] ?? 'After-event report #'.$s->form_submission_id),
+                        'evidence_url' => '/admin/form-requests/'.$formId,
+                        'attachment_paths' => $this->attachmentPaths($values),
+                    ],
                 ];
             })
             ->values();
+    }
+
+    /** @param array<string,mixed> $payload @return string[] */
+    private function attachmentPaths(array $payload): array
+    {
+        $paths = [];
+        $walk = function (mixed $value) use (&$walk, &$paths): void {
+            if (is_array($value)) {
+                foreach ($value as $nested) {
+                    $walk($nested);
+                }
+                return;
+            }
+            if (! is_string($value) || ! str_contains($value, '/')) {
+                return;
+            }
+            $extension = strtolower(pathinfo(parse_url($value, PHP_URL_PATH) ?: $value, PATHINFO_EXTENSION));
+            if (in_array($extension, ['jpg', 'jpeg', 'png', 'heic', 'heif', 'pdf', 'doc', 'docx'], true)) {
+                $paths[] = $value;
+            }
+        };
+        $walk($payload);
+
+        return array_values(array_unique($paths));
     }
 
     /**

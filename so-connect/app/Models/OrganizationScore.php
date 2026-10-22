@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class OrganizationScore extends Model
 {
@@ -14,6 +15,7 @@ class OrganizationScore extends Model
     protected $fillable = [
         'organization_id',
         'semester_id',
+        'rubric_version_id',
         'scored_by',
         'payload',
         'raw_scores',
@@ -44,5 +46,15 @@ class OrganizationScore extends Model
     public function scorer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'scored_by', 'user_id');
+    }
+
+    public function rubricVersion(): BelongsTo
+    {
+        return $this->belongsTo(ScoringRubricVersion::class, 'rubric_version_id');
+    }
+
+    public function evidenceAwards(): HasMany
+    {
+        return $this->hasMany(ScoringEvidenceAward::class, 'organization_score_id', 'organization_score_id');
     }
 }

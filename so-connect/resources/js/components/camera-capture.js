@@ -1,3 +1,5 @@
+import { cameraAccessMessage, openPreferredCamera } from './camera-access';
+
 /**
  * Reusable rear-camera capture mixin for Alpine components. Spread into a
  * component that provides `x-ref="video"` and `x-ref="canvas"` elements:
@@ -15,12 +17,9 @@ export function cameraCapture() {
 
         async startCamera() {
             this.cameraError = '';
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                this.cameraError = 'Camera is not available here — please use “Upload instead”.';
-                return;
-            }
+            this.stopCamera();
             try {
-                this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                this.stream = await openPreferredCamera();
                 const video = this.$refs.video;
                 if (video) {
                     video.srcObject = this.stream;
@@ -28,7 +27,8 @@ export function cameraCapture() {
                 }
                 this.cameraOn = true;
             } catch (e) {
-                this.cameraError = 'Could not access the camera — allow permission or use “Upload instead”.';
+                this.stopCamera();
+                this.cameraError = cameraAccessMessage(e);
                 this.cameraOn = false;
             }
         },

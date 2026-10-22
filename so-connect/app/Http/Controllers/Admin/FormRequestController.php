@@ -166,6 +166,8 @@ class FormRequestController extends Controller
             'requesterName' => $requesterNames[$actionRequest->user] ?? 'Unknown',
             'kind' => (int) $actionRequest->action_type === 1 ? 'Membership' : ((int) $actionRequest->action_type === NewOrganizationRegistrationHandler::ACTION_TYPE ? 'New Organization' : 'Document'),
             'newOrganizationEmailStatuses' => $newOrganizationEmailStatuses,
+            'accreditationChecklist' => app(\App\Services\AccreditationAttachmentChecklist::class)
+                ->status($form, $submission ? (array) ($submission->payload ?? []) : []),
         ]);
     }
 

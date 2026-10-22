@@ -15,11 +15,15 @@
                         here are recorded in the administrator action logs.
                     </p>
                 </div>
-                <button type="button" @click="addOpen = !addOpen"
-                    class="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                    Add criterion
-                </button>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">Current rubric v{{ $currentRubricVersion->version }}</span>
+                    <a href="{{ route('admin.scoring.rules.versions') }}" class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Version history</a>
+                    <button type="button" @click="addOpen = !addOpen"
+                        class="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        Add criterion
+                    </button>
+                </div>
             </div>
 
             {{-- Add criterion --}}
@@ -33,12 +37,7 @@
                 </div>
                 <div>
                     <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Category</label>
-                    <select name="category_key" required
-                        class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                        @foreach ($categories as $catKey => $catMeta)
-                            <option value="{{ $catKey }}">{{ $catMeta['label'] }} (cap {{ $catMeta['cap'] }})</option>
-                        @endforeach
-                    </select>
+                    <x-common.predictive-select name="category_key" :required="true" :allow-clear="false" search-placeholder="Search category…" :options="collect($categories)->map(fn($meta,$key) => ['value'=>$key,'label'=>$meta['label'].' (cap '.$meta['cap'].')'])->values()->all()" />
                 </div>
                 <div class="flex items-end gap-2">
                     <div class="flex-1">

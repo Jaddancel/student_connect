@@ -32,15 +32,7 @@
                 <form method="GET" action="{{ route('admin.request-records.index') }}" class="flex flex-wrap items-end gap-2">
                     <div>
                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Organization</label>
-                        <select name="org_id" data-autosubmit
-                            class="dark:bg-dark-900 h-11 w-full max-w-sm rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90">
-                            <option value="">All organizations</option>
-                            @foreach ($organizations as $org)
-                                <option value="{{ $org['organization_id'] }}" @selected($orgId == $org['organization_id'])>
-                                    {{ $org['name'] }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <x-common.predictive-select name="org_id" :selected="$orgId" placeholder="All organizations" search-placeholder="Search organization…" :auto-submit="true" :options="collect($organizations)->map(fn($org) => ['value'=>$org['organization_id'],'label'=>$org['name']])->all()" class="w-80" />
                     </div>
                 </form>
                 <div class="flex flex-wrap items-center gap-2">

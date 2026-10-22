@@ -32,6 +32,7 @@ export function reportTemplateBuilder(config) {
         // --- model ---
         name: config.data.name || "",
         description: config.data.description || "",
+        category_id: config.data.category_id || null,
         icon: config.data.icon || "",
         audience: config.data.audience || "admins",
         is_active: config.data.is_active !== false,
@@ -424,6 +425,7 @@ export function reportTemplateBuilder(config) {
                     {
                         name: this.name,
                         description: this.description,
+                        category_id: this.category_id || null,
                         icon: this.icon || null,
                         audience: this.audience,
                         is_active: this.is_active,

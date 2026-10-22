@@ -28,6 +28,7 @@ class Profile extends Model
         'birthday',
         'course_year',
         'course',
+        'college',
         'year_section',
         'occupation',
         'address',

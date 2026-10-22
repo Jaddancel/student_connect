@@ -32,7 +32,7 @@
     Header setIfEmpty X-Content-Type-Options "nosniff"
     Header setIfEmpty X-Frame-Options "SAMEORIGIN"
     Header setIfEmpty Referrer-Policy "strict-origin-when-cross-origin"
-    Header setIfEmpty Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    Header setIfEmpty Permissions-Policy "geolocation=(), microphone=(), camera=(self)"
     Header setIfEmpty Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; img-src 'self' data: blob: https://cdn.jsdelivr.net https://use.fontawesome.com; script-src 'self' https://cdn.jsdelivr.net https://use.fontawesome.com; style-src 'self' https://cdn.jsdelivr.net https://use.fontawesome.com; font-src 'self' data: https://cdn.jsdelivr.net https://use.fontawesome.com; connect-src 'self' https://cdn.jsdelivr.net https://use.fontawesome.com"
 
     # Strip fingerprinting headers on every response.

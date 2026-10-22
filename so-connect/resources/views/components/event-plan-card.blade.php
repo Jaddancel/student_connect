@@ -37,7 +37,7 @@
         ->groupBy('organization_type')
         ->map(fn ($group) => $group->values())
         ->toArray();
-    $orgTypeLabels = [1 => 'Socio-Civic', 2 => 'Religious', 3 => 'Fraternities-Sororities', 4 => 'Special Interest', 6 => 'Student Government'];
+    $orgTypeLabels = \App\Enums\OrganizationType::options();
 
     $statusBadge = match ($status) {
         'pending' => 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400',

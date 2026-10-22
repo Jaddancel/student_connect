@@ -27,9 +27,14 @@ use Illuminate\Validation\ValidationException;
  */
 class ReportTemplateController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $reports = ReportTemplate::query()
+            ->with('category')
+            ->when($request->filled('category'), fn ($q) => $q->where('category_id', $request->integer('category')))
+            ->when($request->filled('audience'), fn ($q) => $q->where('audience', $request->query('audience')))
+            ->when($request->filled('status'), fn ($q) => $q->where('is_active', $request->query('status') === 'active'))
+            ->when($request->filled('q'), fn ($q) => $q->where(fn ($inner) => $inner->where('name', 'like', '%'.$request->query('q').'%')->orWhere('description', 'like', '%'.$request->query('q').'%')))
             ->withCount(['templates as slots_count' => fn ($q) => $q->where('is_active', true)])
             ->orderBy('name')
             ->get();
@@ -37,6 +42,8 @@ class ReportTemplateController extends Controller
         return view('pages.admin.report-templates.index', [
             'title' => 'Report Templates',
             'reports' => $reports,
+            'categories' => \App\Models\ContentCategory::query()->withCount('reportTemplates')->ordered()->get(),
+            'audiences' => ReportTemplate::audiences(),
         ]);
     }
 
@@ -58,12 +65,14 @@ class ReportTemplateController extends Controller
             'editorData' => [
                 'name' => $report?->name ?? '',
                 'description' => $report?->description ?? '',
+                'category_id' => $report?->category_id,
                 'icon' => $report?->icon ?? '',
                 'audience' => $report?->audience ?? ReportTemplate::AUDIENCE_ADMINS,
                 'is_active' => $report?->is_active ?? true,
                 'definition' => $report?->definition ?? ['parameters' => [], 'tokens' => []],
             ],
             'audiences' => ReportTemplate::audiences(),
+            'categories' => \App\Models\ContentCategory::query()->where(fn ($q) => $q->where('is_active', true)->when($report?->category_id, fn ($q, $id) => $q->orWhereKey($id)))->ordered()->get(),
             'iconChoices' => collect(MenuHelper::iconNames())
                 ->mapWithKeys(fn (string $name) => [$name => MenuHelper::getIconSvg($name)])
                 ->all(),
@@ -230,6 +239,7 @@ class ReportTemplateController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
+            'category_id' => ['nullable', 'integer', 'exists:content_categories,id'],
             'icon' => ['nullable', 'string', 'max:64'],
             'audience' => ['required', 'in:'.implode(',', array_keys(ReportTemplate::audiences()))],
             'is_active' => ['nullable', 'boolean'],
@@ -248,6 +258,7 @@ class ReportTemplateController extends Controller
             'attributes' => [
                 'name' => trim($validated['name']),
                 'description' => $validated['description'] ?? null,
+                'category_id' => $validated['category_id'] ?? null,
                 'icon' => $icon !== null && in_array($icon, MenuHelper::iconNames(), true) ? $icon : null,
                 'audience' => $validated['audience'],
                 'is_active' => (bool) ($validated['is_active'] ?? true),

@@ -130,28 +130,7 @@
                 {{-- Typeahead combobox over a scoped OptionSource list: submits
                      the chosen entry's id via a hidden input while showing its
                      label. Better than a giant <select> for large sources. --}}
-                <div x-data="searchSelectField({ options: {{ \App\Support\JsLiteral::from($sourceEntry['options'] ?? []) }}, selected: @js((string) $old) })" class="relative">
-                    <input type="hidden" name="{{ $key }}" :value="selected" />
-                    <div class="relative">
-                        <input type="text" x-model="query" @focus="open = true" @click="open = true"
-                            @input="onInput()" @keydown.escape="open = false"
-                            placeholder="{{ $placeholder ?: 'Search…' }}" autocomplete="off"
-                            class="{{ $inputClass }}" />
-                        <button type="button" x-show="selected" x-cloak @click="clear()"
-                            class="absolute inset-y-0 right-2 my-auto h-5 text-gray-400 hover:text-gray-600">✕</button>
-                    </div>
-                    <div x-show="open" x-cloak @click.outside="open = false"
-                        class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
-                        <template x-if="!filtered.length">
-                            <p class="px-3 py-2 text-xs text-gray-400">No matches.</p>
-                        </template>
-                        <template x-for="opt in filtered" :key="opt.value">
-                            <button type="button" @click="choose(opt)"
-                                class="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-brand-50 dark:text-gray-200 dark:hover:bg-white/[0.06]"
-                                x-text="opt.label"></button>
-                        </template>
-                    </div>
-                </div>
+                <x-common.predictive-select :name="$key" :selected="$old" :required="$required" :placeholder="$required ? 'Choose an option' : 'None'" :search-placeholder="$placeholder ?: 'Type to search…'" :options="$sourceEntry['options'] ?? []" />
                 @if (! count($pairs))
                     <p class="mt-1 text-xs text-warning-600 dark:text-orange-400">No entries are available to search yet.</p>
                 @endif
@@ -287,6 +266,75 @@
                         </div>
                     </template>
                 </div>
+                @if ($isMultipleImage && ! empty($special['attachment_library'] ?? []))
+                    <div class="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60"
+                        x-data="{
+                            open: false,
+                            search: '',
+                            selected: @js(array_values((array) old($key.'_library', []))),
+                            items: {{ \App\Support\JsLiteral::from($special['attachment_library']) }},
+                            max: {{ $maxFiles }},
+                            activityTitle() { return (document.getElementById('title')?.value || '').toLowerCase(); },
+                            eventId() { return String(document.getElementById('event_id')?.value || ''); },
+                            score(item) {
+                                let score = this.eventId() && String(item.event_id || '') === this.eventId() ? 100 : 0;
+                                const words = this.activityTitle().split(/\s+/).filter(w => w.length >= 3);
+                                const haystack = [item.title, ...(item.tags || [])].join(' ').toLowerCase();
+                                score += words.filter(word => haystack.includes(word)).length * 10;
+                                return score;
+                            },
+                            get filtered() {
+                                const term = this.search.trim().toLowerCase();
+                                return this.items.filter(item => !term || [item.title, item.name, ...(item.tags || [])].join(' ').toLowerCase().includes(term))
+                                    .sort((a, b) => this.score(b) - this.score(a));
+                            },
+                            toggle(path) {
+                                const index = this.selected.indexOf(path);
+                                if (index >= 0) this.selected.splice(index, 1);
+                                else if (this.selected.length < this.max) this.selected.push(path);
+                                this.$nextTick(() => window.dispatchEvent(new Event('change')));
+                            }
+                        }">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-700 dark:text-gray-200">Reusable attachment library</p>
+                                <p class="text-xs text-gray-500">Matching event and activity attachments are suggested first.</p>
+                            </div>
+                            <button type="button" @click="open = !open"
+                                class="rounded-lg border border-brand-300 px-3 py-1.5 text-xs font-semibold text-brand-600 hover:bg-brand-50 dark:border-brand-500/40 dark:text-brand-300">
+                                <span x-text="open ? 'Close library' : 'Choose existing'"></span>
+                            </button>
+                        </div>
+                        <template x-for="path in selected" :key="path">
+                            <input type="hidden" name="{{ $key }}_library[]" :value="path" />
+                        </template>
+                        <div x-show="selected.length" x-cloak class="mt-2 text-xs font-medium text-success-600">
+                            <span x-text="selected.length"></span> existing attachment(s) selected
+                        </div>
+                        <div x-show="open" x-cloak class="mt-3 space-y-3">
+                            <input type="search" x-model="search" placeholder="Search activity, filename, or tag…"
+                                class="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+                            <div class="grid max-h-80 gap-2 overflow-y-auto sm:grid-cols-2">
+                                <template x-for="item in filtered" :key="item.id">
+                                    <button type="button" @click="toggle(item.path)"
+                                        :class="selected.includes(item.path) ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-gray-200 dark:border-gray-700'"
+                                        class="overflow-hidden rounded-lg border bg-white text-left dark:bg-gray-900">
+                                        <img :src="item.url" :alt="item.title" class="h-28 w-full object-cover" />
+                                        <div class="p-2">
+                                            <div class="flex items-center gap-2">
+                                                <span x-show="score(item) > 0" class="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-600">Suggested</span>
+                                                <span x-show="selected.includes(item.path)" class="text-xs font-bold text-success-600">Selected</span>
+                                            </div>
+                                            <p class="mt-1 truncate text-xs font-semibold text-gray-700 dark:text-gray-200" x-text="item.title"></p>
+                                            <p class="truncate text-[11px] text-gray-400" x-text="(item.tags || []).join(', ') || item.date"></p>
+                                        </div>
+                                    </button>
+                                </template>
+                            </div>
+                            <p x-show="filtered.length === 0" class="text-xs text-gray-500">No matching attachment found.</p>
+                        </div>
+                    </div>
+                @endif
                 <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
                     Allowed: {{ strtoupper(implode(', ', array_diff(FieldType::effectiveUploadExtensions($type, $opts), ['jpg', 'heif']))) }}
                     @if ($isMultipleImage)

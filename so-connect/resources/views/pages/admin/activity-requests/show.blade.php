@@ -9,6 +9,12 @@
     <x-common.page-breadcrumb pageTitle="Review Activity Request" />
 
     <div class="space-y-6 max-w-4xl">
+        @if (session('success'))
+            <div class="rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm font-medium text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400">
+                {{ session('success') }}
+            </div>
+        @endif
+
         @if ($errors->any())
             <div class="rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
                 {{ $errors->first() }}
@@ -94,6 +100,62 @@
 
         <x-admin.manual-source :payload="$submissionPayload" />
 
+        {{-- Waiver approval gate: this same state is enforced again by the
+             decision endpoint, so disabling the button is never the only guard. --}}
+        @php
+            $waiverStatusClasses = match ($waiverGate['status']) {
+                'valid', 'manually_approved' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400',
+                'failed', 'missing', 'manually_rejected' => 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400',
+                default => 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-orange-400',
+            };
+            $waiverReview = $waiverGate['review'];
+            $waiverReviewerProfile = $waiverReview?->reviewer?->getRelation('profileRecord');
+            $waiverReviewerName = $waiverReviewerProfile
+                ? trim(implode(' ', array_filter([$waiverReviewerProfile->first_name, $waiverReviewerProfile->middle_name, $waiverReviewerProfile->last_name])))
+                : ($waiverReview?->reviewer?->user_email ?? 'Administrator');
+        @endphp
+        <div class="rounded-2xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Waiver Approval Check</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $waiverGate['message'] }}</p>
+                </div>
+                <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold {{ $waiverStatusClasses }}">
+                    {{ $waiverGate['label'] }}
+                </span>
+            </div>
+
+            <dl class="mt-4 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+                <div><dt class="text-gray-400">Attachments</dt><dd class="mt-1 font-semibold text-gray-700 dark:text-gray-200">{{ $waiverGate['attachment_count'] }}</dd></div>
+                <div><dt class="text-gray-400">Failed</dt><dd class="mt-1 font-semibold text-gray-700 dark:text-gray-200">{{ $waiverGate['failed_count'] }}</dd></div>
+                <div><dt class="text-gray-400">Unvalidated</dt><dd class="mt-1 font-semibold text-gray-700 dark:text-gray-200">{{ $waiverGate['unvalidated_count'] }}</dd></div>
+                <div><dt class="text-gray-400">Approval</dt><dd class="mt-1 font-semibold {{ $waiverGate['can_approve'] ? 'text-success-600' : 'text-error-600' }}">{{ $waiverGate['can_approve'] ? 'Allowed' : 'Blocked' }}</dd></div>
+            </dl>
+
+            @if ($waiverReview)
+                <div class="mt-4 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-white/[0.03] dark:text-gray-300">
+                    Reviewed by {{ $waiverReviewerName ?: 'Administrator' }} on {{ $waiverReview->reviewed_at->format('M d, Y h:i A') }}.
+                    @if ($waiverReview->remarks)<span class="mt-1 block">Remarks: {{ $waiverReview->remarks }}</span>@endif
+                </div>
+            @endif
+
+            @if (! $approval && $waiverGate['can_review'])
+                <form method="POST" action="{{ route('admin.activity-requests.waiver-review', $actionRequest->request_id) }}" class="mt-4 space-y-3">
+                    @csrf
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-300" for="waiver-review-remarks">Manual review remarks (optional)</label>
+                    <textarea id="waiver-review-remarks" name="remarks" rows="2" maxlength="2000"
+                        placeholder="What did you verify on the uploaded waiver?"
+                        class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-2 focus:ring-brand-500/10 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">{{ old('remarks', $waiverReview?->remarks) }}</textarea>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="submit" name="decision" value="approved"
+                            class="rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white hover:bg-success-600">Manually Approve Waiver</button>
+                        <button type="submit" name="decision" value="rejected"
+                            class="rounded-lg border border-error-300 px-4 py-2 text-sm font-medium text-error-600 hover:bg-error-50 dark:border-error-600 dark:text-error-400">Manually Reject Waiver</button>
+                    </div>
+                </form>
+            @endif
+        </div>
+
         {{-- Decision Panel --}}
         @if ($approval)
             <div class="rounded-2xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -117,7 +179,10 @@
                     <form method="POST" action="{{ route('admin.activity-requests.decide', $actionRequest->request_id) }}">
                         @csrf
                         <input type="hidden" name="decision" value="approve" />
-                        <button type="submit" class="rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white hover:bg-success-600">
+                        <button type="submit" @disabled(! $waiverGate['can_approve'])
+                            title="{{ $waiverGate['can_approve'] ? 'Approve this activity request' : $waiverGate['message'] }}"
+                            aria-disabled="{{ $waiverGate['can_approve'] ? 'false' : 'true' }}"
+                            class="rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white hover:bg-success-600 disabled:cursor-not-allowed disabled:opacity-40">
                             Approve
                         </button>
                     </form>

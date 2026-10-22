@@ -46,6 +46,16 @@ it('does not allow arbitrary CORS origins by default', function () {
     expect(config('cors.allowed_origins'))->not->toContain('*');
 });
 
+it('allows same-origin camera capture without enabling unrelated device access', function () {
+    $response = (new SecurityHeaders)->handle(
+        Request::create('/signup'),
+        fn () => new Response,
+    );
+
+    expect($response->headers->get('Permissions-Policy'))
+        ->toBe('geolocation=(), microphone=(), camera=(self)');
+});
+
 it('rejects SQL metacharacters in the scanned student id', function () {
     $rules = \App\Forms\FieldType::validationRules(\App\Forms\FieldType::ID_SCAN, true);
 

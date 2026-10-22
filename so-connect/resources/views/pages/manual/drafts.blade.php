@@ -30,12 +30,7 @@
             <form method="get" class="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-4">
                 <div>
                     <label class="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">Form</label>
-                    <select name="form_id" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
-                        <option value="">All forms</option>
-                        @foreach ($formOptions as $option)
-                            <option value="{{ $option->id }}" @selected($filters['form_id'] === (int) $option->id)>{{ $option->name }}</option>
-                        @endforeach
-                    </select>
+                    <x-common.predictive-select name="form_id" :selected="$filters['form_id'] ?: ''" placeholder="All forms" search-placeholder="Search form…" :options="$formOptions->map(fn($option) => ['value'=>$option->id,'label'=>$option->name])->all()" />
                 </div>
                 <div>
                     <label class="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">From</label>

@@ -25,11 +25,11 @@ class OfficerProfileData
 
     /**
      * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>  Profile::create()/update() attributes
+     * @return array<string,mixed> Profile::create()/update() attributes
      */
     public static function fromPayload(array $payload, ?int $addressId = null): array
     {
-        $courseYear = trim(trim((string) ($payload['course'] ?? '')).' - '.trim((string) ($payload['year_level'] ?? '')), " -");
+        $courseYear = trim(trim((string) ($payload['course'] ?? '')).' - '.trim((string) ($payload['year_level'] ?? '')), ' -');
 
         $attributes = [
             'first_name' => (string) ($payload['first_name'] ?? ''),
@@ -43,6 +43,9 @@ class OfficerProfileData
             'birthday' => (string) ($payload['birthday'] ?? ''),
             'birthplace' => (string) ($payload['birthplace'] ?? ''),
             'course_year' => $courseYear,
+            'course' => (string) ($payload['course'] ?? ''),
+            'college' => (string) ($payload['college'] ?? ''),
+            'year_section' => (string) ($payload['year_level'] ?? ''),
             'occupation' => 'Student',
             'position' => (string) ($payload['position'] ?? ''),
             'photo' => (string) ($payload['photo'] ?? ''),

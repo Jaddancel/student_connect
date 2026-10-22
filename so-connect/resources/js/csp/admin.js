@@ -66,6 +66,33 @@ export default function registerAdmin(Alpine) {
         busy: false,
         label: '',
         error: '',
+        filters: {
+            organization: '',
+            organizationStatus: '',
+            schoolYear: '__all__',
+            semester: '__all__',
+        },
+        init() {
+            try {
+                const saved = JSON.parse(sessionStorage.getItem('report-global-filters') || '{}');
+                this.filters = { ...this.filters, ...saved };
+            } catch (_) {}
+            ['organization', 'organizationStatus', 'schoolYear', 'semester'].forEach((key) => {
+                this.$watch(`filters.${key}`, () => this.persistFilters());
+            });
+        },
+        persistFilters() {
+            sessionStorage.setItem('report-global-filters', JSON.stringify(this.filters));
+        },
+        resetFilters() {
+            this.filters = {
+                organization: '',
+                organizationStatus: '',
+                schoolYear: '__all__',
+                semester: '__all__',
+            };
+            this.persistFilters();
+        },
         // Generation can take a while (document conversion), so run it
         // through fetch: the modal stays up until the file arrives, then the
         // blob is saved without leaving the page.

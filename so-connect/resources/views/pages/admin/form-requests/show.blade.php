@@ -3,6 +3,8 @@
 @php
     use App\Forms\FieldType;
     use App\Forms\SubmissionPresenter;
+    $accreditationReady = empty($accreditationChecklist ?? [])
+        || collect($accreditationChecklist)->every(fn ($item) => $item['attached']);
 @endphp
 
 @section('content')
@@ -85,6 +87,36 @@
                         @endif
                     </div>
                 </div>
+            </div>
+        @endif
+
+        @if (! empty($accreditationChecklist ?? []))
+            <div @class([
+                'rounded-2xl border px-6 py-5',
+                'border-success-200 bg-success-50 dark:border-success-500/30 dark:bg-success-500/10' => $accreditationReady,
+                'border-error-200 bg-error-50 dark:border-error-500/30 dark:bg-error-500/10' => ! $accreditationReady,
+            ])>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-white/90">Required Attachments Checklist</h3>
+                    <span @class([
+                        'rounded-full px-3 py-1 text-xs font-semibold',
+                        'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-400' => $accreditationReady,
+                        'bg-error-100 text-error-700 dark:bg-error-500/20 dark:text-error-400' => ! $accreditationReady,
+                    ])>
+                        {{ collect($accreditationChecklist)->where('attached', true)->count() }}/{{ count($accreditationChecklist) }} complete
+                    </span>
+                </div>
+                <ul class="mt-4 grid gap-2 sm:grid-cols-2">
+                    @foreach ($accreditationChecklist as $item)
+                        <li class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                            <span class="font-bold {{ $item['attached'] ? 'text-success-600' : 'text-error-600' }}">{{ $item['attached'] ? '✓' : '✕' }}</span>
+                            {{ $item['label'] }}
+                        </li>
+                    @endforeach
+                </ul>
+                @unless ($accreditationReady)
+                    <p class="mt-4 text-sm font-medium text-error-700 dark:text-error-400">Approval is disabled until every required attachment is present.</p>
+                @endunless
             </div>
         @endif
 
@@ -232,7 +264,8 @@
                     <form method="POST" action="{{ route('admin.form-requests.decide', [$form, $actionRequest->request_id]) }}">
                         @csrf
                         <input type="hidden" name="decision" value="approve" />
-                        <button type="submit" class="rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white hover:bg-success-600">
+                        <button type="submit" @disabled(! $accreditationReady)
+                            class="rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white hover:bg-success-600 disabled:cursor-not-allowed disabled:opacity-50">
                             Approve
                         </button>
                     </form>

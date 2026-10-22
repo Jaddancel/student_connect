@@ -30,6 +30,10 @@ class ActionLogger
 
     public const CATEGORY_SUPPORT = 'support';
 
+    public const CATEGORY_WAIVER_REVIEW = 'waiver_review';
+
+    public const CATEGORY_BEST_ORGANIZATION = 'best_organization';
+
     /**
      * Human labels for the category filter dropdown/exports.
      *
@@ -46,6 +50,8 @@ class ActionLogger
             self::CATEGORY_SETTINGS => 'Settings',
             self::CATEGORY_REPORTS => 'Report Templates / Generation',
             self::CATEGORY_SUPPORT => 'Support Tickets',
+            self::CATEGORY_WAIVER_REVIEW => 'Waiver Review / Activity Approval',
+            self::CATEGORY_BEST_ORGANIZATION => 'Best Organization Selection / Award',
         ];
     }
 

@@ -61,7 +61,7 @@ class ReportTemplate extends Model
      */
     public static function availableTo(?User $user)
     {
-        return static::query()->where('is_active', true)->orderBy('name')->get()
+        return static::query()->with('category')->where('is_active', true)->orderBy('name')->get()
             ->filter(fn (self $report) => $report->isAvailableTo($user))
             ->values();
     }
@@ -69,6 +69,7 @@ class ReportTemplate extends Model
     protected $fillable = [
         'name',
         'description',
+        'category_id',
         'icon',
         'audience',
         'definition',
@@ -87,6 +88,11 @@ class ReportTemplate extends Model
     public function templates(): HasMany
     {
         return $this->hasMany(Template::class, 'report_template_id', 'id')->orderBy('slot_order')->orderBy('id');
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(ContentCategory::class, 'category_id');
     }
 
     public function activeTemplates(): HasMany

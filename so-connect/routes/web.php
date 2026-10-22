@@ -346,6 +346,8 @@ Route::middleware(['auth', 'officer.or.admin'])->group(function () {
         ->whereNumber('reportTemplate')
         ->middleware('track.download:report')
         ->name('reports.generate');
+    Route::get('/best-organizations', [\App\Http\Controllers\Admin\BestOrganizationController::class, 'results'])
+        ->name('best-organizations.index');
 });
 
 // After Event Form: officials list concluded events and file their reports.
@@ -360,6 +362,10 @@ Route::middleware('auth')->group(function () {
     // Dedicated Forms directory (name + purpose search). Registered before the
     // `/forms/{routeName}` renderer so the literal `/forms` index wins.
     Route::get('/forms', [FormDirectoryController::class, 'index'])->name('forms.directory');
+    Route::get('/attachment-library', [\App\Http\Controllers\AttachmentLibraryController::class, 'index'])
+        ->name('attachment-library.index');
+    Route::put('/attachment-library/{media}', [\App\Http\Controllers\AttachmentLibraryController::class, 'update'])
+        ->name('attachment-library.update');
 
     // Stable entry point for a system function's bound form page (sign_up,
     // new_event, new_workplan, membership_registration — see SystemFunction).
@@ -453,6 +459,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/activity-requests/{requestId}/decide', [AdminActivityRequestController::class, 'decide'])
         ->whereNumber('requestId')
         ->name('admin.activity-requests.decide');
+    Route::post('/admin/activity-requests/{requestId}/waiver-review', [AdminActivityRequestController::class, 'reviewWaiver'])
+        ->whereNumber('requestId')
+        ->name('admin.activity-requests.waiver-review');
 
     Route::get('/admin/project-requests', [ProjectRequestController::class, 'index'])
         ->name('admin.project-requests.index');
@@ -518,14 +527,31 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->name('admin.scoring.index');
     Route::get('/admin/scoring/rankings', [OrganizationScoringController::class, 'rankings'])
         ->name('admin.scoring.rankings');
+    Route::get('/admin/best-organizations', [\App\Http\Controllers\Admin\BestOrganizationController::class, 'index'])->name('admin.best-organizations.index');
+    Route::post('/admin/best-organizations', [\App\Http\Controllers\Admin\BestOrganizationController::class, 'store'])->name('admin.best-organizations.store');
+    Route::get('/admin/best-organizations/{cycle}', [\App\Http\Controllers\Admin\BestOrganizationController::class, 'show'])->name('admin.best-organizations.show');
+    Route::post('/admin/best-organizations/{cycle}/sync', [\App\Http\Controllers\Admin\BestOrganizationController::class, 'sync'])->name('admin.best-organizations.sync');
+    Route::post('/admin/best-organizations/{cycle}/start', [\App\Http\Controllers\Admin\BestOrganizationController::class, 'start'])->name('admin.best-organizations.start');
+    Route::patch('/admin/best-organizations/{cycle}/candidates/{candidate}', [\App\Http\Controllers\Admin\BestOrganizationController::class, 'review'])->name('admin.best-organizations.candidates.review');
+    Route::post('/admin/best-organizations/{cycle}/finalize', [\App\Http\Controllers\Admin\BestOrganizationController::class, 'finalize'])->name('admin.best-organizations.finalize');
     Route::get('/admin/scoring/student-rankings', [StudentRankingController::class, 'index'])
         ->name('admin.student-rankings.index');
     Route::post('/admin/scoring/student-rankings/evaluations', [StudentRankingController::class, 'store'])
         ->name('admin.student-rankings.store');
+    Route::get('/admin/levels', [\App\Http\Controllers\Admin\LevelController::class, 'index'])
+        ->name('admin.levels.index');
+    Route::put('/admin/levels', [\App\Http\Controllers\Admin\LevelController::class, 'update'])
+        ->name('admin.levels.update');
     Route::get('/admin/scoring/create', [OrganizationScoringController::class, 'create'])
         ->name('admin.scoring.create');
     Route::post('/admin/scoring', [OrganizationScoringController::class, 'store'])
         ->name('admin.scoring.store');
+    Route::get('/admin/scoring/{id}/evidence', [OrganizationScoringController::class, 'evidence'])
+        ->whereNumber('id')
+        ->name('admin.scoring.evidence');
+    Route::patch('/admin/scoring/{score}/evidence/{evidence}', [OrganizationScoringController::class, 'reviewEvidence'])
+        ->whereNumber('score')->whereNumber('evidence')
+        ->name('admin.scoring.evidence.review');
     Route::get('/admin/scoring/{id}/edit', [OrganizationScoringController::class, 'edit'])
         ->whereNumber('id')
         ->name('admin.scoring.edit');
@@ -536,6 +562,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
     // Scratch-like trigger editor for the scoring system's criteria.
     Route::get('/admin/scoring-rules', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'index'])
         ->name('admin.scoring.rules.index');
+    Route::get('/admin/scoring-rules/versions', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'versions'])
+        ->name('admin.scoring.rules.versions');
     Route::post('/admin/scoring-rules/criteria', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'storeCriterion'])
         ->name('admin.scoring.criteria.store');
     Route::put('/admin/scoring-rules/criteria/{criterion}', [\App\Http\Controllers\Admin\ScoringRuleController::class, 'updateCriterion'])
@@ -617,6 +645,12 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::delete('/admin/report-templates/{reportTemplate}', [\App\Http\Controllers\Admin\ReportTemplateController::class, 'destroy'])
         ->whereNumber('reportTemplate')
         ->name('admin.report-templates.destroy');
+    Route::get('/admin/categories', [\App\Http\Controllers\Admin\ContentCategoryController::class, 'index'])->name('admin.categories.index');
+    Route::post('/admin/categories', [\App\Http\Controllers\Admin\ContentCategoryController::class, 'store'])->name('admin.categories.store');
+    Route::put('/admin/categories/{category}', [\App\Http\Controllers\Admin\ContentCategoryController::class, 'update'])->name('admin.categories.update');
+    Route::delete('/admin/categories/{category}', [\App\Http\Controllers\Admin\ContentCategoryController::class, 'destroy'])->name('admin.categories.destroy');
+    Route::get('/admin/template-gallery', [\App\Http\Controllers\Admin\TemplateGalleryController::class, 'index'])
+        ->name('admin.template-gallery.index');
 
     Route::get('/admin/officers/create', [AdminOfficerCreationController::class, 'create'])
         ->name('admin.officers.create');

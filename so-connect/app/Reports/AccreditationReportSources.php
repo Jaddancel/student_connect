@@ -49,11 +49,13 @@ final class AccreditationReportSources
             'school_year' => ['text', 'VARCHAR(20)'],
             'organization_name' => ['text', 'VARCHAR(255)'],
             'organization_initials' => ['text', 'VARCHAR(100)'],
+            'organization_type' => ['number', 'INT'],
             'first_name' => ['text', 'VARCHAR(255)'],
             'middle_name' => ['text', 'VARCHAR(255)'],
             'last_name' => ['text', 'VARCHAR(255)'],
             'student_id' => ['text', 'VARCHAR(100)'],
             'email' => ['text', 'VARCHAR(255)'],
+            'college' => ['text', 'VARCHAR(255)'],
             'course' => ['text', 'VARCHAR(255)'],
             'year_section' => ['text', 'VARCHAR(255)'],
             'member_since' => ['datetime', 'DATETIME'],
@@ -64,11 +66,14 @@ final class AccreditationReportSources
             'school_year' => ['text', 'VARCHAR(20)'],
             'organization_name' => ['text', 'VARCHAR(255)'],
             'organization_initials' => ['text', 'VARCHAR(100)'],
+            'organization_type' => ['number', 'INT'],
             'first_name' => ['text', 'VARCHAR(255)'],
             'middle_name' => ['text', 'VARCHAR(255)'],
             'last_name' => ['text', 'VARCHAR(255)'],
             'student_id' => ['text', 'VARCHAR(100)'],
             'email' => ['text', 'VARCHAR(255)'],
+            'college' => ['text', 'VARCHAR(255)'],
+            'course' => ['text', 'VARCHAR(255)'],
             'position' => ['text', 'VARCHAR(255)'],
             'role' => ['text', 'VARCHAR(50)'],
             'member_since' => ['datetime', 'DATETIME'],
@@ -270,7 +275,7 @@ final class AccreditationReportSources
             ->get([
                 'oo.org_officer_id', 'oo.organization', 'oo.role', 'oo.position', 'oo.member_since',
                 'u.user_email', 'p.first_name', 'p.middle_name', 'p.last_name', 'p.student_id',
-                'p.course', 'p.year_section',
+                'p.college', 'p.course', 'p.year_section',
             ])
             ->groupBy('organization');
 
@@ -282,18 +287,20 @@ final class AccreditationReportSources
                     'school_year' => $accreditation['school_year'],
                     'organization_name' => $accreditation['organization_name'],
                     'organization_initials' => $accreditation['organization_initials'],
+                    'organization_type' => $accreditation['organization_type'],
                     'first_name' => (string) ($person->first_name ?? ''),
                     'middle_name' => (string) ($person->middle_name ?? ''),
                     'last_name' => (string) ($person->last_name ?? ''),
                     'student_id' => (string) ($person->student_id ?? ''),
                     'email' => (string) ($person->user_email ?? ''),
+                    'college' => (string) ($person->college ?? ''),
+                    'course' => (string) ($person->course ?? ''),
                     'member_since' => $person->member_since !== null
                         ? Carbon::parse($person->member_since)->toDateTimeString()
                         : null,
                 ];
                 if ($roles === ['member']) {
                     $row['accreditation_member_id'] = ((int) $accreditation['accreditation_record_id'] * 1000000) + (int) $person->org_officer_id;
-                    $row['course'] = (string) ($person->course ?? '');
                     $row['year_section'] = (string) ($person->year_section ?? '');
                 } else {
                     $row['accreditation_officer_id'] = ((int) $accreditation['accreditation_record_id'] * 1000000) + (int) $person->org_officer_id;

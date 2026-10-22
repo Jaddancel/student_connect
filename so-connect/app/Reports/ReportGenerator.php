@@ -28,9 +28,9 @@ final class ReportGenerator
     /**
      * @param  array<string, mixed>  $parameters
      * @return array{path: string, filename: string, mime: string, directory: string}
-     *                                                                                 `directory` is a scratch dir the caller must delete
+     *                                                                                `directory` is a scratch dir the caller must delete
      */
-    public function generate(ReportTemplate $report, array $parameters, string $format, ?User $user): array
+    public function generate(ReportTemplate $report, array $parameters, string $format, ?User $user, array $scope = []): array
     {
         $format = $format === 'docx' ? 'docx' : 'pdf';
         $slots = $this->templates->activeReportTemplates($report);
@@ -38,7 +38,7 @@ final class ReportGenerator
             throw new RuntimeException('This report has no printed template yet.');
         }
 
-        $result = $this->engine->run((array) $report->definition, $parameters);
+        $result = $this->engine->run((array) $report->definition, $parameters, scope: $scope);
         $organization = $this->organizationFor((array) $report->definition, $result['params']);
 
         $directory = storage_path('app/tmp/report-'.Str::uuid());
