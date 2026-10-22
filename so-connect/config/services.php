@@ -44,19 +44,24 @@ return [
         'timeout' => (int) env('OCR_TIMEOUT', 60),
     ],
 
-    // Host-native Ollama vision model (qwen2.5vl:3b) dedicated to reading
-    // handwritten scans of printed request forms. This is separate from the
-    // Gemini chat assistant and the PaddleOCR ID/waiver scanner. The host must
-    // run `ollama serve` with the model pulled; from inside Sail the daemon is
-    // reached via host.docker.internal.
+    // Ollama vision model (qwen2.5vl:7b) dedicated to reading handwritten
+    // scans of printed request forms. This is separate from the Gemini chat
+    // assistant and the PaddleOCR ID/waiver scanner. The daemon must have the
+    // model pulled (`ollama pull qwen2.5vl:7b`); qwen2.5vl:3b still works on
+    // machines without enough VRAM, at lower accuracy.
     'document_vision' => [
         'provider' => env('DOCUMENT_VISION_PROVIDER', 'ollama'),
         'url' => env('DOCUMENT_VISION_URL', 'http://host.docker.internal:11434'),
-        'model' => env('DOCUMENT_VISION_MODEL', 'qwen2.5vl:3b'),
+        'model' => env('DOCUMENT_VISION_MODEL', 'qwen2.5vl:7b'),
         'timeout' => (int) env('DOCUMENT_VISION_TIMEOUT', 180),
         'context_length' => (int) env('DOCUMENT_VISION_CONTEXT_LENGTH', 8192),
         'confidence_threshold' => (float) env('DOCUMENT_VISION_CONFIDENCE_THRESHOLD', 0.55),
+        // Whole-page images are downscaled so their longest edge fits this.
         'max_image_edge' => (int) env('DOCUMENT_VISION_MAX_IMAGE_EDGE', 1600),
+        // Per-field reading: each field's region is cropped from the aligned
+        // scan and read on its own. Small crops are upscaled to this short edge.
+        'crops_per_request' => (int) env('DOCUMENT_VISION_CROPS_PER_REQUEST', 1),
+        'crop_min_edge' => (int) env('DOCUMENT_VISION_CROP_MIN_EDGE', 112),
     ],
 
     'gemini' => [

@@ -16,6 +16,12 @@
 
     @if ($documents->count() > 1)
         <div class="mx-auto max-w-3xl space-y-5">
+            @if ($status === \App\Models\ManualFormSession::STATUS_FAILED && $session->parse_error)
+                <div class="rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">{{ $session->parse_error }}</div>
+            @endif
+            @if (in_array($status, [\App\Models\ManualFormSession::STATUS_AWAITING_SCAN, \App\Models\ManualFormSession::STATUS_FAILED, \App\Models\ManualFormSession::STATUS_REVIEW], true))
+                @include('pages.manual.partials.return-to-digital')
+            @endif
             <p class="text-sm text-gray-600">Print each document. Upload a completed scan for every document with handwritten fields; documents without handwritten fields need no scan.</p>
             @foreach ($documents as $document)
                 @php
@@ -38,6 +44,13 @@
                     @endif>
                     <h3 class="font-semibold">Document {{ $loop->iteration }} — {{ $document->template?->template_name ?: 'Printed template' }}</h3>
                     <p class="mt-1 text-sm" x-text="status.replaceAll('_', ' ')"></p>
+                    <div class="mt-2" x-show="status === 'parsing'" x-cloak>
+                        <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
+                            <div class="h-full rounded-full bg-brand-500 transition-all duration-700 ease-out"
+                                :style="`width: ${Math.max(progress.percent, 3)}%`"></div>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500" x-text="(progress.label || 'Waiting for the reader to start…') + ' · ' + progress.percent + '% · ' + elapsedLabel"></p>
+                    </div>
                     <p class="mt-1 text-sm text-red-600" x-show="error" x-text="error"></p>
                     @if ($document->partial_pdf_path)
                         <a class="mt-3 inline-block rounded-lg bg-brand-500 px-4 py-2 text-sm text-white"
@@ -135,15 +148,28 @@
                             class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Retry reading the last scan</button>
                     </div>
                 </div>
+
+                @include('pages.manual.partials.return-to-digital')
             </div>
         </template>
 
         {{-- ── Parsing ───────────────────────────────────────────────── --}}
         <template x-if="status === 'parsing'">
             <div class="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-gray-800 dark:bg-white/[0.03]">
-                <div class="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent"></div>
-                <p class="text-sm font-medium text-gray-700 dark:text-white/90">Reading your handwriting…</p>
-                <p class="mt-1 text-xs text-gray-400">You can leave this page — your draft is saved.</p>
+                <p class="text-sm font-medium text-gray-700 dark:text-white/90">Reading your scan…</p>
+                <div class="mx-auto mt-4 max-w-md">
+                    <div class="h-2.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800"
+                        role="progressbar" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="progress.percent">
+                        <div class="h-full rounded-full bg-brand-500 transition-all duration-700 ease-out"
+                            :class="progress.percent === 0 && 'animate-pulse'"
+                            :style="`width: ${Math.max(progress.percent, 3)}%`"></div>
+                    </div>
+                    <div class="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                        <span class="truncate text-left" x-text="progress.label || 'Waiting for the reader to start…'"></span>
+                        <span class="ml-3 shrink-0 tabular-nums"><span x-text="progress.percent"></span>% · <span x-text="elapsedLabel"></span></span>
+                    </div>
+                </div>
+                <p class="mt-4 text-xs text-gray-400">You can leave this page — your draft is saved.</p>
             </div>
         </template>
     </div>
@@ -152,7 +178,13 @@
     @if ($status === \App\Models\ManualFormSession::STATUS_REVIEW && $review)
         <div class="mx-auto mt-6 max-w-3xl space-y-4">
             <div class="rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400">
-                We read your handwriting and filled it in below. Please check every value before submitting.
+                We read your scan and filled it in below. Please check every value before submitting.
+                @if (! empty($review['sourceSummary']['typed']))
+                    <p class="mt-1"><strong>From typed PDF text:</strong> {{ implode(', ', $review['sourceSummary']['typed']) }}</p>
+                @endif
+                @if (! empty($review['sourceSummary']['written']))
+                    <p class="mt-1"><strong>Read from the scan image:</strong> {{ implode(', ', $review['sourceSummary']['written']) }}</p>
+                @endif
             </div>
 
             @if (! empty($review['lowConfidence']) || ! empty($review['unresolved']))

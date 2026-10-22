@@ -81,4 +81,46 @@ return [
         'fallback_band' => 0.06,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Scan reading
+    |--------------------------------------------------------------------------
+    |
+    | `render_dpi` is used to rasterize both the frozen reference pages and any
+    | uploaded PDF scan, so the two always share one geometry. Higher DPI gives
+    | the vision model sharper handwriting at the cost of larger images.
+    |
+    | `read_region` shapes the area a typed or handwritten entry is read from:
+    | a text field's rendered marker is one line tall, so the region extends
+    | down to the next printed text in its column, capped at `max_band` of the
+    | page height. Sessions created before `read_bounds` existed fall back to
+    | the field bounds padded by `fallback_pad` (fractions of the page).
+    |
+    | `text_layer` reads values straight from a PDF scan's own text (typed on
+    | the downloaded PDF) instead of from pixels, when the PDF is clearly the
+    | same document as the printed partial.
+    |
+    */
+
+    'render_dpi' => (int) env('MANUAL_FORM_RENDER_DPI', 200),
+
+    'read_region' => [
+        'max_band' => 0.08,
+        'fallback_pad' => ['x' => 0.01, 'y' => 0.02],
+    ],
+
+    'text_layer' => [
+        'enabled' => env('MANUAL_FORM_TEXT_LAYER', true),
+        // Minimum share of the printed partial's words that must reappear at
+        // the same spot in the scan PDF before its text layer is trusted.
+        'min_reference_match' => 0.8,
+        // Normalized distance within which a scan word counts as the same
+        // printed word as a reference word.
+        'position_tolerance' => 0.01,
+    ],
+
+    // Seconds a scan-parse job may run. Per-field reading makes several model
+    // calls, so keep the queue's retry_after (DB_QUEUE_RETRY_AFTER) above this.
+    'parse_timeout' => (int) env('MANUAL_FORM_PARSE_TIMEOUT', 600),
+
 ];

@@ -169,7 +169,12 @@ class FormRenderController extends Controller
             'last_name' => (string) $request->query('last_name', ''),
             // Google's People API only returns these when the applicant has
             // set them AND consented on the OAuth screen — see GoogleLinkController.
-            'sex' => (string) $request->query('sex', ''),
+            // Google's gender is applied to the "sex" field only when it is male/female.
+            'sex' => match (strtolower(trim((string) $request->query('sex', '')))) {
+                'male' => 'Male',
+                'female' => 'Female',
+                default => '',
+            },
             'birthday' => (string) $request->query('birthday', ''),
             'present_address' => (string) $request->query('present_address', ''),
         ];

@@ -130,6 +130,10 @@ it('routes an accreditation submission into a reviewable doc-gen request', funct
         ->where('organization_id', $org->getKey())
         ->where('action_type', 3)
         ->exists())->toBeTrue();
+
+    // The submission must carry the same org, or approval-time generation
+    // fails with "Form submission organization does not match request organization."
+    expect((int) $submission->fresh()->organization_id)->toBe((int) $org->getKey());
 });
 
 it('rejects an accreditation submission for a nonexistent org', function () {

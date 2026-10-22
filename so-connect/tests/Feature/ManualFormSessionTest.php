@@ -495,10 +495,21 @@ it('fails a manual session when scan parsing times out', function () {
     $session = manualSession($form, ['status' => ManualFormSession::STATUS_PARSING]);
 
     (new ParseManualFormScan((string) $session->getKey()))
-        ->failed(new RuntimeException('worker timeout'));
+        ->failed(new \Illuminate\Queue\TimeoutExceededException('worker timeout'));
 
     expect($session->refresh()->status)->toBe(ManualFormSession::STATUS_FAILED)
         ->and($session->parse_error)->toContain('could not be read in time');
+});
+
+it('reports a crash during scan parsing differently from a timeout', function () {
+    $form = manualForm('purpose', 'crashed-manual-scan');
+    $session = manualSession($form, ['status' => ManualFormSession::STATUS_PARSING]);
+
+    (new ParseManualFormScan((string) $session->getKey()))
+        ->failed(new RuntimeException('boom'));
+
+    expect($session->refresh()->status)->toBe(ManualFormSession::STATUS_FAILED)
+        ->and($session->parse_error)->toContain('Something went wrong');
 });
 
 it('rasterizes an uploaded PDF before aligning manual scan pages', function () {
@@ -538,15 +549,8 @@ it('rasterizes an uploaded PDF before aligning manual scan pages', function () {
     ]);
 
     $vision = Mockery::mock(DocumentVisionClient::class);
-    $vision->shouldReceive('extract')->once()->andReturn([
-        'ok' => true,
-        'model' => 'test-model',
-        'values' => [],
-        'signatures' => [],
-        'unresolved' => [],
-        'confidence' => [],
-        'warnings' => [],
-    ]);
+    // No fields to read, so the model is not called at all.
+    $vision->shouldReceive('extract')->never();
 
     (new ManualScanParser($ocr, $vision, $rasterizer))->parse((string) $session->getKey());
 
@@ -582,17 +586,8 @@ it('crops a detected signature from the scan and stores it for review', function
     ]);
 
     $vision = Mockery::mock(DocumentVisionClient::class);
-    $vision->shouldReceive('extract')->once()->andReturn([
-        'ok' => true,
-        'model' => 'test-model',
-        'values' => [],
-        'signatures' => [
-            'adviser_sig' => ['present' => true, 'page' => 0, 'bounds' => [0.0, 0.0, 1.0, 1.0]],
-        ],
-        'unresolved' => [],
-        'confidence' => [],
-        'warnings' => [],
-    ]);
+    // An accurately placed signature is cropped directly; no model call.
+    $vision->shouldReceive('extract')->never();
 
     (new ManualScanParser($ocr, $vision, Mockery::mock(PdfRasterizer::class)))
         ->parse((string) $session->getKey());
@@ -907,4 +902,48 @@ it('re-measures a table field against the frozen partial and awaits the scan whe
 
     $field = collect($session->session_schema['extractable_fields'])->firstWhere('key', 'adviser2_name');
     expect($field['bounds'][0])->toBe(0.5);
+});
+
+it('returns a stuck draft to the digital form with its typed values', function () {
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+
+    $org = recordsOrganization('Return Org');
+    $owner = manualOfficer((int) $org->getKey());
+    $intruder = manualOfficer((int) $org->getKey());
+    $form = manualForm('purpose', 'return-to-digital');
+
+    $session = manualSession($form, [
+        'user_id' => (int) $owner->getKey(),
+        'status' => ManualFormSession::STATUS_FAILED,
+        'parse_error' => 'These required fields are not covered by any printed template: Purpose.',
+        'draft_payload' => ['purpose' => 'Leadership seminar'],
+    ]);
+    Storage::disk('public')->put("manual-form/{$session->getKey()}/partial.pdf", '%PDF');
+
+    $this->actingAs($owner)->get(route('manual.show', $session))
+        ->assertOk()->assertSee('Return to the digital form');
+
+    $this->actingAs($intruder)->post(route('manual.return-to-digital', $session))->assertNotFound();
+    expect(ManualFormSession::find($session->getKey()))->not->toBeNull();
+
+    $this->actingAs($owner)->post(route('manual.return-to-digital', $session))
+        ->assertRedirect(route('forms.render', 'return-to-digital'))
+        ->assertSessionHasInput('purpose', 'Leadership seminar')
+        ->assertSessionHas('success');
+
+    expect(ManualFormSession::find($session->getKey()))->toBeNull()
+        ->and(Storage::disk('public')->exists("manual-form/{$session->getKey()}/partial.pdf"))->toBeFalse();
+});
+
+it('refuses to return an already-submitted draft to the digital form', function () {
+    $org = recordsOrganization('Submitted Return Org');
+    $owner = manualOfficer((int) $org->getKey());
+    $session = manualSession(manualForm('purpose', 'return-submitted'), [
+        'user_id' => (int) $owner->getKey(),
+        'status' => ManualFormSession::STATUS_SUBMITTED,
+    ]);
+
+    $this->actingAs($owner)->post(route('manual.return-to-digital', $session))->assertStatus(409);
+    expect(ManualFormSession::find($session->getKey()))->not->toBeNull();
 });

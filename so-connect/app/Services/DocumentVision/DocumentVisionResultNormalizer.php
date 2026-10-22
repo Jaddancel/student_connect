@@ -13,6 +13,13 @@ namespace App\Services\DocumentVision;
  */
 class DocumentVisionResultNormalizer
 {
+    /** Input formats the form builder validates date/time fields against. */
+    private const TEMPORAL_FORMATS = [
+        'date' => 'Y-m-d',
+        'time' => 'H:i',
+        'datetime' => 'Y-m-d H:i',
+    ];
+
     /**
      * @param  array<int,array{key:string,type:string,options?:?array<int,array{value:string,label:string}>,page?:int}>  $requestedFields
      * @param  array<string,mixed>  $raw  decoded model JSON
@@ -99,11 +106,39 @@ class DocumentVisionResultNormalizer
             return $this->matchOption($options, $value);
         }
 
+        if (is_scalar($value) && in_array($type, array_keys(self::TEMPORAL_FORMATS), true)) {
+            return $this->temporal($type, trim((string) $value));
+        }
+
         if (is_scalar($value)) {
             return trim((string) $value) === '' ? null : trim((string) $value);
         }
 
         return null;
+    }
+
+    /**
+     * A written date/time converted to the form's input format so it pre-fills
+     * the review picker ("October 23, 2026" → "2026-10-23"). Text that does not
+     * parse unambiguously is kept as written for the user to correct.
+     */
+    private function temporal(string $type, string $value): ?string
+    {
+        if ($value === '') {
+            return null;
+        }
+        $parseable = $type === 'time'
+            ? preg_match('/\d\s*(:|am\b|pm\b|a\.m|p\.m)/i', $value)
+            : preg_match('/\d+\D+\d+|[a-z]{3,}\D*\d|\d\D*[a-z]{3,}/i', $value);
+        if (! $parseable) {
+            return $value;
+        }
+
+        try {
+            return \Illuminate\Support\Carbon::parse($value)->format(self::TEMPORAL_FORMATS[$type]);
+        } catch (\Throwable) {
+            return $value;
+        }
     }
 
     /**

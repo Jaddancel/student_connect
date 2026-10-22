@@ -188,6 +188,7 @@ class ManualFormSessionService
             $raster = $this->rasterizer->rasterize(
                 Storage::disk($disk)->path($pdfRelative),
                 $pagesDir,
+                (int) config('manual_form.render_dpi', 200),
             );
             if (! ($raster['ok'] ?? false)) {
                 $this->failPreparation($session, $document, 'Could not prepare the printable pages: '.($raster['error'] ?? 'unknown'));
@@ -262,7 +263,7 @@ class ManualFormSessionService
                 $status = ManualFormSession::STATUS_FAILED;
             }
         }
-        $values = $confidence = $signatures = $signatureImages = $unresolved = $warnings = [];
+        $values = $confidence = $signatures = $signatureImages = $unresolved = $warnings = $sources = [];
         foreach ($documents as $document) {
             $result = (array) $document->parse_result;
             foreach ((array) ($result['values'] ?? []) as $key => $value) {
@@ -273,6 +274,9 @@ class ManualFormSessionService
                     continue;
                 }
                 $values[$key] = $value;
+                if (isset($result['sources'][$key])) {
+                    $sources[$key] = (string) $result['sources'][$key];
+                }
             }
             $confidence = array_merge($confidence, (array) $document->parse_confidence);
             $signatures = array_merge($signatures, (array) ($result['signatures'] ?? []));
@@ -284,10 +288,12 @@ class ManualFormSessionService
         $session->forceFill([
             'status' => $status,
             'parse_error' => isset($missing) && $missing !== []
-                ? 'These required fields are not covered by any printed template: '.implode(', ', $missing).'.'
+                ? 'These required fields are not covered by any printed template: '.implode(', ', $missing)
+                    .'. Fill them in on the digital form, then start manual filling again.'
                 : $documents->first(fn ($doc) => $doc->status === ManualFormSession::STATUS_FAILED)?->parse_error,
             'parse_result' => ['values' => $values, 'signatures' => $signatures,
-                'signature_images' => $signatureImages, 'unresolved' => array_values(array_unique($unresolved))],
+                'signature_images' => $signatureImages, 'unresolved' => array_values(array_unique($unresolved)),
+                'sources' => $sources],
             'parse_confidence' => $confidence,
             'parse_warnings' => array_values(array_unique($warnings)),
             'parse_model' => $documents->pluck('parse_model')->filter()->unique()->implode(', ') ?: null,

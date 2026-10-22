@@ -638,8 +638,18 @@ Gemini chat assistant and the PaddleOCR ID/waiver scanner.
 ```bash
 # On the Docker host (not inside a container):
 ollama serve                 # or run it as a service
-ollama pull qwen2.5vl:3b     # ~3B vision model, fits an 8 GB GPU
+ollama pull qwen2.5vl:7b     # ~6 GB vision model, fits an 8 GB GPU
+                             # (use qwen2.5vl:3b on smaller GPUs / CPU-only)
 ```
+
+With the bundled `ollama` compose service, pull inside it instead:
+`docker compose exec ollama ollama pull qwen2.5vl:7b`.
+
+On GPUs with 10 GB or less (e.g. an 8 GB RTX 4060), use Ollama **0.40 or
+newer** (`compose.yaml` pins `0.40.8`). Ollama 0.30.x always ran the vision
+encoder on the CPU on such cards, so each image read took minutes. Check with
+`docker compose exec ollama ollama ps` during a parse: it should show
+`100% GPU`.
 
 The Sail containers reach the daemon at `host.docker.internal:11434` (already
 mapped in `compose.yaml`). Configure it in `.env` (see `.env.example`):
@@ -647,10 +657,26 @@ mapped in `compose.yaml`). Configure it in `.env` (see `.env.example`):
 ```dotenv
 DOCUMENT_VISION_PROVIDER=ollama
 DOCUMENT_VISION_URL=http://host.docker.internal:11434
-DOCUMENT_VISION_MODEL=qwen2.5vl:3b
+DOCUMENT_VISION_MODEL=qwen2.5vl:7b
 DOCUMENT_VISION_TIMEOUT=180
 DOCUMENT_VISION_CONFIDENCE_THRESHOLD=0.55
+DOCUMENT_VISION_CROPS_PER_REQUEST=1
+MANUAL_FORM_PARSE_TIMEOUT=600
+DB_QUEUE_RETRY_AFTER=660   # must stay above MANUAL_FORM_PARSE_TIMEOUT
 ```
+
+**How a scan is read** (per field, first match wins)
+
+1. **Typed PDF text** — when the upload is the downloaded PDF with values typed
+   into it (edited text, text boxes/annotations or fillable fields), values are
+   read from the PDF's own text. No model is involved.
+2. **Per-field crop** — each remaining field's area is cropped from the aligned
+   scan and read by the vision model on its own, with the field's label.
+3. **Whole page** — fields without an accurate position fall back to a
+   whole-page read.
+
+The review screen shows which values came from typed text and which from
+handwriting.
 
 **Requirements**
 

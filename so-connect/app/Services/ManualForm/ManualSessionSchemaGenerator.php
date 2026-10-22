@@ -78,6 +78,7 @@ class ManualSessionSchemaGenerator
                 'page' => $baseline['page'] ?? null,
                 'bounds' => $baseline['bounds'] ?? null,
                 'bounds_source' => $baseline['bounds_source'] ?? 'none',
+                'read_bounds' => $baseline['read_bounds'] ?? null,
             ];
         }
 

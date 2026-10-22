@@ -125,17 +125,25 @@ services:
     networks:
       - sail
   # Ollama vision model server for reading handwritten form scans. Runs the
-  # qwen2.5vl:3b model. The service name MUST be `ollama` to match
+  # qwen2.5vl:7b model. The service name MUST be `ollama` to match
   # DOCUMENT_VISION_URL=http://ollama:11434. Pull the model once on first run
   # (see README); it persists in the sail-ollama volume.
   #
   # GPU: the `deploy` block passes an NVIDIA GPU through and REQUIRES the NVIDIA
-  # Container Toolkit on the host. Remove that block to run CPU-only (a 3B VLM
-  # is usable on CPU but noticeably slower).
+  # Container Toolkit on the host. Remove that block to run CPU-only (use
+  # qwen2.5vl:3b there; the 7B model is very slow without a GPU).
   ollama:
-    image: "ollama/ollama:latest"
+    # Pinned: Ollama 0.30.x ran the vision encoder on the CPU on any GPU with
+    # ≤10 GB (e.g. an 8 GB RTX 4060), making each image read take minutes.
+    # 0.40.x only does so when the encoder genuinely does not fit.
+    image: "ollama/ollama:${OLLAMA_VERSION:-0.40.8}"
     ports:
       - "${OLLAMA_PORT:-11434}:11434"
+    environment:
+      # Shrink the model's working memory (KV cache) so qwen2.5vl:7b fits
+      # entirely in an 8 GB GPU instead of spilling layers onto the CPU.
+      OLLAMA_FLASH_ATTENTION: "${OLLAMA_FLASH_ATTENTION:-1}"
+      OLLAMA_KV_CACHE_TYPE: "${OLLAMA_KV_CACHE_TYPE:-q8_0}"
     volumes:
       - "sail-ollama:/root/.ollama"
     networks:

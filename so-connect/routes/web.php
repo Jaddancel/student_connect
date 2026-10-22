@@ -35,10 +35,10 @@ use App\Http\Controllers\ExportController;
 use App\Http\Controllers\FormBlankPdfController;
 use App\Http\Controllers\FormDirectoryController;
 use App\Http\Controllers\FormRenderController;
-use App\Http\Controllers\ManualFormSessionController;
 use App\Http\Controllers\GuestAccessController;
 use App\Http\Controllers\IdScanController;
 use App\Http\Controllers\LandingPage;
+use App\Http\Controllers\ManualFormSessionController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\PolicySecurityRequestController;
 use App\Http\Controllers\PostController;
@@ -414,6 +414,8 @@ Route::post('/manual/{session}/documents/{document}/scans', [ManualFormSessionCo
 Route::post('/manual/{session}/documents/{document}/retry', [ManualFormSessionController::class, 'retryDocument'])
     ->middleware('throttle:20,1')->name('manual.documents.retry');
 Route::delete('/manual/{session}', [ManualFormSessionController::class, 'destroy'])->name('manual.destroy');
+Route::post('/manual/{session}/return-to-digital', [ManualFormSessionController::class, 'returnToDigital'])
+    ->middleware('throttle:20,1')->name('manual.return-to-digital');
 
 // The Drafts page is officer-only (type 3): a filtered list of the signed-in
 // user's own open manual drafts. Public guests resume via their private link.
@@ -600,7 +602,6 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->name('admin.database-view.officers.export.print');
     Route::get('/admin/database-view/officers/export/xlsx', [DatabaseViewController::class, 'exportOfficersXlsx'])
         ->name('admin.database-view.officers.export.xlsx');
-
 
     // Report Templates (wizard editor, see app/Reports).
     Route::get('/admin/report-templates', [\App\Http\Controllers\Admin\ReportTemplateController::class, 'index'])

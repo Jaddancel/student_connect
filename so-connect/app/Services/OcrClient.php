@@ -195,6 +195,41 @@ class OcrClient
     }
 
     /**
+     * Typed text stored as annotations / fillable-form values in a PDF scan,
+     * with normalized top-left positions per page. Failure is graceful
+     * (`ok:false`): callers then rely on the page's own text only.
+     *
+     * @return array{ok:bool, pages?:array<int,array{width:float,height:float,rotate:int,items:array<int,array{text:string,rect:array<int,float>}>}>, note?:string}
+     */
+    public function pdfAnnotations(string $pdfBytes): array
+    {
+        $url = rtrim((string) config('services.ocr.url'), '/').'/pdf-annotations';
+        $timeout = (int) config('services.ocr.timeout', 60);
+
+        if ($pdfBytes === '') {
+            return ['ok' => false, 'note' => 'empty pdf'];
+        }
+
+        try {
+            $response = Http::timeout($timeout)
+                ->attach('pdf', $pdfBytes, 'scan.pdf')
+                ->post($url);
+
+            if (! $response->successful()) {
+                Log::info('PDF annotation read returned non-200', ['status' => $response->status()]);
+
+                return ['ok' => false, 'note' => 'annotation reader error'];
+            }
+
+            return ['ok' => true, 'pages' => (array) $response->json('pages', [])];
+        } catch (\Throwable $e) {
+            Log::info('PDF annotation reader unavailable: '.$e->getMessage());
+
+            return ['ok' => false, 'note' => 'annotation reader unavailable'];
+        }
+    }
+
+    /**
      * Map the sidecar's zone-name → image-crop results (signature zones) onto
      * each zone's destination `field`, mirroring mapFields().
      *

@@ -41,6 +41,13 @@ class OrgAccreditationHandler implements SystemFunctionHandler
         $userId = (int) ($request->user()?->getKey() ?? 0);
         $organizationId = $this->organizationId($form, $payload, $request->user());
 
+        // The officer may have picked the organization on a global form, while
+        // the submission row was stamped with the form's own organization.
+        // Align them, or approval-time document generation rejects the pair.
+        if ($organizationId > 0 && (int) $submission->organization_id !== $organizationId) {
+            $submission->forceFill(['organization_id' => $organizationId])->save();
+        }
+
         app(DocumentGenerationService::class)->createDocumentGenerationRequest(
             $organizationId ?: null,
             (int) $submission->getKey(),

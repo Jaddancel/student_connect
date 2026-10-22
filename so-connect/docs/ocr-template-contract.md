@@ -83,8 +83,9 @@ Response:
 ```
 
 Each image is normalized (grayscale → Otsu ink mask → crop to ink → 320×160
-frame) and scored `0.5·NCC + 0.5·ORB match ratio` against the probe; `match` is
-true when the best score clears `SIGNATURE_MATCH_THRESHOLD` (env, default 0.45).
+frame) and scored `max(0.5·NCC + 0.5·ORB match ratio, scale/shift-tolerant NCC)`
+against the probe; `match` is true when the best score clears
+`SIGNATURE_MATCH_THRESHOLD` (env, default 0.40).
 An empty/blank probe returns `match: false` with `"note": "empty probe"`.
 
 ## Health

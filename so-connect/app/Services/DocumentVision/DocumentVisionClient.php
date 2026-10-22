@@ -14,13 +14,17 @@ namespace App\Services\DocumentVision;
 interface DocumentVisionClient
 {
     /**
-     * Extract handwritten values for the declared fields by comparing each
-     * frozen reference page with its aligned scan page.
+     * Extract written/typed values for the declared fields from the aligned
+     * scan pages. Fields with an entry in `crops` are read from that cropped
+     * answer area on its own; the rest (and any whose crop read failed) are
+     * read from the whole pages.
      *
      * @param  array{
      *     known_values?: array<string,mixed>,
-     *     fields: array<int,array{key:string,type:string,options?:?array<int,array{value:string,label:string}>,page:int,bounds?:array<int,float>}>,
-     *     pages: array<int,array{index:int,reference_image:string,scan_image:string}>
+     *     fields: array<int,array{key:string,label?:string,type:string,options?:?array<int,array{value:string,label:string}>,page:int,bounds?:array<int,float>}>,
+     *     pages: array<int,array{index:int,reference_image:string,scan_image:string}>,
+     *     crops?: array<int,array{key:string,label:string,type:string,options:mixed,image:string}>,
+     *     progress?: callable(int $done, int $total, string $label): void
      * }  $request
      * @return array{
      *     ok: bool,
@@ -31,6 +35,7 @@ interface DocumentVisionClient
      *     confidence?: array<string,float>,
      *     unresolved?: array<int,string>,
      *     warnings?: array<int,string>,
+     *     sources?: array<string,string>,
      *     error?: string
      * }
      */

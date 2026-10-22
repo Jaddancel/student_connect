@@ -265,15 +265,53 @@ form…"), no model inference runs here:
 
 ## 4. Extraction request / response
 
+### 4.0 Reading order
+
+`ManualScanParser` reads each extractable field from the most reliable source
+available, recording it in `parse_result.sources` (`text_layer` | `crop` |
+`page`), which the review screen summarizes:
+
+1. **Typed PDF text (`text_layer`)** — when the upload is a single PDF whose
+   pages match the frozen partial's page count/shape and at least 80% of the
+   partial's printed words reappear in place, the scan's own text
+   (`pdftotext -bbox`) plus annotation / fillable-field text (OCR sidecar
+   `POST /pdf-annotations`) is used. Printed words are subtracted; an
+   annotation also drawn into the page text is counted once. Remaining words
+   are assigned to the field whose read region contains them, then normalized
+   like model output (options mapped, dates → `Y-m-d`, times → `H:i`).
+   Confidence is `1.0`, and no model call is made for these fields.
+2. **Per-field crop (`crop`)** — remaining fields with an accurate position
+   (`bounds_source` `render`/`cell`) are cropped from the aligned scan,
+   upscaled to at least `DOCUMENT_VISION_CROP_MIN_EDGE` px on the short side,
+   and sent to the model with their label, `DOCUMENT_VISION_CROPS_PER_REQUEST`
+   per call.
+3. **Whole page (`page`)** — fields without a crop, or whose crop call failed,
+   are read from the whole pages (longest edge ≤ `DOCUMENT_VISION_MAX_IMAGE_EDGE`).
+
+Signatures with an accurate box skip the model entirely: they are cropped
+directly (§4.4), and one with no ink is reported `unresolved`.
+
+**Read region.** A text field's marker is one line tall, so the template
+baseline also stores `read_bounds`: the marker widened to its cell column and
+extended down to just above the next printed text in that column (capped at
+`manual_form.read_region.max_band`). Sessions prepared before `read_bounds`
+existed fall back to `bounds` padded by `manual_form.read_region.fallback_pad`.
+
+**Progress.** While parsing, the parser stores `{percent, label}` in the cache
+(`App\Services\ManualForm\ParseProgress`); the status endpoints return it as
+`progress` for the progress bar on the "Reading your scan…" screen.
+
 ### 4.1 Request (app → document-vision client)
 
-The app sends ordered `(reference_page, scan_page)` image pairs plus the session
-schema. Images are base64 PNG/JPEG, longest edge clamped to
-`DOCUMENT_VISION_MAX_IMAGE_EDGE`.
+The app sends the aligned scan pages plus the session schema's fields (with
+labels) and, for fields with an accurate position, per-field `crops`
+(`{key,label,type,options,image}`). Images are base64 PNG/JPEG; whole pages
+are clamped to `DOCUMENT_VISION_MAX_IMAGE_EDGE`. An optional `progress`
+callback receives `(done, total, label)` before each model call.
 
 ```json
 {
-    "model": "qwen2.5vl:3b",
+    "model": "qwen2.5vl:7b",
     "known_values": { "activity_title": "Robotics Expo" },
     "fields": [
         {
@@ -355,7 +393,7 @@ confidence clamped, and non-declared fields ignored.
 ```json
 {
     "ok": true,
-    "model": "qwen2.5vl:3b",
+    "model": "qwen2.5vl:7b",
     "values": { "venue": "Gymnasium", "committee": "sports" },
     "signatures": {
         "adviser_signature": {
@@ -380,7 +418,7 @@ as low-confidence for review but **still shown**, never silently dropped.
 `unresolved` lists requested keys the model returned `null` for or that failed
 validation. Signatures never appear in `values`.
 
-### 4.3 Signature capture
+### 4.4 Signature capture
 
 The model reports a signature only as `present` + a `bounds` box, never as an
 image. An unfilled signature field is bounded by its **own cell rectangle** —

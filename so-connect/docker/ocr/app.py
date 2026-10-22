@@ -19,6 +19,12 @@ Contract (frozen in docs/ocr-template-contract.md):
   ->  {"ok": true, "match": bool, "best": {"id": int, "score": float} | null,
        "threshold": float}
 
+  POST /pdf-annotations   multipart:
+      pdf — an uploaded PDF scan
+  ->  {"ok": true, "pages": [{"width", "height", "rotate",
+       "items": [{"text": "...", "rect": [x1, y1, x2, y2]}]}]}
+      Typed annotation / fillable-field text, normalized top-left boxes.
+
   GET /health -> {"status": "ok"}
 
 The incoming photo is scaled to the template's reference dimensions so the
@@ -219,13 +225,14 @@ async def scan(image: UploadFile, template: str = Form(...)):
 # --- signature identification ------------------------------------------------
 
 # Measured on the three-signature scenario suite (tests/Feature/
-# SignatureRecognitionScenarioTest.php): a signature captured a second time —
-# re-photographed at another angle, scale and exposure — scores 0.41..0.52
-# against its own stored reference, while a different person's signature never
-# passes 0.09. 0.45 sat inside the genuine range and rejected half of the real
-# re-captures; 0.30 clears every genuine pairing and still leaves 3x headroom
-# over the closest impostor. Override with SIGNATURE_MATCH_THRESHOLD.
-SIGNATURE_MATCH_THRESHOLD = float(os.environ.get("SIGNATURE_MATCH_THRESHOLD", "0.30"))
+# SignatureRecognitionScenarioTest.php). Scores are max(centred NCC+ORB,
+# scale/shift-tolerant NCC): the tolerant pass lifts genuine re-captures (a
+# signature re-photographed at another angle, scale and exposure scores
+# 0.53..0.64 against its own reference) but also lifts impostors, up to 0.32.
+# 0.30 was tuned before that pass existed and let the closest impostor through;
+# 0.40 clears every genuine pairing with 0.13 to spare and keeps 0.08 above the
+# closest impostor. Override with SIGNATURE_MATCH_THRESHOLD.
+SIGNATURE_MATCH_THRESHOLD = float(os.environ.get("SIGNATURE_MATCH_THRESHOLD", "0.40"))
 _SIG_SIZE = (320, 160)  # normalized (w, h) frame every signature is compared in
 
 
@@ -782,3 +789,123 @@ def _encode_png(cv2, img) -> str:
     if not ok:
         return ""
     return "data:image/png;base64," + base64.b64encode(buf.tobytes()).decode("ascii")
+
+
+@app.post("/pdf-annotations")
+async def pdf_annotations(pdf: UploadFile = File(...)):
+    """Text a user typed onto a PDF as annotations or fillable-form values.
+
+    Poppler's `pdftotext` (used app-side for the page's own text) ignores
+    annotations, yet most "type on a PDF" tools (browser PDF viewers, Acrobat
+    Fill & Sign, phone apps) store typed text as FreeText annotations or as
+    AcroForm widget values. This returns that text with its position so the app
+    can read typed entries without OCR.
+
+        pdf — the uploaded PDF
+
+    ->  {"ok": true,
+         "pages": [{"width": <pt>, "height": <pt>, "rotate": <deg>,
+                     "items": [{"text": "...", "rect": [x1, y1, x2, y2]}, ...]}, ...]}
+
+    `rect` is normalized to [0, 1] with a top-left origin, matching the app's
+    bounding-box convention. Rotated pages report no items (their geometry would
+    not match the reference page).
+    """
+    from pypdf import PdfReader
+
+    data = await pdf.read()
+    if not data:
+        raise HTTPException(status_code=422, detail="pdf is empty")
+
+    try:
+        reader = PdfReader(io.BytesIO(data))
+        if reader.is_encrypted:
+            reader.decrypt("")
+        raw_pages = list(reader.pages)
+    except Exception:
+        raise HTTPException(status_code=422, detail="pdf could not be parsed")
+
+    pages = []
+    for page in raw_pages:
+        try:
+            box = page.cropbox
+            left, bottom = float(box.left), float(box.bottom)
+            width, height = float(box.width), float(box.height)
+            rotate = int(page.get("/Rotate", 0) or 0) % 360
+        except Exception:
+            pages.append({"width": 0, "height": 0, "rotate": 0, "items": []})
+            continue
+
+        items = []
+        if width > 0 and height > 0 and rotate == 0:
+            for annot in _page_annotations(page):
+                text = _annotation_text(annot)
+                rect = _annotation_rect(annot, left, bottom, width, height)
+                if text and rect:
+                    items.append({"text": text, "rect": rect})
+
+        pages.append({"width": width, "height": height, "rotate": rotate, "items": items})
+
+    return {"ok": True, "pages": pages}
+
+
+def _page_annotations(page):
+    try:
+        annots = page.get("/Annots") or []
+        annots = annots.get_object() if hasattr(annots, "get_object") else annots
+    except Exception:
+        return []
+    out = []
+    for ref in annots:
+        try:
+            annot = ref.get_object()
+        except Exception:
+            continue
+        # Bit 2 of /F is "Hidden" — not printed, not visible.
+        if int(annot.get("/F", 0) or 0) & 2:
+            continue
+        out.append(annot)
+    return out
+
+
+def _inherited(annot, key):
+    node, depth = annot, 0
+    while node is not None and depth < 10:
+        if key in node:
+            return node.get(key)
+        parent = node.get("/Parent")
+        node = parent.get_object() if parent is not None else None
+        depth += 1
+    return None
+
+
+def _annotation_text(annot) -> str:
+    subtype = str(annot.get("/Subtype", ""))
+    value = None
+    if subtype == "/FreeText":
+        value = annot.get("/Contents")
+    elif subtype == "/Widget":
+        field_type = str(_inherited(annot, "/FT") or "")
+        if field_type in ("/Tx", "/Ch"):
+            value = _inherited(annot, "/V")
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple)):
+        value = ", ".join(str(v) for v in value)
+    text = str(value).replace("\r\n", "\n").replace("\r", "\n").strip()
+    return text
+
+
+def _annotation_rect(annot, left, bottom, width, height):
+    try:
+        x1, y1, x2, y2 = (float(v) for v in annot.get("/Rect"))
+    except Exception:
+        return None
+    nx1 = (min(x1, x2) - left) / width
+    nx2 = (max(x1, x2) - left) / width
+    ny1 = 1.0 - (max(y1, y2) - bottom) / height
+    ny2 = 1.0 - (min(y1, y2) - bottom) / height
+    rect = [max(0.0, min(1.0, round(v, 4))) for v in (nx1, ny1, nx2, ny2)]
+    if rect[0] >= rect[2] or rect[1] >= rect[3]:
+        return None
+    return rect

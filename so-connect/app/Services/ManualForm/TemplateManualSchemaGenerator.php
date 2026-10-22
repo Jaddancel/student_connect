@@ -159,6 +159,14 @@ class TemplateManualSchemaGenerator
                 $entry['bounds'] = $isSignature
                     ? $this->sentinel->signatureRegion($anchor, $render['pages'][$page]['words'] ?? [], $columnRange, $fallbackBand)
                     : $this->fieldRegion($anchor, $columnRange);
+                if (! $isSignature) {
+                    $entry['read_bounds'] = $this->sentinel->readRegion(
+                        $anchor,
+                        $render['pages'][$page]['words'] ?? [],
+                        $columnRange,
+                        (float) config('manual_form.read_region.max_band', 0.08),
+                    );
+                }
                 $entry['page'] = $page;
                 $entry['bounds_source'] = 'render';
             }
@@ -332,6 +340,7 @@ class TemplateManualSchemaGenerator
                 'writable_area' => $area['writable_area'] ?? 'uncertain',
                 'cell_path' => $area['cell_path'] ?? null,
                 'bounds_source' => $area['bounds_source'] ?? 'none',
+                'read_bounds' => $area['read_bounds'] ?? null,
             ];
         }, $fields);
     }

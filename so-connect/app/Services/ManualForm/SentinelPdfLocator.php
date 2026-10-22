@@ -110,7 +110,7 @@ class SentinelPdfLocator
      * @param  array{page:int,bounds:array<int,float>}  $anchor
      * @param  array<int,array{x1:float,y1:float,x2:float,y2:float}>  $pageWords
      * @param  array{0:float,1:float}|null  $columnRange
-     * @return array<int,float>  [x1,y1,x2,y2]
+     * @return array<int,float> [x1,y1,x2,y2]
      */
     public function signatureRegion(array $anchor, array $pageWords, ?array $columnRange, float $fallbackBand): array
     {
@@ -147,6 +147,77 @@ class SentinelPdfLocator
             $this->clamp01($x2),
             $this->clamp01($y2),
         ];
+    }
+
+    /**
+     * The area a text field's entry is read from: the one-line marker anchor
+     * widened to its cell column (or, in free-flow text, to the next printed
+     * word on the same line) and extended down to just above the next printed
+     * text in that column, capped at `$maxBand` below the anchor. A typed or
+     * handwritten answer often starts on the marker's line but wraps or sits
+     * lower in the cell, which the marker box alone would miss.
+     *
+     * @param  array{page:int,bounds:array<int,float>}  $anchor
+     * @param  array<int,array{x1:float,y1:float,x2:float,y2:float}>  $pageWords
+     * @param  array{0:float,1:float}|null  $columnRange
+     * @return array<int,float> [x1,y1,x2,y2]
+     */
+    public function readRegion(array $anchor, array $pageWords, ?array $columnRange, float $maxBand): array
+    {
+        [$ax1, $ay1, $ax2, $ay2] = $anchor['bounds'];
+        $pad = 0.004;
+
+        $x1 = $columnRange[0] ?? max(0.0, $ax1 - 0.005);
+        $x2 = $columnRange[1] ?? null;
+        if ($x2 === null) {
+            $rightLimit = 0.95;
+            foreach ($pageWords as $word) {
+                $sameLine = $word['y1'] < $ay2 && $word['y2'] > $ay1;
+                if ($sameLine && $word['x1'] >= $ax2 - $pad) {
+                    $rightLimit = min($rightLimit, $word['x1'] - $pad);
+                }
+            }
+            $x2 = max($ax2, $rightLimit);
+        }
+        if ($x2 <= $x1) {
+            $x1 = $ax1;
+            $x2 = $ax2;
+        }
+
+        $limit = min(1.0, $ay2 + $maxBand);
+        $belowY = null;
+        foreach ($pageWords as $word) {
+            if ($word['y1'] <= $ay2 + $pad) {
+                continue;
+            }
+            $centre = ($word['x1'] + $word['x2']) / 2;
+            if ($centre < $x1 || $centre > $x2) {
+                continue;
+            }
+            $belowY = $belowY === null ? $word['y1'] : min($belowY, $word['y1']);
+        }
+
+        $y2 = $belowY !== null ? min($limit, $belowY - $pad) : $limit;
+
+        return [
+            $this->clamp01($x1),
+            $this->clamp01(max(0.0, $ay1 - $pad)),
+            $this->clamp01($x2),
+            $this->clamp01(max($ay2, $y2)),
+        ];
+    }
+
+    /**
+     * Normalized words per 0-indexed page of an existing PDF (see parseWords),
+     * or [] when `pdftotext` is unavailable or the file has no text layer.
+     *
+     * @return array<int,array{width:float,height:float,words:array<int,array{x1:float,y1:float,x2:float,y2:float,text:string}>}>
+     */
+    public function wordsFromPdf(string $pdfPath): array
+    {
+        $xhtml = $this->runPdfToText($pdfPath);
+
+        return $xhtml === null ? [] : $this->parseWords($xhtml);
     }
 
     /**

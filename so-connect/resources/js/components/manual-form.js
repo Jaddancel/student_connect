@@ -55,11 +55,31 @@ export function manualScanUploader(config = {}) {
         dragging: false,
         uploading: false,
         polling: false,
+        progress: { percent: 0, label: "" },
+        startedAt: null,
+        elapsed: 0,
 
         init() {
             if (this.status === "preparing" || this.status === "parsing") {
                 this.poll();
             }
+            // Elapsed time keeps the screen visibly alive between progress
+            // steps, which can each take a while on a large vision model.
+            setInterval(() => {
+                if (this.status !== "parsing") {
+                    this.startedAt = null;
+                    this.elapsed = 0;
+                    return;
+                }
+                this.startedAt ??= Date.now();
+                this.elapsed = Math.floor((Date.now() - this.startedAt) / 1000);
+            }, 1000);
+        },
+
+        get elapsedLabel() {
+            const m = Math.floor(this.elapsed / 60);
+            const s = String(this.elapsed % 60).padStart(2, "0");
+            return `${m}:${s}`;
         },
 
         addFiles(list) {
@@ -108,6 +128,7 @@ export function manualScanUploader(config = {}) {
                 const json = await res.json();
                 if (json.ok) {
                     this.status = "parsing";
+                    this.progress = { percent: 0, label: "" };
                     this.files = [];
                     this.poll();
                 } else {
@@ -136,6 +157,7 @@ export function manualScanUploader(config = {}) {
                 const json = await res.json();
                 if (json.ok) {
                     this.status = "parsing";
+                    this.progress = { percent: 0, label: "" };
                     this.poll();
                 } else {
                     this.error = json.error || "Could not retry.";
@@ -158,6 +180,13 @@ export function manualScanUploader(config = {}) {
                     this.status = json.status;
                     this.error = json.error || "";
                     this.warnings = json.warnings || [];
+                    if (json.progress) {
+                        // Never move the bar backwards between polls.
+                        this.progress = {
+                            percent: Math.max(this.progress.percent, json.progress.percent || 0),
+                            label: json.progress.label || this.progress.label,
+                        };
+                    }
 
                     if (json.status === "review") {
                         window.location.reload();

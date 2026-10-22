@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Forms\FieldType;
 use App\Forms\SystemFunction;
 use App\Jobs\ParseManualFormScan;
 use App\Models\Form;
 use App\Models\ManualFormSession;
 use App\Models\ManualFormSessionDocument;
 use App\Services\ManualForm\ManualFormSessionService;
+use App\Services\ManualForm\ParseProgress;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -69,12 +71,40 @@ class ManualFormSessionController extends Controller
             'error' => $session->parse_error,
             'warnings' => $session->parse_warnings ?? [],
             'download_ready' => $session->partial_pdf_path !== null,
+            'progress' => $this->sessionProgress($session),
             'documents' => $session->documents->map(fn ($doc) => [
                 'id' => $doc->getKey(), 'status' => $doc->status,
                 'download_ready' => $doc->partial_pdf_path !== null,
                 'error' => $doc->parse_error,
+                'progress' => ParseProgress::get($doc),
             ])->all(),
         ]);
+    }
+
+    /**
+     * Parse progress for the whole draft: its own when it has no documents,
+     * else the average across documents (finished ones count as 100%), with
+     * the label of the one still being read.
+     *
+     * @return array{percent:int,label:string}|null
+     */
+    private function sessionProgress(ManualFormSession $session): ?array
+    {
+        $documents = $session->documents;
+        if ($documents->isEmpty()) {
+            return ParseProgress::get($session);
+        }
+
+        $parsing = $documents->filter(fn ($doc) => $doc->status === ManualFormSession::STATUS_PARSING);
+        if ($parsing->isEmpty()) {
+            return null;
+        }
+
+        $percents = $documents->map(fn ($doc) => ParseProgress::get($doc)['percent']
+            ?? ($doc->status === ManualFormSession::STATUS_REVIEW ? 100 : 0));
+        $label = ParseProgress::get($parsing->first())['label'] ?? '';
+
+        return ['percent' => (int) round($percents->avg()), 'label' => $label];
     }
 
     public function statusDocument(Request $request, ManualFormSession $session, ManualFormSessionDocument $document): JsonResponse
@@ -86,6 +116,7 @@ class ManualFormSessionController extends Controller
             'ok' => true, 'status' => $document->status, 'error' => $document->parse_error,
             'warnings' => $document->parse_warnings ?? [],
             'download_ready' => $document->partial_pdf_path !== null,
+            'progress' => ParseProgress::get($document),
         ]);
     }
 
@@ -157,6 +188,7 @@ class ManualFormSessionController extends Controller
                 'confidence' => (array) $session->parse_confidence,
                 'unresolved' => (array) ($session->parse_result['unresolved'] ?? []),
                 'lowConfidence' => $this->lowConfidenceKeys($session),
+                'sourceSummary' => $this->sourceSummary($session),
             ]);
         }
 
@@ -168,6 +200,26 @@ class ManualFormSessionController extends Controller
             'review' => $review,
             'documents' => $session->documents,
         ]);
+    }
+
+    /**
+     * Field labels grouped by how their value was read: typed text taken
+     * straight from the PDF, or writing read from the scan image.
+     *
+     * @return array{typed:array<int,string>,written:array<int,string>}
+     */
+    private function sourceSummary(ManualFormSession $session): array
+    {
+        $labels = collect((array) $session->extractable_fields)
+            ->filter(fn ($f) => is_array($f) && isset($f['key']))
+            ->mapWithKeys(fn ($f) => [(string) $f['key'] => (string) ($f['label'] ?? $f['key'])]);
+
+        $summary = ['typed' => [], 'written' => []];
+        foreach ((array) ($session->parse_result['sources'] ?? []) as $key => $source) {
+            $summary[$source === 'text_layer' ? 'typed' : 'written'][] = $labels[$key] ?? (string) $key;
+        }
+
+        return $summary;
     }
 
     /**
@@ -227,6 +279,7 @@ class ManualFormSessionController extends Controller
             'parse_warnings' => null,
         ])->save();
 
+        ParseProgress::clear($session);
         ParseManualFormScan::dispatch((string) $session->getKey());
 
         return response()->json(['ok' => true, 'status' => $session->status]);
@@ -249,6 +302,7 @@ class ManualFormSessionController extends Controller
             'parse_error' => null,
         ])->save();
 
+        ParseProgress::clear($session);
         ParseManualFormScan::dispatch((string) $session->getKey());
 
         return response()->json(['ok' => true, 'status' => $session->status]);
@@ -287,6 +341,7 @@ class ManualFormSessionController extends Controller
             'parse_confidence' => null, 'parse_warnings' => null,
         ])->save();
         $this->sessions->syncDocuments($session);
+        ParseProgress::clear($document);
         ParseManualFormScan::dispatch((string) $session->getKey(), (int) $document->getKey());
 
         return response()->json(['ok' => true, 'status' => $document->status]);
@@ -309,6 +364,7 @@ class ManualFormSessionController extends Controller
         }
         $document->forceFill(['status' => ManualFormSession::STATUS_PARSING, 'parse_error' => null])->save();
         $this->sessions->syncDocuments($session);
+        ParseProgress::clear($document);
         ParseManualFormScan::dispatch((string) $session->getKey(), (int) $document->getKey());
 
         return response()->json(['ok' => true, 'status' => $document->status]);
@@ -333,6 +389,38 @@ class ManualFormSessionController extends Controller
         }
 
         return redirect()->route('manual.drafts')->with('success', 'Draft deleted.');
+    }
+
+    /**
+     * Abandon this paper draft and reopen the digital form pre-filled with
+     * everything the user had typed, so a value the printed form cannot carry
+     * (or any other change) can be made online. The draft's frozen PDF is
+     * stale once the values change, so it is discarded; Fill manually on the
+     * form starts a fresh one. Uploaded files are not carried over because a
+     * browser cannot pre-fill file inputs.
+     */
+    public function returnToDigital(Request $request, ManualFormSession $session)
+    {
+        $this->authorize403($request, $session);
+
+        $form = $session->form;
+        abort_if($form === null || ! $form->is_active, 404);
+        abort_if($session->status === ManualFormSession::STATUS_SUBMITTED, 409, 'This draft was already submitted.');
+
+        $fileKeys = $form->fields()->get()
+            ->filter(fn ($field) => FieldType::isFileLike($field->field_type) || $field->field_type === FieldType::MULTI_IMAGE)
+            ->pluck('field_key')
+            ->all();
+        $input = array_diff_key((array) $session->draft_payload, array_flip($fileKeys));
+
+        $disk = (string) config('documents.disk', 'public');
+        Storage::disk($disk)->deleteDirectory('manual-form/'.$session->getKey());
+        $session->delete();
+
+        return redirect()->route('forms.render', $form->route_name)
+            ->withInput($input)
+            ->with('success', 'Your draft was moved back to the digital form. Fill in anything missing, then submit online or choose Fill manually again.'
+                .($fileKeys !== [] && array_intersect_key((array) $session->draft_payload, array_flip($fileKeys)) !== [] ? ' Re-attach any files you had uploaded.' : ''));
     }
 
     /**

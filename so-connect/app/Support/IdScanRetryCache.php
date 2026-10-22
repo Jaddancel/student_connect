@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -130,18 +131,35 @@ final class IdScanRetryCache
         return is_array($decoded) ? $decoded : [];
     }
 
-    /** Best-effort cleanup of stale session captures, run opportunistically on write. */
+    /**
+     * Best-effort cleanup of stale session captures, run opportunistically on
+     * write. A directory that cannot be read or removed (e.g. left behind by a
+     * process running as another user) is skipped: cleanup must never fail the
+     * scan that triggered it.
+     */
     private static function gc(\Illuminate\Contracts\Filesystem\Filesystem $disk): void
     {
-        if (! $disk->exists(self::ROOT)) {
+        try {
+            if (! $disk->exists(self::ROOT)) {
+                return;
+            }
+            $directories = $disk->directories(self::ROOT);
+        } catch (\Throwable $e) {
+            Log::warning('ID scan retry cache: cleanup skipped: '.$e->getMessage());
+
             return;
         }
+
         $cutoff = now()->subHours(self::TTL_HOURS)->timestamp;
-        foreach ($disk->directories(self::ROOT) as $dir) {
-            $metaPath = "{$dir}/meta.json";
-            $modified = $disk->exists($metaPath) ? $disk->lastModified($metaPath) : 0;
-            if ($modified < $cutoff) {
-                $disk->deleteDirectory($dir);
+        foreach ($directories as $dir) {
+            try {
+                $metaPath = "{$dir}/meta.json";
+                $modified = $disk->exists($metaPath) ? $disk->lastModified($metaPath) : 0;
+                if ($modified < $cutoff) {
+                    $disk->deleteDirectory($dir);
+                }
+            } catch (\Throwable $e) {
+                Log::warning("ID scan retry cache: could not remove stale {$dir}: ".$e->getMessage());
             }
         }
     }
