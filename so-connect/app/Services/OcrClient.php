@@ -40,6 +40,21 @@ class OcrClient
      */
     public function scan(IdTemplate $template, UploadedFile|string $photo, string $side = 'front'): array
     {
+        $raw = $this->scanZones($template, $photo, $side);
+
+        return $raw['ok']
+            ? $this->mapScan($template, $raw['fields'], $raw['images'], $side)
+            : $this->empty($raw['note'] ?? 'scanner unavailable');
+    }
+
+    /**
+     * The sidecar's raw per-zone result: text keyed by zone name (regex
+     * already applied) and signature-zone ink crops. Never throws.
+     *
+     * @return array{ok: bool, fields: array<string,string>, images: array<string,string>, note?: string}
+     */
+    public function scanZones(IdTemplate $template, UploadedFile|string $photo, string $side = 'front'): array
+    {
         $url = rtrim((string) config('services.ocr.url'), '/').'/scan';
         $timeout = (int) config('services.ocr.timeout', 60);
 
@@ -63,18 +78,35 @@ class OcrClient
             if (! $response->successful()) {
                 Log::warning('OCR sidecar returned non-200', ['status' => $response->status()]);
 
-                return $this->empty('scanner error');
+                return ['ok' => false, 'fields' => [], 'images' => [], 'note' => 'scanner error'];
             }
 
-            $result = $this->mapFields($template, (array) $response->json('fields', []), $side);
-            $result['images'] = $this->mapImages($template, (array) $response->json('images', []), $side);
-
-            return $result;
+            return [
+                'ok' => true,
+                'fields' => array_map('strval', array_filter((array) $response->json('fields', []), 'is_scalar')),
+                'images' => (array) $response->json('images', []),
+            ];
         } catch (\Throwable $e) {
             Log::warning('OCR sidecar unreachable: '.$e->getMessage());
 
-            return $this->empty('scanner unavailable');
+            return ['ok' => false, 'fields' => [], 'images' => [], 'note' => 'scanner unavailable'];
         }
+    }
+
+    /**
+     * Map raw per-zone text and ink crops onto the template's destination
+     * fields, then split names and normalize dates.
+     *
+     * @param  array<string,string>  $zoneTexts  zone name => text
+     * @param  array<string,mixed>  $zoneImages  zone name => data-URL
+     * @return array{fields: array<string,string>, student_id: ?string, ok: bool, images: array<string,string>}
+     */
+    public function mapScan(IdTemplate $template, array $zoneTexts, array $zoneImages, string $side = 'front'): array
+    {
+        $result = $this->mapFields($template, $zoneTexts, $side);
+        $result['images'] = $this->mapImages($template, $zoneImages, $side);
+
+        return $result;
     }
 
     /**

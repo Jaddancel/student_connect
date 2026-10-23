@@ -62,6 +62,14 @@ return [
         // scan and read on its own. Small crops are upscaled to this short edge.
         'crops_per_request' => (int) env('DOCUMENT_VISION_CROPS_PER_REQUEST', 1),
         'crop_min_edge' => (int) env('DOCUMENT_VISION_CROP_MIN_EDGE', 112),
+        // How long Ollama keeps the model loaded after a request (-1 = always),
+        // so live ID/waiver scans never wait for a cold load.
+        'keep_alive' => env('DOCUMENT_VISION_KEEP_ALIVE', -1),
+        // ID and waiver scanners: read each text zone with the vision model,
+        // falling back to PaddleOCR per field. The budget bounds the whole
+        // scan request; zones left when it runs out use PaddleOCR.
+        'zone_reading' => (bool) env('DOCUMENT_VISION_ZONE_READING', true),
+        'zone_budget_seconds' => (int) env('DOCUMENT_VISION_ZONE_BUDGET', 25),
     ],
 
     'gemini' => [

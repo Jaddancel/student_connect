@@ -17,7 +17,7 @@ use Illuminate\Support\Str;
 class WaiverSubmissionService
 {
     public function __construct(
-        private readonly OcrClient $ocr,
+        private readonly \App\Services\Scanning\WaiverDocumentScanner $scanner,
         private readonly WaiverValidationService $validator,
     ) {}
 
@@ -85,12 +85,12 @@ class WaiverSubmissionService
         }
 
         try {
-            $scan = $this->ocr->scanWaiver($png, $template);
+            $expected = (array) (($field->field_options ?? [])['waiver_expected'] ?? []);
+
+            $scan = $this->scanner->scan($png, $template, $expected);
             if (! ($scan['ok'] ?? false)) {
                 return ['valid' => null, 'note' => 'scanner unavailable'];
             }
-
-            $expected = (array) (($field->field_options ?? [])['waiver_expected'] ?? []);
 
             return $this->validator->validate(
                 (array) ($scan['fields'] ?? []),

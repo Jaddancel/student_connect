@@ -144,6 +144,10 @@ services:
       # entirely in an 8 GB GPU instead of spilling layers onto the CPU.
       OLLAMA_FLASH_ATTENTION: "${OLLAMA_FLASH_ATTENTION:-1}"
       OLLAMA_KV_CACHE_TYPE: "${OLLAMA_KV_CACHE_TYPE:-q8_0}"
+      # Keep a loaded model in GPU memory indefinitely (~6 GB for qwen2.5vl:7b)
+      # so live ID/waiver scans never wait minutes for a cold load. The app's
+      # `vision:warm` schedule reloads it after this container restarts.
+      OLLAMA_KEEP_ALIVE: "${OLLAMA_KEEP_ALIVE:--1}"
     volumes:
       - "sail-ollama:/root/.ollama"
     networks:

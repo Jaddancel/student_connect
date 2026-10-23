@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\IdTemplate;
-use App\Services\OcrClient;
+use App\Services\Scanning\IdCardScanner;
 use App\Support\IdScanRetryCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +22,7 @@ use Illuminate\Validation\ValidationException;
  */
 class IdScanController extends Controller
 {
-    public function scan(Request $request, OcrClient $ocr): JsonResponse
+    public function scan(Request $request, IdCardScanner $scanner): JsonResponse
     {
         // This endpoint is consumed exclusively by the wizard's fetch(), which
         // cannot follow the redirect Laravel issues for a failed validation on
@@ -71,7 +71,9 @@ class IdScanController extends Controller
             ]);
         }
 
-        $result = $ocr->scan($template, $request->file('photo'), $side);
+        // Text zones are read by the vision model (blur-tolerant) with a
+        // PaddleOCR fallback per field; see IdCardScanner.
+        $result = $scanner->scan($template, $request->file('photo'), $side);
 
         // Cache this side's photo + detected fields against the session, so a
         // validation failure elsewhere on the form doesn't force a re-scan —
@@ -85,6 +87,8 @@ class IdScanController extends Controller
             // signer's signature image, which the wizard feeds into the form).
             'images' => $result['images'] ?? [],
             'note' => $result['note'] ?? null,
+            // field => vision|ocr: which reader produced each text value.
+            'sources' => $result['sources'] ?? [],
         ]);
     }
 

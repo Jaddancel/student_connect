@@ -32,6 +32,10 @@ Schedule::command('manual-sessions:cleanup')->daily();
 // Daily: email officials once per event whose after-event report is due.
 Schedule::command('after-event:notify')->daily();
 
+// Keep the document-vision model loaded on the GPU so live ID/waiver scans
+// never wait minutes for a cold load (reloads it after an Ollama restart).
+Schedule::command('vision:warm')->everyFiveMinutes()->withoutOverlapping()->runInBackground();
+
 Artisan::command('forms:bootstrap-template
     {name : Display name of the form}
     {docx_path : Path to source DOCX template}

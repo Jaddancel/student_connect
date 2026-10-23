@@ -76,6 +76,15 @@ export function manualScanUploader(config = {}) {
             }, 1000);
         },
 
+        progressBarStyle() {
+            return `width: ${Math.max(this.progress.percent, 3)}%`;
+        },
+
+        progressSummary() {
+            const label = this.progress.label || 'Waiting for the reader to start…';
+            return `${label} · ${this.progress.percent}% · ${this.elapsedLabel}`;
+        },
+
         get elapsedLabel() {
             const m = Math.floor(this.elapsed / 60);
             const s = String(this.elapsed % 60).padStart(2, "0");

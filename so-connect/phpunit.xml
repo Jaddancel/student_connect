@@ -37,5 +37,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Never call the real vision model from tests; tests that cover
+             model zone-reading enable it against faked responses. -->
+        <env name="DOCUMENT_VISION_ZONE_READING" value="false"/>
     </php>
 </phpunit>

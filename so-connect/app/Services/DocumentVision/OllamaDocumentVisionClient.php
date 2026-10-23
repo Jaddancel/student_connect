@@ -265,26 +265,132 @@ class OllamaDocumentVisionClient implements DocumentVisionClient
         }
     }
 
+    public function readZone(array $request): array
+    {
+        $image = is_string($request['image'] ?? null) ? $this->bareBase64($request['image']) : '';
+        if ($image === '') {
+            return ['ok' => false, 'status' => 'invalid_output', 'error' => 'no zone image'];
+        }
+
+        $kind = (string) ($request['kind'] ?? 'text');
+        $timeout = isset($request['timeout']) ? max(1, (int) $request['timeout']) : null;
+        $outlined = ($request['view'] ?? 'crop') === 'page';
+
+        $result = $this->call(
+            $this->zoneSystemPrompt((string) ($request['document'] ?? 'document'), $outlined),
+            $this->zonePrompt((string) ($request['label'] ?? ''), (string) ($request['key'] ?? ''), $kind, $outlined),
+            [$image],
+            $timeout,
+        );
+        if (! $result['ok']) {
+            return $result;
+        }
+
+        $json = $result['json'];
+        $entry = is_array($json['fields']['value'] ?? null) ? $json['fields']['value'] : $json;
+        $normalized = $this->normalizer->normalize(
+            [['key' => 'value', 'type' => in_array($kind, ['date', 'time'], true) ? $kind : 'text']],
+            ['fields' => ['value' => $entry]],
+        );
+
+        return [
+            'ok' => true,
+            'model' => $this->model(),
+            'value' => $normalized['values']['value'] ?? null,
+            'confidence' => $normalized['confidence']['value'] ?? null,
+        ];
+    }
+
+    public function warm(): bool
+    {
+        $base = $this->baseUrl();
+        if ($base === '') {
+            return false;
+        }
+
+        try {
+            $loaded = collect(Http::timeout(5)->get($base.'/api/ps')->json('models', []))
+                ->pluck('name')
+                ->contains($this->model());
+            if ($loaded) {
+                return true;
+            }
+
+            // An empty generate request loads the model without producing output.
+            return Http::timeout(max(60, (int) config('services.document_vision.timeout', 180)))
+                ->post($base.'/api/generate', ['model' => $this->model(), 'keep_alive' => $this->keepAlive()])
+                ->successful();
+        } catch (\Throwable $e) {
+            Log::info('Document vision warm-up failed: '.$e->getMessage());
+
+            return false;
+        }
+    }
+
+    /**
+     * How long Ollama keeps the model in GPU memory after a request; -1 keeps
+     * it loaded indefinitely so live scans never wait for a cold load.
+     */
+    private function keepAlive(): int|string
+    {
+        $value = config('services.document_vision.keep_alive', -1);
+
+        return is_numeric($value) ? (int) $value : (string) $value;
+    }
+
+    private function zoneSystemPrompt(string $document, bool $outlined = false): string
+    {
+        return implode(' ', [
+            $outlined
+                ? "You read the value of one field from a photo of a {$document} and return strict JSON only. The field to read is outlined with a red box; read only the text inside it."
+                : "You read the value of one field from a cropped photo of a {$document} and return strict JSON only.",
+            'The text may be printed or handwritten, and the photo may be blurry, tilted, glared or low-resolution.',
+            'Transcribe it exactly, letter by letter, even when it is an unfamiliar word, surname or Philippine place name. Never replace it with a more familiar word, and never invent or complete a value.',
+            'Keep the capitalization, digits and punctuation you can see (for example the comma in "DELA CRUZ, JUAN M.").',
+            'Ignore printed captions or labels (such as "Name:", "Address" or "Student No.")'
+                .($outlined ? ' and everything outside the red box, using the rest of the photo only to help make out blurry letters.' : ' and any text cut off at the edges that belongs to a neighbouring field.'),
+            'Return null when you cannot make out the text. Report a confidence between 0 and 1, low when letters are hard to make out.',
+        ]);
+    }
+
+    private function zonePrompt(string $label, string $key, string $kind, bool $outlined = false): string
+    {
+        $hint = match ($kind) {
+            'name' => 'It is a person\'s name.',
+            'id_number' => 'It is an ID number: digits, possibly with dashes or letters, no spaces.',
+            'date' => 'It is a date; return it as YYYY-MM-DD.',
+            'time' => 'It is a time of day; return it as HH:MM (24-hour).',
+            'address' => 'It is an address; copy it as written.',
+            default => '',
+        };
+
+        return ($outlined ? 'Read the field inside the red box. ' : '')
+            .'Field: '.json_encode(array_filter(['label' => $label, 'key' => $key]), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).'. '
+            .($hint !== '' ? $hint.' ' : '')
+            .'Respond with JSON: {"value":<string|null>,"confidence":<0-1>}.';
+    }
+
     /**
      * Perform the `/api/chat` call and decode strict JSON.
      *
      * @param  array<int,string>  $images  base64-encoded page images
      * @return array{ok:bool, json?:array<string,mixed>, status?:string, error?:string}
      */
-    private function call(string $system, string $prompt, array $images): array
+    private function call(string $system, string $prompt, array $images, ?int $timeoutSeconds = null): array
     {
         $base = $this->baseUrl();
         if ($base === '') {
             return ['ok' => false, 'status' => 'unavailable', 'error' => 'document vision not configured'];
         }
 
-        $timeout = (int) config('services.document_vision.timeout', 180);
+        $timeout = $timeoutSeconds ?? (int) config('services.document_vision.timeout', 180);
 
         try {
             $response = Http::timeout($timeout)->post($base.'/api/chat', [
                 'model' => $this->model(),
                 'stream' => false,
                 'format' => 'json',
+                'keep_alive' => $this->keepAlive(),
                 'options' => [
                     'temperature' => 0,
                     'num_ctx' => max(4096, (int) config('services.document_vision.context_length', 8192)),

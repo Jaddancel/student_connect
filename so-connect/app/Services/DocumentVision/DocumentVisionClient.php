@@ -61,6 +61,31 @@ interface DocumentVisionClient
     public function locateWritableAreas(array $request): array;
 
     /**
+     * Read the value of a single field from a cropped photo of an ID card or
+     * waiver (printed or handwritten, possibly blurry).
+     *
+     * @param  array{
+     *     image: string,
+     *     label?: string,
+     *     key?: string,
+     *     kind?: string,
+     *     document?: string,
+     *     view?: string,
+     *     timeout?: int
+     * }  $request  `kind` is one of text|name|id_number|date|time|address;
+     *              `view` is `crop` (image is the zone) or `page` (image is the
+     *              whole page with the zone outlined in red)
+     * @return array{ok:bool, status?:string, model?:string, value?:?string, confidence?:?float, error?:string}
+     */
+    public function readZone(array $request): array;
+
+    /**
+     * Make sure the model is loaded in memory (loading it if not), so live
+     * scans don't wait for a cold load. Returns whether it is ready.
+     */
+    public function warm(): bool;
+
+    /**
      * Is the provider configured and reachable? Diagnostics only — never gates
      * draft creation, since drafts stay resumable while the model is down.
      */

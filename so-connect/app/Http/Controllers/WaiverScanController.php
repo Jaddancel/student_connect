@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\OcrClient;
+use App\Services\Scanning\WaiverDocumentScanner;
 use App\Services\WaiverValidationService;
 use App\Support\SignatureImage;
 use Illuminate\Http\JsonResponse;
@@ -16,7 +16,7 @@ use Illuminate\Http\Request;
  */
 class WaiverScanController extends Controller
 {
-    public function scan(Request $request, OcrClient $ocr, WaiverValidationService $validator): JsonResponse
+    public function scan(Request $request, WaiverDocumentScanner $scanner, WaiverValidationService $validator): JsonResponse
     {
         $validated = $request->validate([
             'image' => ['required', 'string', 'starts_with:data:image'],
@@ -31,7 +31,7 @@ class WaiverScanController extends Controller
             return response()->json(['ok' => false, 'status' => 'bad_image'], 422);
         }
 
-        $scan = $ocr->scanWaiver($png, $validated['template']);
+        $scan = $scanner->scan($png, $validated['template'], (array) ($validated['expected'] ?? []));
         if (! ($scan['ok'] ?? false)) {
             return response()->json(['ok' => false, 'status' => 'unavailable']);
         }

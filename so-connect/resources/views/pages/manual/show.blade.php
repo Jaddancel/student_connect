@@ -47,9 +47,9 @@
                     <div class="mt-2" x-show="status === 'parsing'" x-cloak>
                         <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
                             <div class="h-full rounded-full bg-brand-500 transition-all duration-700 ease-out"
-                                :style="`width: ${Math.max(progress.percent, 3)}%`"></div>
+                                :style="progressBarStyle()"></div>
                         </div>
-                        <p class="mt-1 text-xs text-gray-500" x-text="(progress.label || 'Waiting for the reader to start…') + ' · ' + progress.percent + '% · ' + elapsedLabel"></p>
+                        <p class="mt-1 text-xs text-gray-500" x-text="progressSummary()"></p>
                     </div>
                     <p class="mt-1 text-sm text-red-600" x-show="error" x-text="error"></p>
                     @if ($document->partial_pdf_path)
@@ -162,7 +162,7 @@
                         role="progressbar" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="progress.percent">
                         <div class="h-full rounded-full bg-brand-500 transition-all duration-700 ease-out"
                             :class="progress.percent === 0 && 'animate-pulse'"
-                            :style="`width: ${Math.max(progress.percent, 3)}%`"></div>
+                            :style="progressBarStyle()"></div>
                     </div>
                     <div class="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                         <span class="truncate text-left" x-text="progress.label || 'Waiting for the reader to start…'"></span>

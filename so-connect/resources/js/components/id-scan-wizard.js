@@ -1,4 +1,5 @@
 import { cameraAccessMessage, openPreferredCamera } from './camera-access';
+import { orderCorners, warp } from '../lib/perspective-warp';
 
 /**
  * Two-step signup wizard for the student-leader directory form.
@@ -52,6 +53,14 @@ const PHOTO_QUALITIES = [0.85, 0.7, 0.55]; // JPEG quality ladder, first fit win
 // Marks the File a scan injected into a signature input, so a rescan can tell
 // the injected crop apart from a file the user picked and only discard ours.
 const SCAN_SIGNATURE_FILENAME = 'id-signature.png';
+
+// ID-1 card proportions (mm): the straightened crop is warped to this aspect.
+const ID1_LONG = 85.6;
+const ID1_SHORT = 53.98;
+// Long edge (px) of a straightened crop: never below the template frames the
+// scanner reads, never above the upload normalizer's cap.
+const CROP_MIN_LONG_EDGE = 1024;
+const CROP_MAX_LONG_EDGE = 1600;
 
 /**
  * Map a box measured over an `object-fit: cover` element back into intrinsic
@@ -112,6 +121,17 @@ export function idScanWizard(config = {}) {
         sidesScanned: { front: false, back: false },
         signatureCaptured: false,
         signatureSide: null, // which side produced the signature crop
+        // Each side's uncropped photo, so "Crop" always starts from (and can
+        // reset to) what was actually captured, however often it is re-cropped.
+        originals: { front: null, back: null },
+        // Perspective-crop overlay: the side being cropped, its original photo,
+        // and the 4 dragged corners in the photo's native pixels.
+        cropSide: null,
+        cropUrl: null,
+        cropSize: { w: 0, h: 0 },
+        cropCorners: [],
+        cropBusy: false,
+        cropError: '',
 
         init() {
             if (this.templates.length === 1) this.chooseTemplate(this.templates[0].id);
@@ -310,11 +330,14 @@ export function idScanWizard(config = {}) {
          * `id_photo_<side>` input (replacing any oversized original so the
          * eventual form POST passes the same 2 MB cap), preview it, and scan it.
          */
-        async applyFile(file, side) {
+        async applyFile(file, side, { cropped = false } = {}) {
             // A retry of this side must not keep the previous attempt's details.
             this.discardSide(side);
 
             const prepared = await this.normalizePhoto(file, side);
+            // A fresh capture/upload becomes the side's original; a crop keeps
+            // the original it was cut from so it can be re-cropped or reset.
+            if (!cropped) this.originals[side] = prepared;
 
             const inputId = side === 'back' ? 'id_photo_back' : 'id_photo_front';
             const input = document.getElementById(inputId);
@@ -597,6 +620,153 @@ export function idScanWizard(config = {}) {
             this.signatureSide = null;
         },
 
+        // --- perspective crop ---
+
+        /** Whether a side has a captured/uploaded photo that can be cropped. */
+        canCrop(side) {
+            return !!this.originals[side] && !this.scanning;
+        },
+
+        /**
+         * Open the crop overlay on a side's original photo, with the corners
+         * just inside the photo's edges for the user to drag onto the card.
+         */
+        async openCrop(side) {
+            const original = this.originals[side];
+            if (!original) return;
+            this.closeCrop();
+            this.cropError = '';
+            const url = URL.createObjectURL(original);
+            try {
+                const img = new Image();
+                img.src = url;
+                await img.decode();
+                const w = img.naturalWidth;
+                const h = img.naturalHeight;
+                this.cropSize = { w, h };
+                this.cropUrl = url;
+                this.cropSide = side;
+                this.resetCropCorners();
+                this.stopCamera();
+            } catch (e) {
+                URL.revokeObjectURL(url);
+                this.scanNote = 'That photo could not be opened for cropping — retake it instead.';
+            }
+        },
+
+        resetCropCorners() {
+            const { w, h } = this.cropSize;
+            const ix = Math.round(w * 0.04);
+            const iy = Math.round(h * 0.04);
+            this.cropCorners = [[ix, iy], [w - ix, iy], [w - ix, h - iy], [ix, h - iy]];
+        },
+
+        closeCrop() {
+            if (this.cropUrl) URL.revokeObjectURL(this.cropUrl);
+            this.cropUrl = null;
+            this.cropSide = null;
+            this.cropCorners = [];
+            this.cropBusy = false;
+        },
+
+        /** Inline position of corner handle `i`, in % of the on-screen photo. */
+        cornerStyle(i) {
+            const corner = this.cropCorners[i];
+            const { w, h } = this.cropSize;
+            if (!corner || !w || !h) return 'display: none';
+            return `left: ${(corner[0] / w) * 100}%; top: ${(corner[1] / h) * 100}%`;
+        },
+
+        cornerLabel(i) {
+            return `Corner ${i + 1}`;
+        },
+
+        /** SVG `points` (in % of the photo) for the outline joining the corners. */
+        cropPolygon() {
+            const { w, h } = this.cropSize;
+            if (!w || !h || this.cropCorners.length !== 4) return '';
+            return orderCorners(this.cropCorners)
+                .map(([x, y]) => `${(x / w) * 100},${(y / h) * 100}`)
+                .join(' ');
+        },
+
+        /**
+         * Drag a corner handle (pointer events, so mouse and touch both work).
+         * Positions are mapped from the on-screen photo back to its native px.
+         */
+        startCornerDrag(event, index) {
+            const handle = event.currentTarget;
+            const stage = handle.closest('[data-crop-stage]');
+            if (!stage) return;
+            handle.setPointerCapture?.(event.pointerId);
+            const move = (e) => {
+                const rect = stage.getBoundingClientRect();
+                if (!rect.width || !rect.height) return;
+                const x = ((e.clientX - rect.left) / rect.width) * this.cropSize.w;
+                const y = ((e.clientY - rect.top) / rect.height) * this.cropSize.h;
+                this.cropCorners.splice(index, 1, [
+                    Math.round(Math.min(this.cropSize.w, Math.max(0, x))),
+                    Math.round(Math.min(this.cropSize.h, Math.max(0, y))),
+                ]);
+            };
+            const end = () => {
+                handle.removeEventListener('pointermove', move);
+                handle.removeEventListener('pointerup', end);
+                handle.removeEventListener('pointercancel', end);
+            };
+            handle.addEventListener('pointermove', move);
+            handle.addEventListener('pointerup', end);
+            handle.addEventListener('pointercancel', end);
+        },
+
+        /**
+         * Straighten the cornered card to a front-on ID-1 rectangle in the
+         * template's orientation, then put it through the normal photo path
+         * (input + preview + scan) in place of the uncropped photo.
+         */
+        async applyCrop() {
+            const side = this.cropSide;
+            if (!side || this.cropBusy) return;
+            this.cropBusy = true;
+            this.cropError = '';
+            try {
+                const img = new Image();
+                img.src = this.cropUrl;
+                await img.decode();
+
+                const corners = orderCorners(this.cropCorners);
+                const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+                const quadLong = Math.max(
+                    (dist(corners[0], corners[1]) + dist(corners[3], corners[2])) / 2,
+                    (dist(corners[0], corners[3]) + dist(corners[1], corners[2])) / 2,
+                );
+                const longEdge = Math.round(Math.min(CROP_MAX_LONG_EDGE, Math.max(CROP_MIN_LONG_EDGE, quadLong)));
+                const shortEdge = Math.round(longEdge * (ID1_SHORT / ID1_LONG));
+                const [outW, outH] = this.orientation === 'vertical' ? [shortEdge, longEdge] : [longEdge, shortEdge];
+
+                const canvas = warp(img, corners, outW, outH);
+                const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+                if (!blob) throw new Error('crop encode failed');
+
+                this.closeCrop();
+                this.selectSide(side);
+                await this.applyFile(new File([blob], `id-${side}-cropped.jpg`, { type: 'image/jpeg' }), side, { cropped: true });
+            } catch (e) {
+                this.cropBusy = false;
+                this.cropError = /WebGL/.test(String(e?.message))
+                    ? 'Cropping isn’t supported in this browser — retake the photo with the card filling the frame instead.'
+                    : 'The photo could not be cropped. Try again or retake it.';
+            }
+        },
+
+        /** Re-scan the side's original, uncropped photo. */
+        async useOriginal(side) {
+            const original = this.originals[side];
+            if (!original) return;
+            this.closeCrop();
+            await this.applyFile(original, side, { cropped: true });
+        },
+
         /** Full reset — used when the user switches to a different ID template. */
         resetScans() {
             this.discardSide('front');
@@ -609,6 +779,8 @@ export function idScanWizard(config = {}) {
             if (this.backPreview) URL.revokeObjectURL(this.backPreview);
             this.frontPreview = null;
             this.backPreview = null;
+            this.originals = { front: null, back: null };
+            this.closeCrop();
             this.detected = {};
             this.scanNote = '';
             this.scanSide = 'front';

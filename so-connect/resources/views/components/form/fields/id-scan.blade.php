@@ -98,6 +98,47 @@
             </div>
             <canvas x-ref="canvas" class="hidden"></canvas>
 
+            {{-- Perspective crop: drag the 4 corners onto the card, then straighten + re-scan. --}}
+            <template x-if="cropSide">
+                <div class="fixed inset-0 z-[100000] flex flex-col bg-gray-950/90 p-4" role="dialog" aria-modal="true"
+                    aria-label="Crop ID photo" @keydown.escape.window="closeCrop()">
+                    <div class="mx-auto mb-3 max-w-xl text-center text-sm text-white">
+                        <p class="font-semibold">Crop the <span x-text="cropSide"></span> of your ID</p>
+                        <p class="mt-0.5 text-xs text-white/70">Drag the four corners onto the card's corners. It will be straightened and scanned again.</p>
+                    </div>
+                    <div class="flex min-h-0 flex-1 items-center justify-center">
+                        {{-- The stage shrinks to the photo, so handles can be placed in % of it. --}}
+                        <div class="relative inline-block touch-none select-none" data-crop-stage>
+                            <img :src="cropUrl" alt="" draggable="false"
+                                class="block max-w-full select-none" style="max-height: calc(100vh - 13rem);" />
+                            <svg class="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                <polygon :points="cropPolygon()" fill="rgba(34,197,94,0.15)" stroke="#22c55e"
+                                    stroke-width="2" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" />
+                            </svg>
+                            <template x-for="(corner, i) in cropCorners" :key="i">
+                                <div class="absolute h-9 w-9 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none rounded-full border-[3px] border-green-500 bg-white/40 shadow-lg active:cursor-grabbing"
+                                    :style="cornerStyle(i)"
+                                    :aria-label="cornerLabel(i)"
+                                    @pointerdown.prevent="startCornerDrag($event, i)"></div>
+                            </template>
+                        </div>
+                    </div>
+                    <p x-show="cropError" x-text="cropError" class="mx-auto mt-2 max-w-xl text-center text-xs text-error-400"></p>
+                    <div class="mx-auto mt-3 flex max-w-xl flex-wrap items-center justify-center gap-2">
+                        <button type="button" @click="applyCrop()" :disabled="cropBusy"
+                            class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-50">
+                            <span x-show="!cropBusy">Apply crop</span><span x-show="cropBusy" x-cloak>Cropping…</span>
+                        </button>
+                        <button type="button" @click="resetCropCorners()" :disabled="cropBusy"
+                            class="rounded-lg border border-white/30 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/10">Reset corners</button>
+                        <button type="button" @click="useOriginal(cropSide)" :disabled="cropBusy"
+                            class="rounded-lg border border-white/30 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/10">Use original photo</button>
+                        <button type="button" @click="closeCrop()" :disabled="cropBusy"
+                            class="rounded-lg px-4 py-2.5 text-sm font-medium text-white/80 transition hover:text-white">Cancel</button>
+                    </div>
+                </div>
+            </template>
+
             <p x-show="cameraError" x-cloak x-text="cameraError" class="mt-2 text-center text-xs text-error-500"></p>
 
             <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
@@ -124,6 +165,9 @@
                                     <img :src="frontPreview" alt="Front of ID" class="h-24 w-40 rounded-lg object-cover" />
                                 </button>
                                 <figcaption class="mt-1 text-center text-[11px] text-gray-400">Front</figcaption>
+                                <button type="button" x-show="canCrop('front')" x-cloak @click="openCrop('front')"
+                                    class="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
+                                    title="Drag the corners onto the card's edges to straighten it, then scan again">Crop</button>
                             </figure>
                         </template>
                         <template x-if="backPreview">
@@ -134,6 +178,9 @@
                                     <img :src="backPreview" alt="Back of ID" class="h-24 w-40 rounded-lg object-cover" />
                                 </button>
                                 <figcaption class="mt-1 text-center text-[11px] text-gray-400">Back</figcaption>
+                                <button type="button" x-show="canCrop('back')" x-cloak @click="openCrop('back')"
+                                    class="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
+                                    title="Drag the corners onto the card's edges to straighten it, then scan again">Crop</button>
                             </figure>
                         </template>
                     </div>

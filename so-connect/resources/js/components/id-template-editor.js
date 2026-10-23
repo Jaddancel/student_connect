@@ -20,7 +20,7 @@
  * closure — NOT on the returned reactive object.
  */
 import Konva from 'konva';
-import { warp } from '../lib/perspective-warp';
+import { orderCorners, warp } from '../lib/perspective-warp';
 
 const MAX_DISPLAY_WIDTH = 900;
 // Zone stage caps height too, so a portrait/tall straightened ID fits the
@@ -47,33 +47,6 @@ const ID1_LONG = 85.6;
 const ID1_SHORT = 53.98;
 // Cap the live-warp preview's long edge; the on-save warp uses full resolution.
 const PREVIEW_LONG_EDGE = 360;
-
-/**
- * Order four arbitrary points into [top-left, top-right, bottom-right,
- * bottom-left] tracing the quad's perimeter. The anchors are dragged
- * independently, so their array order is NOT their geometric order — feeding an
- * out-of-order (self-intersecting) quad to the homography collapses the warp.
- * Sorting by angle around the centroid guarantees a convex winding regardless
- * of how the user placed the handles; we then rotate the start to the top-left.
- *
- * @param {Array<[number,number]>} pts four [x,y] points (image y-down)
- * @returns {Array<[number,number]>} the same points as [TL, TR, BR, BL]
- */
-function orderCorners(pts) {
-    const cx = (pts[0][0] + pts[1][0] + pts[2][0] + pts[3][0]) / 4;
-    const cy = (pts[0][1] + pts[1][1] + pts[2][1] + pts[3][1]) / 4;
-    // In image coords (y down) increasing atan2 winds clockwise: TL→TR→BR→BL.
-    const cw = [...pts].sort(
-        (a, b) => Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx));
-    // Rotate so the corner nearest the origin (min x+y) leads the sequence.
-    let start = 0;
-    let min = Infinity;
-    cw.forEach((p, i) => {
-        const s = p[0] + p[1];
-        if (s < min) { min = s; start = i; }
-    });
-    return [0, 1, 2, 3].map((i) => cw[(start + i) % 4]);
-}
 
 export function idTemplateEditor(config) {
     // --- non-reactive Konva state (closure-scoped, never proxied) ---

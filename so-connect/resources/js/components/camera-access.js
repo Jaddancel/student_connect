@@ -18,12 +18,16 @@ export async function openPreferredCamera() {
     }
 
     try {
+        // Ask for up to 1440p: the ID wizard crops an upright card out of a
+        // landscape frame, so the card only gets the frame's *height* in pixels
+        // — 720p left it ~400×650, too small to read course/address text. The
+        // browser picks the closest mode the camera supports.
         return await navigator.mediaDevices.getUserMedia({
             audio: false,
             video: {
                 facingMode: { ideal: 'environment' },
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
+                width: { ideal: 2560 },
+                height: { ideal: 1440 },
             },
         });
     } catch (error) {
