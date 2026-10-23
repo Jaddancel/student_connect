@@ -326,8 +326,20 @@ class OcrClient
      */
     private function expandName(array $fields): array
     {
-        if (isset($fields['full_name']) || isset($fields['name'])) {
-            $parts = self::splitFullName((string) ($fields['full_name'] ?? $fields['name']));
+        if (isset($fields['full_name'])) {
+            // The ID-template editor defines this destination explicitly as
+            // "LAST, FIRST MIDDLE". Low-resolution captures commonly lose the
+            // printed comma (or recognize it as a period), so retain that known
+            // order instead of treating the first token as a given name.
+            $parts = self::splitPrintedIdName((string) $fields['full_name']);
+            unset($fields['full_name']);
+            foreach ($parts as $key => $value) {
+                if (($fields[$key] ?? '') === '') {
+                    $fields[$key] = $value;
+                }
+            }
+        } elseif (isset($fields['name'])) {
+            $parts = self::splitFullName((string) $fields['name']);
             unset($fields['full_name'], $fields['name']);
             foreach ($parts as $key => $value) {
                 if (($fields[$key] ?? '') === '') {
@@ -341,7 +353,61 @@ class OcrClient
             }
         }
 
+        foreach (['first_name', 'middle_name', 'last_name'] as $key) {
+            if (isset($fields[$key])) {
+                $fields[$key] = self::normalizeNamePart((string) $fields[$key]);
+            }
+        }
+
         return $fields;
+    }
+
+    /** Clean punctuation OCR commonly substitutes for spacing inside a name. */
+    public static function normalizeNamePart(string $raw): string
+    {
+        $value = preg_replace('/(?<=[A-Za-z])[.;:]+(?=[A-Za-z])/', ' ', trim($raw));
+
+        return trim((string) preg_replace('/\s+/', ' ', (string) $value));
+    }
+
+    /**
+     * Split the ID editor's documented `LAST, FIRST MIDDLE` name format even
+     * when OCR drops the comma. Punctuation inside the recognized line is
+     * treated as a separator; a final one-letter token remains the middle
+     * initial. Compound leading surname particles are retained.
+     *
+     * @return array<string,string> subset of first_name/middle_name/last_name
+     */
+    public static function splitPrintedIdName(string $raw): array
+    {
+        $value = trim((string) preg_replace('/\s+/', ' ', $raw));
+        if ($value === '') {
+            return [];
+        }
+        if (str_contains($value, ',')) {
+            return self::splitFullName($value);
+        }
+
+        $tokens = self::tokenize(trim((string) preg_replace('/[.;:]+/', ' ', $value)));
+        if (count($tokens) < 2) {
+            return $tokens === [] ? [] : ['first_name' => $tokens[0]];
+        }
+
+        $lastTokens = [array_shift($tokens)];
+        if (self::isSurnameParticle($lastTokens[0]) && $tokens !== []) {
+            $lastTokens[] = array_shift($tokens);
+        }
+
+        $middle = '';
+        if (count($tokens) >= 2 && self::isInitial(end($tokens))) {
+            $middle = array_pop($tokens);
+        }
+
+        return array_filter([
+            'first_name' => implode(' ', $tokens),
+            'middle_name' => $middle,
+            'last_name' => implode(' ', $lastTokens),
+        ], static fn ($v) => $v !== '');
     }
 
     /**

@@ -118,6 +118,38 @@ it('collapses messy whitespace and returns nothing for blank input', function ()
     ])->and(OcrClient::splitFullName('   '))->toBe([]);
 });
 
+// ----- splitPrintedIdName: scanner's fixed LAST, FIRST MIDDLE format -------
+
+it('recovers a surname-first ID name when OCR loses the comma', function () {
+    expect(OcrClient::splitPrintedIdName('MARTIN JAMES BRYAN E'))->toBe([
+        'first_name' => 'JAMES BRYAN',
+        'middle_name' => 'E',
+        'last_name' => 'MARTIN',
+    ]);
+});
+
+it('treats OCR punctuation as spacing in a surname-first ID name', function () {
+    expect(OcrClient::splitPrintedIdName('MARTIN JAMES.BRYAN E'))->toBe([
+        'first_name' => 'JAMES BRYAN',
+        'middle_name' => 'E',
+        'last_name' => 'MARTIN',
+    ]);
+});
+
+it('keeps the normal comma parsing for a clear ID name', function () {
+    expect(OcrClient::splitPrintedIdName('DELA CRUZ, JUAN MIGUEL P.'))->toBe([
+        'first_name' => 'JUAN MIGUEL',
+        'middle_name' => 'P.',
+        'last_name' => 'DELA CRUZ',
+    ]);
+});
+
+it('cleans punctuation OCR substitutes for spaces inside a name part', function () {
+    expect(OcrClient::normalizeNamePart('JAMES.BRYAN E'))->toBe('JAMES BRYAN E')
+        ->and(OcrClient::normalizeNamePart('M.'))->toBe('M.')
+        ->and(OcrClient::normalizeNamePart('DELA.CRUZ'))->toBe('DELA CRUZ');
+});
+
 // ----- normalizeDate -----
 
 it('parses the printed Month Day, Year layout', function () {
