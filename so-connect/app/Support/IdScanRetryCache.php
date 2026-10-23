@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -39,20 +40,30 @@ final class IdScanRetryCache
      */
     public static function remember(string $sessionId, string $side, UploadedFile $photo, array $fields): void
     {
-        $disk = self::disk();
-        $dir = self::dir($sessionId);
+        try {
+            $disk = self::disk();
+            $dir = self::dir($sessionId);
 
-        $bytes = @file_get_contents($photo->getRealPath());
-        if ($bytes === false) {
-            return;
+            $bytes = @file_get_contents($photo->getRealPath());
+            if ($bytes === false) {
+                return;
+            }
+            $disk->put("{$dir}/{$side}.jpg", $bytes);
+
+            $meta = self::readMeta($sessionId);
+            $meta[$side] = ['fields' => $fields, 'updated_at' => now()->toIso8601String()];
+            $disk->put("{$dir}/meta.json", json_encode($meta));
+
+            self::gc($disk);
+        } catch (\Throwable $e) {
+            // This cache only restores a scan after a later validation
+            // redirect. A filesystem/permission problem must never discard a
+            // successful OCR response or prevent the current form submission.
+            Log::warning('Unable to cache ID scan for retry.', [
+                'side' => $side,
+                'error' => $e->getMessage(),
+            ]);
         }
-        $disk->put("{$dir}/{$side}.jpg", $bytes);
-
-        $meta = self::readMeta($sessionId);
-        $meta[$side] = ['fields' => $fields, 'updated_at' => now()->toIso8601String()];
-        $disk->put("{$dir}/meta.json", json_encode($meta));
-
-        self::gc($disk);
     }
 
     /**

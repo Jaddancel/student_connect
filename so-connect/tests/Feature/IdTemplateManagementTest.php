@@ -165,6 +165,20 @@ it('auto-scans an uploaded ID photo and returns the extracted student_id', funct
     ])->assertOk()->assertJson(['student_id' => '21-1234-567']);
 });
 
+it('still returns parsed fields when the optional retry cache cannot write', function () {
+    Http::fake(['*/scan' => Http::response(['fields' => ['student_id' => '21-1234-567']], 200)]);
+    IdTemplate::query()->create(idTemplatePayload());
+
+    Storage::shouldReceive('disk')->with('local')->andThrow(new RuntimeException('storage is read-only'));
+
+    $this->post(route('id-scan.scan'), [
+        'photo' => UploadedFile::fake()->image('front.jpg', 1000, 600),
+    ])->assertOk()->assertJson([
+        'student_id' => '21-1234-567',
+        'fields' => ['student_id' => '21-1234-567'],
+    ]);
+});
+
 it('returns universal-keyed fields for the signup wizard to prefill', function () {
     // Sidecar returns raw text keyed by each zone's name; the controller maps
     // those onto the zones' universal `field` keys.
