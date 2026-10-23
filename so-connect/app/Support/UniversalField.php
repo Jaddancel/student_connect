@@ -46,23 +46,24 @@ final class UniversalField
     public static function catalog(): array
     {
         return [
-            'first_name'    => ['label' => 'First Name',   'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'first_name',   'group' => 'name'],
-            'middle_name'   => ['label' => 'Middle Name',  'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'middle_name',  'group' => 'name'],
-            'last_name'     => ['label' => 'Last Name',    'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'last_name',    'group' => 'name'],
+            'first_name' => ['label' => 'First Name',   'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'first_name',   'group' => 'name'],
+            'middle_name' => ['label' => 'Middle Name',  'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'middle_name',  'group' => 'name'],
+            'last_name' => ['label' => 'Last Name',    'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'last_name',    'group' => 'name'],
 
-            'home_address'  => ['label' => 'Home Address', 'type' => FieldType::TEXTAREA, 'source' => 'profile', 'profile_column' => 'home_address', 'group' => 'contact'],
+            'home_address' => ['label' => 'Home Address', 'type' => FieldType::TEXTAREA, 'source' => 'profile', 'profile_column' => 'home_address', 'group' => 'contact'],
 
-            'course'        => ['label' => 'Course',        'type' => FieldType::TEXT,    'source' => 'profile', 'profile_column' => 'course',       'group' => 'academic'],
-            'year_section'  => ['label' => 'Year & Section','type' => FieldType::TEXT,    'source' => 'profile', 'profile_column' => 'year_section', 'group' => 'academic'],
+            'course' => ['label' => 'Course',        'type' => FieldType::TEXT,    'source' => 'profile', 'profile_column' => 'course',       'group' => 'academic'],
+            'college' => ['label' => 'College',       'type' => FieldType::TEXT,    'source' => 'profile', 'profile_column' => 'college',      'group' => 'academic'],
+            'year_section' => ['label' => 'Year & Section', 'type' => FieldType::TEXT,    'source' => 'profile', 'profile_column' => 'year_section', 'group' => 'academic'],
 
-            'sex'           => ['label' => 'Sex',          'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'sex',          'group' => 'personal'],
-            'religion'      => ['label' => 'Religion',     'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'religion',     'group' => 'personal'],
+            'sex' => ['label' => 'Sex',          'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'sex',          'group' => 'personal'],
+            'religion' => ['label' => 'Religion',     'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'religion',     'group' => 'personal'],
             // `birthday` is stored as a date but presented spelled-out (e.g. "January 5, 2000");
             // `format` is applied in valueFor() so every consumer gets the same rendering.
-            'birthday'      => ['label' => 'Birthday',     'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'birthday',     'group' => 'personal', 'format' => 'date:F j, Y'],
+            'birthday' => ['label' => 'Birthday',     'type' => FieldType::TEXT,     'source' => 'profile', 'profile_column' => 'birthday',     'group' => 'personal', 'format' => 'date:F j, Y'],
             // The stored value is a disk-relative path to the saved signature PNG;
             // signature fields render it as an image preview, never as text.
-            'signature'     => ['label' => 'Signature',    'type' => FieldType::SIGNATURE, 'source' => 'profile', 'profile_column' => 'signature_path', 'group' => 'personal'],
+            'signature' => ['label' => 'Signature',    'type' => FieldType::SIGNATURE, 'source' => 'profile', 'profile_column' => 'signature_path', 'group' => 'personal'],
 
             // Form-derived: not read from a profile/org/system, but computed from a
             // sibling field on the SAME form (the birthday date field). Unique to
@@ -71,13 +72,13 @@ final class UniversalField
             'age_from_birthday' => ['label' => 'Age - Computed from Birthday', 'type' => FieldType::NUMBER, 'source' => 'form', 'group' => 'personal'],
 
             // Organization-scoped: resolved from the submitter's org (see OrganizationField).
-            'org_name'      => ['label' => 'Organization Name',      'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
-            'adviser'       => ['label' => 'Adviser',                'type' => FieldType::SELECT, 'source' => 'org', 'group' => 'organization'],
-            'org_president'  => ['label' => 'Organization President', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
-            'org_auditor'    => ['label' => 'Organization Auditor',   'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
-            'org_treasurer'  => ['label' => 'Organization Treasurer', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
-            'org_secretary'  => ['label' => 'Organization Secretary', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
-            'org_category'   => ['label' => 'Organization Category',  'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
+            'org_name' => ['label' => 'Organization Name',      'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
+            'adviser' => ['label' => 'Adviser',                'type' => FieldType::SELECT, 'source' => 'org', 'group' => 'organization'],
+            'org_president' => ['label' => 'Organization President', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
+            'org_auditor' => ['label' => 'Organization Auditor',   'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
+            'org_treasurer' => ['label' => 'Organization Treasurer', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
+            'org_secretary' => ['label' => 'Organization Secretary', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
+            'org_category' => ['label' => 'Organization Category',  'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             // The org's registration date (`organizations.created_at`, the dashboard's
             // "Founded on"), as Y-m-d. Its own group so the Step 1 builder can list it
             // under Organization on date and text fields only.
@@ -91,17 +92,17 @@ final class UniversalField
             // them only on text fields.
             'org_president_contact' => ['label' => 'Organization President Contact Number', 'type' => FieldType::TEXT, 'source' => 'org', 'group' => 'officer_contact'],
             'org_treasurer_contact' => ['label' => 'Organization Treasurer Contact Number', 'type' => FieldType::TEXT, 'source' => 'org', 'group' => 'officer_contact'],
-            'org_auditor_contact'   => ['label' => 'Organization Auditor Contact Number',   'type' => FieldType::TEXT, 'source' => 'org', 'group' => 'officer_contact'],
+            'org_auditor_contact' => ['label' => 'Organization Auditor Contact Number',   'type' => FieldType::TEXT, 'source' => 'org', 'group' => 'officer_contact'],
             'org_secretary_contact' => ['label' => 'Organization Secretary Contact Number', 'type' => FieldType::TEXT, 'source' => 'org', 'group' => 'officer_contact'],
 
             // System-scoped: resolved from the clock/school calendar at render time
             // (see systemValue()), not from the submitter or their organization.
-            'current_date'         => ['label' => 'Current Date',        'type' => FieldType::DATE,     'source' => 'system', 'group' => 'current'],
-            'current_time'         => ['label' => 'Time',                'type' => FieldType::TIME,     'source' => 'system', 'group' => 'current'],
-            'current_datetime'     => ['label' => 'Date/Time',           'type' => FieldType::DATETIME, 'source' => 'system', 'group' => 'current'],
-            'current_year'         => ['label' => 'Year',                'type' => FieldType::NUMBER,   'source' => 'system', 'group' => 'current'],
-            'current_school_year'  => ['label' => 'Current School Year', 'type' => FieldType::TEXT,     'source' => 'system', 'group' => 'current'],
-            'current_semester'     => ['label' => 'Current Semester',    'type' => FieldType::TEXT,     'source' => 'system', 'group' => 'current'],
+            'current_date' => ['label' => 'Current Date',        'type' => FieldType::DATE,     'source' => 'system', 'group' => 'current'],
+            'current_time' => ['label' => 'Time',                'type' => FieldType::TIME,     'source' => 'system', 'group' => 'current'],
+            'current_datetime' => ['label' => 'Date/Time',           'type' => FieldType::DATETIME, 'source' => 'system', 'group' => 'current'],
+            'current_year' => ['label' => 'Year',                'type' => FieldType::NUMBER,   'source' => 'system', 'group' => 'current'],
+            'current_school_year' => ['label' => 'Current School Year', 'type' => FieldType::TEXT,     'source' => 'system', 'group' => 'current'],
+            'current_semester' => ['label' => 'Current Semester',    'type' => FieldType::TEXT,     'source' => 'system', 'group' => 'current'],
         ];
     }
 

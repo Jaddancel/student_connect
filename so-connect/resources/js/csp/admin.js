@@ -61,20 +61,38 @@ export default function registerAdmin(Alpine) {
         },
     }));
 
-    // pages/admin/reports/index: selecting a report card opens its filter
-    // panel; the report is then generated via fetch behind a progress/error modal.
+    // pages/admin/reports/index: generate a report via fetch behind a progress/error modal.
     Alpine.data("adminReportGenerator", () => ({
         busy: false,
         label: '',
         error: '',
-        selected: null,
-        get hasSelection() { return this.selected !== null; },
-        isSelected(id) { return this.selected === id; },
-        select(id) {
-            this.selected = this.selected === id ? null : id;
-            if (this.selected !== null) window.scrollTo({ top: 0, behavior: 'smooth' });
+        filters: {
+            organization: '',
+            organizationStatus: '',
+            schoolYear: '__all__',
+            semester: '__all__',
         },
-        clearSelection() { this.selected = null; },
+        init() {
+            try {
+                const saved = JSON.parse(sessionStorage.getItem('report-global-filters') || '{}');
+                this.filters = { ...this.filters, ...saved };
+            } catch (_) {}
+            ['organization', 'organizationStatus', 'schoolYear', 'semester'].forEach((key) => {
+                this.$watch(`filters.${key}`, () => this.persistFilters());
+            });
+        },
+        persistFilters() {
+            sessionStorage.setItem('report-global-filters', JSON.stringify(this.filters));
+        },
+        resetFilters() {
+            this.filters = {
+                organization: '',
+                organizationStatus: '',
+                schoolYear: '__all__',
+                semester: '__all__',
+            };
+            this.persistFilters();
+        },
         // Generation can take a while (document conversion), so run it
         // through fetch: the modal stays up until the file arrives, then the
         // blob is saved without leaving the page.
@@ -118,12 +136,6 @@ export default function registerAdmin(Alpine) {
             this.busy = false;
             this.error = '';
         },
-    }));
-
-    // pages/admin/reports/index: the organization type chosen in a report's
-    // filter (x-model) narrows its organization search (x-effect="setGroup(orgType)").
-    Alpine.data("adminReportOrgScope", ({ orgType = '' } = {}) => ({
-        orgType,
     }));
 
     // pages/admin/scoring/create: live category totals + manual-input modal.

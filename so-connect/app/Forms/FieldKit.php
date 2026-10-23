@@ -215,13 +215,16 @@ final class FieldKit
     {
         $fields = $form->fields;
 
+        $eventField = $fields->first(fn ($field) => $field->field_type === FieldType::EVENT_SELECT);
+        $eventId = $eventField ? (int) ($payload[$eventField->field_key] ?? 0) : 0;
+        if ($eventId > 0) {
+            $submission->forceFill(['event_id' => $eventId])->save();
+        }
+
         foreach ($fields as $field) {
             // The chosen event backs the submission row (dedupe + reporting).
             if ($field->field_type === FieldType::EVENT_SELECT) {
-                $eventId = (int) ($payload[$field->field_key] ?? 0);
-                if ($eventId > 0) {
-                    $submission->forceFill(['event_id' => $eventId])->save();
-                }
+                continue;
             }
 
             // Accomplishment documentation photos feed the posts wall.
@@ -231,6 +234,8 @@ final class FieldKit
                     $submission,
                     (array) ($payload[$field->field_key] ?? []),
                     (string) ($payload['title'] ?? ''),
+                    (string) $field->field_key,
+                    $eventId ?: null,
                 );
             }
         }
@@ -242,7 +247,13 @@ final class FieldKit
      *
      * @param  array<int,mixed>  $paths
      */
-    private static function copyAccomplishmentMedia(FormSubmission $submission, array $paths, string $activityTitle): void
+    private static function copyAccomplishmentMedia(
+        FormSubmission $submission,
+        array $paths,
+        string $activityTitle,
+        string $fieldKey,
+        ?int $eventId,
+    ): void
     {
         $disk = \Illuminate\Support\Facades\Storage::disk((string) config('documents.disk', 'public'));
 
@@ -252,14 +263,29 @@ final class FieldKit
                 continue;
             }
 
+            // A library pick already has a durable indexed copy. Keep the
+            // shared path in this submission instead of cloning it on every use.
+            if (\App\Models\AccomplishmentMedia::query()->where('file_path', $path)->exists()) {
+                continue;
+            }
+
             $target = 'posts/media/accomplishment/'.\Illuminate\Support\Str::random(8).'-'.basename($path);
             try {
                 $disk->copy($path, $target);
+                $tags = collect(preg_split('/[^\pL\pN]+/u', strtolower($activityTitle)) ?: [])
+                    ->filter(fn ($word) => mb_strlen($word) >= 3)
+                    ->unique()->take(10)->values()->all();
                 \App\Models\AccomplishmentMedia::query()->create([
                     'form_submission_id' => (int) $submission->getKey(),
                     'organization_id' => $submission->organization_id,
                     'file_path' => $target,
+                    'event_id' => $eventId,
+                    'field_key' => $fieldKey,
                     'activity_title' => $activityTitle,
+                    'original_name' => basename($path),
+                    'mime_type' => $disk->mimeType($path) ?: null,
+                    'file_size' => $disk->size($path) ?: null,
+                    'tags' => $tags,
                     'submitted_at' => now(),
                 ]);
             } catch (\Throwable) {

@@ -43,6 +43,7 @@ export function formBuilder(config) {
         // --- model ---
         name: config.data.name || "",
         description_text: config.data.description_text || "",
+        category_id: config.data.category_id || null,
         route_name: config.data.route_name || "",
         system_function: config.data.system_function || "",
         // Sidebar icon key (see MenuHelper::iconNames); '' falls back to the
@@ -1565,6 +1566,7 @@ export function formBuilder(config) {
             const payload = {
                 name: this.name,
                 description_text: this.description_text,
+                category_id: this.category_id || null,
                 route_name: this.route_name,
                 system_function: this.system_function || null,
                 icon: this.icon || null,

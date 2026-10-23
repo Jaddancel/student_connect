@@ -33,6 +33,7 @@ class AccountCreationService
                 'birthplace' => $data['birthplace'] ?? null,
                 'course_year' => trim(($data['course'] ?? '').' '.($data['year_level'] ?? '')),
                 'course' => $data['course'] ?? '',
+                'college' => $data['college'] ?? '',
                 'year_section' => $data['year_level'] ?? '',
                 'occupation' => $userType === User::TYPE_SUPERADMIN ? 'SuperAdmin' : 'Administrator',
                 'address' => (int) $address->profile_address_id,

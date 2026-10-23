@@ -91,26 +91,12 @@
             <x-form.date-picker name="to" label="To" :defaultDate="$filters['to'] ?? null" placeholder="End date" />
             <div>
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Category</label>
-                <select name="category"
-                    class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90">
-                    <option value="">All categories</option>
-                    @foreach ($categories as $key => $label)
-                        <option value="{{ $key }}" @selected(($filters['category'] ?? null) === $key)>{{ $label }}</option>
-                    @endforeach
-                </select>
+                <x-common.predictive-select name="category" :selected="$filters['category'] ?? ''" placeholder="All categories" search-placeholder="Search category…" :options="collect($categories)->map(fn($label,$key) => ['value'=>$key,'label'=>$label])->values()->all()" />
             </div>
             @if ($organizations !== null)
                 <div>
                     <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Organization</label>
-                    <select name="org_id"
-                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90">
-                        <option value="">All organizations</option>
-                        @foreach ($organizations as $org)
-                            <option value="{{ $org['organization_id'] }}" @selected(($filters['org_id'] ?? null) == $org['organization_id'])>
-                                {{ $org['name'] }}
-                            </option>
-                        @endforeach
-                    </select>
+                    <x-common.predictive-select name="org_id" :selected="$filters['org_id'] ?? ''" placeholder="All organizations" search-placeholder="Search organization…" :options="collect($organizations)->map(fn($org) => ['value'=>$org['organization_id'],'label'=>$org['name']])->all()" />
                 </div>
             @endif
             <div>

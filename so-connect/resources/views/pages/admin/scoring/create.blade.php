@@ -22,7 +22,68 @@
                     <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ $organizationName }}</h3>
                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ $semester->name }}</p>
                 </div>
+                <span class="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+                    Rubric v{{ $rubricVersion?->version ?? 'legacy' }}
+                </span>
+                @if ($score)
+                    <a href="{{ route('admin.scoring.evidence', $score->organization_score_id) }}"
+                        class="ml-auto rounded-lg bg-brand-500 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-600">
+                        Review evidence & overrides ({{ $evidencePreview->count() }})
+                    </a>
+                @endif
             </div>
+        </div>
+
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Automatic evidence trace</h3>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Every automatically awarded rule point is linked to its source record. Attachment quality is an explainable screening check and still requires human review.
+                    </p>
+                </div>
+                <span class="text-xs font-medium text-gray-500">{{ $evidencePreview->count() }} matched record(s)</span>
+            </div>
+            @if ($evidencePreview->isEmpty())
+                <p class="mt-4 rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-700 dark:bg-warning-500/10 dark:text-warning-300">
+                    No rule-generated evidence was found for this semester. Review the scoring triggers and approved records before verification.
+                </p>
+            @else
+                <div class="mt-4 grid gap-2 md:grid-cols-2">
+                    @foreach ($evidencePreview->take(8) as $evidence)
+                        @php
+                            $item = is_array($evidence) ? $evidence : $evidence->toArray();
+                            $quality = $item['quality_status'] ?? 'not_applicable';
+                            $qualityClass = match ($quality) {
+                                'good' => 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300',
+                                'poor' => 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300',
+                                default => 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300',
+                            };
+                        @endphp
+                        <div class="rounded-xl border border-gray-100 p-3 text-xs dark:border-gray-800">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <p class="font-semibold text-gray-700 dark:text-gray-200">{{ $item['criterion_label'] }}</p>
+                                    @if (!empty($item['evidence_url']))
+                                        <a href="{{ $item['evidence_url'] }}" class="mt-1 inline-block text-brand-600 hover:underline dark:text-brand-400">
+                                            {{ $item['evidence_label'] }}
+                                        </a>
+                                    @else
+                                        <p class="mt-1 text-gray-500">{{ $item['evidence_label'] }}</p>
+                                    @endif
+                                </div>
+                                <span class="whitespace-nowrap font-bold text-gray-700 dark:text-gray-200">+{{ number_format((float) $item['awarded_points'], 2) }}</span>
+                            </div>
+                            <span class="mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold {{ $qualityClass }}">
+                                {{ str_replace('_', ' ', ucfirst($quality)) }}{{ isset($item['quality_score']) ? ' · '.$item['quality_score'].'%' : '' }}
+                            </span>
+                        </div>
+                    @endforeach
+                </div>
+                @if ($evidencePreview->count() > 8)
+                    <p class="mt-3 text-xs text-gray-500">Showing 8 of {{ $evidencePreview->count() }} evidence records.</p>
+                @endif
+            @endif
         </div>
 
         @if ($errors->any())

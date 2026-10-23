@@ -77,6 +77,14 @@ class FormRenderController extends Controller
             $prefill = self::applyTargetDatePrefill($request, $fields, $prefill);
         }
 
+        // Accomplishment reports can reuse documentation already indexed for
+        // the officer's active organization. The picker filters and suggests
+        // these items live as the activity/event fields change.
+        if ((string) $form->route_name === 'accomplishment-report') {
+            $context['special']['attachment_library'] = app(\App\Services\AccomplishmentAttachmentLibrary::class)
+                ->itemsForUser($request->user());
+        }
+
         // The After Event Report is always filed for one concluded event,
         // picked on the After Event Form page (?event=).
         $afterEvent = null;
@@ -98,6 +106,8 @@ class FormRenderController extends Controller
             'afterEvent' => $afterEvent,
             'recentSubmissions' => $this->recentSubmissions($request, $form),
             'submissionLimit' => SemesterSubmissionLimit::status($form),
+            'accreditationChecklist' => app(\App\Services\AccreditationAttachmentChecklist::class)
+                ->status($form, []),
         ]));
     }
 
@@ -456,7 +466,12 @@ class FormRenderController extends Controller
             // sign-up handler keeps it when the field is left blank — so a
             // required password field must not force them to invent a new one
             // on every resubmission.
+            $libraryKey = $field->field_key.'_library';
+            $libraryPicks = array_values(array_filter((array) $request->input($libraryKey, []), 'is_string'));
             $isRequired = (bool) $field->is_required;
+            if (FieldType::isMultiImage($field->field_type) && $libraryPicks !== []) {
+                $isRequired = false;
+            }
             if ($field->field_type === FieldType::PASSWORD && $request->user()?->isGuest()) {
                 $isRequired = false;
             }
@@ -473,6 +488,20 @@ class FormRenderController extends Controller
             // Element rules for array-valued types (lists, tables, photo sets).
             foreach (FieldType::nestedValidationRules($field->field_type, $options) as $suffix => $nested) {
                 $rules[$field->field_key.'.'.$suffix] = $nested;
+            }
+            if (FieldType::isMultiImage($field->field_type)) {
+                $maxFiles = (int) ($options['max_files'] ?? 5);
+                $rules[$libraryKey] = ['nullable', 'array', 'max:'.$maxFiles];
+                $rules[$libraryKey.'.*'] = [
+                    'string',
+                    'distinct',
+                    function (string $attribute, mixed $value, \Closure $fail) use ($request) {
+                        if (! app(\App\Services\AccomplishmentAttachmentLibrary::class)
+                            ->allows($request->user(), (string) $value)) {
+                            $fail('The selected library attachment is unavailable for your organization.');
+                        }
+                    },
+                ];
             }
             // The ID-scan wizard's photo captures ride along as fixed inputs.
             if ($field->field_type === FieldType::ID_SCAN) {
@@ -511,7 +540,11 @@ class FormRenderController extends Controller
 
             $options = (array) ($field->field_options ?? []);
             if (FieldType::isMultiImage($type)) {
-                $paths = [];
+                $libraryKey = $key.'_library';
+                $paths = array_values(array_unique(array_filter(
+                    (array) ($validated[$libraryKey] ?? []),
+                    fn ($path) => is_string($path) && $path !== '',
+                )));
                 foreach ((array) $request->file($key, []) as $file) {
                     if ($file !== null) {
                         $paths[] = $file->store(
@@ -519,6 +552,12 @@ class FormRenderController extends Controller
                             (string) config('documents.disk', 'public'),
                         );
                     }
+                }
+                $maxFiles = (int) ($options['max_files'] ?? 5);
+                if (count($paths) > $maxFiles) {
+                    throw ValidationException::withMessages([
+                        $key => 'Choose no more than '.$maxFiles.' total uploaded and library attachments.',
+                    ]);
                 }
                 $payload[$key] = $paths;
                 continue;

@@ -32,9 +32,15 @@ final class SeedData
 
     public static function user(int $type = User::TYPE_OFFICER, ?string $email = null): User
     {
+        $program = fake()->randomElement([
+            ['College of Arts and Sciences', 'BS Computer Science'],
+            ['College of Agriculture and Forestry', 'BS Agriculture'],
+            ['College of Education', 'BS Education'],
+        ]);
         $profile = Profile::factory()->create([
             'occupation' => $type <= User::TYPE_ADMIN ? 'Staff' : 'Student',
-            'course' => fake()->randomElement(['BS Computer Science', 'BS Agriculture', 'BS Education']),
+            'college' => $program[0],
+            'course' => $program[1],
             'year_section' => fake()->randomElement(['1-A', '2-B', '3-A', '4-B']),
             'birthplace' => 'Camiling, Tarlac',
             'home_address' => fake()->address(),

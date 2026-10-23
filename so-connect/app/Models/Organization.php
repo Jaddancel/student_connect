@@ -60,6 +60,11 @@ class Organization extends Model
         return $this->belongsTo(OrganizationDetail::class, 'detail', 'organization_detail_id');
     }
 
+    public function detailRecord()
+    {
+        return $this->belongsTo(OrganizationDetail::class, 'detail', 'organization_detail_id');
+    }
+
     public function events()
     {
         return $this->hasMany(Event::class, 'organization', 'organization_id');

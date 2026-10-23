@@ -7,7 +7,12 @@ use App\Exports\ScoringAuditExport;
 use App\Http\Controllers\Controller;
 use App\Models\Organization;
 use App\Models\OrganizationScore;
+use App\Models\ScoringEvidenceAward;
 use App\Models\Semester;
+use App\Services\ActionLogger;
+use App\Services\LevelingService;
+use App\Services\Scoring\ScoringEvidenceService;
+use App\Services\Scoring\ScoringRubricVersionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -114,6 +119,8 @@ class OrganizationScoringController extends Controller
             ->where('organization_detail_id', $organization->getAttribute('detail'))
             ->value('name') ?? 'Unknown Organization';
         $semester = Semester::query()->findOrFail($semesterId);
+        $evaluation = app(ScoringEvidenceService::class)->evaluate($organizationId, $semester);
+        $rubricVersion = app(ScoringRubricVersionService::class)->current($request->user()?->user_id);
 
         return view('pages.admin.scoring.create', [
             'title'            => 'Verify Organization Score',
@@ -126,6 +133,8 @@ class OrganizationScoringController extends Controller
             'readOnly'         => false,
             'customCriteria'   => \App\Services\Scoring\ScoringCatalog::customByCategory(),
             'categoryMeta'     => \App\Services\Scoring\ScoringCatalog::categories(),
+            'evidencePreview'  => collect($evaluation['evidence']),
+            'rubricVersion'    => $rubricVersion,
         ]);
     }
 
@@ -147,22 +156,33 @@ class OrganizationScoringController extends Controller
 
         $payload = $this->normalizePayload($validated['payload'] ?? []);
         $scores  = $this->computeScores($payload);
+        $semester = Semester::query()->findOrFail($semesterId);
+        $rubricVersion = app(ScoringRubricVersionService::class)->current($request->user()?->user_id);
 
         $score = OrganizationScore::query()->create([
             'organization_id'     => $organizationId,
             'semester_id'         => $semesterId,
+            'rubric_version_id'    => $rubricVersion->getKey(),
             'scored_by'           => $request->user()?->user_id,
             'payload'             => $payload,
             'raw_scores'          => $scores,
             'total_weighted_score' => $scores['total'],
             'scored_at'           => now(),
         ]);
+        $evidenceCount = app(ScoringEvidenceService::class)->snapshotForScore($score, $semester);
+        app(LevelingService::class)->recordOrganization($score, $semester);
 
         \App\Services\ActionLogger::log(
             \App\Services\ActionLogger::CATEGORY_SCORING,
             'score_saved',
             'Saved organization score',
-            ['organization_id' => $organizationId, 'semester_id' => $semesterId, 'total' => $scores['total']],
+            [
+                'organization_id' => $organizationId,
+                'semester_id' => $semesterId,
+                'total' => $scores['total'],
+                'rubric_version' => $rubricVersion->version,
+                'evidence_count' => $evidenceCount,
+            ],
             $score,
         );
 
@@ -178,6 +198,7 @@ class OrganizationScoringController extends Controller
             ->where('organization_detail_id', $organization->getAttribute('detail'))
             ->value('name') ?? 'Unknown Organization';
         $semester     = Semester::query()->findOrFail($score->semester_id);
+        $score->load(['rubricVersion', 'evidenceAwards']);
 
         $autoInstances  = $this->computeAutoInstances($score->organization_id, $semester);
         $existingPayload = array_filter((array) ($score->payload ?? []), fn ($v) => $v !== null && $v !== '');
@@ -195,6 +216,8 @@ class OrganizationScoringController extends Controller
             'readOnly'         => true,
             'customCriteria'   => \App\Services\Scoring\ScoringCatalog::customByCategory(),
             'categoryMeta'     => \App\Services\Scoring\ScoringCatalog::categories(),
+            'evidencePreview'  => $score->evidenceAwards,
+            'rubricVersion'    => $score->rubricVersion,
         ]);
     }
 
@@ -212,26 +235,105 @@ class OrganizationScoringController extends Controller
 
         $payload = $this->normalizePayload($validated['payload'] ?? []);
         $scores  = $this->computeScores($payload);
+        $rubricVersion = app(ScoringRubricVersionService::class)->current($request->user()?->user_id);
 
         $score->fill([
             'scored_by'           => $request->user()?->user_id,
+            'rubric_version_id'    => $rubricVersion->getKey(),
             'payload'             => $payload,
             'raw_scores'          => $scores,
             'total_weighted_score' => $scores['total'],
             'scored_at'           => now(),
         ]);
         $score->save();
+        $semester = Semester::query()->findOrFail($score->semester_id);
+        $evidenceCount = app(ScoringEvidenceService::class)->snapshotForScore($score, $semester);
+        app(LevelingService::class)->recordOrganization($score, $semester);
 
         \App\Services\ActionLogger::log(
             \App\Services\ActionLogger::CATEGORY_SCORING,
             'score_updated',
             'Updated organization score',
-            ['organization_id' => (int) $score->organization_id, 'semester_id' => (int) $score->semester_id, 'total' => $scores['total']],
+            [
+                'organization_id' => (int) $score->organization_id,
+                'semester_id' => (int) $score->semester_id,
+                'total' => $scores['total'],
+                'rubric_version' => $rubricVersion->version,
+                'evidence_count' => $evidenceCount,
+            ],
             $score,
         );
 
         return redirect()->route('admin.scoring.index', ['semester_id' => $score->semester_id])
             ->with('success', 'Organization score updated.');
+    }
+
+    public function evidence(int $id)
+    {
+        $score = OrganizationScore::query()
+            ->with(['semester', 'rubricVersion', 'evidenceAwards.reviewer.profileRecord'])
+            ->findOrFail($id);
+        $organizationName = DB::table('organizations as o')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->where('o.organization_id', $score->organization_id)
+            ->value('od.name') ?? 'Unknown Organization';
+
+        return view('pages.admin.scoring.evidence', [
+            'title' => 'Scoring Evidence',
+            'score' => $score,
+            'organizationName' => $organizationName,
+            'evidenceByCriterion' => $score->evidenceAwards->groupBy('criterion_key'),
+        ]);
+    }
+
+    public function reviewEvidence(
+        Request $request,
+        OrganizationScore $score,
+        ScoringEvidenceAward $evidence,
+    ): RedirectResponse {
+        abort_unless((int) $evidence->organization_score_id === (int) $score->organization_score_id, 404);
+
+        $validated = $request->validate([
+            'review_status' => ['required', Rule::in(['pending', 'verified', 'rejected'])],
+            'override_points' => ['nullable', 'numeric', 'min:0', 'max:999.99'],
+            'override_reason' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        if (($validated['review_status'] === 'rejected' || $request->filled('override_points'))
+            && blank($validated['override_reason'] ?? null)) {
+            return back()->withErrors([
+                'override_reason' => 'A reason is required when rejecting evidence or overriding its points.',
+            ])->withInput();
+        }
+
+        $before = $evidence->only(['review_status', 'override_points', 'override_reason']);
+        $overridePoints = $validated['override_points'] ?? null;
+        if ($validated['review_status'] === 'rejected' && $overridePoints === null) {
+            $overridePoints = 0;
+        }
+        $evidence->update([
+            'review_status' => $validated['review_status'],
+            'override_points' => $overridePoints,
+            'override_reason' => $validated['override_reason'] ?? null,
+            'reviewed_by' => $request->user()?->user_id,
+            'reviewed_at' => now(),
+        ]);
+        $score = app(ScoringEvidenceService::class)->recalculateScore($score);
+        app(LevelingService::class)->recordOrganization($score);
+
+        ActionLogger::log(
+            ActionLogger::CATEGORY_SCORING,
+            'evidence_reviewed',
+            'Reviewed scoring evidence "'.$evidence->evidence_label.'"',
+            [
+                'before' => $before,
+                'after' => $evidence->fresh()->only(['review_status', 'override_points', 'override_reason']),
+                'final_score' => (float) $score->total_weighted_score,
+            ],
+            $evidence,
+        );
+
+        return back()->with('success', 'Evidence review saved and score recalculated.');
     }
 
     public function audit(Request $request)
@@ -362,12 +464,19 @@ class OrganizationScoringController extends Controller
             }
 
             $calculator = app(\App\Services\Scoring\ScoreCalculator::class);
+            $levels = app(LevelingService::class);
+            $rows = $scores->map(function (OrganizationScore $score) use ($orgNames, $selectedSemester, $levels, $calculator) {
+                $level = $levels->organizationLevel((float) $score->total_weighted_score);
+                $levels->recordOrganization($score, $selectedSemester);
 
-            $rows = $scores->map(fn (OrganizationScore $score) => [
-                'score'      => $score,
-                'org_name'   => $orgNames[$score->organization_id] ?? 'Unknown Organization',
-                'categories' => $calculator->sheet((int) $score->organization_id, $selectedSemester, $score)['categories'],
-            ]);
+                return [
+                    'score'      => $score,
+                    'org_name'   => $orgNames[$score->organization_id] ?? 'Unknown Organization',
+                    'raw'        => (array) ($score->raw_scores ?? []),
+                    'categories' => $calculator->sheet((int) $score->organization_id, $selectedSemester, $score)['categories'],
+                    'level'      => $level,
+                ];
+            });
         }
 
         return view('pages.admin.scoring.rankings', [
@@ -382,6 +491,8 @@ class OrganizationScoringController extends Controller
                 [OrganizationType::UNIVERSITY_SANCTIONED => true],
             ),
             'typeFilter'         => $typeFilter,
+            'levelThresholds'    => app(LevelingService::class)->thresholds(\App\Models\LevelThreshold::ORGANIZATION),
+            'maximumScore'       => collect(\App\Services\Scoring\ScoringCatalog::categories())->sum('cap'),
         ]);
     }
 

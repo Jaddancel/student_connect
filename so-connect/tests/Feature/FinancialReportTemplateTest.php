@@ -305,10 +305,10 @@ it('does not ask for an organization on the Reports page', function () {
         ->assertSee('For Alpha Organization (your selected organization).')
         ->getContent();
 
-    // The Financial Report's filter panel takes its organization from the session, not a field.
-    $financial = \App\Models\ReportTemplate::query()->where('name', 'Financial Report')->sole()->getKey();
-    expect($html)->toContain('data-report-filter="'.$financial.'"')
-        ->and($html)->not->toContain('id="report-'.$financial.'-organization"');
+    // The Financial Report's form takes its organization from the session, not a field.
+    $form = rtReportForm($html, \App\Models\ReportTemplate::query()->where('name', 'Financial Report')->sole());
+    expect($form)->not->toBe('')
+        ->and($form)->not->toContain('name="params[organization]"');
 });
 
 it('lets any report filter an organization column by the session organization', function () {

@@ -15,11 +15,28 @@
             <p class="text-sm text-gray-500 dark:text-gray-400">Define report data with tokens, lay it out in a printed template, and generate it from the Reports page.</p>
         </div>
 
+        <form method="GET" class="grid gap-2 sm:grid-cols-4">
+            <input type="search" name="q" value="{{ request('q') }}" placeholder="Search name or purpose…" class="h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700" />
+            <x-common.predictive-select name="category" :selected="request('category')" placeholder="All categories" search-placeholder="Search category…" :options="$categories->map(fn($category) => ['value' => $category->id, 'label' => $category->name, 'keywords' => $category->description])->all()" />
+            <x-common.predictive-select name="audience" :selected="request('audience')" placeholder="All audiences" search-placeholder="Search audience…" :options="collect($audiences)->map(fn($label, $value) => ['value' => $value, 'label' => $label])->values()->all()" />
+            <div class="flex gap-2"><x-common.predictive-select name="status" :selected="request('status')" placeholder="All statuses" search-placeholder="Search status…" :options="[['value'=>'active','label'=>'Active'],['value'=>'inactive','label'=>'Inactive']]" class="flex-1" /><button class="rounded-lg bg-brand-500 px-4 text-sm text-white">Filter</button></div>
+        </form>
+
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            @foreach($categories as $category)
+                <a href="{{ route('admin.report-templates.index', ['category' => $category->id]) }}" class="rounded-xl border border-gray-200 p-4 transition hover:border-brand-400 dark:border-gray-800">
+                    <div class="flex items-center justify-between"><strong class="text-sm text-gray-800 dark:text-white">{{ $category->name }}</strong><span class="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-500">{{ $category->report_templates_count }}</span></div>
+                    <p class="mt-1 line-clamp-2 text-xs text-gray-500">{{ $category->description }}</p>
+                </a>
+            @endforeach
+        </div>
+
         <div class="overflow-hidden rounded-2xl border border-gray-200 bg-palette-surface dark:border-gray-800 dark:bg-white/[0.03]">
             <table class="w-full text-left text-sm">
                 <thead class="border-b border-gray-200 bg-gray-50 text-xs uppercase text-gray-500 dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-400">
                     <tr>
                         <th class="px-5 py-3">Name</th>
+                        <th class="px-5 py-3">Category</th>
                         <th class="px-5 py-3">Available to</th>
                         <th class="px-5 py-3">Tokens</th>
                         <th class="px-5 py-3">Printed templates</th>
@@ -36,6 +53,7 @@
                                     <p class="text-xs text-gray-400">{{ Str::limit($report->description, 90) }}</p>
                                 @endif
                             </td>
+                            <td class="px-5 py-3 text-xs">{{ $report->category?->name ?? 'Uncategorized' }}</td>
                             <td class="px-5 py-3">{{ \App\Models\ReportTemplate::audiences()[$report->audience] ?? $report->audience }}</td>
                             <td class="px-5 py-3">{{ count($report->tokens()) }}</td>
                             <td class="px-5 py-3">{{ $report->slots_count }}</td>
@@ -64,7 +82,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-5 py-8 text-center text-gray-400">No report templates yet. Create your first one.</td>
+                            <td colspan="7" class="px-5 py-8 text-center text-gray-400">No report templates match the filters.</td>
                         </tr>
                     @endforelse
                 </tbody>

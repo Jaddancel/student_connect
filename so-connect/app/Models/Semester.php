@@ -42,6 +42,11 @@ class Semester extends Model
         return $this->hasMany(Workplan::class, 'semester_id', 'semester_id');
     }
 
+    public function bestOrganizationCycle(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(BestOrganizationCycle::class, 'semester_id', 'semester_id');
+    }
+
     public function activePeriodStart(): Carbon
     {
         return $this->starts_at->copy()->subDays($this->vacation_days);

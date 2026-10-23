@@ -24,24 +24,26 @@
                             <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Individual Student Leaderboard</h3>
                             <p class="text-xs text-gray-500 dark:text-gray-400">Students are ranked by average evaluation score for the selected semester.</p>
                         </div>
-                        <form method="GET" action="{{ route('admin.student-rankings.index') }}">
-                            <select name="semester_id" data-autosubmit
-                                class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
-                                <option value="">Select semester</option>
-                                @foreach ($semesters as $semester)
-                                    <option value="{{ $semester->semester_id }}" @selected($selectedSemester?->semester_id === $semester->semester_id)>
-                                        {{ $semester->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </form>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <a href="{{ route('admin.levels.index', ['semester_id' => $selectedSemesterId, 'scope' => 'student']) }}" class="rounded-lg border border-brand-300 px-3 py-2 text-xs font-semibold text-brand-600 dark:border-brand-700 dark:text-brand-300">Level settings & history</a>
+                            <form method="GET" action="{{ route('admin.student-rankings.index') }}">
+                                <x-common.predictive-select name="semester_id" :selected="$selectedSemester?->semester_id" placeholder="Select semester" search-placeholder="Search semester…" :auto-submit="true" :options="$semesters->map(fn($semester) => ['value'=>$semester->semester_id,'label'=>$semester->name])->all()" class="w-64" />
+                            </form>
+                        </div>
                     </div>
 
                     <div class="mt-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                        <div class="rounded-lg bg-success-50 px-3 py-2 text-success-700 dark:bg-success-500/10 dark:text-success-400"><strong>Level 4</strong><br>90–100 Outstanding</div>
-                        <div class="rounded-lg bg-brand-50 px-3 py-2 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400"><strong>Level 3</strong><br>80–89.99 Advanced</div>
-                        <div class="rounded-lg bg-warning-50 px-3 py-2 text-warning-700 dark:bg-warning-500/10 dark:text-warning-400"><strong>Level 2</strong><br>70–79.99 Proficient</div>
-                        <div class="rounded-lg bg-gray-100 px-3 py-2 text-gray-700 dark:bg-gray-800 dark:text-gray-300"><strong>Level 1</strong><br>Below 70 Developing</div>
+                        @foreach ($levelThresholds as $threshold)
+                            @php
+                                $thresholdClass = match ($threshold->color) {
+                                    'success' => 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400',
+                                    'brand' => 'bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400',
+                                    'warning' => 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-400',
+                                    default => 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+                                };
+                            @endphp
+                            <div class="rounded-lg px-3 py-2 {{ $thresholdClass }}"><strong>Level {{ $threshold->level_number }}</strong><br>{{ number_format((float) $threshold->minimum_score, 2) }}%+ {{ $threshold->label }}</div>
+                        @endforeach
                     </div>
                 </div>
 
@@ -142,15 +144,7 @@
 
                         <div>
                             <label for="org_officer_id" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Student <span class="text-error-500">*</span></label>
-                            <select id="org_officer_id" name="org_officer_id" required
-                                class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:text-white/90">
-                                <option value="">Choose a student…</option>
-                                @foreach ($students as $student)
-                                    <option value="{{ $student->org_officer_id }}" @selected((string) old('org_officer_id') === (string) $student->org_officer_id)>
-                                        {{ $student->student_name }} — {{ $student->organization_name ?: 'Unknown Organization' }} ({{ Str::headline($student->role) }})
-                                    </option>
-                                @endforeach
-                            </select>
+                            <x-common.predictive-select id="org_officer_id" name="org_officer_id" :selected="old('org_officer_id')" :required="true" :allow-clear="false" placeholder="Choose a student…" search-placeholder="Search student, organization, or role…" :options="$students->map(fn($student) => ['value'=>$student->org_officer_id,'label'=>$student->student_name.' — '.($student->organization_name ?: 'Unknown Organization').' ('.Str::headline($student->role).')','keywords'=>($student->organization_name ?? '').' '.$student->role])->all()" />
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">

@@ -38,15 +38,7 @@
                 class="flex flex-wrap items-end gap-3 border-b border-gray-100 px-6 py-4 dark:border-gray-800">
                 <div class="min-w-[220px] flex-1">
                     <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Organization</label>
-                    <select name="organization_id"
-                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90">
-                        <option value="">All organizations</option>
-                        @foreach ($allOrganizations as $org)
-                            <option value="{{ $org['organization_id'] }}" @selected($selectedOrgId == $org['organization_id'])>
-                                {{ $org['name'] }}
-                            </option>
-                        @endforeach
-                    </select>
+                    <x-common.predictive-select name="organization_id" :selected="$selectedOrgId" placeholder="All organizations" search-placeholder="Search organization…" :options="collect($allOrganizations)->map(fn($org) => ['value'=>$org['organization_id'],'label'=>$org['name']])->all()" />
                 </div>
                 <div class="flex items-end gap-2">
                     <button type="submit"

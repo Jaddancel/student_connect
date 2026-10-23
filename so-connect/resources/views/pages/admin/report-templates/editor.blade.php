@@ -452,6 +452,10 @@
                             class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:text-white/90"></textarea>
                     </div>
                     <div>
+                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Purpose category</label>
+                        <x-common.predictive-select x-model="category_id" placeholder="Uncategorized" search-placeholder="Search purpose category…" :options="$categories->map(fn($category) => ['value'=>$category->id,'label'=>$category->name,'keywords'=>$category->description])->all()" />
+                    </div>
+                    <div>
                         <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Icon</label>
                         <div class="flex flex-wrap gap-2">
                             <button type="button" @click="icon = ''" title="Default"
@@ -470,11 +474,7 @@
                     </div>
                     <div>
                         <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Available to:</label>
-                        <select x-model="audience" class="{{ $input }}">
-                            @foreach ($audiences as $value => $label)
-                                <option value="{{ $value }}">{{ $label }}</option>
-                            @endforeach
-                        </select>
+                        <x-common.predictive-select x-model="audience" :allow-clear="false" search-placeholder="Search audience…" :options="collect($audiences)->map(fn($label,$value) => ['value'=>$value,'label'=>$label])->values()->all()" />
                         <p class="mt-1 text-xs text-gray-400">Who can generate this report from the Reports page. Officers can pick from, and see data of, every organization the report covers.</p>
                     </div>
                     <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">

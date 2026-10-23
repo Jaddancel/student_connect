@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\ContentCategory;
 use App\Models\ReportTemplate;
 use App\Services\FormPrintTemplateService;
 use Illuminate\Database\Seeder;
@@ -21,13 +22,23 @@ class ReportTemplateSeeder extends Seeder
     public function run(): void
     {
         foreach (self::definitions() as $name => $meta) {
-            if (ReportTemplate::query()->where('name', $name)->exists()) {
+            $categoryId = ContentCategory::query()
+                ->where('slug', self::categorySlug($name))
+                ->value('id');
+            $existing = ReportTemplate::query()->where('name', $name)->first();
+
+            if ($existing) {
+                if ($categoryId && (int) $existing->category_id !== (int) $categoryId) {
+                    $existing->update(['category_id' => $categoryId]);
+                }
+
                 continue;
             }
 
             $report = ReportTemplate::query()->create([
                 'name' => $name,
                 'description' => $meta['description'],
+                'category_id' => $categoryId,
                 'icon' => $meta['icon'],
                 'audience' => ReportTemplate::AUDIENCE_ADMINS,
                 'definition' => $meta['definition'],
@@ -42,6 +53,20 @@ class ReportTemplateSeeder extends Seeder
                 null,
             );
         }
+    }
+
+    private static function categorySlug(string $name): string
+    {
+        return match ($name) {
+            'Organization Officers',
+            'Members of Accredited Organizations',
+            'Officers of Accredited Organizations' => 'membership',
+            'Registered Organizations',
+            'Accredited School Organizations' => 'accreditation',
+            'Financial Report' => 'financial',
+            'Organization Scoring Report' => 'recognition',
+            default => 'activity',
+        };
     }
 
     /**

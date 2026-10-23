@@ -444,16 +444,13 @@ it('lists seeded reports and generates them with parameters', function () {
         ->assertSee('Organization Officers')
         ->assertSee('Beta Organization');
 
-    // Report cards are selectable; each opens its own filter panel with its parameters.
+    // Organization and school year come from the global report filters; other parameters stay on the report's form.
     $page = $this->actingAs($admin)->get(route('reports.index'))->getContent();
-    $accredited = ReportTemplate::query()->where('name', 'Accredited School Organizations')->sole()->getKey();
-    expect(substr_count($page, 'x-show="hasSelection"'))->toBe(1)
-        ->and(substr_count($page, 'data-report-filter='))->toBe(substr_count($page, 'data-report-card='))
-        ->and($page)->toContain('@click="select('.$accredited.')"')
-        ->and($page)->toContain('x-show="isSelected('.$accredited.')"')
-        ->and($page)->toContain('id="report-'.$accredited.'-school_year"')
-        ->and($page)->toContain('id="report-'.$accredited.'-organization_type"')
-        ->and($page)->toContain('id="report-'.$accredited.'-organization"');
+    $accredited = ReportTemplate::query()->where('name', 'Accredited School Organizations')->sole();
+    $form = rtReportForm($page, $accredited);
+    expect($form)->toContain('name="params[school_year]" :value="filters.schoolYear"')
+        ->and($form)->toContain('name="params[organization]" :value="filters.organization"')
+        ->and($form)->toContain('name="params[organization_type]"');
 
     $captured = null;
     $this->partialMock(DocxTemplateService::class, function ($mock) use (&$captured) {

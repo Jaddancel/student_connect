@@ -147,6 +147,7 @@ class FormPagesSeeder extends Seeder
             $this->f('present_address', 'Present Address', FieldType::TEXT, ['required' => true]),
             $this->f('home_address', 'Home Address', FieldType::TEXT),
             $this->f('parents_guardian', 'Parents / Guardian', FieldType::TEXT),
+            $this->f('college', 'College', FieldType::TEXT, ['required' => true, 'universal_key' => 'college', 'placeholder' => 'e.g. College of Arts and Sciences']),
             $this->f('course', 'Course', FieldType::TEXT),
             $this->f('year_level', 'Year Level', FieldType::TEXT),
             $this->f('talents_hobbies', 'Talents / Hobbies', FieldType::TEXT),
@@ -163,6 +164,7 @@ class FormPagesSeeder extends Seeder
             .$this->line('School Year', 'school_year')
             .$this->line('Name', 'first_name').$this->line('Last Name', 'last_name')
             .$this->line('Email', 'email').$this->line('Contact Number', 'contact_number')
+            .$this->line('College', 'college')
             .$this->line('Course & Year', 'course')
             .$this->line('Present Address', 'present_address')
             .'<p><strong>Signature:</strong></p><p><span data-field="signature"></span></p>';
@@ -514,6 +516,14 @@ class FormPagesSeeder extends Seeder
             ]]),
             $this->f('objectives', 'Objectives', FieldType::TEXTAREA, ['options' => ['rows' => 5]]),
             $this->f('workplan_id', 'Workplan', FieldType::WORKPLAN_SELECT),
+            $this->heading('Required Accreditation Attachments'),
+            $this->f('application_letter', 'Application Letter', FieldType::FILE, ['required' => true]),
+            $this->f('constitution_and_bylaws', 'Constitution and By-Laws', FieldType::FILE, ['required' => true]),
+            $this->f('officers_list', 'List of Officers', FieldType::FILE, ['required' => true]),
+            $this->f('members_list', 'List of Members', FieldType::FILE, ['required' => true]),
+            $this->f('adviser_endorsement', 'Faculty Adviser Endorsement', FieldType::FILE, ['required' => true]),
+            $this->f('annual_activity_plan', 'Annual Activity Plan / Calendar', FieldType::FILE, ['required' => true]),
+            $this->f('financial_plan', 'Financial Statement / Proposed Budget', FieldType::FILE, ['required' => true]),
             $this->f('president_signature', 'President Signature', FieldType::SIGNATURE),
         ];
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Mail\EventApprovedMail;
 use App\Http\Controllers\Controller;
 use App\Models\Approval;
+use App\Models\ActivityWaiverReview;
 use App\Models\Event;
 use App\Models\Event\EventDetail;
 use App\Models\EventPlan;
@@ -14,6 +15,8 @@ use App\Models\GeneratedDocument;
 use App\Models\Request as ActionRequest;
 use App\Models\User;
 use App\Services\DocumentGenerationService;
+use App\Services\ActionLogger;
+use App\Services\ActivityWaiverApprovalGate;
 use App\Helpers\FormTemplateHelper;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -122,7 +125,7 @@ class ActivityRequestController extends Controller
         ]);
     }
 
-    public function show(int $requestId)
+    public function show(int $requestId, ActivityWaiverApprovalGate $waiverGate)
     {
         $actionRequest = ActionRequest::query()->findOrFail($requestId);
         $payload       = (array) ($actionRequest->payload ?? []);
@@ -168,10 +171,68 @@ class ActivityRequestController extends Controller
             'approval'        => $approval,
             'orgName'         => $orgName,
             'requesterName'   => $requesterName,
+            'waiverGate'      => $waiverGate->evaluate($actionRequest),
         ]);
     }
 
-    public function decide(Request $request, int $requestId, DocumentGenerationService $documentGenerationService): RedirectResponse
+    public function reviewWaiver(Request $request, int $requestId, ActivityWaiverApprovalGate $waiverGate): RedirectResponse
+    {
+        $validated = $request->validate([
+            'decision' => ['required', 'string', Rule::in([
+                ActivityWaiverReview::DECISION_APPROVED,
+                ActivityWaiverReview::DECISION_REJECTED,
+            ])],
+            'remarks' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $actionRequest = ActionRequest::query()->findOrFail($requestId);
+        $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_EVENT);
+        $payload = (array) ($actionRequest->payload ?? []);
+        abort_unless($form && (int) ($payload['form_id'] ?? 0) === (int) $form->getKey(), 404);
+
+        if (Approval::query()->where('request', $actionRequest->getKey())->exists()) {
+            return back()->withErrors(['waiver' => 'This activity request already has a final decision.']);
+        }
+
+        $state = $waiverGate->evaluate($actionRequest);
+        if (! $state['can_review']) {
+            return back()->withErrors([
+                'waiver' => 'Only an attached waiver that could not be automatically validated can be manually reviewed.',
+            ]);
+        }
+
+        $review = ActivityWaiverReview::query()->updateOrCreate(
+            ['request_id' => $actionRequest->getKey()],
+            [
+                'reviewer_id' => (int) $request->user()->getKey(),
+                'decision' => $validated['decision'],
+                'remarks' => trim((string) ($validated['remarks'] ?? '')) ?: null,
+                'reviewed_at' => now(),
+            ],
+        );
+
+        ActionLogger::log(
+            ActionLogger::CATEGORY_WAIVER_REVIEW,
+            'waiver_manually_'.$validated['decision'],
+            'Activity request #'.$actionRequest->getKey().' waiver manually '.$validated['decision'],
+            [
+                'request_id' => (int) $actionRequest->getKey(),
+                'decision' => $validated['decision'],
+                'remarks' => $review->remarks,
+                'attachment_count' => $state['attachment_count'],
+            ],
+            $actionRequest,
+        );
+
+        return back()->with('success', 'Manual waiver review saved.');
+    }
+
+    public function decide(
+        Request $request,
+        int $requestId,
+        DocumentGenerationService $documentGenerationService,
+        ActivityWaiverApprovalGate $waiverGate,
+    ): RedirectResponse
     {
         $user = $request->user();
         if (! $user) {
@@ -200,6 +261,23 @@ class ActivityRequestController extends Controller
         $generatedDocumentId = null;
 
         if ($isApproved) {
+            $waiverState = $waiverGate->evaluate($actionRequest);
+            if (! $waiverState['can_approve']) {
+                ActionLogger::log(
+                    ActionLogger::CATEGORY_WAIVER_REVIEW,
+                    'activity_approval_blocked',
+                    'Blocked approval of activity request #'.$actionRequest->getKey().': '.$waiverState['message'],
+                    [
+                        'request_id' => (int) $actionRequest->getKey(),
+                        'waiver_status' => $waiverState['status'],
+                        'attachment_count' => $waiverState['attachment_count'],
+                    ],
+                    $actionRequest,
+                );
+
+                return back()->withErrors(['waiver' => $waiverState['message']]);
+            }
+
             try {
                 $generatedDocument   = $documentGenerationService->generateAllFromApprovedRequest($actionRequest, $userId)->first();
                 $generatedDocumentId = (int) $generatedDocument->getKey();
@@ -279,6 +357,20 @@ class ActivityRequestController extends Controller
         $message = $isApproved
             ? 'Activity request approved and document generated.'
             : 'Activity request rejected.';
+
+        if ($isApproved) {
+            ActionLogger::log(
+                ActionLogger::CATEGORY_WAIVER_REVIEW,
+                'activity_approval_allowed',
+                'Approved activity request #'.$actionRequest->getKey().' after waiver enforcement passed',
+                [
+                    'request_id' => (int) $actionRequest->getKey(),
+                    'waiver_status' => $waiverState['status'],
+                    'attachment_count' => $waiverState['attachment_count'],
+                ],
+                $actionRequest,
+            );
+        }
 
         return redirect()->route('admin.activity-requests.index')->with('success', $message);
     }

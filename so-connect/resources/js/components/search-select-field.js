@@ -8,13 +8,10 @@
  */
 export function searchSelectField(config) {
     return {
-        options: config.options || [], // [{ value, label, group? }]
+        options: config.options || [], // [{ value, label }]
         selected: config.selected ? String(config.selected) : '',
         query: '',
         open: false,
-        // When set, only options whose `group` matches are offered (e.g. the
-        // organizations of a chosen organization type).
-        group: '',
 
         // Cap the rendered list so a large source (all members/officers) stays
         // responsive; the query narrows it well before the cap bites.
@@ -31,22 +28,10 @@ export function searchSelectField(config) {
 
         get filtered() {
             const q = this.query.trim().toLowerCase();
-            const pool = this.group
-                ? this.options.filter((o) => String(o.group ?? '') === this.group)
-                : this.options;
             const list = q
-                ? pool.filter((o) => String(o.label).toLowerCase().includes(q))
-                : pool;
+                ? this.options.filter((o) => String(o.label).toLowerCase().includes(q))
+                : this.options;
             return list.slice(0, this.limit);
-        },
-
-        setGroup(group) {
-            this.group = group ? String(group) : '';
-            // Drop a pick that falls outside the new group.
-            const opt = this.options.find((o) => String(o.value) === this.selected);
-            if (this.group && opt && String(opt.group ?? '') !== this.group) {
-                this.clear();
-            }
         },
 
         onInput() {

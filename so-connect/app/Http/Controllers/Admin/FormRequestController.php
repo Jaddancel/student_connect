@@ -181,6 +181,8 @@ class FormRequestController extends Controller
             'kind' => (int) $actionRequest->action_type === 1 ? 'Membership' : ((int) $actionRequest->action_type === NewOrganizationRegistrationHandler::ACTION_TYPE ? 'New Organization' : 'Document'),
             'newOrganizationEmailStatuses' => $newOrganizationEmailStatuses,
             'backUrl' => $this->queueUrl($form),
+            'accreditationChecklist' => app(\App\Services\AccreditationAttachmentChecklist::class)
+                ->status($form, $submission ? (array) ($submission->payload ?? []) : []),
         ]);
     }
 

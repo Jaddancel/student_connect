@@ -247,6 +247,41 @@ export default function registerForms(Alpine) {
     }));
 
     // pages/form/directory.blade.php — searchable forms directory.
+    // components/form/fields/field: reusable attachment library picker on
+    // multi-image fields; attachments matching the activity are ranked first.
+    Alpine.data("attachmentLibraryPicker", ({ selected = [], items = [], max = 0 } = {}) => ({
+        open: false,
+        search: "",
+        selected,
+        items,
+        max,
+        activityTitle() {
+            return (document.getElementById("title")?.value || "").toLowerCase();
+        },
+        eventId() {
+            return String(document.getElementById("event_id")?.value || "");
+        },
+        score(item) {
+            let score = this.eventId() && String(item.event_id || "") === this.eventId() ? 100 : 0;
+            const words = this.activityTitle().split(/\s+/).filter((w) => w.length >= 3);
+            const haystack = [item.title, ...(item.tags || [])].join(" ").toLowerCase();
+            score += words.filter((word) => haystack.includes(word)).length * 10;
+            return score;
+        },
+        get filtered() {
+            const term = this.search.trim().toLowerCase();
+            return this.items
+                .filter((item) => !term || [item.title, item.name, ...(item.tags || [])].join(" ").toLowerCase().includes(term))
+                .sort((a, b) => this.score(b) - this.score(a));
+        },
+        toggle(path) {
+            const index = this.selected.indexOf(path);
+            if (index >= 0) this.selected.splice(index, 1);
+            else if (this.selected.length < this.max) this.selected.push(path);
+            this.$nextTick(() => window.dispatchEvent(new Event("change")));
+        },
+    }));
+
     Alpine.data("formDirectorySearch", (opts = {}) => ({
         q: '',
         forms: opts.forms,

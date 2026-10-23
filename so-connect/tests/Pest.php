@@ -222,3 +222,16 @@ function docxText(string $path): string
 
     return html_entity_decode(strip_tags($xml), ENT_QUOTES | ENT_XML1, 'UTF-8');
 }
+
+/** The HTML of one report's generation form on the Reports page ('' when absent). */
+function rtReportForm(string $page, \App\Models\ReportTemplate $report): string
+{
+    $start = strpos($page, 'action="'.route('reports.generate', $report).'"');
+    if ($start === false) {
+        return '';
+    }
+
+    $end = strpos($page, '</form>', $start);
+
+    return substr($page, $start, $end === false ? null : $end - $start);
+}

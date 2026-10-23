@@ -11,12 +11,7 @@
             </div>
             @if ($isSupportAgent)
                 <form method="GET" action="{{ route('admin.support-tickets.index') }}">
-                    <select name="status" data-autosubmit class="h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
-                        <option value="">All statuses</option>
-                        @foreach ($statuses as $value => $label)
-                            <option value="{{ $value }}" @selected(($selectedStatus ?? '') === $value)>{{ $label }}</option>
-                        @endforeach
-                    </select>
+                    <x-common.predictive-select name="status" :selected="$selectedStatus ?? ''" placeholder="All statuses" search-placeholder="Search status…" :auto-submit="true" :options="collect($statuses)->map(fn($label,$value) => ['value'=>$value,'label'=>$label])->values()->all()" class="w-52" />
                 </form>
                 <script @nonce>
                     if (!window.__csAutoSubmitBound) { window.__csAutoSubmitBound = true; document.addEventListener('change', (e) => { const t = e.target; if (t instanceof HTMLElement && t.dataset.autosubmit !== undefined && t.form) { t.form.submit(); } }); }

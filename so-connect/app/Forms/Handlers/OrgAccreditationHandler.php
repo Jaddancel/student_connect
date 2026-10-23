@@ -34,6 +34,9 @@ class OrgAccreditationHandler implements SystemFunctionHandler
                 'form' => 'The selected organization does not exist.',
             ]);
         }
+
+        app(\App\Services\AccreditationAttachmentChecklist::class)
+            ->validateSubmission($form, $payload);
     }
 
     public function handle(Form $form, FormSubmission $submission, array $payload, Request $request): RedirectResponse

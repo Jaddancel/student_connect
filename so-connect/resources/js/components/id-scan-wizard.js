@@ -1,3 +1,5 @@
+import { cameraAccessMessage, openPreferredCamera } from './camera-access';
+
 /**
  * Two-step signup wizard for the student-leader directory form.
  *
@@ -223,12 +225,9 @@ export function idScanWizard(config = {}) {
         // --- camera ---
         async startCamera() {
             this.cameraError = '';
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                this.cameraError = 'Camera is not available here — please use “Upload instead”.';
-                return;
-            }
+            this.stopCamera();
             try {
-                this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                this.stream = await openPreferredCamera();
                 const video = this.$refs.video;
                 if (video) {
                     video.srcObject = this.stream;
@@ -236,7 +235,8 @@ export function idScanWizard(config = {}) {
                 }
                 this.cameraOn = true;
             } catch (e) {
-                this.cameraError = 'Could not access the camera — allow permission or use “Upload instead”.';
+                this.stopCamera();
+                this.cameraError = cameraAccessMessage(e);
                 this.cameraOn = false;
             }
         },
@@ -618,10 +618,22 @@ export function idScanWizard(config = {}) {
         continueToForm() {
             this.stopCamera();
             this.step = 2;
+            this.notifyRegistrationStep(2);
         },
 
         backToScan() {
             this.step = 1;
+            this.notifyRegistrationStep(1);
+        },
+
+        notifyRegistrationStep(step) {
+            const form = this.$root.closest('form');
+            if (!form) return;
+            form.dispatchEvent(new CustomEvent('registration-step-changed', {
+                bubbles: true,
+                detail: { step },
+            }));
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
         },
     };
 }

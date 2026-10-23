@@ -26,26 +26,10 @@
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <form method="GET" action="{{ route('admin.scoring.index') }}" class="flex flex-wrap items-center gap-2">
-                        <select name="semester_id" data-autosubmit
-                            class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
-                            <option value="">Select semester</option>
-                            @foreach ($semesters as $semester)
-                                <option value="{{ $semester->semester_id }}" @selected($selectedSemester?->semester_id === $semester->semester_id)>
-                                    {{ $semester->name }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <x-common.predictive-select name="semester_id" :selected="$selectedSemester?->semester_id" placeholder="Select semester" search-placeholder="Search semester…" :auto-submit="true" :options="$semesters->map(fn($semester) => ['value'=>$semester->semester_id,'label'=>$semester->name])->all()" class="w-60" />
 
                         @if ($selectedSemester)
-                            <select name="category" data-autosubmit
-                                class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:text-white/90">
-                                <option value="">All categories</option>
-                                @foreach ($categoryLabels as $typeId => $label)
-                                    <option value="{{ $typeId }}" @selected($categoryFilter === $typeId)>
-                                        {{ $label }}
-                                    </option>
-                                @endforeach
-                            </select>
+                            <x-common.predictive-select name="category" :selected="$categoryFilter" placeholder="All categories" search-placeholder="Search category…" :auto-submit="true" :options="collect($categoryLabels)->map(fn($label,$value) => ['value'=>$value,'label'=>$label])->values()->all()" class="w-56" />
                         @endif
                     </form>
 
@@ -126,10 +110,12 @@
                                         </td>
                                         <td class="px-6 py-4">
                                             @if ($verified)
-                                                <a href="{{ route('admin.scoring.edit', $score->organization_score_id) }}"
-                                                    class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
-                                                    Review Score
-                                                </a>
+                                                <div class="flex flex-wrap gap-3">
+                                                    <a href="{{ route('admin.scoring.edit', $score->organization_score_id) }}"
+                                                        class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Review Score</a>
+                                                    <a href="{{ route('admin.scoring.evidence', $score->organization_score_id) }}"
+                                                        class="text-xs font-medium text-gray-600 hover:underline dark:text-gray-300">Evidence</a>
+                                                </div>
                                             @else
                                                 <a href="{{ route('admin.scoring.create', ['organization_id' => $row['organization_id'], 'semester_id' => $selectedSemester->semester_id]) }}"
                                                     class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-600 whitespace-nowrap">

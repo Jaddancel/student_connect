@@ -250,15 +250,7 @@
             class="rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03]">
             <form method="GET" action="{{ route('posts.index') }}" class="flex flex-wrap items-center gap-3">
 
-                <select name="org" data-autosubmit
-                    class="shadow-theme-xs h-9 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 focus:border-palette-lime focus:ring-2 focus:ring-palette-lime/20 focus:outline-none dark:border-gray-700 dark:text-gray-300">
-                    <option value="all" @selected($filterOrg === 'all')>All Organizations</option>
-                    @foreach ($orgs as $org)
-                        <option value="{{ $org->organization_id }}" @selected((string) $filterOrg === (string) $org->organization_id)>
-                            {{ $org->org_name }}
-                        </option>
-                    @endforeach
-                </select>
+                <x-common.predictive-select name="org" :selected="$filterOrg" :allow-clear="false" search-placeholder="Search organization…" :auto-submit="true" :options="collect([['value'=>'all','label'=>'All Organizations']])->concat($orgs->map(fn($org) => ['value'=>$org->organization_id,'label'=>$org->org_name]))->all()" class="w-64" />
 
                 <label
                     class="flex h-9 flex-1 min-w-[180px] items-center gap-2 rounded-lg border border-gray-300 bg-transparent px-3 shadow-theme-xs focus-within:border-palette-lime focus-within:ring-2 focus-within:ring-palette-lime/20 dark:border-gray-700">

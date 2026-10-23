@@ -78,7 +78,16 @@
 
                         <!-- Menu Items -->
                         <ul class="flex flex-col gap-1">
+                            @php $lastItemSection = null; @endphp
                             @foreach ($menuGroup['items'] as $itemIndex => $item)
+                                @php $itemSection = $item['section'] ?? null; @endphp
+                                @if ($itemSection !== null && $itemSection !== $lastItemSection)
+                                    <li x-show="$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen"
+                                        class="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400 first:pt-0 dark:text-gray-500">
+                                        {{ $itemSection }}
+                                    </li>
+                                @endif
+                                @php $lastItemSection = $itemSection; @endphp
                                 <li>
                                     @if (isset($item['subItems']))
                                         <!-- Menu Item with Submenu -->

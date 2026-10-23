@@ -61,6 +61,7 @@ class MenuHelper
             ['icon' => 'dashboard', 'name' => 'Dashboard', 'path' => '/dashboard'],
             ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
             ['icon' => 'forms', 'name' => 'Forms', 'path' => '/forms'],
+            ['icon' => 'pages', 'name' => 'Attachment Library', 'path' => '/attachment-library'],
             ['icon' => 'pages', 'name' => 'Documents', 'path' => '/documents'],
             ['icon' => 'support-ticket', 'name' => 'My Support Tickets', 'path' => '/support-tickets'],
         ];
@@ -90,40 +91,39 @@ class MenuHelper
             $menuGroups[] = [
                 'title' => 'Superadmin',
                 'items' => [
-                    ['icon' => 'user-profile', 'name' => 'Profile Manager', 'path' => '/superadmin/profiles'],
-                    ['icon' => 'user-profile', 'name' => 'Create Superadmin', 'path' => '/superadmin/superadmins/create'],
-                    ['icon' => 'user-profile', 'name' => 'Create Admin', 'path' => '/superadmin/accounts/create'],
-                    ['icon' => 'user-profile', 'name' => 'Organizations', 'path' => '/superadmin/organizations'],
-                    ['icon' => 'pages', 'name' => 'ID Templates', 'path' => '/superadmin/id-templates'],
-                    ['icon' => 'tables', 'name' => 'Export Data', 'path' => '/superadmin/export'],
-                    ['icon' => 'charts', 'name' => 'Score Audit', 'path' => '/superadmin/scoring/audit'],
-                    ['icon' => 'task', 'name' => 'Action Logs', 'path' => '/superadmin/action-logs'],
-                    ['icon' => 'support-ticket', 'name' => 'Support Tickets', 'path' => '/admin/support-tickets'],
+                    ['section' => 'Accounts & Organizations', 'icon' => 'user-profile', 'name' => 'Profile Manager', 'path' => '/superadmin/profiles'],
+                    ['section' => 'Accounts & Organizations', 'icon' => 'user-profile', 'name' => 'Create Superadmin', 'path' => '/superadmin/superadmins/create'],
+                    ['section' => 'Accounts & Organizations', 'icon' => 'user-profile', 'name' => 'Create Admin', 'path' => '/superadmin/accounts/create'],
+                    ['section' => 'Accounts & Organizations', 'icon' => 'user-profile', 'name' => 'Organizations', 'path' => '/superadmin/organizations'],
+                    ['section' => 'Templates & Data', 'icon' => 'pages', 'name' => 'ID Templates', 'path' => '/superadmin/id-templates'],
+                    ['section' => 'Templates & Data', 'icon' => 'tables', 'name' => 'Export Data', 'path' => '/superadmin/export'],
+                    ['section' => 'Oversight', 'icon' => 'charts', 'name' => 'Score Audit', 'path' => '/superadmin/scoring/audit'],
+                    ['section' => 'Oversight', 'icon' => 'task', 'name' => 'Action Logs', 'path' => '/superadmin/action-logs'],
+                    ['section' => 'Oversight', 'icon' => 'support-ticket', 'name' => 'Support Tickets', 'path' => '/admin/support-tickets'],
                 ],
             ];
         }
 
         if ((int) $user->user_type === 2) {
             $menuGroups[] = [
-                'title' => 'Admin',
+                'title' => 'Content & Templates',
                 'items' => [
-                    ['icon' => 'pages',    'name' => 'Posts',              'path' => '/posts'],
-                    ['icon' => 'forms',    'name' => 'Form Builder',       'path' => '/admin/form-builder'],
-                    ['icon' => 'pages',    'name' => 'Report Templates',   'path' => '/admin/report-templates'],
-                    ['icon' => 'calendar', 'name' => 'Semester Management', 'path' => '/admin/semesters'],
-                    ['icon' => 'pages',    'name' => 'Waiver Templates',   'path' => '/admin/waiver-templates'],
-                    ['icon' => 'user-profile', 'name' => 'Organization Manager', 'path' => '/admin/organization-manager'],
+                    ['section' => 'Publishing', 'icon' => 'pages',    'name' => 'Posts',              'path' => '/posts'],
+                    ['section' => 'Forms', 'icon' => 'forms',    'name' => 'Form Builder',       'path' => '/admin/form-builder'],
+                    ['section' => 'Forms', 'icon' => 'pages',    'name' => 'Template Gallery',   'path' => '/admin/template-gallery'],
+                    ['section' => 'Forms', 'icon' => 'ui-elements','name' => 'Template Categories','path' => '/admin/categories'],
+                    ['section' => 'Forms', 'icon' => 'pages',    'name' => 'Waiver Templates',   'path' => '/admin/waiver-templates'],
+                    ['section' => 'Reports', 'icon' => 'pages',    'name' => 'Report Templates',   'path' => '/admin/report-templates'],
                 ],
             ];
 
-            $menuGroups[] = [
-                'title' => 'Records',
+            $recordsGroup = [
+                'title' => 'Records & Reports',
                 'items' => [
-                    ['icon' => 'charts', 'name' => 'Audit Logs',      'path' => '/admin/audit-logs'],
+                    ['icon' => 'pages',  'name' => 'Reports',         'path' => '/reports'],
                     ['icon' => 'task',   'name' => 'Request Records', 'path' => '/admin/request-records'],
                     ['icon' => 'tables', 'name' => 'Database View',   'path' => '/admin/database-view'],
-                    ['icon' => 'pages',  'name' => 'Reports',         'path' => '/reports'],
-                    ['icon' => 'support-ticket', 'name' => 'Support Tickets', 'path' => '/admin/support-tickets'],
+                    ['icon' => 'charts', 'name' => 'Audit Logs',      'path' => '/admin/audit-logs'],
                 ],
             ];
 
@@ -133,13 +133,14 @@ class MenuHelper
             // every form has its own request page (forms bound to sign-up /
             // new-event / new-workplan are covered by the dedicated queues).
             $requestItems = [
-                ['icon' => 'task',  'name' => 'Activity Requests',    'path' => '/admin/activity-requests', 'badge' => $badges['activity_requests']],
-                ['icon' => 'forms', 'name' => 'Workplan Submissions', 'path' => '/admin/workplan-requests', 'badge' => $badges['workplan']],
-                ['icon' => 'user-profile', 'name' => 'Promotion Requests', 'path' => '/promotion-requests', 'badge' => $badges['promotion_requests']],
+                ['section' => 'Core Requests', 'icon' => 'task',  'name' => 'Activity Requests',    'path' => '/admin/activity-requests', 'badge' => $badges['activity_requests']],
+                ['section' => 'Core Requests', 'icon' => 'forms', 'name' => 'Workplan Submissions', 'path' => '/admin/workplan-requests', 'badge' => $badges['workplan']],
+                ['section' => 'Core Requests', 'icon' => 'user-profile', 'name' => 'Promotion Requests', 'path' => '/promotion-requests', 'badge' => $badges['promotion_requests']],
             ];
 
             // Membership-registration forms are reviewed on Promotion Requests.
             $formRequestPages = \App\Models\Form::query()
+                ->with('category:id,name,display_order,is_active')
                 ->where('is_active', true)
                 ->where(function ($query) {
                     $query->whereNull('system_function')
@@ -150,11 +151,20 @@ class MenuHelper
                         ]);
                 })
                 ->orderBy('name')
-                ->get(['id', 'name', 'icon']);
+                ->get(['id', 'name', 'icon', 'category_id'])
+                ->sortBy(fn ($form) => sprintf(
+                    '%05d|%s|%s',
+                    $form->category && $form->category->is_active ? (int) $form->category->display_order : 99999,
+                    $form->category && $form->category->is_active ? $form->category->name : 'Other Forms',
+                    $form->name,
+                ));
 
             foreach ($formRequestPages as $formPage) {
                 $requestItems[] = [
-                    'icon' => $formPage->icon ?: 'forms',
+                    'section' => $formPage->category && $formPage->category->is_active
+                        ? $formPage->category->name
+                        : 'Other Forms',
+                    'icon' => $formPage->icon ?: ($formPage->category?->icon ?: 'forms'),
                     'name' => $formPage->name,
                     'path' => '/admin/form-requests/'.$formPage->id,
                     'badge' => (int) ($badges['form'][$formPage->id] ?? 0),
@@ -167,12 +177,25 @@ class MenuHelper
             ];
 
             $menuGroups[] = [
-                'title' => 'Evaluation',
+                'title' => 'Scoring & Evaluation',
                 'items' => [
-                    ['icon' => 'charts', 'name' => 'Organization Scoring', 'path' => '/admin/scoring'],
-                    ['icon' => 'charts', 'name' => 'Organization Rankings', 'path' => '/admin/scoring/rankings'],
-                    ['icon' => 'user-profile', 'name' => 'Student Rankings', 'path' => '/admin/scoring/student-rankings'],
-                    ['icon' => 'task', 'name' => 'Scoring Rules', 'path' => '/admin/scoring-rules'],
+                    ['section' => 'Scoring', 'icon' => 'charts', 'name' => 'Organization Scoring', 'path' => '/admin/scoring'],
+                    ['section' => 'Rankings & Levels', 'icon' => 'charts', 'name' => 'Organization Rankings', 'path' => '/admin/scoring/rankings'],
+                    ['section' => 'Rankings & Levels', 'icon' => 'user-profile', 'name' => 'Student Rankings', 'path' => '/admin/scoring/student-rankings'],
+                    ['section' => 'Rankings & Levels', 'icon' => 'charts', 'name' => 'Organization & Student Levels', 'path' => '/admin/levels'],
+                    ['section' => 'Awards', 'icon' => 'task', 'name' => 'Best Organization', 'path' => '/admin/best-organizations'],
+                    ['section' => 'Configuration', 'icon' => 'task', 'name' => 'Scoring Rules', 'path' => '/admin/scoring-rules'],
+                ],
+            ];
+
+            $menuGroups[] = $recordsGroup;
+
+            $menuGroups[] = [
+                'title' => 'System Administration',
+                'items' => [
+                    ['icon' => 'calendar', 'name' => 'Semester Management', 'path' => '/admin/semesters'],
+                    ['icon' => 'user-profile', 'name' => 'Organization Manager', 'path' => '/admin/organization-manager'],
+                    ['icon' => 'support-ticket', 'name' => 'Support Tickets', 'path' => '/admin/support-tickets'],
                 ],
             ];
 
@@ -189,6 +212,7 @@ class MenuHelper
                 'items' => [
                     ['icon' => 'calendar', 'name' => 'Event Plans',          'path' => '/event-plans'],
                     ['icon' => 'pages',    'name' => 'Reports',          'path' => '/reports'],
+                    ['icon' => 'task',     'name' => 'Best Organizations', 'path' => '/best-organizations'],
                     [
                         'icon' => 'forms',
                         'name' => 'After Event Form',
@@ -202,6 +226,7 @@ class MenuHelper
             // unless the builder unticked "Show on sidebar"; each links to its
             // online renderer page.
             $publishedForms = \App\Models\Form::whereNotNull('route_name')
+                ->with('category:id,name,icon,display_order,is_active')
                 ->where('is_published', true)
                 ->where('is_active', true)
                 ->where('show_in_sidebar', true)
@@ -209,17 +234,29 @@ class MenuHelper
                 ->where(fn ($query) => $query->whereNull('system_function')
                     ->orWhere('system_function', '!=', \App\Forms\SystemFunction::AFTER_EVENT_REPORT))
                 ->orderBy('name')
-                ->get(['id', 'name', 'route_name', 'icon']);
+                ->get(['id', 'name', 'route_name', 'icon', 'category_id'])
+                ->sortBy(fn ($form) => sprintf(
+                    '%05d|%s|%s',
+                    $form->category && $form->category->is_active ? (int) $form->category->display_order : 99999,
+                    $form->category && $form->category->is_active ? $form->category->name : 'Organization',
+                    $form->name,
+                ));
 
             if ($publishedForms->isNotEmpty()) {
-                $menuGroups[] = [
-                    'title' => 'Organization Forms',
-                    'items' => $publishedForms->map(fn ($f) => [
-                        'icon' => $f->icon ?: 'forms',
-                        'name' => $f->name,
-                        'path' => '/forms/'.$f->route_name,
-                    ])->all(),
-                ];
+                $publishedForms
+                    ->groupBy(fn ($form) => $form->category && $form->category->is_active
+                        ? $form->category->name.' Forms'
+                        : 'Organization Forms')
+                    ->each(function ($forms, string $title) use (&$menuGroups): void {
+                        $menuGroups[] = [
+                            'title' => $title,
+                            'items' => $forms->map(fn ($form) => [
+                                'icon' => $form->icon ?: ($form->category?->icon ?: 'forms'),
+                                'name' => $form->name,
+                                'path' => '/forms/'.$form->route_name,
+                            ])->all(),
+                        ];
+                    });
             }
         }
 
