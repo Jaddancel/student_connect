@@ -103,9 +103,9 @@
             <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
                 <button type="button" x-show="!cameraOn" @click="startCamera()"
                     class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">Start camera</button>
-                <button type="button" x-show="cameraOn" @click="capture()" x-cloak
-                    class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600">
-                    <span x-text="scanSide === 'front' ? 'Capture front' : 'Capture back'"></span>
+                <button type="button" x-show="cameraOn" @click="capture()" :disabled="!cameraReady" x-cloak
+                    class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-wait disabled:opacity-60">
+                    <span x-text="!cameraReady ? 'Focusing…' : (scanSide === 'front' ? 'Capture front' : 'Capture back')"></span>
                 </button>
                 <button type="button" x-show="cameraOn" @click="stopCamera()" x-cloak
                     class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Stop</button>

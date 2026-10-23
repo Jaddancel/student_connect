@@ -13,11 +13,14 @@ export function cameraCapture() {
     return {
         stream: null,
         cameraOn: false,
+        cameraReady: false,
         cameraError: '',
+        cameraStartToken: 0,
 
         async startCamera() {
             this.cameraError = '';
             this.stopCamera();
+            const token = ++this.cameraStartToken;
             try {
                 this.stream = await openPreferredCamera();
                 const video = this.$refs.video;
@@ -26,6 +29,10 @@ export function cameraCapture() {
                     await video.play();
                 }
                 this.cameraOn = true;
+                // Give continuous autofocus/exposure a moment to settle before
+                // enabling a document capture.
+                await new Promise((resolve) => setTimeout(resolve, 900));
+                if (token === this.cameraStartToken && this.stream) this.cameraReady = true;
             } catch (e) {
                 this.stopCamera();
                 this.cameraError = cameraAccessMessage(e);
@@ -34,17 +41,19 @@ export function cameraCapture() {
         },
 
         stopCamera() {
+            this.cameraStartToken++;
             if (this.stream) {
                 this.stream.getTracks().forEach((track) => track.stop());
                 this.stream = null;
             }
             this.cameraOn = false;
+            this.cameraReady = false;
         },
 
         /** Current video frame as a JPEG data URL, or null if the camera isn't ready. */
         captureDataUrl() {
             const video = this.$refs.video;
-            if (!video || !video.videoWidth) return null;
+            if (!this.cameraReady || !video || !video.videoWidth) return null;
             const canvas = this.$refs.canvas;
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
