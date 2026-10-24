@@ -110,7 +110,7 @@
         </div>
         <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-6 py-4 dark:border-gray-800 sm:px-8">
             <p class="text-xs text-gray-500 dark:text-gray-400">You can move between steps before the final submission.</p>
-            <button type="button" @click="applicationStep = 1; applicationMaxStep = Math.max(applicationMaxStep, 1); $nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }))"
+            <button type="button" @click="startApplication()"
                 class="rounded-xl bg-[#1d513d] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#15382b]">Start application →</button>
         </div>
     </section>

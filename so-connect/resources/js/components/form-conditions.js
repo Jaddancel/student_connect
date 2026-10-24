@@ -65,6 +65,13 @@ export function formConditions(config = {}) {
             this.$nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
         },
 
+        startApplication() {
+            this.applicationStep = 1;
+            this.applicationMaxStep = Math.max(this.applicationMaxStep, 1);
+            this.applicationStepError = '';
+            this.$nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+        },
+
         previousApplicationStep() {
             this.applicationStep = Math.max(0, this.applicationStep - 1);
             this.applicationStepError = '';
