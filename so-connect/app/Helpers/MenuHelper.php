@@ -105,7 +105,7 @@ class MenuHelper
                     ['section' => 'Publishing', 'icon' => 'pages',    'name' => 'Posts',              'path' => '/posts'],
                     ['section' => 'Forms', 'icon' => 'forms',    'name' => 'Form Builder',       'path' => '/admin/form-builder'],
                     ['section' => 'Forms', 'icon' => 'pages',    'name' => 'Template Gallery',   'path' => '/admin/template-gallery'],
-                    ['section' => 'Forms', 'icon' => 'ui-elements','name' => 'Template Categories','path' => '/admin/categories'],
+                    ['section' => 'Forms', 'icon' => 'ui-elements', 'name' => 'Template Categories', 'path' => '/admin/categories'],
                     ['section' => 'Forms', 'icon' => 'pages',    'name' => 'Waiver Templates',   'path' => '/admin/waiver-templates'],
                     ['section' => 'Reports', 'icon' => 'pages',    'name' => 'Report Templates',   'path' => '/admin/report-templates'],
                 ],
@@ -198,9 +198,9 @@ class MenuHelper
     /**
      * Build the sidebar for student officers and presidents.
      *
-     * The group order follows the student's normal workflow: see what is
-     * happening, prepare and submit work, manage organization operations, then
-     * handle role-specific responsibilities. Profile and settings remain in
+     * The group order follows the organization's operating cycle: review the
+     * current status, renew accreditation, plan and complete activities, keep
+     * records, then use general-purpose forms. Profile and settings remain in
      * the account dropdown to avoid duplicate navigation.
      */
     private static function buildStudentMenuGroups(User $user): array
@@ -226,25 +226,31 @@ class MenuHelper
                 ->whereIn('status', \App\Models\ManualFormSession::OPEN_STATUSES)
                 ->count();
 
-            $formItems = [
-                ['section' => 'Workspace', 'icon' => 'forms', 'name' => 'Browse All Forms', 'path' => '/forms'],
-                ['section' => 'Workspace', 'icon' => 'task', 'name' => 'Drafts', 'path' => '/drafts', 'badge' => $draftCount],
-                ['section' => 'Files', 'icon' => 'pages', 'name' => 'My Documents', 'path' => '/documents'],
-                ['section' => 'Files', 'icon' => 'pages', 'name' => 'Attachment Library', 'path' => '/attachment-library'],
-            ];
+            $accreditationService = app(\App\Services\AccreditationService::class);
+            $requiredAccreditationFormIds = $accreditationService->requiredFormIds();
+            $accreditationFormId = (int) ($accreditationService->defaultAccreditationForm()?->getKey() ?? 0);
+            $processCriticalFormIds = array_values(array_unique(array_filter([
+                $accreditationFormId,
+                ...$requiredAccreditationFormIds,
+            ])));
 
-            // Keep every administrator-published form in one predictable group.
-            // Category names become section labels instead of creating an
-            // unlimited number of top-level sidebar groups.
-            $publishedForms = \App\Models\Form::whereNotNull('route_name')
+            // Administrator-selected renewal requirements remain visible even
+            // when their normal "show in sidebar" option is off. A requirement
+            // must never become undiscoverable to the organization completing it.
+            $publishedForms = \App\Models\Form::query()
+                ->whereNotNull('route_name')
                 ->with('category:id,name,icon,display_order,is_active')
                 ->where('is_published', true)
                 ->where('is_active', true)
-                ->where('show_in_sidebar', true)
-                ->where(fn ($query) => $query->whereNull('system_function')
-                    ->orWhere('system_function', '!=', \App\Forms\SystemFunction::AFTER_EVENT_REPORT))
+                ->where(function ($query) use ($processCriticalFormIds) {
+                    $query->where('show_in_sidebar', true);
+
+                    if ($processCriticalFormIds !== []) {
+                        $query->orWhereIn('id', $processCriticalFormIds);
+                    }
+                })
                 ->orderBy('name')
-                ->get(['id', 'name', 'route_name', 'icon', 'category_id'])
+                ->get(['id', 'name', 'route_name', 'icon', 'category_id', 'system_function'])
                 ->sortBy(fn ($form) => sprintf(
                     '%05d|%s|%s',
                     $form->category && $form->category->is_active ? (int) $form->category->display_order : 99999,
@@ -252,35 +258,99 @@ class MenuHelper
                     $form->name,
                 ));
 
-            foreach ($publishedForms as $form) {
-                $formItems[] = [
-                    'section' => $form->category && $form->category->is_active
-                        ? $form->category->name
-                        : 'General Forms',
-                    'icon' => $form->icon ?: ($form->category?->icon ?: 'forms'),
-                    'name' => $form->name,
-                    'path' => '/forms/'.$form->route_name,
+            $formsById = $publishedForms->keyBy(fn ($form) => (int) $form->getKey());
+            $usedFormIds = [];
+            $formMenuItem = static fn ($form, string $section): array => [
+                'section' => $section,
+                'icon' => $form->icon ?: ($form->category?->icon ?: 'forms'),
+                'name' => $form->name,
+                'path' => '/forms/'.$form->route_name,
+            ];
+
+            $accreditationItems = [];
+            if ($accreditationFormId > 0 && ($accreditationForm = $formsById->get($accreditationFormId))) {
+                $accreditationItems[] = $formMenuItem($accreditationForm, 'Renewal Application');
+                $usedFormIds[$accreditationFormId] = true;
+            }
+
+            foreach ($requiredAccreditationFormIds as $requiredFormId) {
+                $requiredFormId = (int) $requiredFormId;
+                if (isset($usedFormIds[$requiredFormId]) || ! ($requiredForm = $formsById->get($requiredFormId))) {
+                    continue;
+                }
+
+                $accreditationItems[] = $formMenuItem($requiredForm, 'Renewal Requirements');
+                $usedFormIds[$requiredFormId] = true;
+            }
+
+            if ($accreditationItems !== []) {
+                $groups[] = [
+                    'title' => 'Accreditation & Renewal',
+                    'items' => $accreditationItems,
                 ];
             }
 
-            $groups[] = [
-                'title' => 'Forms & Submissions',
-                'items' => $formItems,
+            $activityItems = [
+                ['section' => 'Planning', 'icon' => 'calendar', 'name' => 'Event Plans', 'path' => '/event-plans'],
+            ];
+
+            foreach ([\App\Forms\SystemFunction::NEW_EVENT, \App\Forms\SystemFunction::NEW_WORKPLAN] as $activityFunction) {
+                $activityForm = $publishedForms->firstWhere('system_function', $activityFunction);
+                if (! $activityForm || isset($usedFormIds[(int) $activityForm->getKey()])) {
+                    continue;
+                }
+
+                $activityItems[] = $formMenuItem($activityForm, 'Planning');
+                $usedFormIds[(int) $activityForm->getKey()] = true;
+            }
+
+            $activityItems[] = [
+                'section' => 'Completion',
+                'icon' => 'forms',
+                'name' => 'After-Event Reports',
+                'path' => '/after-event-reports',
+                'badge' => self::afterEventBadge($user),
             ];
 
             $groups[] = [
-                'title' => 'Organization Management',
+                'title' => 'Activities & Events',
+                'items' => $activityItems,
+            ];
+
+            $groups[] = [
+                'title' => 'Reports & Records',
                 'items' => [
-                    ['icon' => 'calendar', 'name' => 'Event Plans', 'path' => '/event-plans'],
-                    [
-                        'icon' => 'forms',
-                        'name' => 'After-Event Reports',
-                        'path' => '/after-event-reports',
-                        'badge' => self::afterEventBadge($user),
-                    ],
-                    ['icon' => 'pages', 'name' => 'Organization Reports', 'path' => '/reports'],
-                    ['icon' => 'task', 'name' => 'Awards & Recognition', 'path' => '/best-organizations'],
+                    ['section' => 'Reports', 'icon' => 'pages', 'name' => 'Organization Reports', 'path' => '/reports'],
+                    ['section' => 'Files', 'icon' => 'pages', 'name' => 'My Documents', 'path' => '/documents'],
+                    ['section' => 'Files', 'icon' => 'pages', 'name' => 'Attachment Library', 'path' => '/attachment-library'],
+                    ['section' => 'Recognition', 'icon' => 'task', 'name' => 'Awards & Recognition', 'path' => '/best-organizations'],
                 ],
+            ];
+
+            $formItems = [
+                ['section' => 'Workspace', 'icon' => 'forms', 'name' => 'Browse All Forms', 'path' => '/forms'],
+                ['section' => 'Workspace', 'icon' => 'task', 'name' => 'Drafts', 'path' => '/drafts', 'badge' => $draftCount],
+            ];
+
+            // Forms not assigned to a core process retain their administrator-
+            // configured category as a subsection in one predictable location.
+            foreach ($publishedForms as $form) {
+                $formId = (int) $form->getKey();
+                if (isset($usedFormIds[$formId]) || $form->system_function === \App\Forms\SystemFunction::AFTER_EVENT_REPORT) {
+                    continue;
+                }
+
+                $formItems[] = $formMenuItem(
+                    $form,
+                    $form->category && $form->category->is_active
+                        ? $form->category->name
+                        : 'General Forms',
+                );
+            }
+
+            $groups[] = [
+                'title' => 'Forms & Drafts',
+                'items' => $formItems,
             ];
 
             if ($presidentOrganizationIds !== []) {

@@ -44,7 +44,7 @@ function sidebarTestOfficer(): User
 /** @return list<string> */
 function organizationFormPaths(): array
 {
-    $group = collect(MenuHelper::getMenuGroups())->firstWhere('title', 'Forms & Submissions');
+    $group = collect(MenuHelper::getMenuGroups())->firstWhere('title', 'Forms & Drafts');
 
     return collect($group['items'] ?? [])->pluck('path')->all();
 }
