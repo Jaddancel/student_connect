@@ -87,12 +87,12 @@ return new class extends Migration
         return [
             ['field_key' => 'target_membership', 'field_label' => 'Target Membership', 'field_type' => FieldType::TEXTAREA, 'is_required' => true, 'field_options' => json_encode(['rows' => 3])],
             ['field_key' => 'faculty_adviser', 'field_label' => 'Proposed Faculty Adviser', 'field_type' => FieldType::TEXT, 'is_required' => true, 'field_options' => null],
-            ['field_key' => 'constitution_and_bylaws', 'field_label' => 'Constitution and By-Laws', 'field_type' => FieldType::FILE, 'is_required' => true, 'field_options' => null],
-            ['field_key' => 'founding_members_list', 'field_label' => 'List of Founding Members', 'field_type' => FieldType::FILE, 'is_required' => true, 'field_options' => null],
-            ['field_key' => 'proposed_officers_list', 'field_label' => 'List of Proposed Officers', 'field_type' => FieldType::FILE, 'is_required' => true, 'field_options' => null],
-            ['field_key' => 'faculty_adviser_acceptance', 'field_label' => 'Faculty Adviser Acceptance', 'field_type' => FieldType::FILE, 'is_required' => true, 'field_options' => null],
-            ['field_key' => 'organization_logo', 'field_label' => 'Organization Logo', 'field_type' => FieldType::IMAGE, 'is_required' => true, 'field_options' => null],
-            ['field_key' => 'gpoa_budget', 'field_label' => 'General Plan of Action (GPOA) with Proposed Budget', 'field_type' => FieldType::FILE, 'is_required' => true, 'field_options' => null],
+            ['field_key' => 'constitution_and_bylaws', 'field_label' => 'Constitution and By-Laws', 'field_type' => FieldType::FILE, 'is_required' => false, 'field_options' => null],
+            ['field_key' => 'founding_members_list', 'field_label' => 'List of Founding Members', 'field_type' => FieldType::FILE, 'is_required' => false, 'field_options' => null],
+            ['field_key' => 'proposed_officers_list', 'field_label' => 'List of Proposed Officers', 'field_type' => FieldType::FILE, 'is_required' => false, 'field_options' => null],
+            ['field_key' => 'faculty_adviser_acceptance', 'field_label' => 'Faculty Adviser Acceptance', 'field_type' => FieldType::FILE, 'is_required' => false, 'field_options' => null],
+            ['field_key' => 'organization_logo', 'field_label' => 'Organization Logo', 'field_type' => FieldType::IMAGE, 'is_required' => false, 'field_options' => null],
+            ['field_key' => 'gpoa_budget', 'field_label' => 'General Plan of Action (GPOA) with Proposed Budget', 'field_type' => FieldType::FILE, 'is_required' => false, 'field_options' => null],
         ];
     }
 };

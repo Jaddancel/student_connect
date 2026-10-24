@@ -214,12 +214,12 @@ class FormPagesSeeder extends Seeder
             $this->f('officer_email', 'New Officer Email', FieldType::NEW_OFFICER_EMAIL, ['required' => true]),
             $this->f('faculty_adviser', 'Proposed Faculty Adviser', FieldType::TEXT, ['required' => true]),
             $this->heading('Required Documents'),
-            $this->f('constitution_and_bylaws', 'Constitution and By-Laws', FieldType::FILE, ['required' => true]),
-            $this->f('founding_members_list', 'List of Founding Members', FieldType::FILE, ['required' => true]),
-            $this->f('proposed_officers_list', 'List of Proposed Officers', FieldType::FILE, ['required' => true]),
-            $this->f('faculty_adviser_acceptance', 'Faculty Adviser Acceptance', FieldType::FILE, ['required' => true]),
-            $this->f('organization_logo', 'Organization Logo', FieldType::IMAGE, ['required' => true]),
-            $this->f('gpoa_budget', 'General Plan of Action (GPOA) with Proposed Budget', FieldType::FILE, ['required' => true]),
+            $this->f('constitution_and_bylaws', 'Constitution and By-Laws', FieldType::FILE),
+            $this->f('founding_members_list', 'List of Founding Members', FieldType::FILE),
+            $this->f('proposed_officers_list', 'List of Proposed Officers', FieldType::FILE),
+            $this->f('faculty_adviser_acceptance', 'Faculty Adviser Acceptance', FieldType::FILE),
+            $this->f('organization_logo', 'Organization Logo', FieldType::IMAGE),
+            $this->f('gpoa_budget', 'General Plan of Action (GPOA) with Proposed Budget', FieldType::FILE),
         ];
 
         $html = '<h2>New Organization Registration</h2>'

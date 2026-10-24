@@ -192,20 +192,32 @@
                     @include('pages.form.partials.new-organization-steps')
                 @endif
                 <div class="min-w-0">
-                    @include('components.form.builder-form', [
-                        'form' => $form,
-                        'fields' => $fields,
-                        'prefill' => $prefill ?? [],
-                        'conditions' => $conditions ?? [],
-                        'advisers' => $advisers ?? [],
-                        'special' => $special ?? [],
-                        'hidden' => $hidden ?? [],
-                        'preview' => $preview,
-                        'isSignup' => $isSignup,
-                        'isNewOrganization' => $isNewOrganization,
-                        'manualEnabled' => ! $isPublicRegistration,
-                        'submitLabel' => $isSignup ? 'Submit registration' : ($isNewOrganization ? 'Submit application to OSSD' : 'Submit for approval'),
-                    ])
+                    @if ($isNewOrganization)
+                        @include('components.form.new-organization-wizard', [
+                            'form' => $form,
+                            'fields' => $fields,
+                            'prefill' => $prefill ?? [],
+                            'conditions' => $conditions ?? [],
+                            'advisers' => $advisers ?? [],
+                            'special' => $special ?? [],
+                            'hidden' => $hidden ?? [],
+                            'preview' => $preview,
+                        ])
+                    @else
+                        @include('components.form.builder-form', [
+                            'form' => $form,
+                            'fields' => $fields,
+                            'prefill' => $prefill ?? [],
+                            'conditions' => $conditions ?? [],
+                            'advisers' => $advisers ?? [],
+                            'special' => $special ?? [],
+                            'hidden' => $hidden ?? [],
+                            'preview' => $preview,
+                            'isSignup' => $isSignup,
+                            'manualEnabled' => ! $isPublicRegistration,
+                            'submitLabel' => $isSignup ? 'Submit registration' : 'Submit for approval',
+                        ])
+                    @endif
                 </div>
             </div>
         @endif

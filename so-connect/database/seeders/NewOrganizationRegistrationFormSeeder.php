@@ -32,12 +32,12 @@ class NewOrganizationRegistrationFormSeeder extends Seeder
             ['field_key' => 'president_email', 'field_label' => 'New President Email', 'field_type' => FieldType::NEW_PRESIDENT_EMAIL, 'is_required' => true],
             ['field_key' => 'officer_email', 'field_label' => 'New Officer Email', 'field_type' => FieldType::NEW_OFFICER_EMAIL, 'is_required' => true],
             ['field_key' => 'faculty_adviser', 'field_label' => 'Proposed Faculty Adviser', 'field_type' => FieldType::TEXT, 'is_required' => true],
-            ['field_key' => 'constitution_and_bylaws', 'field_label' => 'Constitution and By-Laws', 'field_type' => FieldType::FILE, 'is_required' => true],
-            ['field_key' => 'founding_members_list', 'field_label' => 'List of Founding Members', 'field_type' => FieldType::FILE, 'is_required' => true],
-            ['field_key' => 'proposed_officers_list', 'field_label' => 'List of Proposed Officers', 'field_type' => FieldType::FILE, 'is_required' => true],
-            ['field_key' => 'faculty_adviser_acceptance', 'field_label' => 'Faculty Adviser Acceptance', 'field_type' => FieldType::FILE, 'is_required' => true],
-            ['field_key' => 'organization_logo', 'field_label' => 'Organization Logo', 'field_type' => FieldType::IMAGE, 'is_required' => true],
-            ['field_key' => 'gpoa_budget', 'field_label' => 'General Plan of Action (GPOA) with Proposed Budget', 'field_type' => FieldType::FILE, 'is_required' => true],
+            ['field_key' => 'constitution_and_bylaws', 'field_label' => 'Constitution and By-Laws', 'field_type' => FieldType::FILE, 'is_required' => false],
+            ['field_key' => 'founding_members_list', 'field_label' => 'List of Founding Members', 'field_type' => FieldType::FILE, 'is_required' => false],
+            ['field_key' => 'proposed_officers_list', 'field_label' => 'List of Proposed Officers', 'field_type' => FieldType::FILE, 'is_required' => false],
+            ['field_key' => 'faculty_adviser_acceptance', 'field_label' => 'Faculty Adviser Acceptance', 'field_type' => FieldType::FILE, 'is_required' => false],
+            ['field_key' => 'organization_logo', 'field_label' => 'Organization Logo', 'field_type' => FieldType::IMAGE, 'is_required' => false],
+            ['field_key' => 'gpoa_budget', 'field_label' => 'General Plan of Action (GPOA) with Proposed Budget', 'field_type' => FieldType::FILE, 'is_required' => false],
         ];
 
         $form = Form::query()->create([

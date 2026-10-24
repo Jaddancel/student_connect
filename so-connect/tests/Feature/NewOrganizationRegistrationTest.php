@@ -142,10 +142,43 @@ it('renders the new organization registration form publicly', function () {
         ->assertOk()
         ->assertSee('Start a new student organization')
         ->assertSee('Application journey')
+        ->assertSee('Prepare before registering')
+        ->assertSee('Ihanda muna ang application details')
+        ->assertSee('Step 4 of 4')
         ->assertSee('Initial screening')
         ->assertSee('Formal recognition')
         ->assertSee('New President Email')
         ->assertSee('Submit application to OSSD');
+});
+
+it('shows only admin-configured required uploads in the preparation notice', function () {
+    $form = makeNewOrganizationForm();
+
+    FormDescription::query()->create([
+        'form_id' => $form->getKey(),
+        'field_key' => 'admin_required_document',
+        'field_label' => 'Admin Required Document',
+        'field_type' => FieldType::FILE,
+        'is_required' => true,
+        'field_order' => 7,
+    ]);
+    FormDescription::query()->create([
+        'form_id' => $form->getKey(),
+        'field_key' => 'admin_optional_document',
+        'field_label' => 'Admin Optional Document',
+        'field_type' => FieldType::FILE,
+        'is_required' => false,
+        'field_order' => 8,
+    ]);
+
+    $response = $this->get(route('forms.render', $form->route_name));
+
+    $response->assertOk()
+        ->assertSee('Required uploads set by the admin')
+        ->assertSee('Admin Required Document');
+
+    expect(substr_count($response->getContent(), 'Admin Required Document'))->toBeGreaterThan(1)
+        ->and(substr_count($response->getContent(), 'Admin Optional Document'))->toBe(2);
 });
 
 it('rejects submission when required organization fields are missing', function () {

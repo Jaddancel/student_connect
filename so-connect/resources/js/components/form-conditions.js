@@ -14,6 +14,10 @@ export function formConditions(config = {}) {
         values: {},
         submitting: false,
         registrationStep: Number(config.registrationStep || 0),
+        applicationStep: Number(config.applicationStep || 0),
+        applicationMaxStep: Number(config.applicationStep || 0),
+        applicationSteps: Number(config.applicationSteps || 0),
+        applicationStepError: '',
 
         init() {
             this.$nextTick(() => this.seed());
@@ -46,9 +50,62 @@ export function formConditions(config = {}) {
             } else if (el.type === 'radio') {
                 const checked = this.$root.querySelector(`[name="${CSS.escape(el.name)}"]:checked`);
                 this.values[key] = checked ? checked.value : '';
-            } else if (el.type !== 'file') {
+            } else if (el.type === 'file') {
+                this.values[key] = Array.from(el.files || []).map((file) => file.name);
+            } else {
                 this.values[key] = el.value;
             }
+        },
+
+        nextApplicationStep() {
+            if (!this.validateApplicationStep(this.applicationStep)) return;
+            this.applicationStep = Math.min(this.applicationSteps, this.applicationStep + 1);
+            this.applicationMaxStep = Math.max(this.applicationMaxStep, this.applicationStep);
+            this.applicationStepError = '';
+            this.$nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+        },
+
+        previousApplicationStep() {
+            this.applicationStep = Math.max(0, this.applicationStep - 1);
+            this.applicationStepError = '';
+            this.$nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+        },
+
+        goToApplicationStep(step) {
+            if (this.applicationStep === 0 || step > this.applicationMaxStep) return;
+            this.applicationStep = Math.max(1, Math.min(this.applicationSteps, Number(step)));
+            this.applicationStepError = '';
+        },
+
+        validateApplicationStep(step) {
+            const panel = this.$root.querySelector(`[data-application-panel="${step}"]`);
+            if (!panel) return true;
+
+            const missing = Array.from(panel.querySelectorAll('[data-field-required="true"]'))
+                .find((wrapper) => {
+                    if (wrapper.offsetParent === null) return false;
+                    const controls = Array.from(wrapper.querySelectorAll('input:not([type="hidden"]), select, textarea'))
+                        .filter((control) => !control.disabled);
+                    if (!controls.length) return false;
+                    if (controls[0].type === 'checkbox' || controls[0].type === 'radio') {
+                        return !controls.some((control) => control.checked);
+                    }
+                    if (controls[0].type === 'file') return !controls.some((control) => control.files?.length);
+                    return !controls.some((control) => String(control.value || '').trim() !== '');
+                });
+
+            if (!missing) return true;
+            this.applicationStepError = 'Complete all required fields before continuing.';
+            const control = missing.querySelector('input:not([type="hidden"]), select, textarea');
+            control?.focus();
+            missing.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return false;
+        },
+
+        reviewValue(key, isDocument = false) {
+            const value = this.values[key];
+            if (Array.isArray(value)) return value.length ? value.join(', ') : (isDocument ? 'Not attached' : 'Not provided');
+            return String(value || '').trim() || (isDocument ? 'Not attached' : 'Not provided');
         },
 
         visible(key) {
