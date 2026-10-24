@@ -51,7 +51,36 @@ it('categorizes request queues and officer forms by their configured purpose', f
     $this->actingAs($officer);
     $groups = collect(MenuHelper::getMenuGroups())->keyBy('title');
 
-    expect($groups->keys()->all())->toContain('Financial Forms', 'Organization Forms')
-        ->and(collect($groups['Financial Forms']['items'])->pluck('path'))->toContain('/forms/budget-request')
-        ->and(collect($groups['Organization Forms']['items'])->pluck('path'))->toContain('/forms/general-organization-form');
+    expect($groups->keys()->all())->toContain(
+        'Overview', 'Forms & Submissions', 'Organization Management', 'Help & Support'
+    );
+
+    $studentForms = collect($groups['Forms & Submissions']['items']);
+    expect($studentForms->firstWhere('path', '/forms/budget-request')['section'])->toBe('Financial')
+        ->and($studentForms->firstWhere('path', '/forms/general-organization-form')['section'])->toBe('General Forms');
+});
+
+it('orders the student sidebar by task and keeps files out of the overview group', function () {
+    $officer = recordsUser(3);
+    $organization = recordsOrganization('Student Navigation Organization');
+    DB::table('organization_officers')->insert([
+        'role' => 'officer', 'organization' => $organization->getKey(), 'user' => $officer->getKey(),
+        'member_since' => now(), 'registered_at' => now(), 'reassigned_at' => now(),
+    ]);
+
+    $this->actingAs($officer);
+    $groups = collect(MenuHelper::getMenuGroups());
+
+    expect($groups->pluck('title')->all())->toBe([
+        'Overview', 'Forms & Submissions', 'Organization Management', 'Help & Support',
+    ]);
+
+    expect(collect($groups->firstWhere('title', 'Overview')['items'])->pluck('path')->all())
+        ->toBe(['/dashboard', '/calendar']);
+
+    expect(collect($groups->firstWhere('title', 'Forms & Submissions')['items'])->pluck('path'))
+        ->toContain('/forms', '/drafts', '/documents', '/attachment-library');
+
+    expect(collect($groups->firstWhere('title', 'Organization Management')['items'])->pluck('path'))
+        ->toContain('/event-plans', '/after-event-reports', '/reports', '/best-organizations');
 });

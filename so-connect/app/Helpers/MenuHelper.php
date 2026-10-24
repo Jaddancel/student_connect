@@ -54,6 +54,14 @@ class MenuHelper
             ];
         }
 
+        // Student officers and presidents use a task-based navigation model.
+        // Keep it separate from the administrative menus so new admin tools do
+        // not leak into the student experience or turn "General" into a mixed
+        // collection of unrelated links.
+        if ((int) $user->user_type === User::TYPE_OFFICER) {
+            return self::buildStudentMenuGroups($user);
+        }
+
         // Profile and Settings are intentionally omitted here — they are reached
         // from the navbar profile dropdown (see components/header/user-dropdown),
         // so a duplicate sidebar "Account" group would be redundant.
@@ -65,20 +73,6 @@ class MenuHelper
             ['icon' => 'pages', 'name' => 'Documents', 'path' => '/documents'],
             ['icon' => 'support-ticket', 'name' => 'My Support Tickets', 'path' => '/support-tickets'],
         ];
-
-        // Officers/presidents get a Drafts entry just below Forms: their
-        // in-progress manual-filling sessions live there (admins author forms,
-        // they don't fill them, so it is type-3 only).
-        if ((int) $user->user_type === 3) {
-            $draftCount = \App\Models\ManualFormSession::query()
-                ->where('user_id', (int) $user->getKey())
-                ->whereIn('status', \App\Models\ManualFormSession::OPEN_STATUSES)
-                ->count();
-
-            array_splice($generalItems, 3, 0, [
-                ['icon' => 'task', 'name' => 'Drafts', 'path' => '/drafts', 'badge' => $draftCount],
-            ]);
-        }
 
         $menuGroups = [
             [
@@ -198,36 +192,55 @@ class MenuHelper
 
         }
 
-        // Built forms are for user-type-3 officers/presidents only (matches
-        // Form::isAccessibleBy) — admins author forms, they don't fill them.
-        $isOfficerOrPresident = (int) $user->user_type === 3
-            && ! empty(OrganizationAuthorizationService::officerOrganizationIdsForUser((int) $user->getKey()));
+        return $menuGroups;
+    }
 
-        if ($isOfficerOrPresident) {
-            $menuGroups[] = [
-                'title' => 'Organization',
+    /**
+     * Build the sidebar for student officers and presidents.
+     *
+     * The group order follows the student's normal workflow: see what is
+     * happening, prepare and submit work, manage organization operations, then
+     * handle role-specific responsibilities. Profile and settings remain in
+     * the account dropdown to avoid duplicate navigation.
+     */
+    private static function buildStudentMenuGroups(User $user): array
+    {
+        $userId = (int) $user->getKey();
+        $organizationIds = OrganizationAuthorizationService::officerOrganizationIdsForUser($userId);
+        $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId);
+        $hasOrganizationRole = $organizationIds !== [];
+
+        $groups = [
+            [
+                'title' => 'Overview',
                 'items' => [
-                    ['icon' => 'calendar', 'name' => 'Event Plans',          'path' => '/event-plans'],
-                    ['icon' => 'pages',    'name' => 'Reports',          'path' => '/reports'],
-                    ['icon' => 'task',     'name' => 'Best Organizations', 'path' => '/best-organizations'],
-                    [
-                        'icon' => 'forms',
-                        'name' => 'After Event Form',
-                        'path' => '/after-event-reports',
-                        'badge' => self::afterEventBadge($user),
-                    ],
+                    ['icon' => 'dashboard', 'name' => 'Dashboard', 'path' => '/dashboard'],
+                    ['icon' => 'calendar', 'name' => 'Calendar', 'path' => '/calendar'],
                 ],
+            ],
+        ];
+
+        if ($hasOrganizationRole) {
+            $draftCount = \App\Models\ManualFormSession::query()
+                ->where('user_id', $userId)
+                ->whereIn('status', \App\Models\ManualFormSession::OPEN_STATUSES)
+                ->count();
+
+            $formItems = [
+                ['section' => 'Workspace', 'icon' => 'forms', 'name' => 'Browse All Forms', 'path' => '/forms'],
+                ['section' => 'Workspace', 'icon' => 'task', 'name' => 'Drafts', 'path' => '/drafts', 'badge' => $draftCount],
+                ['section' => 'Files', 'icon' => 'pages', 'name' => 'My Documents', 'path' => '/documents'],
+                ['section' => 'Files', 'icon' => 'pages', 'name' => 'Attachment Library', 'path' => '/attachment-library'],
             ];
 
-            // Every published form is listed (see Form::scopeDirectoryEligible)
-            // unless the builder unticked "Show on sidebar"; each links to its
-            // online renderer page.
+            // Keep every administrator-published form in one predictable group.
+            // Category names become section labels instead of creating an
+            // unlimited number of top-level sidebar groups.
             $publishedForms = \App\Models\Form::whereNotNull('route_name')
                 ->with('category:id,name,icon,display_order,is_active')
                 ->where('is_published', true)
                 ->where('is_active', true)
                 ->where('show_in_sidebar', true)
-                // Filed per event from the After Event Form page only.
                 ->where(fn ($query) => $query->whereNull('system_function')
                     ->orWhere('system_function', '!=', \App\Forms\SystemFunction::AFTER_EVENT_REPORT))
                 ->orderBy('name')
@@ -235,38 +248,59 @@ class MenuHelper
                 ->sortBy(fn ($form) => sprintf(
                     '%05d|%s|%s',
                     $form->category && $form->category->is_active ? (int) $form->category->display_order : 99999,
-                    $form->category && $form->category->is_active ? $form->category->name : 'Organization',
+                    $form->category && $form->category->is_active ? $form->category->name : 'General Forms',
                     $form->name,
                 ));
 
-            if ($publishedForms->isNotEmpty()) {
-                $publishedForms
-                    ->groupBy(fn ($form) => $form->category && $form->category->is_active
-                        ? $form->category->name.' Forms'
-                        : 'Organization Forms')
-                    ->each(function ($forms, string $title) use (&$menuGroups): void {
-                        $menuGroups[] = [
-                            'title' => $title,
-                            'items' => $forms->map(fn ($form) => [
-                                'icon' => $form->icon ?: ($form->category?->icon ?: 'forms'),
-                                'name' => $form->name,
-                                'path' => '/forms/'.$form->route_name,
-                            ])->all(),
-                        ];
-                    });
+            foreach ($publishedForms as $form) {
+                $formItems[] = [
+                    'section' => $form->category && $form->category->is_active
+                        ? $form->category->name
+                        : 'General Forms',
+                    'icon' => $form->icon ?: ($form->category?->icon ?: 'forms'),
+                    'name' => $form->name,
+                    'path' => '/forms/'.$form->route_name,
+                ];
+            }
+
+            $groups[] = [
+                'title' => 'Forms & Submissions',
+                'items' => $formItems,
+            ];
+
+            $groups[] = [
+                'title' => 'Organization Management',
+                'items' => [
+                    ['icon' => 'calendar', 'name' => 'Event Plans', 'path' => '/event-plans'],
+                    [
+                        'icon' => 'forms',
+                        'name' => 'After-Event Reports',
+                        'path' => '/after-event-reports',
+                        'badge' => self::afterEventBadge($user),
+                    ],
+                    ['icon' => 'pages', 'name' => 'Organization Reports', 'path' => '/reports'],
+                    ['icon' => 'task', 'name' => 'Awards & Recognition', 'path' => '/best-organizations'],
+                ],
+            ];
+
+            if ($presidentOrganizationIds !== []) {
+                $groups[] = [
+                    'title' => 'President Tools',
+                    'items' => [
+                        ['icon' => 'task', 'name' => 'Membership Requests', 'path' => '/membership-requests'],
+                    ],
+                ];
             }
         }
 
-        if ((int) $user->user_type === 3 && ! empty(OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey()))) {
-            $menuGroups[] = [
-                'title' => 'Requests',
-                'items' => [
-                    ['icon' => 'task', 'name' => 'Membership Requests', 'path' => '/membership-requests'],
-                ],
-            ];
-        }
+        $groups[] = [
+            'title' => 'Help & Support',
+            'items' => [
+                ['icon' => 'support-ticket', 'name' => 'My Support Tickets', 'path' => '/support-tickets'],
+            ],
+        ];
 
-        return $menuGroups;
+        return $groups;
     }
 
     /**

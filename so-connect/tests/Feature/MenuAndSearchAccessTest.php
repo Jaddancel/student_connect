@@ -86,10 +86,10 @@ it('shows membership requests under Requests for organization presidents only', 
 
     $this->actingAs($officer);
     $officerGroups = MenuHelper::getMenuGroups();
-    expect(collect($officerGroups)->pluck('title'))->not->toContain('Requests');
+    expect(collect($officerGroups)->pluck('title'))->not->toContain('President Tools');
 
     $this->actingAs($president);
-    $requestGroup = collect(MenuHelper::getMenuGroups())->firstWhere('title', 'Requests');
+    $requestGroup = collect(MenuHelper::getMenuGroups())->firstWhere('title', 'President Tools');
 
     expect($requestGroup['items'])->toContain([
         'icon' => 'task',
