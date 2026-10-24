@@ -36,6 +36,31 @@ export function formConditions(config = {}) {
             this.submitting = true;
         },
 
+        submitApplication() {
+            if (this.submitting) return;
+
+            // The wizard keeps completed panels hidden with x-show. Browser
+            // constraint validation cannot focus an invalid control inside a
+            // hidden panel, which makes the final submit appear to do nothing.
+            // Validate every data-entry step ourselves, reveal the first
+            // incomplete one, then use the form's native submit operation.
+            for (let step = 1; step < this.applicationSteps; step += 1) {
+                const panel = this.$root.querySelector(`[data-application-panel="${step}"]`);
+                const missing = this.missingRequiredField(panel);
+                if (!missing) continue;
+
+                this.applicationStep = step;
+                this.applicationMaxStep = Math.max(this.applicationMaxStep, step);
+                this.applicationStepError = 'Complete all required fields before submitting.';
+                this.focusMissingField(missing);
+                return;
+            }
+
+            this.applicationStepError = '';
+            this.submitting = true;
+            this.$nextTick(() => this.$root.submit());
+        },
+
         read(el) {
             const key = el.name.endsWith('[]') ? el.name.slice(0, -2) : el.name;
             if (!key) return;
@@ -88,9 +113,22 @@ export function formConditions(config = {}) {
             const panel = this.$root.querySelector(`[data-application-panel="${step}"]`);
             if (!panel) return true;
 
-            const missing = Array.from(panel.querySelectorAll('[data-field-required="true"]'))
+            const missing = this.missingRequiredField(panel);
+
+            if (!missing) return true;
+            this.applicationStepError = 'Complete all required fields before continuing.';
+            this.focusMissingField(missing);
+            return false;
+        },
+
+        missingRequiredField(panel) {
+            if (!panel) return null;
+
+            return Array.from(panel.querySelectorAll('[data-field-required="true"]'))
                 .find((wrapper) => {
-                    if (wrapper.offsetParent === null) return false;
+                    // Conditional fields are disabled by toggleDisabled(). A
+                    // wizard panel being hidden must not make its fields skip
+                    // final validation.
                     const controls = Array.from(wrapper.querySelectorAll('input:not([type="hidden"]), select, textarea'))
                         .filter((control) => !control.disabled);
                     if (!controls.length) return false;
@@ -99,14 +137,15 @@ export function formConditions(config = {}) {
                     }
                     if (controls[0].type === 'file') return !controls.some((control) => control.files?.length);
                     return !controls.some((control) => String(control.value || '').trim() !== '');
-                });
+                }) || null;
+        },
 
-            if (!missing) return true;
-            this.applicationStepError = 'Complete all required fields before continuing.';
-            const control = missing.querySelector('input:not([type="hidden"]), select, textarea');
-            control?.focus();
-            missing.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return false;
+        focusMissingField(wrapper) {
+            const control = wrapper.querySelector('input:not([type="hidden"]), select, textarea');
+            this.$nextTick(() => {
+                control?.focus();
+                wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
         },
 
         reviewValue(key, isDocument = false) {
