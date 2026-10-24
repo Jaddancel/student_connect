@@ -143,7 +143,7 @@ it('renders the new organization registration form publicly', function () {
         ->assertSee('Start a new student organization')
         ->assertSee('Application journey')
         ->assertSee('Prepare before registering')
-        ->assertSee('Ihanda muna ang application details')
+        ->assertSee('Prepare your application details first')
         ->assertSee('Step 4 of 4')
         ->assertSee('Initial screening')
         ->assertSee('Formal recognition')

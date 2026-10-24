@@ -78,60 +78,25 @@
                         <button type="submit" class="flex h-12 w-full items-center justify-center rounded-xl bg-[#1a3c2e] px-4 text-sm font-semibold text-white transition hover:bg-[#2d6a4f] focus:outline-none focus:ring-4 focus:ring-emerald-700/20">Sign in securely</button>
                     </form>
 
-                    <div class="my-6 flex items-center gap-3"><span class="h-px flex-1 bg-gray-200 dark:bg-gray-800"></span><span class="text-xs text-gray-400">New to SO Connect?</span><span class="h-px flex-1 bg-gray-200 dark:bg-gray-800"></span></div>
+                </div>
 
-                    <div class="space-y-3">
-                        <button type="button" id="signup-google-btn" data-configured="{{ \App\Http\Controllers\Auth\GoogleLinkController::isConfigured() ? '1' : '0' }}" data-redirect-url="{{ route('admin.accounts.google.redirect') }}" data-signup-url="{{ route('signup') }}"
-                            class="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800">
-                            <svg class="h-4 w-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M21.35 12.27c0-.79-.07-1.55-.2-2.27H12v4.3h5.23a4.47 4.47 0 0 1-1.94 2.93v2.79h3.14c1.84-1.69 2.92-4.19 2.92-7.75Z"/><path fill="#34A853" d="M12 21.75c2.63 0 4.84-.87 6.43-2.36l-3.14-2.43c-.87.58-1.98.92-3.29.92-2.54 0-4.69-1.72-5.46-4.03H3.3v2.88A9.72 9.72 0 0 0 12 21.75Z"/><path fill="#FBBC05" d="M6.54 13.85A5.84 5.84 0 0 1 6.23 12c0-.64.11-1.27.31-1.85V7.27H3.3A9.72 9.72 0 0 0 2.25 12c0 1.71.41 3.33 1.05 4.73l3.24-2.88Z"/><path fill="#EA4335" d="M12 6.12c1.43 0 2.71.49 3.72 1.45l2.78-2.78A9.35 9.35 0 0 0 12 2.25a9.72 9.72 0 0 0-8.7 5.02l3.24 2.88C7.31 7.84 9.46 6.12 12 6.12Z"/></svg>
-                            Register with Google
-                        </button>
-                        <p id="signup-google-status" class="hidden text-center text-xs text-gray-500 dark:text-gray-400"></p>
-                        <a href="{{ route('signup') }}" class="flex h-11 w-full items-center justify-center rounded-xl border border-[#2d6a4f] text-sm font-semibold text-[#2d6a4f] transition hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10">Register as a student officer</a>
+                <div class="mt-5 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                    <p class="text-sm font-semibold text-gray-800 dark:text-white">Do not have an account?</p>
+                    <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">Registration is separate from sign in. Choose the option that matches your goal.</p>
+                    <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                        <a href="{{ route('signup') }}" class="rounded-xl border border-gray-200 px-3 py-3 text-left transition hover:border-[#2d6a4f] hover:bg-emerald-50 dark:border-gray-700 dark:hover:bg-emerald-500/10">
+                            <strong class="block text-xs text-gray-800 dark:text-white">Student officer account</strong>
+                            <span class="mt-1 block text-[11px] leading-4 text-gray-500 dark:text-gray-400">Join an existing organization</span>
+                        </a>
+                        <a href="{{ route('forms.render', 'new-organization-registration') }}" class="rounded-xl border border-gray-200 px-3 py-3 text-left transition hover:border-[#2d6a4f] hover:bg-emerald-50 dark:border-gray-700 dark:hover:bg-emerald-500/10">
+                            <strong class="block text-xs text-gray-800 dark:text-white">New organization application</strong>
+                            <span class="mt-1 block text-[11px] leading-4 text-gray-500 dark:text-gray-400">Apply as a founding group</span>
+                        </a>
                     </div>
                 </div>
 
-                <p class="mt-6 text-center text-xs leading-5 text-gray-400">Authorized student leaders and administrators only. Account activity may be recorded for security.</p>
+                <p class="mt-5 text-center text-xs leading-5 text-gray-400">Authorized student leaders and administrators only. Account activity may be recorded for security.</p>
             </div>
         </section>
     </main>
 @endsection
-
-@push('scripts')
-    <script @nonce>
-        document.addEventListener('DOMContentLoaded', function () {
-            var button = document.getElementById('signup-google-btn');
-            var status = document.getElementById('signup-google-status');
-            if (!button || !status) return;
-
-            button.addEventListener('click', function () {
-                status.classList.remove('hidden', 'text-error-600');
-                if (button.dataset.configured !== '1') {
-                    status.classList.add('text-error-600');
-                    status.textContent = 'Google registration is not configured yet.';
-                    return;
-                }
-                status.textContent = 'Opening Google registration…';
-                var width = 500, height = 600;
-                window.open(button.dataset.redirectUrl, 'google-signup', 'width=' + width + ',height=' + height + ',left=' + (window.screenX + (window.outerWidth - width) / 2) + ',top=' + (window.screenY + (window.outerHeight - height) / 2));
-            });
-
-            window.addEventListener('message', function (event) {
-                if (event.origin !== window.location.origin) return;
-                var data = event.data || {};
-                if (data.source !== 'google-link') return;
-                if (data.error) {
-                    status.classList.remove('hidden');
-                    status.classList.add('text-error-600');
-                    status.textContent = data.error;
-                    return;
-                }
-                var params = new URLSearchParams({
-                    google_id: data.google_id || '', first_name: data.first_name || '', last_name: data.last_name || '',
-                    email: data.email || '', sex: data.sex || '', birthday: data.birthday || '', present_address: data.present_address || ''
-                });
-                window.location.href = button.dataset.signupUrl + '?' + params.toString();
-            });
-        });
-    </script>
-@endpush

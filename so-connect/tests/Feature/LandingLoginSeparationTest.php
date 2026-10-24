@@ -18,7 +18,9 @@ it('keeps the public landing page focused and links to a separate login page', f
     $this->get(route('home'))
         ->assertOk()
         ->assertSee(route('login'), false)
-        ->assertSee('Discover. Participate. Lead.')
+        ->assertSee('Discover your community.')
+        ->assertSee('Create a student officer account')
+        ->assertSee('Start a new organization')
         ->assertDontSee('id="auth-form"', false)
         ->assertDontSee('Welcome back');
 });
@@ -28,7 +30,9 @@ it('renders login as its own branded page', function () {
         ->assertOk()
         ->assertSee('Welcome back')
         ->assertSee('Sign in securely')
-        ->assertSee('Register with Google')
+        ->assertSee('Student officer account')
+        ->assertSee('New organization application')
+        ->assertDontSee('Register with Google')
         ->assertSee('Back to public site')
         ->assertSee('SO Connect')
         ->assertDontSee('TailAdmin');

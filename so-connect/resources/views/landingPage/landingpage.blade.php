@@ -4,9 +4,9 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-    <meta name="description" content="" />
-    <meta name="author" content="" />
-    <title>SoConnect</title>
+    <meta name="description" content="Discover student organizations, campus events, and student leadership opportunities at Tarlac Agricultural University." />
+    <meta name="author" content="Tarlac Agricultural University" />
+    <title>SO Connect | Tarlac Agricultural University</title>
     <!-- Favicon-->
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
     <!-- Font Awesome icons (free version)-->
@@ -58,24 +58,21 @@
                 <i class="fas fa-bars ms-1"></i>
             </button>
             <div class="collapse navbar-collapse" id="navbarResponsive">
-                <ul class="navbar-nav text-uppercase ms-auto py-4 py-lg-0">
+                <ul class="navbar-nav ms-auto py-4 py-lg-0 align-items-lg-center">
                     <li class="nav-item">
-                        <a class="nav-link" href="#page-top">Home</a>
+                        <a class="nav-link" href="#categories">Organizations</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#portfolio">Featured Org</a>
+                        <a class="nav-link" href="#events">Events</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#events">Upcoming Events</a>
+                        <a class="nav-link" href="#activity">Activities</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#activity">Recent Activities</a>
+                    <li class="nav-item lp-nav-access ms-lg-3">
+                        <a class="nav-link lp-nav-signin" href="{{ route('login') }}">Sign in</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ route('forms.render', 'new-organization-registration') }}">Register Organization</a>
-                    </li>
-                    <li class="nav-item ms-lg-3 d-flex align-items-center gap-2">
-                        <a class="nav-link btn btn-sm text-uppercase lp-login-btn" href="{{ route('login') }}">Sign In</a>
+                    <li class="nav-item d-flex align-items-center gap-2">
+                        <a class="nav-link lp-nav-primary" href="#get-started">Get started</a>
                         <x-theme-toggle class="lp-theme-toggle" />
                     </li>
                 </ul>
@@ -85,14 +82,50 @@
     <!-- Masthead-->
     <header class="masthead"
         style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('{{ asset('images/landing/BG1.jpg') }}');">
-        <div class="container">
-            <div class="masthead-subheading">Your student community starts here</div>
-            <div class="masthead-heading text-uppercase">Discover. Participate. Lead.</div>
-            <p class="masthead-intro">Explore accredited organizations, upcoming events, and campus initiatives in one connected student hub.</p>
-            <div class="d-flex flex-column flex-sm-row justify-content-center gap-3">
-                <a class="btn btn-primary btn-xl text-uppercase" href="#categories">Explore Organizations</a>
-                <a class="btn btn-outline-light btn-xl text-uppercase" href="{{ route('login') }}">Sign In to SO Connect</a>
+        <div class="container lp-hero-grid">
+            <div class="lp-hero-copy">
+                <span class="lp-hero-eyebrow">Tarlac Agricultural University</span>
+                <h1 class="masthead-heading">Discover your community.<br>Lead with purpose.</h1>
+                <p class="masthead-intro">Explore recognized student organizations, find campus activities, and manage your student leadership journey in one place.</p>
+                <a class="lp-hero-explore" href="#categories">
+                    Explore organizations
+                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10h12M12 6l4 4-4 4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                </a>
             </div>
+
+            <aside class="lp-access-card" id="get-started" aria-labelledby="access-title">
+                <div class="lp-access-header">
+                    <span class="lp-access-kicker">SO Connect access</span>
+                    <h2 id="access-title">What would you like to do?</h2>
+                    <p>Choose one option to continue to the correct form.</p>
+                </div>
+
+                <a class="lp-access-action lp-access-action--signin" href="{{ route('login') }}">
+                    <span class="lp-access-icon"><i class="fas fa-sign-in-alt" aria-hidden="true"></i></span>
+                    <span class="lp-access-copy"><strong>Sign in</strong><small>For existing student leaders and administrators</small></span>
+                    <span class="lp-access-arrow" aria-hidden="true">→</span>
+                </a>
+
+                <div class="lp-access-divider"><span>New to SO Connect?</span></div>
+
+                <a class="lp-access-action" href="{{ route('signup') }}">
+                    <span class="lp-access-icon"><i class="fas fa-user-plus" aria-hidden="true"></i></span>
+                    <span class="lp-access-copy"><strong>Create a student officer account</strong><small>Join an existing recognized organization</small></span>
+                    <span class="lp-access-arrow" aria-hidden="true">→</span>
+                </a>
+
+                <a class="lp-access-action" href="{{ route('forms.render', 'new-organization-registration') }}">
+                    <span class="lp-access-icon"><i class="fas fa-users" aria-hidden="true"></i></span>
+                    <span class="lp-access-copy"><strong>Start a new organization</strong><small>Apply for OSSD recognition as a founding group</small></span>
+                    <span class="lp-access-arrow" aria-hidden="true">→</span>
+                </a>
+
+                <p class="lp-access-help"><i class="fas fa-info-circle" aria-hidden="true"></i> Creating an officer account is different from applying for a new organization.</p>
+            </aside>
+        </div>
+        <div class="lp-hero-scroll" aria-hidden="true">
+            <span>Explore campus life</span>
+            <span class="lp-hero-scroll-line"></span>
         </div>
     </header>
     <!-- Organization Categories -->

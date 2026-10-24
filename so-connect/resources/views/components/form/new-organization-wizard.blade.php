@@ -77,8 +77,8 @@
         class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div class="border-b border-gray-100 bg-gradient-to-br from-emerald-50 to-lime-50 px-6 py-7 dark:border-gray-800 dark:from-emerald-500/10 dark:to-lime-500/5 sm:px-8">
             <span class="inline-flex rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[#2d6a4f] shadow-sm dark:bg-gray-900 dark:text-emerald-400">Prepare before registering</span>
-            <h2 class="mt-4 text-2xl font-semibold text-gray-950 dark:text-white">Ihanda muna ang application details</h2>
-            <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-600 dark:text-gray-300">Tapusin muna ang checklist na ito para tuloy-tuloy ang registration at hindi mo kailangang ulitin ang application.</p>
+            <h2 class="mt-4 text-2xl font-semibold text-gray-950 dark:text-white">Prepare your application details first</h2>
+            <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-600 dark:text-gray-300">Complete this checklist before you begin so you can finish the registration without restarting the application.</p>
         </div>
         <div class="grid gap-6 p-6 sm:p-8 lg:grid-cols-2">
             <div>
@@ -93,7 +93,7 @@
                 <div class="flex items-start justify-between gap-3">
                     <div>
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Required uploads set by the admin</h3>
-                        <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">Ito ang kasalukuyang OSSD upload checklist para sa form na ito.</p>
+                        <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">This is the current OSSD upload checklist configured for this form.</p>
                     </div>
                     <span class="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#2d6a4f] shadow-sm dark:bg-gray-900 dark:text-emerald-400">{{ $requiredDocuments->count() }}</span>
                 </div>
@@ -104,7 +104,7 @@
                         @endforeach
                     </ul>
                 @else
-                    <p class="mt-3 rounded-lg bg-white px-3 py-2.5 text-xs leading-5 text-gray-500 dark:bg-gray-900 dark:text-gray-400">Walang required upload na itinakda ng admin sa ngayon. Maaari pa ring may optional document fields sa requirements step.</p>
+                    <p class="mt-3 rounded-lg bg-white px-3 py-2.5 text-xs leading-5 text-gray-500 dark:bg-gray-900 dark:text-gray-400">The administrator has not configured any required uploads. Optional document fields may still appear in the requirements step.</p>
                 @endif
             </div>
         </div>
