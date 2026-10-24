@@ -1,14 +1,20 @@
-@extends((string) $form->system_function === \App\Forms\SystemFunction::SIGN_UP ? 'layouts.fullscreen-layout' : 'layouts.app')
+@extends(in_array((string) $form->system_function, [
+    \App\Forms\SystemFunction::SIGN_UP,
+    \App\Forms\SystemFunction::NEW_ORGANIZATION_REGISTRATION,
+], true) ? 'layouts.fullscreen-layout' : 'layouts.app')
 
 @php
     /** @var \App\Models\Form $form */
     /** @var \Illuminate\Support\Collection $fields */
     $preview = $preview ?? false;
     $isSignup = (string) $form->system_function === \App\Forms\SystemFunction::SIGN_UP;
+    $isNewOrganization = (string) $form->system_function === \App\Forms\SystemFunction::NEW_ORGANIZATION_REGISTRATION;
+    $isPublicRegistration = $isSignup || $isNewOrganization;
+    $applicationSubmitted = $isNewOrganization && session()->has('success');
 @endphp
 
 @section('content')
-    @if ($isSignup)
+    @if ($isPublicRegistration)
         <main class="min-h-screen bg-slate-50 pb-12 dark:bg-gray-950">
             <header class="border-b border-gray-200 bg-white/95 dark:border-gray-800 dark:bg-gray-900/95">
                 <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
@@ -16,21 +22,30 @@
                         <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1a3c2e] text-xs font-bold text-amber-300 shadow-sm">SO</span>
                         <span><strong class="block text-sm leading-4">SO Connect</strong><small class="text-xs text-gray-500 dark:text-gray-400">Tarlac Agricultural University</small></span>
                     </a>
-                    <a href="{{ route('login') }}" class="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#2d6a4f] hover:text-[#2d6a4f] dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">Sign in</a>
+                    <div class="flex items-center gap-2">
+                        @if ($isNewOrganization)
+                            <a href="{{ route('home') }}" class="hidden rounded-xl px-3 py-2.5 text-sm font-medium text-gray-500 transition hover:text-[#2d6a4f] sm:block dark:text-gray-400">Back to home</a>
+                        @endif
+                        <a href="{{ route('login') }}" class="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#2d6a4f] hover:text-[#2d6a4f] dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">Sign in</a>
+                    </div>
                 </div>
             </header>
 
             <div class="mx-auto max-w-6xl px-4 py-7 sm:px-6 lg:px-8 lg:py-10">
-                <div class="mb-7 max-w-3xl">
-                    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-[#2d6a4f] dark:text-emerald-400">Student officer registration</p>
-                    <h1 class="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-4xl">Create your officer account</h1>
-                    <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300 sm:text-base">Start by scanning both sides of your student ID. We will use the scan to reduce manual typing, then you can review every detail before submission.</p>
-                </div>
+                @if ($isSignup)
+                    <div class="mb-7 max-w-3xl">
+                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-[#2d6a4f] dark:text-emerald-400">Student officer registration</p>
+                        <h1 class="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-4xl">Create your officer account</h1>
+                        <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300 sm:text-base">Start by scanning both sides of your student ID. We will use the scan to reduce manual typing, then you can review every detail before submission.</p>
+                    </div>
+                @else
+                    @include('pages.form.partials.new-organization-hero')
+                @endif
     @else
         <x-common.page-breadcrumb :pageTitle="$form->name" />
     @endif
 
-    <div class="{{ $isSignup ? 'mx-auto max-w-5xl' : '' }} space-y-6">
+    <div class="{{ $isSignup ? 'mx-auto max-w-5xl' : ($isNewOrganization ? 'mx-auto max-w-6xl' : '') }} space-y-6">
         @if ($preview)
             <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm font-medium text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-400">
                 <span>Preview mode — this form is shown regardless of its published/active status. Submitting is disabled.</span>
@@ -48,10 +63,14 @@
             </div>
         @endif
 
-        @if (session('success'))
+        @if (session('success') && ! $isNewOrganization)
             <div class="rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm font-medium text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400">
                 {{ session('success') }}
             </div>
+        @endif
+
+        @if ($applicationSubmitted)
+            @include('pages.form.partials.new-organization-success')
         @endif
 
         @if ($errors->any())
@@ -128,7 +147,10 @@
 
         @php $limitReached = ! $preview && ($submissionLimit['reached'] ?? false); @endphp
 
-        @if ($limitReached)
+        @if ($applicationSubmitted)
+            {{-- Keep the confirmation focused: a second application with the same
+                 name or founder would only be rejected as a duplicate. --}}
+        @elseif ($limitReached)
             <div class="rounded-2xl border border-error-200 bg-error-50 p-5 dark:border-error-500/30 dark:bg-error-500/10">
                 <h3 class="text-sm font-semibold text-error-700 dark:text-error-400">Submissions closed for this semester</h3>
                 <p class="mt-1 text-sm text-error-700 dark:text-error-400">{{ \App\Forms\SemesterSubmissionLimit::blockedMessage($form, $submissionLimit) }}</p>
@@ -165,22 +187,30 @@
                 </div>
             @endif
 
-            @include('components.form.builder-form', [
-                'form' => $form,
-                'fields' => $fields,
-                'prefill' => $prefill ?? [],
-                'conditions' => $conditions ?? [],
-                'advisers' => $advisers ?? [],
-                'special' => $special ?? [],
-                'hidden' => $hidden ?? [],
-                'preview' => $preview,
-                'isSignup' => $isSignup,
-                'manualEnabled' => ! $isSignup,
-                'submitLabel' => $isSignup ? 'Submit registration' : 'Submit for approval',
-            ])
+            <div class="{{ $isNewOrganization ? 'grid items-start gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]' : '' }}">
+                @if ($isNewOrganization)
+                    @include('pages.form.partials.new-organization-steps')
+                @endif
+                <div class="min-w-0">
+                    @include('components.form.builder-form', [
+                        'form' => $form,
+                        'fields' => $fields,
+                        'prefill' => $prefill ?? [],
+                        'conditions' => $conditions ?? [],
+                        'advisers' => $advisers ?? [],
+                        'special' => $special ?? [],
+                        'hidden' => $hidden ?? [],
+                        'preview' => $preview,
+                        'isSignup' => $isSignup,
+                        'isNewOrganization' => $isNewOrganization,
+                        'manualEnabled' => ! $isPublicRegistration,
+                        'submitLabel' => $isSignup ? 'Submit registration' : ($isNewOrganization ? 'Submit application to OSSD' : 'Submit for approval'),
+                    ])
+                </div>
+            </div>
         @endif
     </div>
-    @if ($isSignup)
+    @if ($isPublicRegistration)
             </div>
         </main>
     @endif

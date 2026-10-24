@@ -140,7 +140,12 @@ it('renders the new organization registration form publicly', function () {
 
     $this->get(route('forms.render', $form->route_name))
         ->assertOk()
-        ->assertSee('New President Email');
+        ->assertSee('Start a new student organization')
+        ->assertSee('Application journey')
+        ->assertSee('Initial screening')
+        ->assertSee('Formal recognition')
+        ->assertSee('New President Email')
+        ->assertSee('Submit application to OSSD');
 });
 
 it('rejects submission when required organization fields are missing', function () {
@@ -178,6 +183,28 @@ it('submits a new organization registration request with registered status', fun
     expect($request->payload['president_is_registered'])->toBeTrue();
     expect($request->payload['officer_email'])->toBe($officerEmail);
     expect($request->payload['officer_is_registered'])->toBeFalse();
+});
+
+it('shows the OSSD review workflow after a successful application', function () {
+    $form = makeNewOrganizationForm();
+
+    $response = $this->post(route('forms.render.submit', $form->route_name), [
+        'organization_name' => 'Workflow Org',
+        'organization_initials' => 'WO',
+        'organization_description' => 'A workflow test.',
+        'organization_type' => '1',
+        'president_email' => 'workflow-president@example.com',
+        'officer_email' => 'workflow-officer@example.com',
+    ]);
+
+    $response->assertRedirect(route('forms.render', $form->route_name));
+
+    $this->followRedirects($response)
+        ->assertOk()
+        ->assertSee('Application received')
+        ->assertSee('Step 3 complete')
+        ->assertSee('Requirements, if any')
+        ->assertDontSee('Submit application to OSSD');
 });
 
 it('marks an unregistered email as not registered', function () {

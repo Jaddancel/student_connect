@@ -16,6 +16,7 @@
     $special = $special ?? [];
     $submitLabel = $submitLabel ?? 'Submit for approval';
     $isSignup = $isSignup ?? ((string) ($form->system_function ?? '') === \App\Forms\SystemFunction::SIGN_UP);
+    $isNewOrganization = $isNewOrganization ?? ((string) ($form->system_function ?? '') === \App\Forms\SystemFunction::NEW_ORGANIZATION_REGISTRATION);
     $hasIdScan = collect($fields)->contains(fn ($field) => $field->field_type === \App\Forms\FieldType::ID_SCAN);
     $registrationWizard = $isSignup && $hasIdScan;
     $registrationStep = $registrationWizard ? ($errors->any() ? 2 : 1) : 0;
@@ -117,13 +118,13 @@
     @endif
 
     <div class="rounded-2xl border border-gray-200 bg-palette-surface p-5 shadow-sm dark:border-gray-800 dark:bg-white/[0.03] lg:p-7">
-        @if ($isSignup)
+        @if ($isSignup || $isNewOrganization)
             <div class="mb-6 flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-5 dark:border-gray-800" x-show="{{ $registrationWizard ? 'registrationStep === 2' : 'true' }}" x-cloak>
                 <div>
-                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Registration details</h2>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Fields marked with <span class="font-semibold text-error-500">*</span> are required. Review all auto-filled details before submitting.</p>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ $isNewOrganization ? 'Organization application' : 'Registration details' }}</h2>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Fields marked with <span class="font-semibold text-error-500">*</span> are required. {{ $isNewOrganization ? 'Upload clear, final copies of the required documents.' : 'Review all auto-filled details before submitting.' }}</p>
                 </div>
-                <span class="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">Secure application</span>
+                <span class="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">{{ $isNewOrganization ? 'OSSD application' : 'Secure application' }}</span>
             </div>
         @endif
         <div class="{{ $isSignup ? 'grid gap-x-5 gap-y-6 md:grid-cols-2' : 'space-y-5' }}">
@@ -183,7 +184,16 @@
                 </div>
             </div>
         @endif
-        <div class="flex flex-wrap items-center {{ $isSignup ? 'justify-between' : 'justify-end' }} gap-3">
+        @if ($isNewOrganization && ! $preview)
+            <div class="mb-5 flex items-start gap-3 rounded-xl bg-emerald-50 p-4 dark:bg-emerald-500/10">
+                <svg class="mt-0.5 h-5 w-5 shrink-0 text-[#2d6a4f] dark:text-emerald-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-11a1 1 0 110-2 1 1 0 010 2zm-1 2a1 1 0 000 2v3a1 1 0 102 0v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
+                <div>
+                    <p class="text-sm font-semibold text-gray-800 dark:text-white/90">What happens after submission?</p>
+                    <p class="mt-1 text-xs leading-5 text-gray-600 dark:text-gray-300">OSSD will confirm receipt and screen the application. Submission does not yet authorize the organization to operate; wait for the official recognition document.</p>
+                </div>
+            </div>
+        @endif
+        <div class="flex flex-wrap items-center {{ ($isSignup || $isNewOrganization) ? 'justify-between' : 'justify-end' }} gap-3">
             @if ($preview)
                 <span class="text-sm text-gray-400">Submission is disabled in preview.</span>
             @else
@@ -198,7 +208,7 @@
                         <span x-show="error" x-cloak x-text="error" class="text-xs text-error-600"></span>
                     </div>
                 @endif
-                @if ($isSignup)
+                @if ($isSignup || $isNewOrganization)
                     <p class="max-w-xl text-xs leading-5 text-gray-500 dark:text-gray-400">By submitting, you confirm that the information and uploaded documents are accurate.</p>
                 @else
                     <button type="reset" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">Clear</button>

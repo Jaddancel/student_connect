@@ -198,8 +198,9 @@ class FormPagesSeeder extends Seeder
             $this->heading('Organization Information'),
             $this->f('organization_name', 'Organization Name', FieldType::TEXT, ['required' => true]),
             $this->f('organization_initials', 'Organization Initials', FieldType::TEXT, ['required' => true]),
-            $this->f('organization_description', 'Description', FieldType::TEXTAREA, ['options' => ['rows' => 4]]),
-            $this->f('organization_type', 'Organization Type', FieldType::NUMBER, ['required' => true]),
+            $this->f('organization_description', 'Purpose and Objectives', FieldType::TEXTAREA, ['required' => true, 'options' => ['rows' => 4]]),
+            $this->f('organization_type', 'Organization Type', FieldType::ORGANIZATION_TYPE_SELECT, ['required' => true]),
+            $this->f('target_membership', 'Target Membership', FieldType::TEXTAREA, ['required' => true, 'options' => ['rows' => 3]]),
             $this->heading('Membership'),
             $this->f('freshman', 'No. of Freshman Members', FieldType::NUMBER),
             $this->f('sophomore', 'No. of Sophomore Members', FieldType::NUMBER),
@@ -211,6 +212,14 @@ class FormPagesSeeder extends Seeder
             $this->f('president_email', 'New President Email', FieldType::NEW_PRESIDENT_EMAIL, ['required' => true]),
             $this->heading('Officer Contact'),
             $this->f('officer_email', 'New Officer Email', FieldType::NEW_OFFICER_EMAIL, ['required' => true]),
+            $this->f('faculty_adviser', 'Proposed Faculty Adviser', FieldType::TEXT, ['required' => true]),
+            $this->heading('Required Documents'),
+            $this->f('constitution_and_bylaws', 'Constitution and By-Laws', FieldType::FILE, ['required' => true]),
+            $this->f('founding_members_list', 'List of Founding Members', FieldType::FILE, ['required' => true]),
+            $this->f('proposed_officers_list', 'List of Proposed Officers', FieldType::FILE, ['required' => true]),
+            $this->f('faculty_adviser_acceptance', 'Faculty Adviser Acceptance', FieldType::FILE, ['required' => true]),
+            $this->f('organization_logo', 'Organization Logo', FieldType::IMAGE, ['required' => true]),
+            $this->f('gpoa_budget', 'General Plan of Action (GPOA) with Proposed Budget', FieldType::FILE, ['required' => true]),
         ];
 
         $html = '<h2>New Organization Registration</h2>'
@@ -218,17 +227,21 @@ class FormPagesSeeder extends Seeder
             .$this->line('Initials', 'organization_initials')
             .$this->line('Description', 'organization_description')
             .$this->line('Type', 'organization_type')
+            .$this->line('Target Membership', 'target_membership')
             .'<p><strong>Members - Freshman:</strong> <span data-field="freshman"></span>'
             .' <strong>Sophomore:</strong> <span data-field="sophomore"></span>'
             .' <strong>Junior:</strong> <span data-field="junior"></span>'
             .' <strong>Total:</strong> <span data-field="total"></span></p>'
             .$this->line('New President Email', 'president_email')
-            .$this->line('New Officer Email', 'officer_email');
+            .$this->line('New Officer Email', 'officer_email')
+            .$this->line('Proposed Faculty Adviser', 'faculty_adviser')
+            .'<h3>Submitted documents</h3>'
+            .'<p>Constitution and By-Laws; List of Founding Members; List of Proposed Officers; Faculty Adviser Acceptance; Organization Logo; General Plan of Action with Proposed Budget</p>';
 
         $this->buildForm([
             'route_name' => 'new-organization-registration',
             'name' => 'New Organization Registration',
-            'description' => 'Register a new organization in the system.',
+            'description' => 'Apply for OSSD recognition of a brand-new student organization.',
             'system_function' => SystemFunction::NEW_ORGANIZATION_REGISTRATION,
             'fields' => $fields,
             'pdf' => [
