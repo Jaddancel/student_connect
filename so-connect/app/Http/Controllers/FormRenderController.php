@@ -77,6 +77,18 @@ class FormRenderController extends Controller
             $prefill = self::applyTargetDatePrefill($request, $fields, $prefill);
         }
 
+        $accreditationCycle = null;
+        if ($form->system_function === SystemFunction::ORG_ACCREDITATION) {
+            $accreditation = app(\App\Services\AccreditationService::class);
+            $organization = OrganizationField::resolveOrganization($request->user());
+            $accreditationCycle = [
+                'organization' => $organization,
+                'deadline' => $accreditation->deadline(),
+                'days_until_deadline' => $accreditation->daysUntilDeadline(),
+                'standing' => $organization ? $accreditation->evaluate($organization) : null,
+            ];
+        }
+
         // Accomplishment reports can reuse documentation already indexed for
         // the officer's active organization. The picker filters and suggests
         // these items live as the activity/event fields change.
@@ -108,6 +120,7 @@ class FormRenderController extends Controller
             'submissionLimit' => SemesterSubmissionLimit::status($form),
             'accreditationChecklist' => app(\App\Services\AccreditationAttachmentChecklist::class)
                 ->status($form, []),
+            'accreditationCycle' => $accreditationCycle,
         ]));
     }
 

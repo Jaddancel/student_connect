@@ -8,6 +8,7 @@ use App\Models\Form\FormDescription;
 use App\Models\FormSubmission;
 use App\Services\AccreditationAttachmentChecklist;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
@@ -93,4 +94,58 @@ it('reports each required attachment status for the admin review checklist', fun
     ]))->toBe([
         ['key' => 'constitution', 'label' => 'Constitution and By-Laws', 'attached' => true],
     ]);
+});
+
+it('renders accreditation as a guided renewal workflow', function () {
+    $user = recordsUser(3);
+    $org = recordsOrganization('Renewal Test Organization', 'RTO');
+    $form = checklistForm();
+
+    DB::table('organization_officers')->insert([
+        'user' => $user->getKey(),
+        'organization' => $org->getKey(),
+        'role' => 'president',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['active_organization_id' => $org->getKey()])
+        ->get(route('forms.render', $form->route_name))
+        ->assertOk()
+        ->assertSee('Organization accreditation renewal')
+        ->assertSee('Accreditation journey')
+        ->assertSee('Monitor the announcement')
+        ->assertSee('Update organization records')
+        ->assertSee('Complete renewal requirements')
+        ->assertSee('OSSD evaluation')
+        ->assertSee('Renewed accreditation')
+        ->assertSee('Required uploads set by OSSD')
+        ->assertSee('Constitution and By-Laws')
+        ->assertSee('Submit renewal application');
+});
+
+it('prevents another accreditation application while one is awaiting review', function () {
+    $user = recordsUser(3);
+    $org = recordsOrganization('Pending Renewal Organization', 'PRO');
+    $form = checklistForm();
+    $request = Illuminate\Http\Request::create('/', 'POST');
+    $request->setUserResolver(fn () => $user);
+
+    DB::table('requests')->insert([
+        'action' => 'document_generation',
+        'action_type' => 3,
+        'form_id' => $form->getKey(),
+        'organization_id' => $org->getKey(),
+        'requested_by' => $user->getKey(),
+        'user' => $user->getKey(),
+        'requested_at' => now(),
+        'payload' => json_encode([]),
+    ]);
+
+    expect(fn () => app(OrgAccreditationHandler::class)->validatePayload($form, [
+        'organization_id' => (int) $org->getKey(),
+        'constitution' => 'form-submissions/constitution.pdf',
+    ], $request))->toThrow(
+        ValidationException::class,
+        'already awaiting OSSD review',
+    );
 });

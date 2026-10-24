@@ -35,6 +35,18 @@ class OrgAccreditationHandler implements SystemFunctionHandler
             ]);
         }
 
+        $hasPendingApplication = DB::table('requests')
+            ->where('form_id', (int) $form->getKey())
+            ->where('organization_id', $organizationId)
+            ->whereNotIn('request_id', DB::table('approvals')->select('request')->whereNotNull('request'))
+            ->exists();
+
+        if ($hasPendingApplication) {
+            throw ValidationException::withMessages([
+                'form' => 'A renewal application for this organization is already awaiting OSSD review.',
+            ]);
+        }
+
         app(\App\Services\AccreditationAttachmentChecklist::class)
             ->validateSubmission($form, $payload);
     }

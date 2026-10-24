@@ -9,6 +9,7 @@
     $preview = $preview ?? false;
     $isSignup = (string) $form->system_function === \App\Forms\SystemFunction::SIGN_UP;
     $isNewOrganization = (string) $form->system_function === \App\Forms\SystemFunction::NEW_ORGANIZATION_REGISTRATION;
+    $isAccreditation = (string) $form->system_function === \App\Forms\SystemFunction::ORG_ACCREDITATION;
     $isPublicRegistration = $isSignup || $isNewOrganization;
     $applicationSubmitted = $isNewOrganization && session()->has('success');
 @endphp
@@ -46,6 +47,12 @@
     @endif
 
     <div class="{{ $isSignup ? 'mx-auto max-w-5xl' : ($isNewOrganization ? 'mx-auto max-w-6xl' : '') }} space-y-6">
+        @if ($isAccreditation)
+            @include('pages.form.partials.accreditation-overview', [
+                'accreditationCycle' => $accreditationCycle ?? null,
+            ])
+        @endif
+
         @if ($preview)
             <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm font-medium text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-400">
                 <span>Preview mode — this form is shown regardless of its published/active status. Submitting is disabled.</span>
@@ -162,7 +169,7 @@
                 </p>
             @endif
 
-            @if (! empty($accreditationChecklist ?? []))
+            @if (! $isAccreditation && ! empty($accreditationChecklist ?? []))
                 <div class="rounded-2xl border border-brand-200 bg-brand-50/60 p-5 dark:border-brand-500/30 dark:bg-brand-500/5">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
@@ -202,6 +209,19 @@
                             'special' => $special ?? [],
                             'hidden' => $hidden ?? [],
                             'preview' => $preview,
+                        ])
+                    @elseif ($isAccreditation)
+                        @include('components.form.accreditation-wizard', [
+                            'form' => $form,
+                            'fields' => $fields,
+                            'prefill' => $prefill ?? [],
+                            'conditions' => $conditions ?? [],
+                            'advisers' => $advisers ?? [],
+                            'special' => $special ?? [],
+                            'hidden' => $hidden ?? [],
+                            'preview' => $preview,
+                            'accreditationChecklist' => $accreditationChecklist ?? [],
+                            'accreditationCycle' => $accreditationCycle ?? null,
                         ])
                     @else
                         @include('components.form.builder-form', [
