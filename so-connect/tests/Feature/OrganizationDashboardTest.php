@@ -2,6 +2,9 @@
 
 use App\Models\Event;
 use App\Models\Event\EventDetail;
+use App\Models\Form;
+use App\Models\ManualFormSession;
+use App\Models\Request as ActionRequest;
 use App\Models\Semester;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -111,6 +114,87 @@ it('renders explicit deadline states without a logo', function (?string $end, st
 it('keeps the existing event empty state for users without an organization', function () {
     $this->actingAs(recordsUser(3))->get('/dashboard')
         ->assertOk()
+        ->assertSee('No organization selected')
         ->assertSee('No upcoming events')
         ->assertDontSee('organization-dashboard-title');
+});
+
+it('surfaces a student\'s pending work and recent submission status', function () {
+    $user = recordsUser(3, ['first_name' => 'Alex']);
+    $organization = recordsOrganization('Student Leaders Association', 'SLA');
+    DB::table('organization_officers')->insert([
+        'user' => $user->getKey(),
+        'organization' => $organization->getKey(),
+        'role' => 'officer',
+        'position' => 'Secretary',
+    ]);
+
+    $form = Form::factory()->create([
+        'name' => 'Activity Proposal',
+        'route_name' => 'activity-proposal-dashboard-test',
+    ]);
+
+    $pending = ActionRequest::factory()->create([
+        'action' => 'pending',
+        'action_type' => 3,
+        'form_id' => $form->getKey(),
+        'organization_id' => $organization->getKey(),
+        'requested_by' => $user->getKey(),
+        'requested_at' => now(),
+    ]);
+    $approved = ActionRequest::factory()->create([
+        'action' => 'approved',
+        'action_type' => 3,
+        'form_id' => $form->getKey(),
+        'organization_id' => $organization->getKey(),
+        'requested_by' => $user->getKey(),
+        'requested_at' => now()->subMinute(),
+    ]);
+    $rejected = ActionRequest::factory()->create([
+        'action' => 'rejected',
+        'action_type' => 3,
+        'form_id' => $form->getKey(),
+        'organization_id' => $organization->getKey(),
+        'requested_by' => $user->getKey(),
+        'requested_at' => now()->subMinutes(2),
+    ]);
+
+    DB::table('approvals')->insert([
+        [
+            'approved_at' => now(),
+            'request' => $approved->getKey(),
+            'is_rejected' => false,
+        ],
+        [
+            'approved_at' => now(),
+            'request' => $rejected->getKey(),
+            'is_rejected' => true,
+            'rejection_reason' => 'Please attach the revised budget.',
+        ],
+    ]);
+
+    ManualFormSession::query()->create([
+        'form_id' => $form->getKey(),
+        'user_id' => $user->getKey(),
+        'status' => ManualFormSession::STATUS_REVIEW,
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['active_organization_id' => $organization->getKey()])
+        ->get('/dashboard')
+        ->assertOk()
+        ->assertSee('Welcome back, Alex')
+        ->assertSee('Secretary')
+        ->assertSee('Needs your attention')
+        ->assertSee('Continue open drafts')
+        ->assertSee('Submissions awaiting review')
+        ->assertSee('Activity Proposal')
+        ->assertSee('Awaiting review')
+        ->assertSee('Approved')
+        ->assertSee('Needs revision')
+        ->assertSee('Please attach the revised budget.')
+        ->assertViewHas('pendingRequestCount', 1)
+        ->assertViewHas('openDraftCount', 1);
+
+    expect($pending->exists)->toBeTrue();
 });
