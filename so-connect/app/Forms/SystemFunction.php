@@ -55,7 +55,7 @@ final class SystemFunction
                 'handler' => SignUpHandler::class,
             ],
             self::NEW_EVENT => [
-                'label' => 'New Event',
+                'label' => 'Event Application',
                 'description' => 'Submissions request a new event; an admin approval schedules it.',
                 'handler' => NewEventHandler::class,
             ],

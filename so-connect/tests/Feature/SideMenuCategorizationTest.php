@@ -69,6 +69,14 @@ it('orders the student sidebar by task and keeps files out of the overview group
         'role' => 'officer', 'organization' => $organization->getKey(), 'user' => $officer->getKey(),
         'member_since' => now(), 'registered_at' => now(), 'reassigned_at' => now(),
     ]);
+    $eventApplication = Form::query()->create([
+        'name' => 'Event Application',
+        'route_name' => 'new-event',
+        'system_function' => SystemFunction::NEW_EVENT,
+        'is_active' => true,
+        'is_published' => true,
+        'show_in_sidebar' => true,
+    ]);
 
     $this->actingAs($officer);
     $groups = collect(MenuHelper::getMenuGroups());
@@ -84,11 +92,48 @@ it('orders the student sidebar by task and keeps files out of the overview group
         ->toContain('/forms', '/drafts')
         ->not->toContain('/documents', '/attachment-library');
 
-    expect(collect($groups->firstWhere('title', 'Activities & Events')['items'])->pluck('path'))
+    $activityItems = collect($groups->firstWhere('title', 'Activities & Events')['items']);
+
+    expect($activityItems->pluck('path'))
         ->toContain('/event-plans', '/after-event-reports');
+
+    expect($activityItems->firstWhere('path', '/forms/'.$eventApplication->route_name))
+        ->toMatchArray([
+            'section' => 'Application',
+            'name' => 'Apply for a New Event',
+        ])
+        ->and($activityItems->firstWhere('path', '/event-plans')['section'])->toBe('Tracking');
 
     expect(collect($groups->firstWhere('title', 'Reports & Records')['items'])->pluck('path'))
         ->toContain('/reports', '/documents', '/attachment-library', '/best-organizations');
+});
+
+it('provides one event application entry and keeps the calendar view only', function () {
+    $officer = recordsUser(3);
+    $organization = recordsOrganization('Event Application Organization');
+    DB::table('organization_officers')->insert([
+        'role' => 'officer', 'organization' => $organization->getKey(), 'user' => $officer->getKey(),
+        'member_since' => now(), 'registered_at' => now(), 'reassigned_at' => now(),
+    ]);
+    $eventApplication = Form::query()->create([
+        'name' => 'Event Application',
+        'route_name' => 'event-application-test',
+        'system_function' => SystemFunction::NEW_EVENT,
+        'is_active' => true,
+        'is_published' => true,
+        'show_in_sidebar' => true,
+    ]);
+
+    $this->actingAs($officer)
+        ->get(route('event-plans'))
+        ->assertOk()
+        ->assertSee('Apply for a New Event')
+        ->assertSee(route('forms.render', $eventApplication->route_name));
+
+    $this->get(route('calendar'))
+        ->assertOk()
+        ->assertDontSee('Create Event Plan')
+        ->assertDontSee('open-event-plan-btn');
 });
 
 it('groups every administrator-selected accreditation requirement without duplicating it', function () {

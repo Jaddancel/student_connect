@@ -290,9 +290,7 @@ class MenuHelper
                 ];
             }
 
-            $activityItems = [
-                ['section' => 'Planning', 'icon' => 'calendar', 'name' => 'Event Plans', 'path' => '/event-plans'],
-            ];
+            $activityItems = [];
 
             foreach ([\App\Forms\SystemFunction::NEW_EVENT, \App\Forms\SystemFunction::NEW_WORKPLAN] as $activityFunction) {
                 $activityForm = $publishedForms->firstWhere('system_function', $activityFunction);
@@ -300,9 +298,25 @@ class MenuHelper
                     continue;
                 }
 
-                $activityItems[] = $formMenuItem($activityForm, 'Planning');
+                $activityItem = $formMenuItem(
+                    $activityForm,
+                    $activityFunction === \App\Forms\SystemFunction::NEW_EVENT ? 'Application' : 'Planning',
+                );
+
+                if ($activityFunction === \App\Forms\SystemFunction::NEW_EVENT) {
+                    $activityItem['name'] = 'Apply for a New Event';
+                }
+
+                $activityItems[] = $activityItem;
                 $usedFormIds[(int) $activityForm->getKey()] = true;
             }
+
+            $activityItems[] = [
+                'section' => 'Tracking',
+                'icon' => 'calendar',
+                'name' => 'Event Plans',
+                'path' => '/event-plans',
+            ];
 
             $activityItems[] = [
                 'section' => 'Completion',

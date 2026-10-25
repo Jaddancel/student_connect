@@ -900,8 +900,8 @@
                 "system_function": "new_event"
             },
             "attributes": {
-                "name": "New Event",
-                "description_text": "Request a new event or activity. An admin approval schedules it on the calendar.",
+                "name": "Event Application",
+                "description_text": "Apply for a new organization event. OSSD approval schedules it on the calendar.",
                 "sidebar_group": null,
                 "is_active": true,
                 "is_published": true,

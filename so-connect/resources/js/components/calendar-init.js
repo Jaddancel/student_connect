@@ -11,13 +11,6 @@ export function calendarInit() {
         return;
     }
 
-    const canRequestEvent = calendarWrapper.dataset.canRequestEvent === "1";
-    const semesters = JSON.parse(calendarWrapper.dataset.semesters || "[]");
-    const workplanStatuses = JSON.parse(
-        calendarWrapper.dataset.workplanStatuses || "{}",
-    );
-    const todayStr =
-        calendarWrapper.dataset.today || new Date().toISOString().slice(0, 10);
     const linkedEventId = new URLSearchParams(window.location.search).get("event");
     let linkedEventHandled = false;
     let eventsLoaded = false;
@@ -128,54 +121,18 @@ export function calendarInit() {
 
     // ─── Semester detection helpers ──────────────────────────────────────────────
 
-    const getSemesterForDate = (dateStr) => {
-        const sorted = [...semesters].sort((a, b) =>
-            a.starts_at.localeCompare(b.starts_at),
-        );
-        let found = null;
-        for (const s of sorted) {
-            if (s.starts_at <= dateStr) found = s;
-            else break;
-        }
-        return found;
-    };
-
-    const getFormModeForDate = (dateStr) => {
-        if (dateStr < todayStr) return "disabled";
-        const semester = getSemesterForDate(dateStr);
-        // No semester started on or before this date → treat as future planning
-        if (!semester) return "event-plan";
-        // Future semester (not yet started) → event plan goes into workplan
-        if (semester.starts_at > todayStr) return "event-plan";
-        // Semester has started → use activity request form
-        return "activity-request";
-    };
-
     // Day Summary Modal
     const daySummaryModal = document.getElementById("daySummaryModal");
     const daySummaryDateEl = document.getElementById("daySummaryDate");
     const daySummaryEventListEl = document.getElementById(
         "daySummaryEventList",
     );
-    const openEventPlanBtn = document.getElementById("open-event-plan-btn");
-
-    // Event Plan Modal — embeds the new_event builder form, which submits
-    // itself to the generic form renderer; this JS only opens/closes it.
-    const eventPlanDrawer = document.getElementById("eventPlanDrawer");
-    const drawerBackdrop = eventPlanDrawer?.querySelector(
-        "[data-event-plan-drawer-backdrop]",
-    );
-
-    let currentPlanDate = "";
-    let currentFormMode = "event-plan";
     let calendarInstance = null;
 
     // ─── Day Summary Modal ───────────────────────────────────────────────────────
 
     const openDaySummaryModal = (dateStr, eventsOnDay) => {
         if (!daySummaryModal) return;
-
-        currentPlanDate = dateStr;
 
         if (daySummaryDateEl) {
             const d = new Date(dateStr + "T00:00:00");
@@ -289,23 +246,6 @@ export function calendarInit() {
             }
         }
 
-        // Auto-toggle create button based on date context
-        if (canRequestEvent && openEventPlanBtn) {
-            const mode = getFormModeForDate(dateStr);
-            currentFormMode = mode;
-            openEventPlanBtn.dataset.createMode = mode;
-            if (mode === "disabled") {
-                openEventPlanBtn.disabled = true;
-                openEventPlanBtn.textContent = "Past Date";
-            } else if (mode === "activity-request") {
-                openEventPlanBtn.disabled = false;
-                openEventPlanBtn.textContent = "Request Activity";
-            } else {
-                openEventPlanBtn.disabled = false;
-                openEventPlanBtn.textContent = "Create Event Plan";
-            }
-        }
-
         daySummaryModal.style.display = "flex";
         document.body.style.overflow = "hidden";
     };
@@ -322,40 +262,6 @@ export function calendarInit() {
     };
 
     // ─── Event Plan Modal ────────────────────────────────────────────────────────
-
-    const openEventPlanDrawer = (prefillDate) => {
-        if (!eventPlanDrawer) return;
-
-        closeDaySummaryModal();
-        currentPlanDate = prefillDate || "";
-
-        // The drawer embeds the new_event builder form; prefill its target_date
-        // field (a flatpickr text input) with the clicked day.
-        if (prefillDate) {
-            const dateInput = eventPlanDrawer.querySelector(
-                'input[name="target_date"]',
-            );
-            if (dateInput) {
-                if (dateInput._flatpickr) {
-                    dateInput._flatpickr.setDate(prefillDate, true);
-                } else {
-                    dateInput.value = prefillDate;
-                }
-            }
-        }
-
-        eventPlanDrawer.classList.remove("pointer-events-none", "opacity-0");
-        eventPlanDrawer.classList.add("pointer-events-auto", "opacity-100");
-        document.body.style.overflow = "hidden";
-    };
-
-    const closeEventPlanDrawer = () => {
-        if (!eventPlanDrawer) return;
-
-        eventPlanDrawer.classList.add("pointer-events-none", "opacity-0");
-        eventPlanDrawer.classList.remove("pointer-events-auto", "opacity-100");
-        document.body.style.overflow = "";
-    };
 
     // ─── Calendar setup ──────────────────────────────────────────────────────────
 
@@ -523,32 +429,12 @@ export function calendarInit() {
 
     // ─── Event listeners ─────────────────────────────────────────────────────────
 
-    if (openEventPlanBtn) {
-        openEventPlanBtn.addEventListener("click", () => {
-            openEventPlanDrawer(currentPlanDate);
-        });
-    }
-
     document
         .querySelectorAll(".day-summary-close, .modal-close-btn")
         .forEach((btn) => {
             btn.addEventListener("click", closeDaySummaryModal);
         });
 
-    document.querySelectorAll(".event-plan-close").forEach((btn) => {
-        btn.addEventListener("click", closeEventPlanDrawer);
-    });
-
-    if (drawerBackdrop) {
-        drawerBackdrop.addEventListener("click", closeEventPlanDrawer);
-    }
-
-    // A rejected/invalid submission redirects back here with flashed errors;
-    // the drawer starts closed, so it must reopen itself to surface them —
-    // otherwise the alert renders invisibly behind a closed drawer.
-    if (eventPlanDrawer?.dataset.hasErrors === "1") {
-        openEventPlanDrawer(currentPlanDate);
-    }
 }
 
 export default calendarInit;

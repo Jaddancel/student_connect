@@ -427,8 +427,8 @@ class FormPagesSeeder extends Seeder
 
         $this->buildForm([
             'route_name' => 'new-event',
-            'name' => 'New Event',
-            'description' => 'Request a new event or activity. An admin approval schedules it on the calendar.',
+            'name' => 'Event Application',
+            'description' => 'Apply for a new organization event. OSSD approval schedules it on the calendar.',
             'system_function' => SystemFunction::NEW_EVENT,
             'fields' => $fields,
             'layout' => $layout,
