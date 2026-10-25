@@ -199,9 +199,9 @@ class MenuHelper
      * Build the sidebar for student officers and presidents.
      *
      * The group order follows the organization's operating cycle: review the
-     * current status, complete accreditation, plan and complete activities, keep
-     * records, then use general-purpose forms. Profile and settings remain in
-     * the account dropdown to avoid duplicate navigation.
+     * current status, open any submission form from one predictable group,
+     * track activities, then review records. Profile and settings remain in the
+     * account dropdown to avoid duplicate navigation.
      */
     private static function buildStudentMenuGroups(User $user): array
     {
@@ -267,9 +267,13 @@ class MenuHelper
                 'path' => '/forms/'.$form->route_name,
             ];
 
-            $accreditationItems = [];
+            $formItems = [
+                ['section' => 'Workspace', 'icon' => 'forms', 'name' => 'Browse All Forms', 'path' => '/forms'],
+                ['section' => 'Workspace', 'icon' => 'task', 'name' => 'Drafts', 'path' => '/drafts', 'badge' => $draftCount],
+            ];
+
             if ($accreditationFormId > 0 && ($accreditationForm = $formsById->get($accreditationFormId))) {
-                $accreditationItems[] = $formMenuItem($accreditationForm, 'Application');
+                $formItems[] = $formMenuItem($accreditationForm, 'Accreditation Application');
                 $usedFormIds[$accreditationFormId] = true;
             }
 
@@ -279,18 +283,9 @@ class MenuHelper
                     continue;
                 }
 
-                $accreditationItems[] = $formMenuItem($requiredForm, 'Requirements');
+                $formItems[] = $formMenuItem($requiredForm, 'Accreditation Requirements');
                 $usedFormIds[$requiredFormId] = true;
             }
-
-            if ($accreditationItems !== []) {
-                $groups[] = [
-                    'title' => 'Accreditation',
-                    'items' => $accreditationItems,
-                ];
-            }
-
-            $activityItems = [];
 
             foreach ([\App\Forms\SystemFunction::NEW_EVENT, \App\Forms\SystemFunction::NEW_WORKPLAN] as $activityFunction) {
                 $activityForm = $publishedForms->firstWhere('system_function', $activityFunction);
@@ -300,23 +295,44 @@ class MenuHelper
 
                 $activityItem = $formMenuItem(
                     $activityForm,
-                    $activityFunction === \App\Forms\SystemFunction::NEW_EVENT ? 'Application' : 'Planning',
+                    'Event & Workplan Forms',
                 );
 
                 if ($activityFunction === \App\Forms\SystemFunction::NEW_EVENT) {
                     $activityItem['name'] = 'Apply for a New Event';
                 }
 
-                $activityItems[] = $activityItem;
+                $formItems[] = $activityItem;
                 $usedFormIds[(int) $activityForm->getKey()] = true;
             }
 
-            $activityItems[] = [
+            // Every remaining published form belongs here so students never
+            // need to search across process-specific sidebar groups to submit.
+            foreach ($publishedForms as $form) {
+                $formId = (int) $form->getKey();
+                if (isset($usedFormIds[$formId]) || $form->system_function === \App\Forms\SystemFunction::AFTER_EVENT_REPORT) {
+                    continue;
+                }
+
+                $formItems[] = $formMenuItem(
+                    $form,
+                    $form->category && $form->category->is_active
+                        ? $form->category->name
+                        : 'General Forms',
+                );
+            }
+
+            $groups[] = [
+                'title' => 'Applications & Forms',
+                'items' => $formItems,
+            ];
+
+            $activityItems = [[
                 'section' => 'Tracking',
                 'icon' => 'calendar',
                 'name' => 'Event Plans',
                 'path' => '/event-plans',
-            ];
+            ]];
 
             $activityItems[] = [
                 'section' => 'Completion',
@@ -340,32 +356,6 @@ class MenuHelper
                     ['section' => 'Files', 'icon' => 'pages', 'name' => 'Attachment Library', 'path' => '/attachment-library'],
                     ['section' => 'Recognition', 'icon' => 'task', 'name' => 'Awards & Recognition', 'path' => '/best-organizations'],
                 ],
-            ];
-
-            $formItems = [
-                ['section' => 'Workspace', 'icon' => 'forms', 'name' => 'Browse All Forms', 'path' => '/forms'],
-                ['section' => 'Workspace', 'icon' => 'task', 'name' => 'Drafts', 'path' => '/drafts', 'badge' => $draftCount],
-            ];
-
-            // Forms not assigned to a core process retain their administrator-
-            // configured category as a subsection in one predictable location.
-            foreach ($publishedForms as $form) {
-                $formId = (int) $form->getKey();
-                if (isset($usedFormIds[$formId]) || $form->system_function === \App\Forms\SystemFunction::AFTER_EVENT_REPORT) {
-                    continue;
-                }
-
-                $formItems[] = $formMenuItem(
-                    $form,
-                    $form->category && $form->category->is_active
-                        ? $form->category->name
-                        : 'General Forms',
-                );
-            }
-
-            $groups[] = [
-                'title' => 'Forms & Drafts',
-                'items' => $formItems,
             ];
 
             if ($presidentOrganizationIds !== []) {

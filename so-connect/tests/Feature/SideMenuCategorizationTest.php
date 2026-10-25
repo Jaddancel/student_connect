@@ -54,10 +54,10 @@ it('categorizes request queues and officer forms by their configured purpose', f
     $groups = collect(MenuHelper::getMenuGroups())->keyBy('title');
 
     expect($groups->keys()->all())->toContain(
-        'Overview', 'Activities & Events', 'Reports & Records', 'Forms & Drafts', 'Help & Support'
+        'Overview', 'Applications & Forms', 'Activities & Events', 'Reports & Records', 'Help & Support'
     );
 
-    $studentForms = collect($groups['Forms & Drafts']['items']);
+    $studentForms = collect($groups['Applications & Forms']['items']);
     expect($studentForms->firstWhere('path', '/forms/budget-request')['section'])->toBe('Financial')
         ->and($studentForms->firstWhere('path', '/forms/general-organization-form')['section'])->toBe('General Forms');
 });
@@ -82,24 +82,26 @@ it('orders the student sidebar by task and keeps files out of the overview group
     $groups = collect(MenuHelper::getMenuGroups());
 
     expect($groups->pluck('title')->all())->toBe([
-        'Overview', 'Activities & Events', 'Reports & Records', 'Forms & Drafts', 'Help & Support',
+        'Overview', 'Applications & Forms', 'Activities & Events', 'Reports & Records', 'Help & Support',
     ]);
 
     expect(collect($groups->firstWhere('title', 'Overview')['items'])->pluck('path')->all())
         ->toBe(['/dashboard', '/calendar']);
 
-    expect(collect($groups->firstWhere('title', 'Forms & Drafts')['items'])->pluck('path'))
+    expect(collect($groups->firstWhere('title', 'Applications & Forms')['items'])->pluck('path'))
         ->toContain('/forms', '/drafts')
         ->not->toContain('/documents', '/attachment-library');
 
     $activityItems = collect($groups->firstWhere('title', 'Activities & Events')['items']);
 
     expect($activityItems->pluck('path'))
-        ->toContain('/event-plans', '/after-event-reports');
+        ->toContain('/event-plans', '/after-event-reports')
+        ->not->toContain('/forms/'.$eventApplication->route_name);
 
-    expect($activityItems->firstWhere('path', '/forms/'.$eventApplication->route_name))
+    $submissionForms = collect($groups->firstWhere('title', 'Applications & Forms')['items']);
+    expect($submissionForms->firstWhere('path', '/forms/'.$eventApplication->route_name))
         ->toMatchArray([
-            'section' => 'Application',
+            'section' => 'Event & Workplan Forms',
             'name' => 'Apply for a New Event',
         ])
         ->and($activityItems->firstWhere('path', '/event-plans')['section'])->toBe('Tracking');
@@ -167,14 +169,14 @@ it('groups every administrator-selected accreditation requirement without duplic
 
     $this->actingAs($officer);
     $groups = collect(MenuHelper::getMenuGroups());
-    $accreditationItems = collect($groups->firstWhere('title', 'Accreditation')['items']);
+    $accreditationItems = collect($groups->firstWhere('title', 'Applications & Forms')['items']);
 
     expect($accreditationItems->firstWhere('path', '/forms/'.$application->route_name)['section'])
-        ->toBe('Application');
+        ->toBe('Accreditation Application');
 
     foreach ($requirements as $requirement) {
         expect($accreditationItems->firstWhere('path', '/forms/'.$requirement->route_name)['section'])
-            ->toBe('Requirements');
+            ->toBe('Accreditation Requirements');
         expect($groups->flatMap(fn (array $group) => $group['items'])->where('path', '/forms/'.$requirement->route_name))
             ->toHaveCount(1);
     }
