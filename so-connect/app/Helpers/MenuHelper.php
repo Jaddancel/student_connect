@@ -365,6 +365,7 @@ class MenuHelper
             $groups[] = [
                 'title' => 'Reports & Records',
                 'items' => [
+                    ['icon' => 'user-profile', 'name' => 'Organization Members', 'path' => '/manage-organization'],
                     ['icon' => 'forms', 'name' => 'Submitted Forms', 'path' => '/submitted-forms'],
                     ['icon' => 'pages', 'name' => 'Organization Reports', 'path' => '/reports'],
                     ['icon' => 'pages', 'name' => 'My Documents', 'path' => '/documents'],

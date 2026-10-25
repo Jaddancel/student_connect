@@ -36,6 +36,10 @@ class OrganizationController extends Controller
     public function manage(Request $request)
     {
         $userId = (int) $request->user()->getKey();
+        $queryText = trim((string) $request->query('q', ''));
+        $selectedRole = in_array((string) $request->query('role'), ['president', 'officer', 'member'], true)
+            ? (string) $request->query('role')
+            : 'all';
 
         $organizations = DB::table('organization_officers as oo')
             ->join('organizations as o', 'o.organization_id', '=', 'oo.organization')
@@ -66,18 +70,26 @@ class OrganizationController extends Controller
         }
 
         $members = collect();
+        $memberCounts = ['all' => 0, 'president' => 0, 'officer' => 0, 'member' => 0];
 
         if ($selectedOrganizationId > 0) {
-            $members = DB::table('organization_officers as oo')
+            $allMembers = DB::table('organization_officers as oo')
                 ->leftJoin('users as u', 'u.user_id', '=', 'oo.user')
                 ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
                 ->where('oo.organization', $selectedOrganizationId)
                 ->select([
                     'oo.org_officer_id',
+                    'oo.user as user_id',
+                    'oo.role',
+                    'oo.position',
                     'u.user_email',
                     'p.first_name',
                     'p.middle_name',
                     'p.last_name',
+                    'p.student_id',
+                    'p.course',
+                    'p.course_year',
+                    'p.college',
                     'oo.member_since',
                 ])
                 ->selectRaw("CASE
@@ -95,14 +107,68 @@ class OrganizationController extends Controller
                 ->orderByDesc('oo.member_since')
                 ->orderBy('p.last_name')
                 ->orderBy('p.first_name')
-                ->get();
+                ->get()
+                ->unique(fn ($member) => $member->user_id
+                    ? 'user-'.(int) $member->user_id
+                    : 'membership-'.(int) $member->org_officer_id)
+                ->map(function ($member) {
+                    $name = trim(implode(' ', array_filter([
+                        $member->first_name,
+                        $member->middle_name,
+                        $member->last_name,
+                    ])));
+                    $member->display_name = $name !== '' ? $name : 'Unknown Member';
+                    $member->role_key = in_array($member->role, ['president', 'officer'], true)
+                        ? $member->role
+                        : 'member';
+                    $member->initials = collect(preg_split('/\s+/', $member->display_name) ?: [])
+                        ->filter()
+                        ->take(2)
+                        ->map(fn ($part) => mb_strtoupper(mb_substr((string) $part, 0, 1)))
+                        ->implode('');
+
+                    return $member;
+                })
+                ->values();
+
+            $memberCounts = [
+                'all' => $allMembers->count(),
+                'president' => $allMembers->where('role_key', 'president')->count(),
+                'officer' => $allMembers->where('role_key', 'officer')->count(),
+                'member' => $allMembers->where('role_key', 'member')->count(),
+            ];
+
+            $members = $allMembers
+                ->when($selectedRole !== 'all', fn ($rows) => $rows->where('role_key', $selectedRole))
+                ->when($queryText !== '', function ($rows) use ($queryText) {
+                    $needle = mb_strtolower($queryText);
+
+                    return $rows->filter(function ($member) use ($needle) {
+                        $searchable = mb_strtolower(implode(' ', array_filter([
+                            $member->display_name,
+                            $member->user_email,
+                            $member->student_id,
+                            $member->course,
+                            $member->course_year,
+                            $member->college,
+                            $member->position,
+                            $member->membership_role,
+                        ])));
+
+                        return str_contains($searchable, $needle);
+                    });
+                })
+                ->values();
         }
 
         return view('pages.organizations.manage', [
-            'title' => 'Manage Organization',
+            'title' => 'Organization Members',
             'organizations' => $organizations,
             'selectedOrganizationId' => $selectedOrganizationId,
             'members' => $members,
+            'memberCounts' => $memberCounts,
+            'queryText' => $queryText,
+            'selectedRole' => $selectedRole,
         ]);
     }
 }
