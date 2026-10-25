@@ -113,6 +113,7 @@ it('renders accreditation as a guided renewal workflow', function () {
         ->assertOk()
         ->assertSee('Organization accreditation renewal')
         ->assertSee('Accreditation journey')
+        ->assertSee('data-accreditation-journey="linear"', false)
         ->assertSee('Monitor the announcement')
         ->assertSee('Update organization records')
         ->assertSee('Complete renewal requirements')
