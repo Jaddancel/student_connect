@@ -345,14 +345,12 @@ class MenuHelper
             ];
 
             $activityItems = [[
-                'section' => 'Tracking',
                 'icon' => 'calendar',
                 'name' => 'Event Plans',
                 'path' => '/event-plans',
             ]];
 
             $activityItems[] = [
-                'section' => 'Completion',
                 'icon' => 'forms',
                 'name' => 'After-Event Reports',
                 'path' => '/after-event-reports',
@@ -367,11 +365,11 @@ class MenuHelper
             $groups[] = [
                 'title' => 'Reports & Records',
                 'items' => [
-                    ['section' => 'Records', 'icon' => 'forms', 'name' => 'Submitted Forms', 'path' => '/submitted-forms'],
-                    ['section' => 'Reports', 'icon' => 'pages', 'name' => 'Organization Reports', 'path' => '/reports'],
-                    ['section' => 'Files', 'icon' => 'pages', 'name' => 'My Documents', 'path' => '/documents'],
-                    ['section' => 'Files', 'icon' => 'pages', 'name' => 'Attachment Library', 'path' => '/attachment-library'],
-                    ['section' => 'Recognition', 'icon' => 'task', 'name' => 'Awards & Recognition', 'path' => '/best-organizations'],
+                    ['icon' => 'forms', 'name' => 'Submitted Forms', 'path' => '/submitted-forms'],
+                    ['icon' => 'pages', 'name' => 'Organization Reports', 'path' => '/reports'],
+                    ['icon' => 'pages', 'name' => 'My Documents', 'path' => '/documents'],
+                    ['icon' => 'pages', 'name' => 'Attachment Library', 'path' => '/attachment-library'],
+                    ['icon' => 'task', 'name' => 'Awards & Recognition', 'path' => '/best-organizations'],
                 ],
             ];
 
@@ -392,7 +390,18 @@ class MenuHelper
             ],
         ];
 
-        return $groups;
+        // The student sidebar uses group titles only. Strip subsection metadata
+        // here as a final safeguard so new links cannot reintroduce nested
+        // category labels by accident.
+        return array_map(static function (array $group): array {
+            $group['items'] = array_map(static function (array $item): array {
+                unset($item['section']);
+
+                return $item;
+            }, $group['items']);
+
+            return $group;
+        }, $groups);
     }
 
     /**

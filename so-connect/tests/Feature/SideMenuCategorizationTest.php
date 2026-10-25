@@ -105,10 +105,13 @@ it('orders the student sidebar by task and keeps files out of the overview group
         ->toMatchArray([
             'name' => 'Apply for a New Event',
         ])
-        ->and($activityItems->firstWhere('path', '/event-plans')['section'])->toBe('Tracking');
+        ->and($activityItems->firstWhere('path', '/event-plans'))->not->toHaveKey('section');
 
     expect(collect($groups->firstWhere('title', 'Reports & Records')['items'])->pluck('path'))
         ->toContain('/reports', '/documents', '/attachment-library', '/best-organizations');
+
+    expect($groups->flatMap(fn (array $group) => $group['items'])
+        ->every(fn (array $item) => ! array_key_exists('section', $item)))->toBeTrue();
 });
 
 it('provides one event application entry and keeps the calendar view only', function () {
