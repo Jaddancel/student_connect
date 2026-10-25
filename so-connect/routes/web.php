@@ -48,6 +48,7 @@ use App\Http\Controllers\RequestDecisionController;
 use App\Http\Controllers\SidebarMenuController;
 use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\SupportTicketController;
+use App\Http\Controllers\SubmittedFormController;
 use App\Http\Controllers\WorkplanController;
 use App\Http\Resources\ActionRequestResource;
 use App\Http\Resources\ApprovalResource;
@@ -354,6 +355,10 @@ Route::middleware(['auth', 'officer.or.admin'])->group(function () {
 Route::get('/after-event-reports', [\App\Http\Controllers\AfterEventReportController::class, 'index'])
     ->middleware('auth')
     ->name('after-event-reports.index');
+
+Route::get('/submitted-forms', [SubmittedFormController::class, 'index'])
+    ->middleware('auth')
+    ->name('submitted-forms.index');
 
 // Generic WYSIWYG-builder form renderer. Registered AFTER the literal /forms/*
 // routes above so bespoke forms keep their dedicated pages; this catches any

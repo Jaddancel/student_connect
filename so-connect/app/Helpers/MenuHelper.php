@@ -334,6 +334,7 @@ class MenuHelper
             $groups[] = [
                 'title' => 'Reports & Records',
                 'items' => [
+                    ['section' => 'Records', 'icon' => 'forms', 'name' => 'Submitted Forms', 'path' => '/submitted-forms'],
                     ['section' => 'Reports', 'icon' => 'pages', 'name' => 'Organization Reports', 'path' => '/reports'],
                     ['section' => 'Files', 'icon' => 'pages', 'name' => 'My Documents', 'path' => '/documents'],
                     ['section' => 'Files', 'icon' => 'pages', 'name' => 'Attachment Library', 'path' => '/attachment-library'],

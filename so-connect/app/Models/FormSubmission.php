@@ -50,6 +50,11 @@ class FormSubmission extends Model
         return $this->belongsTo(User::class, 'submitted_by', 'user_id');
     }
 
+    public function event(): BelongsTo
+    {
+        return $this->belongsTo(Event::class, 'event_id', 'event_id');
+    }
+
     public function generatedDocuments(): HasMany
     {
         return $this->hasMany(GeneratedDocument::class, 'form_submission_id', 'form_submission_id');
