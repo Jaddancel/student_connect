@@ -524,9 +524,6 @@ class FormPagesSeeder extends Seeder
     {
         $fields = [
             $this->heading('Organization Accreditation'),
-            $this->f('recognition_type', 'Accreditation / Renewal', FieldType::RADIO, ['options' => ['options' => [
-                ['value' => 'recognition', 'label' => 'Accreditation'], ['value' => 'renewal', 'label' => 'Renewal'],
-            ]]]),
             $this->f('organization_id', 'Organization', FieldType::ORG_SELECT, ['required' => true]),
             $this->f('name_of_president', 'President', FieldType::TEXT, ['universal_key' => 'org_president']),
             $this->f('adviser_names', 'Faculty Adviser/s', FieldType::TEXT_LIST, ['universal_key' => 'advisers']),
@@ -567,7 +564,7 @@ class FormPagesSeeder extends Seeder
             // page is now bound to the Organization Accreditation system function.
             'route_name' => 'organization-recognition',
             'name' => 'Organization Accreditation',
-            'description' => 'Apply for organization accreditation or renewal.',
+            'description' => 'Apply for organization accreditation for the next academic year.',
             'field_kit' => 'organization_recognition',
             'system_function' => SystemFunction::ORG_ACCREDITATION,
             'fields' => $fields,

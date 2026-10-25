@@ -43,7 +43,7 @@
         <input type="hidden" name="{{ $hiddenName }}" value="{{ $hiddenValue }}" />
     @endforeach
 
-    <nav class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900" aria-label="Renewal application progress">
+    <nav class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900" aria-label="Accreditation application progress">
         <ol class="grid grid-cols-3 divide-x divide-gray-100 dark:divide-gray-800">
             @foreach ([1 => 'Organization records', 2 => 'Requirements', 3 => 'Review'] as $step => $label)
                 <li class="px-2 py-3 text-center sm:px-4">
@@ -60,7 +60,7 @@
     <section x-show="applicationStep === 0" x-cloak data-application-panel="0"
         class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
         <div class="border-b border-gray-100 bg-gradient-to-br from-emerald-50 to-lime-50 px-6 py-7 dark:border-gray-700 dark:from-emerald-950/60 dark:to-gray-900 sm:px-8">
-            <span class="inline-flex rounded-full border border-emerald-100 bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[#2d6a4f] shadow-sm dark:border-emerald-500/20 dark:bg-gray-950 dark:text-emerald-300">Prepare before renewing</span>
+            <span class="inline-flex rounded-full border border-emerald-100 bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[#2d6a4f] shadow-sm dark:border-emerald-500/20 dark:bg-gray-950 dark:text-emerald-300">Prepare for accreditation</span>
             <h2 class="mt-4 text-2xl font-semibold text-gray-950 dark:text-white">Have your updated records ready</h2>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-gray-600 dark:text-gray-300">
                 Confirm the official OSSD announcement and prepare the current organization information before starting. You can move between steps before submitting.
@@ -114,13 +114,13 @@
 
         <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-6 py-4 dark:border-gray-800 sm:px-8">
             <p class="text-xs text-gray-500 dark:text-gray-400">Only submit records for the organization selected in your account header.</p>
-            <button type="button" @click="startApplication()" class="rounded-xl bg-[#1d513d] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#15382b] dark:bg-emerald-600 dark:hover:bg-emerald-500">Start renewal →</button>
+            <button type="button" @click="startApplication()" class="rounded-xl bg-[#1d513d] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#15382b] dark:bg-emerald-600 dark:hover:bg-emerald-500">Start accreditation →</button>
         </div>
     </section>
 
     @foreach ([
         1 => ['Update organization records', 'Confirm the organization, officers, adviser, membership, objectives, and current plans.', $recordFields],
-        2 => ['Complete renewal requirements', 'Upload the documents currently required by OSSD. Optional items may be left blank.', $documentFields],
+        2 => ['Complete accreditation requirements', 'Upload the documents currently required by OSSD. Optional items may be left blank.', $documentFields],
     ] as $step => [$title, $description, $stepFields])
         <section x-show="applicationStep === {{ $step }}" x-cloak data-application-panel="{{ $step }}"
             class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-7">
@@ -165,7 +165,7 @@
         <div class="border-b border-gray-100 pb-5 dark:border-gray-800">
             <p class="text-xs font-bold uppercase tracking-[0.14em] text-[#2d6a4f] dark:text-emerald-400">Application step 3 of 3</p>
             <h2 class="mt-2 text-xl font-semibold text-gray-950 dark:text-white">Review and submit</h2>
-            <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">Review the renewal summary before sending it to OSSD for evaluation.</p>
+            <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">Review the accreditation summary before sending it to OSSD for evaluation.</p>
         </div>
 
         <dl class="mt-5 divide-y divide-gray-100 rounded-xl border border-gray-200 bg-gray-50/50 dark:divide-gray-800 dark:border-gray-700 dark:bg-gray-950/40">
@@ -179,7 +179,7 @@
 
         <div class="mt-5 rounded-xl bg-emerald-50 p-4 dark:bg-emerald-500/10">
             <p class="text-sm font-semibold text-gray-800 dark:text-white">After submission</p>
-            <p class="mt-1 text-xs leading-5 text-gray-600 dark:text-gray-300">OSSD will review prior activities, reports, financial accountability, membership, and policy compliance. Respond to any correction request before renewed accreditation is issued.</p>
+            <p class="mt-1 text-xs leading-5 text-gray-600 dark:text-gray-300">OSSD will review prior activities, reports, financial accountability, membership, and policy compliance. Respond to any correction request before accreditation is issued.</p>
         </div>
 
         <p x-show="applicationStepError" x-cloak x-text="applicationStepError" class="mt-5 rounded-lg bg-error-50 px-3 py-2 text-sm font-medium text-error-600 dark:bg-error-500/10 dark:text-error-400"></p>
@@ -191,7 +191,7 @@
                 <div class="text-right">
                     <button type="submit" :disabled="submitting" class="inline-flex min-w-56 items-center justify-center gap-2 rounded-xl bg-[#1d513d] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#15382b] disabled:cursor-wait disabled:opacity-70 dark:bg-emerald-600 dark:hover:bg-emerald-500">
                         <svg x-show="submitting" x-cloak class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3"></circle><path class="opacity-90" fill="currentColor" d="M21 12a9 9 0 0 0-9-9v3a6 6 0 0 1 6 6h3Z"></path></svg>
-                        <span x-text="submitting ? 'Submitting…' : 'Submit renewal application'">Submit renewal application</span>
+                        <span x-text="submitting ? 'Submitting…' : 'Submit accreditation application'">Submit accreditation application</span>
                     </button>
                     <p x-show="submitting" x-cloak class="mt-2 text-xs text-gray-500 dark:text-gray-400">Please wait while your application is being sent to OSSD.</p>
                 </div>

@@ -40,9 +40,9 @@
                     <div>
                         <p class="text-xs font-medium text-gray-400">Type</p>
                         @if (!empty($p['c1']))
-                            <span class="mt-1 inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-500/15 dark:text-brand-400">New / Recognition (C1)</span>
+                            <span class="mt-1 inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-500/15 dark:text-brand-400">Initial accreditation (C1)</span>
                         @elseif (!empty($p['c2']))
-                            <span class="mt-1 inline-flex items-center rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-500/15 dark:text-purple-400">Renewal (C2)</span>
+                            <span class="mt-1 inline-flex items-center rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-500/15 dark:text-purple-400">Accreditation (C2)</span>
                         @else
                             <p class="mt-1 text-gray-800 dark:text-white/90">—</p>
                         @endif

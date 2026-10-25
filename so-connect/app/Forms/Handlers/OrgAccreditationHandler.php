@@ -43,7 +43,7 @@ class OrgAccreditationHandler implements SystemFunctionHandler
 
         if ($hasPendingApplication) {
             throw ValidationException::withMessages([
-                'form' => 'A renewal application for this organization is already awaiting OSSD review.',
+                'form' => 'An accreditation application for this organization is already awaiting OSSD review.',
             ]);
         }
 

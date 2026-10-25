@@ -91,9 +91,9 @@ it('orders the student sidebar by task and keeps files out of the overview group
         ->toContain('/reports', '/documents', '/attachment-library', '/best-organizations');
 });
 
-it('groups every administrator-selected renewal requirement without duplicating it', function () {
+it('groups every administrator-selected accreditation requirement without duplicating it', function () {
     $officer = recordsUser(3);
-    $organization = recordsOrganization('Renewal Navigation Organization');
+    $organization = recordsOrganization('Accreditation Navigation Organization');
     DB::table('organization_officers')->insert([
         'role' => 'officer', 'organization' => $organization->getKey(), 'user' => $officer->getKey(),
         'member_since' => now(), 'registered_at' => now(), 'reassigned_at' => now(),
@@ -107,7 +107,7 @@ it('groups every administrator-selected renewal requirement without duplicating 
     $requirements = collect(['Officer Information Sheet', 'Financial Accountability Report'])
         ->map(fn (string $name, int $index) => Form::query()->create([
             'name' => $name,
-            'route_name' => 'renewal-requirement-'.($index + 1),
+            'route_name' => 'accreditation-requirement-'.($index + 1),
             'is_active' => true,
             'is_published' => true,
             'show_in_sidebar' => false,
@@ -118,14 +118,14 @@ it('groups every administrator-selected renewal requirement without duplicating 
 
     $this->actingAs($officer);
     $groups = collect(MenuHelper::getMenuGroups());
-    $renewalItems = collect($groups->firstWhere('title', 'Accreditation & Renewal')['items']);
+    $accreditationItems = collect($groups->firstWhere('title', 'Accreditation')['items']);
 
-    expect($renewalItems->firstWhere('path', '/forms/'.$application->route_name)['section'])
-        ->toBe('Renewal Application');
+    expect($accreditationItems->firstWhere('path', '/forms/'.$application->route_name)['section'])
+        ->toBe('Application');
 
     foreach ($requirements as $requirement) {
-        expect($renewalItems->firstWhere('path', '/forms/'.$requirement->route_name)['section'])
-            ->toBe('Renewal Requirements');
+        expect($accreditationItems->firstWhere('path', '/forms/'.$requirement->route_name)['section'])
+            ->toBe('Requirements');
         expect($groups->flatMap(fn (array $group) => $group['items'])->where('path', '/forms/'.$requirement->route_name))
             ->toHaveCount(1);
     }

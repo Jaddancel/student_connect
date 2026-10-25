@@ -96,9 +96,9 @@ it('reports each required attachment status for the admin review checklist', fun
     ]);
 });
 
-it('renders accreditation as a guided renewal workflow', function () {
+it('renders accreditation as one guided application workflow', function () {
     $user = recordsUser(3);
-    $org = recordsOrganization('Renewal Test Organization', 'RTO');
+    $org = recordsOrganization('Accreditation Test Organization', 'ATO');
     $form = checklistForm();
 
     DB::table('organization_officers')->insert([
@@ -111,22 +111,61 @@ it('renders accreditation as a guided renewal workflow', function () {
         ->withSession(['active_organization_id' => $org->getKey()])
         ->get(route('forms.render', $form->route_name))
         ->assertOk()
-        ->assertSee('Organization accreditation renewal')
+        ->assertSee('Organization accreditation')
         ->assertSee('Accreditation journey')
         ->assertSee('data-accreditation-journey="linear"', false)
         ->assertSee('Monitor the announcement')
         ->assertSee('Update organization records')
-        ->assertSee('Complete renewal requirements')
+        ->assertSee('Complete accreditation requirements')
         ->assertSee('OSSD evaluation')
-        ->assertSee('Renewed accreditation')
+        ->assertSee('Accreditation confirmed')
         ->assertSee('Required uploads set by OSSD')
         ->assertSee('Constitution and By-Laws')
-        ->assertSee('Submit renewal application');
+        ->assertSee('Submit accreditation application')
+        ->assertDontSee('Renewal');
+});
+
+it('removes the obsolete renewal choice from existing accreditation forms', function () {
+    $form = Form::query()->create([
+        'name' => 'Existing Accreditation Form',
+        'route_name' => 'existing-accreditation-form',
+        'system_function' => SystemFunction::ORG_ACCREDITATION,
+        'description_text' => 'Apply for organization accreditation or renewal.',
+        'layout' => ['rows' => [
+            ['columns' => [['span' => 12, 'fields' => ['recognition_type']]]],
+            ['columns' => [['span' => 12, 'fields' => ['organization_id']]]],
+        ]],
+    ]);
+
+    FormDescription::query()->create([
+        'form_id' => $form->getKey(),
+        'field_key' => 'recognition_type',
+        'field_label' => 'Accreditation / Renewal',
+        'field_type' => FieldType::RADIO,
+        'is_required' => false,
+        'field_order' => 1,
+    ]);
+
+    $migration = require database_path('migrations/2026_10_25_000002_remove_accreditation_renewal_distinction.php');
+    $migration->up();
+
+    $form->refresh();
+
+    expect($form->description_text)
+        ->toBe('Apply for organization accreditation for the next academic year.')
+        ->and(FormDescription::query()
+            ->where('form_id', $form->getKey())
+            ->where('field_key', 'recognition_type')
+            ->exists())->toBeFalse()
+        ->and(collect($form->layout['rows'])
+            ->flatMap(fn (array $row) => $row['columns'] ?? [])
+            ->flatMap(fn (array $column) => $column['fields'] ?? [])
+            ->all())->toBe(['organization_id']);
 });
 
 it('prevents another accreditation application while one is awaiting review', function () {
     $user = recordsUser(3);
-    $org = recordsOrganization('Pending Renewal Organization', 'PRO');
+    $org = recordsOrganization('Pending Accreditation Organization', 'PAO');
     $form = checklistForm();
     $request = Illuminate\Http\Request::create('/', 'POST');
     $request->setUserResolver(fn () => $user);

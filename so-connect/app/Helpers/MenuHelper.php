@@ -199,7 +199,7 @@ class MenuHelper
      * Build the sidebar for student officers and presidents.
      *
      * The group order follows the organization's operating cycle: review the
-     * current status, renew accreditation, plan and complete activities, keep
+     * current status, complete accreditation, plan and complete activities, keep
      * records, then use general-purpose forms. Profile and settings remain in
      * the account dropdown to avoid duplicate navigation.
      */
@@ -234,7 +234,7 @@ class MenuHelper
                 ...$requiredAccreditationFormIds,
             ])));
 
-            // Administrator-selected renewal requirements remain visible even
+            // Administrator-selected accreditation requirements remain visible even
             // when their normal "show in sidebar" option is off. A requirement
             // must never become undiscoverable to the organization completing it.
             $publishedForms = \App\Models\Form::query()
@@ -269,7 +269,7 @@ class MenuHelper
 
             $accreditationItems = [];
             if ($accreditationFormId > 0 && ($accreditationForm = $formsById->get($accreditationFormId))) {
-                $accreditationItems[] = $formMenuItem($accreditationForm, 'Renewal Application');
+                $accreditationItems[] = $formMenuItem($accreditationForm, 'Application');
                 $usedFormIds[$accreditationFormId] = true;
             }
 
@@ -279,13 +279,13 @@ class MenuHelper
                     continue;
                 }
 
-                $accreditationItems[] = $formMenuItem($requiredForm, 'Renewal Requirements');
+                $accreditationItems[] = $formMenuItem($requiredForm, 'Requirements');
                 $usedFormIds[$requiredFormId] = true;
             }
 
             if ($accreditationItems !== []) {
                 $groups[] = [
-                    'title' => 'Accreditation & Renewal',
+                    'title' => 'Accreditation',
                     'items' => $accreditationItems,
                 ];
             }

@@ -53,9 +53,9 @@
                                     <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ $row['requester_name'] }}</td>
                                     <td class="px-6 py-4 text-gray-500 dark:text-gray-400">
                                         @if ($row['recognition_type'] === 'c1')
-                                            <span class="inline-flex items-center rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-500/15 dark:text-brand-400">New / Recognition</span>
+                                            <span class="inline-flex items-center rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-500/15 dark:text-brand-400">Initial accreditation</span>
                                         @elseif ($row['recognition_type'] === 'c2')
-                                            <span class="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-500/15 dark:text-purple-400">Renewal</span>
+                                            <span class="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-500/15 dark:text-purple-400">Accreditation</span>
                                         @else
                                             —
                                         @endif
@@ -126,7 +126,7 @@
                                     <td class="px-6 py-4 font-medium text-gray-800 dark:text-white/90">{{ $row['org_name'] }}</td>
                                     <td class="px-6 py-4 text-gray-700 dark:text-gray-300">{{ $row['requester_name'] }}</td>
                                     <td class="px-6 py-4 text-gray-500 dark:text-gray-400">
-                                        @if ($row['recognition_type'] === 'c1') New @elseif ($row['recognition_type'] === 'c2') Renewal @else — @endif
+                                        @if ($row['recognition_type'] === 'c1') Initial accreditation @elseif ($row['recognition_type'] === 'c2') Accreditation @else — @endif
                                     </td>
                                     <td class="px-6 py-4">
                                         @if ($row['approval']->is_rejected)

@@ -1857,7 +1857,7 @@
             },
             "attributes": {
                 "name": "Organization Accreditation",
-                "description_text": "Apply for organization accreditation or renewal.",
+                "description_text": "Apply for organization accreditation for the next academic year.",
                 "sidebar_group": null,
                 "is_active": true,
                 "is_published": true,
@@ -1875,16 +1875,6 @@
                                     "span": 12,
                                     "fields": [
                                         "h_10771713277e03ce523fa1382a95536d"
-                                    ]
-                                }
-                            ]
-                        },
-                        {
-                            "columns": [
-                                {
-                                    "span": 12,
-                                    "fields": [
-                                        "recognition_type"
                                     ]
                                 }
                             ]
@@ -2028,27 +2018,6 @@
                     "field_order": 1,
                     "placeholder_hint": null,
                     "field_options": null,
-                    "universal_key": null
-                },
-                {
-                    "field_key": "recognition_type",
-                    "field_label": "Accreditation / Renewal",
-                    "field_type": "radio",
-                    "is_required": false,
-                    "field_order": 2,
-                    "placeholder_hint": null,
-                    "field_options": {
-                        "options": [
-                            {
-                                "label": "Accreditation",
-                                "value": "recognition"
-                            },
-                            {
-                                "label": "Renewal",
-                                "value": "renewal"
-                            }
-                        ]
-                    },
                     "universal_key": null
                 },
                 {

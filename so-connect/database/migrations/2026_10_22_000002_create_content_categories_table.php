@@ -35,7 +35,7 @@ return new class extends Migration
         $now = now();
         foreach ([
             ['Membership', 'For membership applications, approvals, and member records.', 'user-profile', 'brand'],
-            ['Accreditation', 'For organization accreditation and renewal processes.', 'forms', 'brand'],
+            ['Accreditation', 'For organization accreditation processes.', 'forms', 'brand'],
             ['Activity', 'For activity proposals, work plans, monitoring, and requests.', 'calendar', 'brand'],
             ['Financial', 'For budgets, funding, liquidation, and financial reports.', 'charts', 'brand'],
             ['Accomplishment', 'For after-activity and accomplishment reports.', 'check-circle', 'brand'],

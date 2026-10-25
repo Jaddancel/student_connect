@@ -135,7 +135,7 @@
     {{-- ── ORG RECOGNITION APPROVAL MODAL ─────────────────────────────── --}}
     <div id="org-recognition-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
         <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
-            <h3 class="mb-1 text-base font-semibold text-gray-800 dark:text-white/90">Approve Application for Recognition/Renewal</h3>
+            <h3 class="mb-1 text-base font-semibold text-gray-800 dark:text-white/90">Approve Accreditation Application</h3>
             <p class="mb-5 text-xs text-gray-500 dark:text-gray-400">Please fill in the approval details before confirming.</p>
 
             <div class="space-y-4">
