@@ -84,7 +84,7 @@
             <div>
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Organization information</h3>
                 <ul class="mt-3 space-y-2.5 text-sm text-gray-600 dark:text-gray-300">
-                    @foreach (['Proposed organization name and initials', 'Purpose, objectives, and target membership', 'List of currently enrolled founding members', 'Proposed president, officers, and faculty adviser'] as $item)
+                    @foreach (['Proposed organization name and initials', 'Purpose, objectives, and target membership', 'List of currently enrolled founding members', 'Proposed president, officers, and faculty advisers'] as $item)
                         <li class="flex gap-2.5"><svg class="mt-0.5 h-4 w-4 shrink-0 text-[#5f8f32]" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0l-3.5-3.5a1 1 0 1 1 1.4-1.4l2.8 2.79 6.8-6.8a1 1 0 0 1 1.4 0Z" clip-rule="evenodd" /></svg><span>{{ $item }}</span></li>
                     @endforeach
                 </ul>
@@ -117,7 +117,7 @@
 
     @foreach ([
         1 => ['Organization details', 'Define the proposed organization, its purpose, and intended membership.', $organizationFields],
-        2 => ['Founding team', 'Provide the founding membership, officers, and faculty adviser information.', $peopleFields],
+        2 => ['Founding team', 'Provide the founding membership, officers, and faculty adviser information. Add every adviser who will serve the organization.', $peopleFields],
         3 => ['Upload requirements', 'Required uploads are controlled by the admin. Optional items may be left blank.', $documentFields],
     ] as $step => [$title, $description, $stepFields])
         <section x-show="applicationStep === {{ $step }}" x-cloak data-application-panel="{{ $step }}"

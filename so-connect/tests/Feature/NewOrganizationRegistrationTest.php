@@ -71,6 +71,7 @@ function makeNewOrganizationForm(): Form
                 ['columns' => [['span' => 12, 'fields' => ['organization_type']]]],
                 ['columns' => [['span' => 12, 'fields' => ['president_email']]]],
                 ['columns' => [['span' => 12, 'fields' => ['officer_email']]]],
+                ['columns' => [['span' => 12, 'fields' => ['faculty_adviser']]]],
             ],
         ],
         'pdf_template' => [
@@ -86,6 +87,7 @@ function makeNewOrganizationForm(): Form
         ['field_key' => 'organization_type', 'field_label' => 'Type', 'field_type' => FieldType::ORGANIZATION_TYPE_SELECT, 'is_required' => true, 'field_order' => 4],
         ['field_key' => 'president_email', 'field_label' => 'New President Email', 'field_type' => FieldType::NEW_PRESIDENT_EMAIL, 'is_required' => true, 'field_order' => 5],
         ['field_key' => 'officer_email', 'field_label' => 'New Officer Email', 'field_type' => FieldType::NEW_OFFICER_EMAIL, 'is_required' => true, 'field_order' => 6],
+        ['field_key' => 'faculty_adviser', 'field_label' => 'Proposed Faculty Advisers', 'field_type' => FieldType::TEXT_LIST, 'is_required' => true, 'field_order' => 7, 'placeholder_hint' => 'Faculty adviser full name', 'field_options' => ['first_placeholder' => 'Primary adviser full name', 'additional_placeholder' => 'Additional adviser full name', 'add_label' => '+ Add another adviser']],
     ];
 
     foreach ($fields as $f) {
@@ -148,6 +150,10 @@ it('renders the new organization registration form publicly', function () {
         ->assertSee('Initial screening')
         ->assertSee('Formal recognition')
         ->assertSee('New President Email')
+        ->assertSee('Proposed Faculty Advisers')
+        ->assertSee('Primary adviser full name')
+        ->assertSee('Additional adviser full name')
+        ->assertSee('+ Add another adviser')
         ->assertSee('Submit application to OSSD');
 });
 
@@ -177,8 +183,10 @@ it('shows only admin-configured required uploads in the preparation notice', fun
         ->assertSee('Required uploads set by the admin')
         ->assertSee('Admin Required Document');
 
-    expect(substr_count($response->getContent(), 'Admin Required Document'))->toBeGreaterThan(1)
-        ->and(substr_count($response->getContent(), 'Admin Optional Document'))->toBe(2);
+    $requiredOccurrences = substr_count($response->getContent(), 'Admin Required Document');
+    $optionalOccurrences = substr_count($response->getContent(), 'Admin Optional Document');
+
+    expect($requiredOccurrences)->toBeGreaterThan($optionalOccurrences);
 });
 
 it('rejects submission when required organization fields are missing', function () {
@@ -201,6 +209,7 @@ it('submits a new organization registration request with registered status', fun
         'organization_initials' => 'TO',
         'organization_description' => 'A test organization.',
         'organization_type' => '1',
+        'faculty_adviser' => ['Dr. Elena Santos'],
         'president_email' => $presidentEmail,
         'officer_email' => $officerEmail,
     ])
@@ -216,6 +225,7 @@ it('submits a new organization registration request with registered status', fun
     expect($request->payload['president_is_registered'])->toBeTrue();
     expect($request->payload['officer_email'])->toBe($officerEmail);
     expect($request->payload['officer_is_registered'])->toBeFalse();
+    expect($request->payload['faculty_advisers'])->toBe(['Dr. Elena Santos']);
 });
 
 it('shows the OSSD review workflow after a successful application', function () {
@@ -226,6 +236,7 @@ it('shows the OSSD review workflow after a successful application', function () 
         'organization_initials' => 'WO',
         'organization_description' => 'A workflow test.',
         'organization_type' => '1',
+        'faculty_adviser' => ['Dr. Elena Santos'],
         'president_email' => 'workflow-president@example.com',
         'officer_email' => 'workflow-officer@example.com',
     ]);
@@ -248,6 +259,7 @@ it('marks an unregistered email as not registered', function () {
         'organization_initials' => 'AO',
         'organization_description' => 'Another test.',
         'organization_type' => '1',
+        'faculty_adviser' => ['Dr. Elena Santos'],
         'president_email' => 'newbie@example.com',
         'officer_email' => 'officer@example.com',
     ])->assertRedirect(route('forms.render', $form->route_name));
@@ -272,6 +284,7 @@ it('shows registered status on the admin review page', function () {
         'organization_initials' => 'RO',
         'organization_description' => 'Review.',
         'organization_type' => '1',
+        'faculty_adviser' => ['Dr. Elena Santos'],
         'president_email' => $presidentEmail,
         'officer_email' => $officerEmail,
     ]);
@@ -297,6 +310,7 @@ it('creates the organization and assigns existing leaders their roles', function
         'organization_initials' => 'PO',
         'organization_description' => 'Presidential.',
         'organization_type' => '1',
+        'faculty_adviser' => ['Dr. Elena Santos', 'Prof. Marco Reyes'],
         'president_email' => $presidentEmail,
         'officer_email' => $officerEmail,
     ]);
@@ -332,6 +346,12 @@ it('creates the organization and assigns existing leaders their roles', function
     expect($officerMembership)->not->toBeNull();
     expect($officerMembership->role)->toBe('officer');
     expect($officerMembership->position)->toBe('other');
+
+    expect(DB::table('organization_advisers')
+        ->where('organization_id', $org->organization_id)
+        ->orderBy('id')
+        ->pluck('name')
+        ->all())->toBe(['Dr. Elena Santos', 'Prof. Marco Reyes']);
 });
 
 it('creates the organization and issues an invitation for an unregistered founder', function () {
@@ -355,6 +375,7 @@ it('creates the organization and issues an invitation for an unregistered founde
         'organization_initials' => 'IO',
         'organization_description' => 'Invitation.',
         'organization_type' => '1',
+        'faculty_adviser' => ['Dr. Elena Santos'],
         'president_email' => $presidentEmail,
         'officer_email' => $officerEmail,
         'officer_email_2' => $secondOfficerEmail,

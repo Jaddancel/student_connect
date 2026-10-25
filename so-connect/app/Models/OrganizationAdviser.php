@@ -6,8 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * One adviser name in an organization's extensible adviser list (backs the
- * "Advisers" universal field).
+ * One adviser name in an organization's extensible adviser list. The first
+ * stored row is the primary adviser; later rows are additional advisers.
  */
 class OrganizationAdviser extends Model
 {

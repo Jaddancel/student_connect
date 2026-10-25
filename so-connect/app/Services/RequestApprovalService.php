@@ -15,6 +15,7 @@ use App\Models\OrganizationInvitation;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
 use App\Models\User;
+use App\Support\OrganizationField;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -35,8 +36,7 @@ class RequestApprovalService
         int $approverUserId,
         ?string $stage = null,
         ?int $approvalAdminId = null,
-    ): Approval
-    {
+    ): Approval {
         $actionRequest->loadMissing('requestType');
 
         $actionType = (int) $actionRequest->action_type;
@@ -447,8 +447,8 @@ class RequestApprovalService
     }
 
     /**
-    * Create the organization from an approved new-organization request and
-    * either attach existing leaders or issue their invitations.
+     * Create the organization from an approved new-organization request and
+     * either attach existing leaders or issue their invitations.
      */
     private function createOrganizationFromRequest(ActionRequest $actionRequest, Approval $approval): void
     {
@@ -462,6 +462,9 @@ class RequestApprovalService
         $officerEmails = $form !== null
             ? $handler->resolveOfficerEmails($form, $payload)
             : array_values(array_filter(array_map('strval', (array) ($payload['officer_emails'] ?? [$payload['officer_email'] ?? null]))));
+        $adviserNames = $form !== null
+            ? $handler->resolveAdviserNames($form, $payload)
+            : array_values(array_filter(array_map('strval', (array) ($payload['faculty_advisers'] ?? [$payload['faculty_adviser'] ?? null]))));
 
         if ($presidentEmail === null || $presidentEmail === '' || $officerEmails === []) {
             return;
@@ -481,7 +484,7 @@ class RequestApprovalService
             return;
         }
 
-        DB::transaction(function () use ($actionRequest, $approval, $presidentEmail, $officerEmails, $name, $initials, $description, $type) {
+        DB::transaction(function () use ($actionRequest, $approval, $presidentEmail, $officerEmails, $adviserNames, $name, $initials, $description, $type) {
             $detail = OrganizationDetail::query()->create([
                 'name' => $name,
                 'initials' => $initials,
@@ -495,6 +498,8 @@ class RequestApprovalService
             ]);
 
             $organizationId = (int) $organization->getKey();
+
+            OrganizationField::rememberAdvisers($organization, $adviserNames);
 
             $leaders = [
                 ['email' => $presidentEmail, 'role' => 'president', 'position' => null],

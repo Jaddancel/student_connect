@@ -47,7 +47,7 @@ it('leaves an unparseable birthday untouched and null when empty', function () {
 it('separates profile-source from org-source keys', function () {
     expect(UniversalField::keysBySource('org'))
         ->toEqualCanonicalizing([
-            'org_name', 'adviser', 'org_president', 'org_treasurer', 'org_auditor', 'org_secretary', 'org_category',
+            'org_name', 'adviser', 'adviser_2', 'advisers', 'org_president', 'org_treasurer', 'org_auditor', 'org_secretary', 'org_category',
             'org_president_signature', 'org_treasurer_signature', 'org_auditor_signature', 'org_secretary_signature',
             'org_president_contact', 'org_treasurer_contact', 'org_auditor_contact', 'org_secretary_contact',
         ])
@@ -71,6 +71,46 @@ it('resolves the organization name org field', function () {
 
     expect(\App\Support\OrganizationField::value($organization, 'org_name'))->toBe('Society of Programmers')
         ->and(\App\Support\OrganizationField::value(null, 'org_name'))->toBeNull();
+});
+
+it('resolves the primary, second, and complete adviser values in registration order', function () {
+    $detailId = \Illuminate\Support\Facades\DB::table('organization_details')->insertGetId([
+        'name' => 'Adviser Data Organization',
+        'detail_text' => 'Tests stored adviser values.',
+        'initials' => 'ADO',
+    ]);
+    $organization = \App\Models\Organization::query()->create([
+        'detail' => $detailId,
+        'organization_type' => 1,
+    ]);
+    $organization->advisers()->createMany([
+        ['name' => 'Dr. Elena Santos'],
+        ['name' => 'Prof. Marco Reyes'],
+    ]);
+
+    expect(\App\Support\OrganizationField::value($organization, 'adviser'))->toBe('Dr. Elena Santos')
+        ->and(\App\Support\OrganizationField::value($organization, 'adviser_2'))->toBe('Prof. Marco Reyes')
+        ->and(\App\Support\OrganizationField::value($organization, 'advisers'))
+        ->toBe(['Dr. Elena Santos', 'Prof. Marco Reyes']);
+
+    $request = \Illuminate\Http\Request::create('/forms/example');
+    $fields = collect([
+        new \App\Models\Form\FormDescription([
+            'field_key' => 'adviser_name',
+            'field_type' => \App\Forms\FieldType::TEXT,
+            'universal_key' => 'adviser',
+        ]),
+        new \App\Models\Form\FormDescription([
+            'field_key' => 'adviser_names',
+            'field_type' => \App\Forms\FieldType::TEXT_LIST,
+            'universal_key' => 'advisers',
+        ]),
+    ]);
+
+    expect(\App\Forms\FormRenderContext::profilePrefill($request, $fields, $organization))->toBe([
+        'adviser_name' => 'Dr. Elena Santos',
+        'adviser_names' => ['Dr. Elena Santos', 'Prof. Marco Reyes'],
+    ]);
 });
 
 it('groups the catalog for palette rendering', function () {

@@ -31,7 +31,7 @@ class NewOrganizationRegistrationFormSeeder extends Seeder
             ]],
             ['field_key' => 'president_email', 'field_label' => 'New President Email', 'field_type' => FieldType::NEW_PRESIDENT_EMAIL, 'is_required' => true],
             ['field_key' => 'officer_email', 'field_label' => 'New Officer Email', 'field_type' => FieldType::NEW_OFFICER_EMAIL, 'is_required' => true],
-            ['field_key' => 'faculty_adviser', 'field_label' => 'Proposed Faculty Adviser', 'field_type' => FieldType::TEXT, 'is_required' => true],
+            ['field_key' => 'faculty_adviser', 'field_label' => 'Proposed Faculty Advisers', 'field_type' => FieldType::TEXT_LIST, 'is_required' => true, 'placeholder_hint' => 'Faculty adviser full name', 'field_options' => ['first_placeholder' => 'Primary adviser full name', 'additional_placeholder' => 'Additional adviser full name', 'add_label' => '+ Add another adviser']],
             ['field_key' => 'constitution_and_bylaws', 'field_label' => 'Constitution and By-Laws', 'field_type' => FieldType::FILE, 'is_required' => false],
             ['field_key' => 'founding_members_list', 'field_label' => 'List of Founding Members', 'field_type' => FieldType::FILE, 'is_required' => false],
             ['field_key' => 'proposed_officers_list', 'field_label' => 'List of Proposed Officers', 'field_type' => FieldType::FILE, 'is_required' => false],
@@ -61,7 +61,7 @@ class NewOrganizationRegistrationFormSeeder extends Seeder
                     .' <strong>Total:</strong> <span data-field="total"></span></p>'
                     .'<p><strong>New President Email:</strong> <span data-field="president_email"></span></p>'
                     .'<p><strong>New Officer Email:</strong> <span data-field="officer_email"></span></p>'
-                    .'<p><strong>Proposed Faculty Adviser:</strong> <span data-field="faculty_adviser"></span></p>'
+                    .'<p><strong>Proposed Faculty Advisers:</strong> <span data-field="faculty_adviser"></span></p>'
                     .'<h3>Submitted documents</h3>'
                     .'<p>Constitution and By-Laws; List of Founding Members; List of Proposed Officers; Faculty Adviser Acceptance; Organization Logo; General Plan of Action with Proposed Budget</p>',
                 'page' => ['size' => 'a4', 'orientation' => 'portrait'],

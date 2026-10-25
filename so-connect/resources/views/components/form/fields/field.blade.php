@@ -50,7 +50,7 @@
             </label>
         @endif
 
-        @if ($field->universal_key === 'adviser')
+        @if (in_array($field->universal_key, ['adviser', 'adviser_2'], true))
             {{-- "Advisers" universal field: a dropdown of the org's known advisers
                  that also accepts a new name (persisted on submit via a datalist). --}}
             <input type="text" id="{{ $key }}" name="{{ $key }}" value="{{ $old }}"
@@ -568,13 +568,15 @@
                 <div x-data="formTextList({ rows: @js($oldRows) })" class="space-y-2">
                     <template x-for="(row, i) in rows" :key="i">
                         <div class="flex items-center gap-2">
-                            <input type="text" :name="'{{ $key }}[]'" x-model="rows[i]" placeholder="{{ $placeholder }}"
+                            <input type="text" :name="'{{ $key }}[]'" x-model="rows[i]"
+                                :placeholder="i === 0 ? @js($opts['first_placeholder'] ?? $placeholder) : @js($opts['additional_placeholder'] ?? $placeholder)"
                                 class="{{ $inputClass }}" />
                             <button type="button" @click="removeRow(i)"
+                                x-show="rows.length > 1" aria-label="Remove item"
                                 class="shrink-0 rounded-lg border border-gray-300 px-2.5 py-2 text-xs text-error-500 dark:border-gray-700">✕</button>
                         </div>
                     </template>
-                    <button type="button" @click="rows.push('')" class="text-xs font-medium text-brand-500 hover:text-brand-600">+ Add another</button>
+                    <button type="button" @click="rows.push('')" class="text-xs font-medium text-brand-500 hover:text-brand-600">{{ $opts['add_label'] ?? '+ Add another' }}</button>
                 </div>
                 @break
 

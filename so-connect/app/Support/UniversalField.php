@@ -73,7 +73,9 @@ final class UniversalField
 
             // Organization-scoped: resolved from the submitter's org (see OrganizationField).
             'org_name' => ['label' => 'Organization Name',      'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
-            'adviser' => ['label' => 'Adviser',                'type' => FieldType::SELECT, 'source' => 'org', 'group' => 'organization'],
+            'adviser' => ['label' => 'Primary Adviser',        'type' => FieldType::SELECT,    'source' => 'org', 'group' => 'organization'],
+            'adviser_2' => ['label' => 'Second Adviser',         'type' => FieldType::SELECT,    'source' => 'org', 'group' => 'organization'],
+            'advisers' => ['label' => 'All Advisers',           'type' => FieldType::TEXT_LIST, 'source' => 'org', 'group' => 'organization'],
             'org_president' => ['label' => 'Organization President', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_auditor' => ['label' => 'Organization Auditor',   'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],
             'org_treasurer' => ['label' => 'Organization Treasurer', 'type' => FieldType::TEXT,   'source' => 'org', 'group' => 'organization'],

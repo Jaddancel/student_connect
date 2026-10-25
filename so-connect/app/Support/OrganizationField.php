@@ -54,10 +54,11 @@ final class OrganizationField
     }
 
     /**
-     * Scalar value for an org role field. `adviser` has no single value (it's a
-     * per-submission choice), so it returns null here.
+     * Value for an organization field. Adviser values follow registration
+     * order: the first saved name is primary, while `advisers` returns the
+     * complete list for repeatable fields.
      */
-    public static function value(?Organization $organization, string $key): ?string
+    public static function value(?Organization $organization, string $key): string|array|null
     {
         if ($organization === null) {
             return null;
@@ -76,6 +77,14 @@ final class OrganizationField
             return $type !== null && $type !== ''
                 ? \App\Enums\OrganizationType::label((int) $type)
                 : null;
+        }
+
+        if ($key === 'advisers') {
+            return self::advisers($organization);
+        }
+
+        if (in_array($key, ['adviser', 'adviser_2'], true)) {
+            return self::advisers($organization)[$key === 'adviser' ? 0 : 1] ?? null;
         }
 
         $signaturePosition = match ($key) {
@@ -108,8 +117,8 @@ final class OrganizationField
     }
 
     /**
-     * The org's known adviser names, alphabetical — the option list for the
-     * "Advisers" dropdown.
+     * The org's known adviser names in registration order. The first name is
+     * the primary adviser and the remaining names are additional advisers.
      *
      * @return string[]
      */
@@ -120,7 +129,7 @@ final class OrganizationField
         }
 
         return $organization->advisers()
-            ->orderBy('name')
+            ->orderBy('id')
             ->pluck('name')
             ->all();
     }
@@ -138,6 +147,14 @@ final class OrganizationField
         }
 
         $organization->advisers()->firstOrCreate(['name' => $name]);
+    }
+
+    /** Store a scalar or repeatable list of adviser names in the given order. */
+    public static function rememberAdvisers(?Organization $organization, mixed $names): void
+    {
+        foreach ((array) $names as $name) {
+            self::rememberAdviser($organization, is_scalar($name) ? (string) $name : null);
+        }
     }
 
     private static function officerByRole(Organization $organization, string $role): ?Officer

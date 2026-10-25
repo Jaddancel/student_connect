@@ -29,7 +29,7 @@ final class PdfTemplateRenderer
      * @param  ?Profile  $profile  submitter's profile, used to resolve profile-source
      *                             `data-universal` tokens; null renders them empty
      * @param  ?Organization  $organization  submitter's org, used to resolve
-     *                             org-source `data-universal` tokens (president/…)
+     *                                       org-source `data-universal` tokens (president/…)
      */
     public function render(string $templateHtml, array $payload, Collection $fields, ?string $disk = null, ?Profile $profile = null, ?Organization $organization = null): string
     {
@@ -353,6 +353,6 @@ final class PdfTemplateRenderer
             return [$dom->createTextNode('')];
         }
 
-        return [$dom->createTextNode((string) $value)];
+        return [$dom->createTextNode(is_array($value) ? implode(', ', $value) : (string) $value)];
     }
 }

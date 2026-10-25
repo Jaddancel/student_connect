@@ -172,7 +172,9 @@ class DocxTemplateData
                 continue;
             }
 
-            $values[$token] = (string) $value;
+            $values[$token] = ($meta['type'] ?? null) === FieldType::TEXT_LIST
+                ? array_values((array) $value)
+                : (string) $value;
         }
 
         return ['values' => $values, 'images' => $images, 'tables' => $tables];

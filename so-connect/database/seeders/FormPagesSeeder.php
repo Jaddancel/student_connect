@@ -212,7 +212,15 @@ class FormPagesSeeder extends Seeder
             $this->f('president_email', 'New President Email', FieldType::NEW_PRESIDENT_EMAIL, ['required' => true]),
             $this->heading('Officer Contact'),
             $this->f('officer_email', 'New Officer Email', FieldType::NEW_OFFICER_EMAIL, ['required' => true]),
-            $this->f('faculty_adviser', 'Proposed Faculty Adviser', FieldType::TEXT, ['required' => true]),
+            $this->f('faculty_adviser', 'Proposed Faculty Advisers', FieldType::TEXT_LIST, [
+                'required' => true,
+                'placeholder' => 'Faculty adviser full name',
+                'options' => [
+                    'first_placeholder' => 'Primary adviser full name',
+                    'additional_placeholder' => 'Additional adviser full name',
+                    'add_label' => '+ Add another adviser',
+                ],
+            ]),
             $this->heading('Required Documents'),
             $this->f('constitution_and_bylaws', 'Constitution and By-Laws', FieldType::FILE),
             $this->f('founding_members_list', 'List of Founding Members', FieldType::FILE),
@@ -234,7 +242,7 @@ class FormPagesSeeder extends Seeder
             .' <strong>Total:</strong> <span data-field="total"></span></p>'
             .$this->line('New President Email', 'president_email')
             .$this->line('New Officer Email', 'officer_email')
-            .$this->line('Proposed Faculty Adviser', 'faculty_adviser')
+            .$this->line('Proposed Faculty Advisers', 'faculty_adviser')
             .'<h3>Submitted documents</h3>'
             .'<p>Constitution and By-Laws; List of Founding Members; List of Proposed Officers; Faculty Adviser Acceptance; Organization Logo; General Plan of Action with Proposed Budget</p>';
 
@@ -326,6 +334,7 @@ class FormPagesSeeder extends Seeder
             $this->f('faculty_advisers', 'Faculty Advisers', FieldType::TEXT_LIST, [
                 'required' => true,
                 'placeholder' => 'Adviser full name',
+                'universal_key' => 'advisers',
             ]),
             $this->f('area_scope', 'Area Scope', FieldType::SELECT, ['required' => true]),
             $this->f('area_scope_other', 'Other Area Scope', FieldType::TEXT),
@@ -351,9 +360,9 @@ class FormPagesSeeder extends Seeder
                 'required' => true,
                 'universal_key' => 'current_semester',
             ]),
-            $this->f('adviser_1_name', 'Adviser 1 Name', FieldType::TEXT, ['required' => true]),
+            $this->f('adviser_1_name', 'Adviser 1 Name', FieldType::TEXT, ['required' => true, 'universal_key' => 'adviser']),
             $this->f('adviser_1_signature', 'Adviser 1 Signature', FieldType::SIGNATURE),
-            $this->f('adviser_2_name', 'Adviser 2 Name', FieldType::TEXT, ['required' => true]),
+            $this->f('adviser_2_name', 'Adviser 2 Name', FieldType::TEXT, ['required' => true, 'universal_key' => 'adviser_2']),
             $this->f('adviser_2_signature', 'Adviser 2 Signature', FieldType::SIGNATURE),
             $this->f('current_date', 'Current Date', FieldType::DATE, [
                 'required' => true,
@@ -443,10 +452,11 @@ class FormPagesSeeder extends Seeder
             $this->f('president_name', 'President Full Name', FieldType::TEXT, ['required' => true, 'universal_key' => 'org_president']),
             $this->f('president_contact', 'President Contact #', FieldType::TEXT, ['required' => true]),
             $this->f('president_signature', 'President Signature', FieldType::SIGNATURE, ['required' => true]),
-            $this->f('adviser1_name', 'Adviser 1 Name', FieldType::TEXT, ['required' => true]),
+            $this->f('adviser1_name', 'Adviser 1 Name', FieldType::TEXT, ['required' => true, 'universal_key' => 'adviser']),
             $this->f('adviser1_contact', 'Adviser 1 Contact #', FieldType::TEXT, ['required' => true]),
             $this->f('has_second_adviser', 'Add a second adviser?', FieldType::CHECKBOX),
             $this->f('adviser2_name', 'Adviser 2 Name', FieldType::TEXT, [
+                'universal_key' => 'adviser_2',
                 'options' => ['visible_when' => ['field' => 'has_second_adviser', 'op' => 'filled', 'value' => '']],
             ]),
         ];
@@ -519,7 +529,7 @@ class FormPagesSeeder extends Seeder
             ]]]),
             $this->f('organization_id', 'Organization', FieldType::ORG_SELECT, ['required' => true]),
             $this->f('name_of_president', 'President', FieldType::TEXT, ['universal_key' => 'org_president']),
-            $this->f('adviser_names', 'Faculty Adviser/s', FieldType::TEXT_LIST),
+            $this->f('adviser_names', 'Faculty Adviser/s', FieldType::TEXT_LIST, ['universal_key' => 'advisers']),
             $this->f('date', 'Date of 1st Recognition', FieldType::DATE),
             $this->f('freshman', 'No. of Freshman Members', FieldType::NUMBER),
             $this->f('sophomore', 'No. of Sophomore Members', FieldType::NUMBER),
@@ -586,7 +596,7 @@ class FormPagesSeeder extends Seeder
             $this->f('photos', 'Documentation', FieldType::MULTI_IMAGE, ['options' => ['max_files' => 5, 'media_copy' => 'accomplishment']]),
             $this->f('name', 'Prepared by', FieldType::TEXT, ['required' => true, 'universal_key' => 'org_president']),
             $this->f('signature', 'Signature', FieldType::SIGNATURE, ['required' => true]),
-            $this->f('adviser_names', 'Noted by (Adviser/s)', FieldType::TEXT_LIST),
+            $this->f('adviser_names', 'Noted by (Adviser/s)', FieldType::TEXT_LIST, ['universal_key' => 'advisers']),
         ];
 
         $html = '<h2>Accomplishment Report</h2>'

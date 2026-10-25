@@ -8,13 +8,13 @@ use App\Forms\FieldType;
 use App\Forms\FormRenderContext;
 use App\Forms\SemesterSubmissionLimit;
 use App\Forms\SystemFunction;
-use App\Services\OrganizationAuthorizationService;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\ManualFormSession;
 use App\Services\DocumentGenerationService;
 use App\Services\FormPrintTemplateService;
 use App\Services\ManualForm\ManualFormSessionService;
+use App\Services\OrganizationAuthorizationService;
 use App\Support\IdScanRetryCache;
 use App\Support\OrganizationField;
 use App\Support\SignatureImage;
@@ -529,6 +529,7 @@ class FormRenderController extends Controller
 
             if ($isHidden($key)) {
                 $payload[$key] = null;
+
                 continue;
             }
 
@@ -554,6 +555,7 @@ class FormRenderController extends Controller
                     ]);
                 }
                 $payload[$key] = $paths;
+
                 continue;
             }
 
@@ -566,6 +568,7 @@ class FormRenderController extends Controller
                 } else {
                     $payload[$key] = null;
                 }
+
                 continue;
             }
 
@@ -587,6 +590,7 @@ class FormRenderController extends Controller
                 if (is_string($submitted) && str_starts_with($submitted, 'data:image')) {
                     $capturedSignatures[] = $key;
                 }
+
                 continue;
             }
 
@@ -595,6 +599,7 @@ class FormRenderController extends Controller
                 // approval request ever carries the plaintext.
                 $raw = (string) ($validated[$key] ?? '');
                 $payload[$key] = $raw !== '' ? \Illuminate\Support\Facades\Hash::make($raw) : null;
+
                 continue;
             }
 
@@ -614,6 +619,7 @@ class FormRenderController extends Controller
                         );
                     }
                 }
+
                 continue;
             }
 
@@ -638,12 +644,14 @@ class FormRenderController extends Controller
                         $waiverRejections[] = ($field->field_label ?: 'Waiver').' #'.($i + 1).' failed validation and must be corrected.';
                     }
                 }
+
                 continue;
             }
 
             if ($type === FieldType::COMPUTED) {
                 // Recomputed below from the assembled payload.
                 $payload[$key] = null;
+
                 continue;
             }
 
@@ -652,6 +660,7 @@ class FormRenderController extends Controller
                     array_map(fn ($v) => trim((string) $v), (array) ($validated[$key] ?? [])),
                     fn ($v) => $v !== '',
                 ));
+
                 continue;
             }
 
@@ -662,6 +671,7 @@ class FormRenderController extends Controller
                     array_map('strval', (array) ($validated[$key] ?? [])),
                     fn ($v) => $v !== '',
                 )));
+
                 continue;
             }
 
@@ -670,11 +680,13 @@ class FormRenderController extends Controller
                     (array) ($validated[$key] ?? []),
                     (array) ($field->field_options ?? []),
                 );
+
                 continue;
             }
 
             if ($type === FieldType::WORKPLAN_EVENTS) {
                 $payload[$key] = array_values(array_unique(array_map('intval', (array) ($validated[$key] ?? []))));
+
                 continue;
             }
 
@@ -683,6 +695,7 @@ class FormRenderController extends Controller
             // any client-submitted value under this key is ignored.
             if ($type === FieldType::ACTIVITY_TABLE) {
                 $payload[$key] = ActivityTableData::forField((array) ($field->field_options ?? []), $officerOrgIds)['rows'];
+
                 continue;
             }
 
@@ -693,6 +706,7 @@ class FormRenderController extends Controller
             if ($type === FieldType::CHECKBOX
                 && FieldType::optionValues((array) ($field->field_options ?? [])) === []) {
                 $payload[$key] = ! empty($validated[$key] ?? null) ? 1 : 0;
+
                 continue;
             }
 
@@ -743,11 +757,12 @@ class FormRenderController extends Controller
             \Illuminate\Support\Facades\Log::warning('Signature enrollment failed: '.$e->getMessage());
         }
 
-        // Persist any newly-typed adviser name so the org's dropdown offers it next time.
+        // Persist newly typed adviser names so later forms can prefill or offer
+        // every adviser already registered for this organization.
         $organization = OrganizationField::resolveOrganization($user);
         foreach ($fields as $field) {
-            if ($field->universal_key === 'adviser') {
-                OrganizationField::rememberAdviser($organization, $payload[$field->field_key] ?? null);
+            if (in_array($field->universal_key, ['adviser', 'adviser_2', 'advisers'], true)) {
+                OrganizationField::rememberAdvisers($organization, $payload[$field->field_key] ?? null);
             }
         }
 
@@ -911,7 +926,7 @@ class FormRenderController extends Controller
      * its existing path. Anything else — notably an arbitrary path a client
      * could inject — is dropped.
      *
-     * @throws \Illuminate\Validation\ValidationException  when the image holds no readable signature
+     * @throws \Illuminate\Validation\ValidationException when the image holds no readable signature
      */
     private function resolveSignature(?string $value, string $key, string $routeName, Request $request): ?string
     {
@@ -945,9 +960,9 @@ class FormRenderController extends Controller
      * unverifiable signature through.
      *
      * @param  array<string,mixed>  $options  the field's `field_options`
-     * @return array{status:string, matched:?string, score:?float}  recorded in the payload
+     * @return array{status:string, matched:?string, score:?float} recorded in the payload
      *
-     * @throws \Illuminate\Validation\ValidationException  on any non-match
+     * @throws \Illuminate\Validation\ValidationException on any non-match
      */
     private function enforceSignatureMatch(string $path, string $key, array $options, Request $request, Form $form, ?ManualFormSession $manualSession): array
     {

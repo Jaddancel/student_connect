@@ -12,7 +12,6 @@ use App\Models\User;
 use App\Services\RequestTypeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -91,6 +90,12 @@ class NewOrganizationRegistrationHandler implements SystemFunctionHandler
             ]);
         }
 
+        if ($this->resolveAdviserNames($form, $payload) === []) {
+            throw ValidationException::withMessages([
+                'faculty_adviser' => 'Add at least one proposed faculty adviser.',
+            ]);
+        }
+
         $hasPending = ActionRequest::query()
             ->where('form_id', (int) $form->getKey())
             ->where('action_type', self::ACTION_TYPE)
@@ -117,6 +122,7 @@ class NewOrganizationRegistrationHandler implements SystemFunctionHandler
     {
         $presidentEmail = strtolower((string) $this->resolvePresidentEmail($form, $payload));
         $officerEmails = $this->resolveOfficerEmails($form, $payload);
+        $adviserNames = $this->resolveAdviserNames($form, $payload);
 
         $requestTypeId = $form->request_type_id
             ? (int) $form->request_type_id
@@ -146,6 +152,7 @@ class NewOrganizationRegistrationHandler implements SystemFunctionHandler
                     fn (string $email) => $this->isRegisteredEmail($email),
                     $officerEmails,
                 ),
+                'faculty_advisers' => $adviserNames,
                 'form_submission_id' => (int) $submission->getKey(),
             ]),
             'user' => $request->user()?->getKey(),
@@ -199,6 +206,49 @@ class NewOrganizationRegistrationHandler implements SystemFunctionHandler
             array_map('strval', (array) ($payload['officer_emails'] ?? [$this->payloadValue($form, $payload, 'officer_email')])),
             fn (string $email) => $email !== '',
         ));
+    }
+
+    /**
+     * Resolve the primary and additional adviser names from either the current
+     * repeatable field or an older scalar registration payload.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<int,string>
+     */
+    public function resolveAdviserNames(Form $form, array $payload): array
+    {
+        $values = [];
+        $recognizedKeys = ['faculty_adviser', 'faculty_advisers', 'adviser_name', 'adviser_names'];
+
+        foreach ($form->fields as $field) {
+            if (! in_array($field->field_key, $recognizedKeys, true)
+                && ! in_array($field->universal_key, ['adviser', 'adviser_2', 'advisers'], true)) {
+                continue;
+            }
+
+            $values = [...$values, ...(array) ($payload[$field->field_key] ?? [])];
+        }
+
+        if ($values === []) {
+            foreach ($recognizedKeys as $key) {
+                $values = [...$values, ...(array) ($payload[$key] ?? [])];
+            }
+        }
+
+        $names = [];
+        $seen = [];
+        foreach ($values as $value) {
+            $name = is_scalar($value) ? trim((string) $value) : '';
+            $normalized = mb_strtolower($name);
+            if ($name === '' || isset($seen[$normalized])) {
+                continue;
+            }
+
+            $names[] = $name;
+            $seen[$normalized] = true;
+        }
+
+        return $names;
     }
 
     /**
