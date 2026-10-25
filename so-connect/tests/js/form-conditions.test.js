@@ -100,3 +100,25 @@ test("conditionally disabled required fields do not block final submission", () 
 
     assert.equal(submitted, 1);
 });
+
+test("starting accreditation reveals the first step and removes its overview", () => {
+    const component = formConditions({ applicationStep: 0, applicationSteps: 3 });
+    let removed = 0;
+
+    component.$nextTick = () => {};
+    globalThis.document = {
+        getElementById: (id) => id === "accreditation-overview" ? {
+            remove: () => {
+                removed += 1;
+            },
+        } : null,
+    };
+
+    component.startAccreditation();
+
+    assert.equal(component.applicationStep, 1);
+    assert.equal(component.applicationMaxStep, 1);
+    assert.equal(removed, 1);
+
+    delete globalThis.document;
+});

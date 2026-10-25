@@ -97,6 +97,11 @@ export function formConditions(config = {}) {
             this.$nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
         },
 
+        startAccreditation() {
+            this.startApplication();
+            document.getElementById('accreditation-overview')?.remove();
+        },
+
         previousApplicationStep() {
             this.applicationStep = Math.max(0, this.applicationStep - 1);
             this.applicationStepError = '';
