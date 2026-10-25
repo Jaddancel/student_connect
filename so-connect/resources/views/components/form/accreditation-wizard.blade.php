@@ -114,7 +114,7 @@
 
         <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-6 py-4 dark:border-gray-800 sm:px-8">
             <p class="text-xs text-gray-500 dark:text-gray-400">Only submit records for the organization selected in your account header.</p>
-            <button type="button" @click="startApplication()" class="rounded-xl bg-[#1d513d] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#15382b] dark:bg-emerald-600 dark:hover:bg-emerald-500">Start accreditation →</button>
+            <button type="button" @click="startApplication(); $dispatch('accreditation-started')" class="rounded-xl bg-[#1d513d] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#15382b] dark:bg-emerald-600 dark:hover:bg-emerald-500">Start accreditation →</button>
         </div>
     </section>
 

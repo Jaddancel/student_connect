@@ -46,11 +46,17 @@
         <x-common.page-breadcrumb :pageTitle="$form->name" />
     @endif
 
-    <div class="{{ $isSignup ? 'mx-auto max-w-5xl' : ($isNewOrganization ? 'mx-auto max-w-6xl' : '') }} space-y-6">
+    <div class="{{ $isSignup ? 'mx-auto max-w-5xl' : ($isNewOrganization ? 'mx-auto max-w-6xl' : '') }} space-y-6"
         @if ($isAccreditation)
-            @include('pages.form.partials.accreditation-overview', [
-                'accreditationCycle' => $accreditationCycle ?? null,
-            ])
+            x-data="{ accreditationStarted: {{ $errors->any() ? 'true' : 'false' }} }"
+            @accreditation-started="accreditationStarted = true"
+        @endif>
+        @if ($isAccreditation)
+            <div x-show="!accreditationStarted" x-cloak data-accreditation-overview>
+                @include('pages.form.partials.accreditation-overview', [
+                    'accreditationCycle' => $accreditationCycle ?? null,
+                ])
+            </div>
         @endif
 
         @if ($preview)
