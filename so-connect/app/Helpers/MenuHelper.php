@@ -269,20 +269,19 @@ class MenuHelper
                 'Annual Activity Plan / Calendar',
                 'Financial Statement / Proposed Budget',
             ];
-            $formMenuItem = static fn ($form, string $section): array => [
-                'section' => $section,
+            $formMenuItem = static fn ($form): array => [
                 'icon' => $form->icon ?: ($form->category?->icon ?: 'forms'),
                 'name' => $form->name,
                 'path' => '/forms/'.$form->route_name,
             ];
 
             $formItems = [
-                ['section' => 'Workspace', 'icon' => 'forms', 'name' => 'Browse All Forms', 'path' => '/forms'],
-                ['section' => 'Workspace', 'icon' => 'task', 'name' => 'Drafts', 'path' => '/drafts', 'badge' => $draftCount],
+                ['icon' => 'forms', 'name' => 'Browse All Forms', 'path' => '/forms'],
+                ['icon' => 'task', 'name' => 'Drafts', 'path' => '/drafts', 'badge' => $draftCount],
             ];
 
             if ($accreditationFormId > 0 && ($accreditationForm = $formsById->get($accreditationFormId))) {
-                $formItems[] = $formMenuItem($accreditationForm, 'Accreditation Application');
+                $formItems[] = $formMenuItem($accreditationForm);
                 $usedFormIds[$accreditationFormId] = true;
             }
 
@@ -292,7 +291,7 @@ class MenuHelper
                     continue;
                 }
 
-                $formItems[] = $formMenuItem($requiredForm, 'Accreditation Requirements');
+                $formItems[] = $formMenuItem($requiredForm);
                 $usedFormIds[$requiredFormId] = true;
             }
 
@@ -309,7 +308,7 @@ class MenuHelper
                     continue;
                 }
 
-                $formItems[] = $formMenuItem($requiredForm, 'Accreditation Requirements');
+                $formItems[] = $formMenuItem($requiredForm);
                 $usedFormIds[(int) $requiredForm->getKey()] = true;
             }
 
@@ -319,10 +318,7 @@ class MenuHelper
                     continue;
                 }
 
-                $activityItem = $formMenuItem(
-                    $activityForm,
-                    'Event & Workplan Forms',
-                );
+                $activityItem = $formMenuItem($activityForm);
 
                 if ($activityFunction === \App\Forms\SystemFunction::NEW_EVENT) {
                     $activityItem['name'] = 'Apply for a New Event';
@@ -340,12 +336,7 @@ class MenuHelper
                     continue;
                 }
 
-                $formItems[] = $formMenuItem(
-                    $form,
-                    $form->category && $form->category->is_active
-                        ? $form->category->name
-                        : 'General Forms',
-                );
+                $formItems[] = $formMenuItem($form);
             }
 
             $groups[] = [

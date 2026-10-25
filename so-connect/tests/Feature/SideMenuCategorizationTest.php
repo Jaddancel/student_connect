@@ -58,8 +58,8 @@ it('categorizes request queues and officer forms by their configured purpose', f
     );
 
     $studentForms = collect($groups['Applications & Forms']['items']);
-    expect($studentForms->firstWhere('path', '/forms/budget-request')['section'])->toBe('Financial')
-        ->and($studentForms->firstWhere('path', '/forms/general-organization-form')['section'])->toBe('General Forms');
+    expect($studentForms->firstWhere('path', '/forms/budget-request'))->not->toHaveKey('section')
+        ->and($studentForms->firstWhere('path', '/forms/general-organization-form'))->not->toHaveKey('section');
 });
 
 it('orders the student sidebar by task and keeps files out of the overview group', function () {
@@ -91,6 +91,8 @@ it('orders the student sidebar by task and keeps files out of the overview group
     expect(collect($groups->firstWhere('title', 'Applications & Forms')['items'])->pluck('path'))
         ->toContain('/forms', '/drafts')
         ->not->toContain('/documents', '/attachment-library');
+    expect(collect($groups->firstWhere('title', 'Applications & Forms')['items'])
+        ->every(fn (array $item) => ! array_key_exists('section', $item)))->toBeTrue();
 
     $activityItems = collect($groups->firstWhere('title', 'Activities & Events')['items']);
 
@@ -101,7 +103,6 @@ it('orders the student sidebar by task and keeps files out of the overview group
     $submissionForms = collect($groups->firstWhere('title', 'Applications & Forms')['items']);
     expect($submissionForms->firstWhere('path', '/forms/'.$eventApplication->route_name))
         ->toMatchArray([
-            'section' => 'Event & Workplan Forms',
             'name' => 'Apply for a New Event',
         ])
         ->and($activityItems->firstWhere('path', '/event-plans')['section'])->toBe('Tracking');
@@ -171,18 +172,16 @@ it('groups every administrator-selected accreditation requirement without duplic
     $groups = collect(MenuHelper::getMenuGroups());
     $accreditationItems = collect($groups->firstWhere('title', 'Applications & Forms')['items']);
 
-    expect($accreditationItems->firstWhere('path', '/forms/'.$application->route_name)['section'])
-        ->toBe('Accreditation Application');
+    expect($accreditationItems->firstWhere('path', '/forms/'.$application->route_name))->not->toHaveKey('section');
 
     foreach ($requirements as $requirement) {
-        expect($accreditationItems->firstWhere('path', '/forms/'.$requirement->route_name)['section'])
-            ->toBe('Accreditation Requirements');
+        expect($accreditationItems->firstWhere('path', '/forms/'.$requirement->route_name))->not->toHaveKey('section');
         expect($groups->flatMap(fn (array $group) => $group['items'])->where('path', '/forms/'.$requirement->route_name))
             ->toHaveCount(1);
     }
 });
 
-it('keeps standard accreditation forms in one subsection regardless of category', function () {
+it('keeps standard accreditation forms together in the flat forms list regardless of category', function () {
     $officer = recordsUser(3);
     $organization = recordsOrganization('Unified Accreditation Forms Organization');
     DB::table('organization_officers')->insert([
@@ -217,6 +216,6 @@ it('keeps standard accreditation forms in one subsection regardless of category'
     $requirements = $formItems->filter(fn (array $item) => in_array($item['name'], $requirementNames, true));
 
     expect($requirements)->toHaveCount(7)
-        ->and($requirements->pluck('section')->unique()->values()->all())->toBe(['Accreditation Requirements'])
+        ->and($requirements->every(fn (array $item) => ! array_key_exists('section', $item)))->toBeTrue()
         ->and($requirements->pluck('name')->values()->all())->toBe($requirementNames);
 });
