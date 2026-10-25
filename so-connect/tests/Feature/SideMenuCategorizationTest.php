@@ -128,6 +128,10 @@ it('provides one event application entry and keeps the calendar view only', func
         ->get(route('event-plans'))
         ->assertOk()
         ->assertSee('Apply for a New Event')
+        ->assertSee('Event application center')
+        ->assertSee('Event plan status')
+        ->assertSee('Organization workplans')
+        ->assertSee('Needs action')
         ->assertSee(route('forms.render', $eventApplication->route_name));
 
     $this->get(route('calendar'))
