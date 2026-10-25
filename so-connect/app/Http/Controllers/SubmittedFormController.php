@@ -8,8 +8,11 @@ use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Request as ActionRequest;
 use App\Models\User;
+use App\Services\OrganizationAuthorizationService;
+use App\Services\WorkplanService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class SubmittedFormController extends Controller
@@ -23,7 +26,7 @@ class SubmittedFormController extends Controller
         'general' => 'General',
     ];
 
-    public function index(Request $request): View
+    public function index(Request $request, WorkplanService $workplanService): View
     {
         $user = $request->user();
         abort_unless($user && (int) $user->user_type === User::TYPE_OFFICER, 403);
@@ -99,13 +102,66 @@ class SubmittedFormController extends Controller
             ];
         });
 
+        $workplanData = $this->workplanData((int) $user->getKey(), $workplanService);
+
         return view('pages.submitted-forms.index', [
             'title' => 'Submitted Forms',
             'submissions' => $submissions,
             'types' => self::TYPES,
             'counts' => $counts,
             'selectedType' => $selectedType,
+            ...$workplanData,
         ]);
+    }
+
+    /** @return array{activeSemester: mixed, workplans: array<int, array<string, mixed>>, orgNames: array<int, string>, personNames: array<int, string>} */
+    private function workplanData(int $userId, WorkplanService $workplanService): array
+    {
+        $organizationIds = array_values(array_unique(array_merge(
+            OrganizationAuthorizationService::officerOrganizationIdsForUser($userId),
+            OrganizationAuthorizationService::presidentOrganizationIdsForUser($userId),
+        )));
+
+        $orgNames = empty($organizationIds) ? [] : DB::table('organizations as o')
+            ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
+            ->whereIn('o.organization_id', $organizationIds)
+            ->select('o.organization_id', DB::raw("COALESCE(od.name, 'Unknown Organization') as name"))
+            ->get()
+            ->pluck('name', 'organization_id')
+            ->all();
+
+        $workplanService->archiveExpired();
+        $activeSemester = $workplanService->getActiveSemester();
+        $workplans = [];
+
+        if ($activeSemester) {
+            foreach ($organizationIds as $organizationId) {
+                $workplan = $workplanService->resolveWorkplan((int) $organizationId, (int) $activeSemester->semester_id);
+                $workplans[(int) $organizationId] = [
+                    'workplan' => $workplan,
+                    'semester' => $activeSemester,
+                    'plans' => $workplanService->getApprovedPlansForWorkplan($workplan),
+                    'can_finalize' => true,
+                ];
+            }
+        }
+
+        $personIds = collect($workplans)
+            ->flatMap(fn (array $data) => $data['plans'])
+            ->flatMap(fn ($plan) => $plan->persons_responsible ?? [])
+            ->unique()
+            ->filter()
+            ->values()
+            ->all();
+        $personNames = empty($personIds) ? [] : DB::table('users as u')
+            ->leftJoin('profiles as p', 'p.profile_id', '=', 'u.profile')
+            ->whereIn('u.user_id', $personIds)
+            ->select('u.user_id', DB::raw("TRIM(CONCAT(COALESCE(p.first_name,''), ' ', COALESCE(p.last_name,''))) as name"))
+            ->get()
+            ->pluck('name', 'user_id')
+            ->all();
+
+        return compact('activeSemester', 'workplans', 'orgNames', 'personNames');
     }
 
     private function applyTypeFilter(Builder $query, string $type): void

@@ -90,5 +90,19 @@
         @if ($submissions->hasPages())
             <div>{{ $submissions->links() }}</div>
         @endif
+
+        <section aria-labelledby="workplan-heading">
+            <div class="mb-3 px-1">
+                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-600 dark:text-brand-400">Semester planning</p>
+                <h2 id="workplan-heading" class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">Organization workplans</h2>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Review approved activities and finalize the semester plan when it is complete.</p>
+            </div>
+            <x-workplan-section
+                :workplans="$workplans ?? []"
+                :activeSemester="$activeSemester ?? null"
+                :orgNames="$orgNames ?? []"
+                :personNames="$personNames ?? []"
+            />
+        </section>
     </div>
 @endsection

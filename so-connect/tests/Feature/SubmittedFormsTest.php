@@ -103,7 +103,9 @@ it('lists submitted forms with event and non-event process context', function ()
         ->assertSee('Membership process')
         ->assertSee('Accreditation process')
         ->assertSee('Pending OSSD review')
-        ->assertSee('Approved');
+        ->assertSee('Approved')
+        ->assertSee('Semester planning')
+        ->assertSee('Organization workplans');
 
     expect($pendingRequest->exists)->toBeTrue();
 });

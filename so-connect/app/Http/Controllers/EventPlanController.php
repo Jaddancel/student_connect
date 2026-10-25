@@ -18,7 +18,7 @@ use Illuminate\Validation\Rule;
 
 class EventPlanController extends Controller
 {
-    public function index(Request $request, WorkplanService $workplanService)
+    public function index(Request $request)
     {
         $user = $request->user();
         $userId = (int) $user->getKey();
@@ -32,8 +32,6 @@ class EventPlanController extends Controller
                 'title' => 'Event Plans',
                 'grouped' => [],
                 'organizations' => collect(),
-                'activeSemester' => null,
-                'workplans' => [],
             ]);
         }
 
@@ -82,24 +80,6 @@ class EventPlanController extends Controller
                 ->all();
         }
 
-        $workplanService->archiveExpired();
-        $activeSemester = $workplanService->getActiveSemester();
-
-        $workplanOrgIds = (int) $user->user_type === 2 ? array_keys($orgNames) : $allOrgIds;
-        $workplans = [];
-
-        if ($activeSemester) {
-            foreach ($workplanOrgIds as $orgId) {
-                $wp = $workplanService->resolveWorkplan((int) $orgId, (int) $activeSemester->semester_id);
-                $workplans[(int) $orgId] = [
-                    'workplan' => $wp,
-                    'semester' => $activeSemester,
-                    'plans' => $workplanService->getApprovedPlansForWorkplan($wp),
-                    'can_finalize' => in_array((int) $orgId, $allOrgIds, true),
-                ];
-            }
-        }
-
         $approvedPlanIds = $grouped['approved']->pluck('event_plan_id')->all();
         $pendingEventRequestParentIds = [];
 
@@ -119,8 +99,6 @@ class EventPlanController extends Controller
             'grouped' => $grouped,
             'personNames' => $personNames,
             'orgNames' => $orgNames,
-            'activeSemester' => $activeSemester,
-            'workplans' => $workplans,
             'pendingEventRequestParentIds' => $pendingEventRequestParentIds,
         ]);
     }
