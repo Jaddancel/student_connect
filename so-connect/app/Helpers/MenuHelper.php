@@ -260,6 +260,15 @@ class MenuHelper
 
             $formsById = $publishedForms->keyBy(fn ($form) => (int) $form->getKey());
             $usedFormIds = [];
+            $accreditationRequirementNames = [
+                'Application Letter',
+                'Constitution and By-Laws',
+                'List of Officers',
+                'List of Members',
+                'Faculty Adviser Endorsement',
+                'Annual Activity Plan / Calendar',
+                'Financial Statement / Proposed Budget',
+            ];
             $formMenuItem = static fn ($form, string $section): array => [
                 'section' => $section,
                 'icon' => $form->icon ?: ($form->category?->icon ?: 'forms'),
@@ -285,6 +294,23 @@ class MenuHelper
 
                 $formItems[] = $formMenuItem($requiredForm, 'Accreditation Requirements');
                 $usedFormIds[$requiredFormId] = true;
+            }
+
+            // Keep the standard accreditation documents together even when an
+            // administrator has assigned them to different form categories or
+            // has not added them to the current required-form setting yet.
+            foreach ($accreditationRequirementNames as $requirementName) {
+                $requiredForm = $publishedForms->first(
+                    fn ($form) => ! isset($usedFormIds[(int) $form->getKey()])
+                        && strcasecmp(trim((string) $form->name), $requirementName) === 0,
+                );
+
+                if (! $requiredForm) {
+                    continue;
+                }
+
+                $formItems[] = $formMenuItem($requiredForm, 'Accreditation Requirements');
+                $usedFormIds[(int) $requiredForm->getKey()] = true;
             }
 
             foreach ([\App\Forms\SystemFunction::NEW_EVENT, \App\Forms\SystemFunction::NEW_WORKPLAN] as $activityFunction) {

@@ -181,3 +181,42 @@ it('groups every administrator-selected accreditation requirement without duplic
             ->toHaveCount(1);
     }
 });
+
+it('keeps standard accreditation forms in one subsection regardless of category', function () {
+    $officer = recordsUser(3);
+    $organization = recordsOrganization('Unified Accreditation Forms Organization');
+    DB::table('organization_officers')->insert([
+        'role' => 'officer', 'organization' => $organization->getKey(), 'user' => $officer->getKey(),
+        'member_since' => now(), 'registered_at' => now(), 'reassigned_at' => now(),
+    ]);
+
+    $categories = ContentCategory::query()->take(2)->pluck('id')->values();
+    $requirementNames = [
+        'Application Letter',
+        'Constitution and By-Laws',
+        'List of Officers',
+        'List of Members',
+        'Faculty Adviser Endorsement',
+        'Annual Activity Plan / Calendar',
+        'Financial Statement / Proposed Budget',
+    ];
+
+    foreach ($requirementNames as $index => $name) {
+        Form::query()->create([
+            'name' => $name,
+            'route_name' => 'standard-accreditation-requirement-'.($index + 1),
+            'category_id' => $categories[$index % max(1, $categories->count())] ?? null,
+            'is_active' => true,
+            'is_published' => true,
+            'show_in_sidebar' => true,
+        ]);
+    }
+
+    $this->actingAs($officer);
+    $formItems = collect(collect(MenuHelper::getMenuGroups())->firstWhere('title', 'Applications & Forms')['items']);
+    $requirements = $formItems->filter(fn (array $item) => in_array($item['name'], $requirementNames, true));
+
+    expect($requirements)->toHaveCount(7)
+        ->and($requirements->pluck('section')->unique()->values()->all())->toBe(['Accreditation Requirements'])
+        ->and($requirements->pluck('name')->values()->all())->toBe($requirementNames);
+});
