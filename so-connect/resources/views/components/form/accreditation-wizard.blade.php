@@ -9,7 +9,10 @@
     $cycle = $accreditationCycle ?? [];
     $deadline = $cycle['deadline'] ?? null;
     $documentTypes = [FieldType::FILE, FieldType::IMAGE, FieldType::MULTI_IMAGE];
-    $displayFields = collect($fields)->reject(fn ($field) => FieldType::isPresentational($field->field_type))->values();
+    $displayFields = collect($fields)
+        ->reject(fn ($field) => FieldType::isPresentational($field->field_type))
+        ->reject(fn ($field) => (string) $field->field_key === 'recognition_type')
+        ->values();
     $documentFields = $displayFields->filter(fn ($field) => in_array($field->field_type, $documentTypes, true))->values();
     $recordFields = $displayFields->reject(fn ($field) => in_array($field->field_type, $documentTypes, true))->values();
     $requiredDocuments = $documentFields->filter(fn ($field) => (bool) $field->is_required)->values();

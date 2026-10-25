@@ -101,6 +101,19 @@ it('renders accreditation as one guided application workflow', function () {
     $org = recordsOrganization('Accreditation Test Organization', 'ATO');
     $form = checklistForm();
 
+    FormDescription::query()->create([
+        'form_id' => $form->getKey(),
+        'field_key' => 'recognition_type',
+        'field_label' => 'Accreditation / Renewal',
+        'field_type' => FieldType::RADIO,
+        'is_required' => false,
+        'field_order' => 3,
+        'field_options' => ['options' => [
+            ['value' => 'accreditation', 'label' => 'Accreditation'],
+            ['value' => 'renewal', 'label' => 'Renewal'],
+        ]],
+    ]);
+
     DB::table('organization_officers')->insert([
         'user' => $user->getKey(),
         'organization' => $org->getKey(),
@@ -124,6 +137,8 @@ it('renders accreditation as one guided application workflow', function () {
         ->assertSee('Required uploads set by OSSD')
         ->assertSee('Constitution and By-Laws')
         ->assertSee('Submit accreditation application')
+        ->assertDontSee('Accreditation / Renewal')
+        ->assertDontSee('AccreditationRenewal')
         ->assertDontSee('Renewal');
 });
 
