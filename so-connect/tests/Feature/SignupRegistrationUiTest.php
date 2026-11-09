@@ -6,6 +6,48 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
+it('uses only the bound system-function form as the public sign-up entry point', function () {
+    $form = Form::query()->create([
+        'name' => 'Officer Sign Up',
+        'route_name' => 'official-signup',
+        'system_function' => 'sign_up',
+        'is_active' => true,
+        'is_published' => true,
+        'layout' => ['rows' => []],
+    ]);
+
+    $this->get(route('signup'))
+        ->assertRedirect(route('forms.render', $form->route_name));
+
+    $this->post('/signup', [
+        'fname' => 'Bypass',
+        'lname' => 'Attempt',
+        'user_email' => 'bypass@example.test',
+        'user_password' => 'password123',
+        'user_password_confirmation' => 'password123',
+    ])->assertMethodNotAllowed();
+
+    $this->assertDatabaseMissing('users', ['user_email' => 'bypass@example.test']);
+});
+
+it('does not expose or accept an inactive or unpublished sign-up form', function (bool $active, bool $published) {
+    $form = Form::query()->create([
+        'name' => 'Unavailable Sign Up',
+        'route_name' => 'unavailable-signup',
+        'system_function' => 'sign_up',
+        'is_active' => $active,
+        'is_published' => $published,
+        'layout' => ['rows' => []],
+    ]);
+
+    $this->get(route('signup'))->assertNotFound();
+    $this->get(route('forms.render', $form->route_name))->assertNotFound();
+    $this->post(route('forms.render.submit', $form->route_name))->assertNotFound();
+})->with([
+    'inactive' => [false, true],
+    'unpublished' => [true, false],
+]);
+
 it('renders the guided registration experience for a sign-up form', function () {
     $form = Form::query()->create([
         'name' => 'Officer Sign Up',

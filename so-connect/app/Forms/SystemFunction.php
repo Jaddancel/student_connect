@@ -5,7 +5,6 @@ namespace App\Forms;
 use App\Forms\Handlers\AfterEventReportHandler;
 use App\Forms\Handlers\MembershipRegistrationHandler;
 use App\Forms\Handlers\NewEventHandler;
-use App\Forms\Handlers\NewOrganizationRegistrationHandler;
 use App\Forms\Handlers\NewWorkplanHandler;
 use App\Forms\Handlers\OrgAccreditationHandler;
 use App\Forms\Handlers\SignUpHandler;
@@ -51,7 +50,7 @@ final class SystemFunction
         return [
             self::SIGN_UP => [
                 'label' => 'Sign Up (new officer account)',
-                'description' => 'Submissions request a new user account (user type 3); an admin approval creates the account.',
+                'description' => 'Submissions create a pending guest account; an admin approval promotes it to an organization account.',
                 'handler' => SignUpHandler::class,
             ],
             self::NEW_EVENT => [
@@ -120,13 +119,15 @@ final class SystemFunction
     }
 
     /**
-     * A function is enabled once a published form is bound to it.
+     * A function is enabled once an active, published form is bound to it.
      */
     public static function enabled(string $key): bool
     {
         $form = self::form($key);
 
-        return $form !== null && (bool) $form->is_published;
+        return $form !== null
+            && (bool) $form->is_active
+            && (bool) $form->is_published;
     }
 
     /**

@@ -24,7 +24,6 @@ use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\Login;
 use App\Http\Controllers\Auth\Logout;
 use App\Http\Controllers\Auth\PasswordChangeController;
-use App\Http\Controllers\Auth\Register;
 use App\Http\Controllers\Auth\SystemSetupController;
 use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\DashboardSearchController;
@@ -103,7 +102,6 @@ Route::get('/guest', [GuestAccessController::class, 'dashboard'])
 // Auth routes.
 
 Route::post('/login', Login::class)->middleware('guest');
-Route::post('/signup', Register::class)->middleware('guest');
 Route::post('/logout', Logout::class)->middleware('auth')->name('logout');
 
 // Invitation activation (Flows 1, 2, 3)
@@ -986,8 +984,8 @@ Route::get('/signin', fn () => redirect()->route('login'))->name('signin');
 // prefill query params. Falls back to a friendly message when no form is bound.
 Route::get('/signup', function (\Illuminate\Http\Request $request) {
     $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::SIGN_UP);
-    abort_if($form === null || ! $form->route_name, 404,
-        'Sign-up is not available right now — no form is bound to the Sign Up function.');
+    abort_if(! \App\Forms\SystemFunction::enabled(\App\Forms\SystemFunction::SIGN_UP) || ! $form?->route_name, 404,
+        'Sign-up is not available right now — no active, published form is bound to the Sign Up function.');
 
     return redirect()->route('forms.render', array_merge(
         ['routeName' => $form->route_name],

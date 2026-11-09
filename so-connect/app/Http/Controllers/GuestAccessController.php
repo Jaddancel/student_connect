@@ -76,7 +76,9 @@ class GuestAccessController extends Controller
     {
         $form = SystemFunction::form(SystemFunction::SIGN_UP);
 
-        return $form && $form->route_name ? route('forms.render', $form->route_name) : null;
+        return SystemFunction::enabled(SystemFunction::SIGN_UP) && $form?->route_name
+            ? route('forms.render', $form->route_name)
+            : null;
     }
 
     private function organizationName(int $organizationId): string

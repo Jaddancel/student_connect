@@ -31,7 +31,7 @@ class OrganizationInvitationController extends Controller
         }
 
         $form = SystemFunction::form(SystemFunction::SIGN_UP);
-        if ($form === null || ! $form->is_active || ! $form->route_name) {
+        if (! SystemFunction::enabled(SystemFunction::SIGN_UP) || ! $form?->route_name) {
             return redirect()->route('login')
                 ->withErrors(['user_email' => 'The sign-up form is not available right now.']);
         }

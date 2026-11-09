@@ -606,7 +606,7 @@ class RequestDecisionController extends Controller
                 reason: (string) ($approval->rejection_reason ?? ''),
                 attemptsLeft: max(0, self::MAX_SIGNUP_REJECTIONS - $rejections),
                 accountDeleted: $isFinal,
-                retryUrl: $signUpForm && $signUpForm->route_name
+                retryUrl: SystemFunction::enabled(SystemFunction::SIGN_UP) && $signUpForm?->route_name
                     ? route('forms.render', $signUpForm->route_name)
                     : route('login'),
             ));

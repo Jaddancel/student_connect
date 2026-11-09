@@ -39,6 +39,11 @@ class FormRenderController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
+        abort_if(
+            $form->system_function === SystemFunction::SIGN_UP && ! $form->is_published,
+            404,
+        );
+
         // The Sign Up and New Organization Registration forms are public pages;
         // every other form is gated to organization officers.
         abort_unless(
@@ -396,6 +401,11 @@ class FormRenderController extends Controller
             ->where('route_name', $routeName)
             ->where('is_active', true)
             ->firstOrFail();
+
+        abort_if(
+            $form->system_function === SystemFunction::SIGN_UP && ! $form->is_published,
+            404,
+        );
 
         // The Sign Up and New Organization Registration forms are public pages;
         // every other form is gated to organization officers.
