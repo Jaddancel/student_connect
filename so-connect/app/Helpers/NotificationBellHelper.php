@@ -59,7 +59,7 @@ class NotificationBellHelper
      */
     public static function semesterWarningNotifications(User $user): Collection
     {
-        if ((int) $user->user_type !== 2) {
+        if (! $user->isAdministrative()) {
             return collect();
         }
 
@@ -137,7 +137,7 @@ class NotificationBellHelper
     public static function recentRequestNotifications(User $user, int $hours = 24): Collection
     {
         // Super admins review no organization requests, so they get none here.
-        if ((int) $user->user_type === 1) {
+        if ($user->isSuperAdmin()) {
             return collect();
         }
 
@@ -272,7 +272,7 @@ class NotificationBellHelper
     {
         $since = now()->subHours(max($hours, 1));
         $userId = (int) $user->getKey();
-        $isAdmin = in_array((int) $user->user_type, [1, 2], true);
+        $isAdmin = $user->isAdministrative();
 
         $query = DB::table('generated_documents as gd')
             ->join('form_submissions as fs', 'fs.form_submission_id', '=', 'gd.form_submission_id')

@@ -166,6 +166,7 @@ it('tracks requests from accreditation-required forms in the policy section', fu
 
 it('restricts dashboard requests to admins', function () {
     $this->actingAs(recordsUser(3))->getJson('/api/dashboard/requests/membership')->assertForbidden();
+    $this->actingAs(recordsUser(1))->getJson('/api/dashboard/requests/membership')->assertOk();
     $this->actingAs(recordsUser(2))->getJson('/api/dashboard/requests/unknown')->assertNotFound();
 });
 

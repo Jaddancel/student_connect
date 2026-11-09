@@ -23,7 +23,7 @@ class PolicySecurityRequestController extends Controller
             abort(401);
         }
 
-        $isAdmin = (int) $user->user_type === 2;
+        $isAdmin = $user->isAdministrative();
 
         if (! $isAdmin) {
             $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
@@ -134,7 +134,7 @@ class PolicySecurityRequestController extends Controller
             abort(401);
         }
 
-        $isAdmin = (int) $user->user_type === 2;
+        $isAdmin = $user->isAdministrative();
 
         if (! $isAdmin) {
             $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());
@@ -185,7 +185,7 @@ class PolicySecurityRequestController extends Controller
             abort(401);
         }
 
-        $isAdmin = (int) $user->user_type === 2;
+        $isAdmin = $user->isAdministrative();
 
         if (! $isAdmin) {
             $presidentOrganizationIds = OrganizationAuthorizationService::presidentOrganizationIdsForUser((int) $user->getKey());

@@ -1,7 +1,7 @@
 @php
     use Illuminate\Support\HtmlString;
 
-    $isAdmin = (int) (auth()->user()?->user_type ?? 0) === 2;
+    $isAdmin = auth()->user()?->isAdministrative() ?? false;
 
     $showAllTabs = $isAdmin;
 

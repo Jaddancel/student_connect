@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Form;
 use App\Models\ContentCategory;
+use App\Models\Form;
 use App\Services\FormPrintTemplateService;
 use Illuminate\Http\Request;
 
@@ -16,7 +16,7 @@ use Illuminate\Http\Request;
  * Each card opens a blank printable PDF generated from one active
  * Step 2 template ({@see FormBlankPdfController}), so each usable stored
  * template gets its own card. Available to organization
- * officers/presidents (user type 3) and to admins (user type 2); everyone else
+ * officers/presidents and to system administrators; everyone else
  * gets an empty directory. Every published, active form is eligible — the
  * system-function forms (sign-up, new-event, etc.) included — since the card
  * only offers a blank printable PDF and never the online renderer.

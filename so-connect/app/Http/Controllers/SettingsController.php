@@ -32,7 +32,7 @@ class SettingsController extends Controller
         // approved submission makes an org accredited.
         $accreditationForms = [];
         $accreditationRequiredForms = [];
-        if ($type === 2) {
+        if ($user->isAdministrative()) {
             $accreditationForms = Form::query()
                 ->where('is_active', true)
                 ->orderBy('name')
@@ -45,6 +45,7 @@ class SettingsController extends Controller
         return view('pages.settings', [
             'title' => 'Settings',
             'userType' => $type,
+            'canAdministerOperations' => $user->isAdministrative(),
             'notifyOnLogin' => (bool) $user->notify_on_login,
             'accreditationNotifyDays' => (int) AppSetting::get('accreditation.notify_days', 7),
             'accreditationPurgeGraceDays' => (int) AppSetting::get('accreditation.purge_grace_days', 30),
@@ -87,8 +88,8 @@ class SettingsController extends Controller
     public function updatePassword(Request $request): RedirectResponse
     {
         $request->validate([
-            'current_password'      => ['required', 'string'],
-            'password'              => ['required', 'string', new StrongPassword, 'confirmed'],
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', new StrongPassword, 'confirmed'],
             'password_confirmation' => ['required', 'string'],
         ]);
 
@@ -107,7 +108,7 @@ class SettingsController extends Controller
         }
 
         $user->forceFill([
-            'user_password'         => Hash::make($request->input('password')),
+            'user_password' => Hash::make($request->input('password')),
             'force_password_change' => false,
         ])->save();
 
@@ -224,11 +225,11 @@ class SettingsController extends Controller
 
     private function authorizeAdmin(Request $request): void
     {
-        abort_unless((int) $request->user()->user_type === 2, 403);
+        abort_unless($request->user()->isAdministrative(), 403);
     }
 
     private function authorizeSuperAdmin(Request $request): void
     {
-        abort_unless((int) $request->user()->user_type === 1, 403);
+        abort_unless($request->user()->isSuperAdmin(), 403);
     }
 }

@@ -10,8 +10,8 @@ use App\Listeners\SendLoginNotification;
 use App\Models\Event as CalendarEvent;
 use App\Models\Officer;
 use App\Models\User;
-use App\Policies\RolePolicy;
 use App\Observers\EventCreatedObserver;
+use App\Policies\RolePolicy;
 use App\Services\AccreditationService;
 use App\Services\OrganizationAuthorizationService;
 use Faker\Generator as FakerGenerator;
@@ -74,7 +74,7 @@ class AppServiceProvider extends ServiceProvider
                 }
 
                 $userId = (int) $user->getKey();
-                $isAdmin = in_array((int) $user->user_type, [1, 2], true);
+                $isAdmin = $user->isAdministrative();
                 $since = now()->subHours(24);
 
                 $query = DB::table('generated_documents as gd')
@@ -155,8 +155,8 @@ class AppServiceProvider extends ServiceProvider
 
             return match ($dashboard) {
                 'president' => $isPresident,
-                'admin', 'officer' => $isOfficer || $isPresident,
-                'sysadmin' => (int) $user->user_type === 2,
+                'officer' => $isOfficer || $isPresident,
+                'admin', 'sysadmin' => $user->isAdministrative(),
                 default => false,
             };
         });

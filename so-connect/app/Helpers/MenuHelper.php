@@ -58,7 +58,7 @@ class MenuHelper
         // Keep it separate from the administrative menus so new admin tools do
         // not leak into the student experience or turn "General" into a mixed
         // collection of unrelated links.
-        if ((int) $user->user_type === User::TYPE_OFFICER) {
+        if ($user->isOrganizationUser()) {
             return self::buildStudentMenuGroups($user);
         }
 
@@ -81,7 +81,7 @@ class MenuHelper
             ],
         ];
 
-        if ((int) $user->user_type === 1) {
+        if ($user->isSuperAdmin()) {
             $menuGroups[] = [
                 'title' => 'Superadmin',
                 'items' => [
@@ -98,7 +98,7 @@ class MenuHelper
             ];
         }
 
-        if ((int) $user->user_type === 2) {
+        if ($user->isAdministrative()) {
             $menuGroups[] = [
                 'title' => 'Content & Templates',
                 'items' => [

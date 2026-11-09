@@ -16,7 +16,7 @@ class EnsureAdmin
             return redirect()->route('home');
         }
 
-        if ((int) $user->user_type !== 2) {
+        if (! $user->isAdministrative()) {
             abort(403, 'Only administrators can access this page.');
         }
 

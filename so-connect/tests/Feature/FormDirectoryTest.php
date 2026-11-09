@@ -130,11 +130,13 @@ it('previews a selected printed layout from its docx without creating a submissi
                 $dir = storage_path('app/tmp/preview-'.bin2hex(random_bytes(4)));
                 File::ensureDirectoryExists($dir);
                 File::put($dir.'/populated.docx', 'docx');
+
                 return $dir.'/populated.docx';
             });
         $mock->shouldReceive('toPdf')->once()->andReturnUsing(function ($path) {
             $pdf = dirname($path).'/populated.pdf';
             File::put($pdf, '%PDF-1.4 alternate');
+
             return $pdf;
         });
     });
@@ -274,12 +276,29 @@ it('allows an admin to open a blank PDF', function () {
         ->assertHeader('Content-Type', 'application/pdf');
 });
 
-it('rejects superadmins from generating blank PDFs', function () {
+it('allows a superadmin to inherit blank PDF access', function () {
     $form = directoryForm();
+
+    $this->mock(DocxTemplateService::class, function ($mock) {
+        $mock->shouldReceive('populate')->once()->andReturnUsing(function () {
+            $dir = storage_path('app/tmp/blank-'.bin2hex(random_bytes(4)));
+            File::ensureDirectoryExists($dir);
+            File::put($dir.'/blank.docx', 'docx-bytes');
+
+            return $dir.'/blank.docx';
+        });
+        $mock->shouldReceive('toPdf')->once()->andReturnUsing(function ($docxPath) {
+            $pdf = dirname($docxPath).'/blank.pdf';
+            File::put($pdf, '%PDF-1.4 blank');
+
+            return $pdf;
+        });
+    });
 
     $this->actingAs(recordsUser(1))
         ->get(route('forms.blank-pdf', $form->route_name))
-        ->assertForbidden();
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf');
 });
 
 it('404s when the form has no stored template', function () {

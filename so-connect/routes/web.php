@@ -161,7 +161,7 @@ Route::get('/login', fn () => view('pages.auth.signin', ['title' => 'Sign In']))
 // calender pages
 Route::get('/calendar', function () {
     $user = request()->user();
-    $isSystemAdmin = in_array((int) $user->user_type, [User::TYPE_SUPERADMIN, User::TYPE_ADMIN], true);
+    $isSystemAdmin = $user->isAdministrative();
     $isOfficerOrPresident = Gate::forUser($user)->allows('access-dashboard', 'officer')
         || Gate::forUser($user)->allows('access-dashboard', 'president');
     $canRequestEvent = $isOfficerOrPresident;
@@ -669,7 +669,7 @@ Route::get('/documents', [DocumentController::class, 'index'])
 
 Route::middleware(['auth', 'admin'])->group(function () {
     // WYSIWYG form builder (replacement for the DOCX Template Manager).
-    // Form authoring is Admin-only (user_type 2) — super admins don't get this.
+    // Operational administrators author forms; superadmins inherit this access.
     Route::get('/admin/form-builder', [FormBuilderController::class, 'index'])
         ->name('admin.form-builder.index');
     Route::get('/admin/form-builder/create', [FormBuilderController::class, 'create'])
@@ -1060,7 +1060,7 @@ Route::get('/api/requests/{actionType}', function (int $actionType) use ($applyA
     $hours = max((int) request()->query('hours', 0), 0);
     $limit = min(max((int) request()->query('limit', 0), 0), 200);
 
-    $isAdmin = (int) $user->user_type === 2;
+    $isAdmin = $user->isAdministrative();
 
     if ($isAdmin) {
         $query = Request::query()->where('action_type', $actionType)->orderByDesc('requested_at');
@@ -1164,7 +1164,7 @@ Route::get('/api/approvals/{actionType}', function (int $actionType) use ($apply
         abort(401);
     }
 
-    $isAdmin = (int) $user->user_type === 2;
+    $isAdmin = $user->isAdministrative();
 
     if ($isAdmin) {
         $allRequestIds = Request::query()->where('action_type', $actionType)->select('request_id');
@@ -1211,7 +1211,7 @@ Route::get('/api/approvals/{status}/{actionType}', function (string $status, int
         abort(401);
     }
 
-    $isAdmin = (int) $user->user_type === 2;
+    $isAdmin = $user->isAdministrative();
 
     if ($isAdmin) {
         $scopedRequestIds = Request::query()->where('action_type', $actionType)->select('request_id');

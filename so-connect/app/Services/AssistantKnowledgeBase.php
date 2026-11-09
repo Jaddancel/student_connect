@@ -163,13 +163,13 @@ class AssistantKnowledgeBase
             return $userType === 1;
         }
         if (in_array('admin', $middleware, true)) {
-            return $userType === 2;
+            return in_array($userType, [User::TYPE_SUPERADMIN, User::TYPE_ADMIN], true);
         }
         if (in_array('admin.or.superadmin', $middleware, true)) {
             return in_array($userType, [1, 2], true);
         }
         if (in_array('officer.or.admin', $middleware, true) || in_array('president.or.admin', $middleware, true)) {
-            return $userType === 2 || $isOfficerOrPresident;
+            return in_array($userType, [User::TYPE_SUPERADMIN, User::TYPE_ADMIN], true) || $isOfficerOrPresident;
         }
         if (array_intersect(['role.admin', 'role.president', 'role.officer'], $middleware) !== []) {
             return false;

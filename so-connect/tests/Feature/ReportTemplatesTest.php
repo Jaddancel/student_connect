@@ -328,9 +328,10 @@ it('builds palette entries for values, groups and universal tokens', function ()
 
 // ── HTTP ─────────────────────────────────────────────────────────────────
 
-it('restricts report templates to administrators', function () {
+it('restricts report templates to system administrators', function () {
     $this->actingAs(recordsUser(3))->get(route('admin.report-templates.index'))->assertForbidden();
-    $this->actingAs(recordsUser(1))->get(route('reports.index'))->assertForbidden();
+    $this->actingAs(recordsUser(1))->get(route('admin.report-templates.index'))->assertOk();
+    $this->actingAs(recordsUser(1))->get(route('reports.index'))->assertOk();
     $this->actingAs(recordsUser(2))->get(route('admin.report-templates.create'))->assertOk()->assertSee('Token List');
 });
 

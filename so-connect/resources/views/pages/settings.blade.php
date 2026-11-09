@@ -63,8 +63,8 @@
             </div>
         </section>
 
-        {{-- ========================= Notification window (type 2) ======================= --}}
-        @if ($userType === 2)
+        {{-- ================= System administration (admin + superadmin) ================ --}}
+        @if ($canAdministerOperations)
             <section class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Notifications</h2>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Control when organizations are warned about accreditation.</p>
@@ -128,7 +128,7 @@
         @endif
 
         {{-- ============================ Backup / Restore (type 1) ======================= --}}
-        @if ($userType === 1)
+        @if ($userType === \App\Models\User::TYPE_SUPERADMIN)
             <section class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Backup &amp; Restore</h2>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Automatic database backups run on this interval.</p>

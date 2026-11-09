@@ -86,7 +86,15 @@ it('shows the backup section only to super admins and saves the interval', funct
     $this->actingAs($super)
         ->get('/settings')
         ->assertOk()
+        ->assertSee('Notifications')
+        ->assertSee('Accreditation conditions')
         ->assertSee('Backup &amp; Restore', false);
+
+    $this->actingAs($super)
+        ->post('/settings/notify-days', ['notify_days' => 21])
+        ->assertRedirect();
+
+    expect((int) AppSetting::get('accreditation.notify_days'))->toBe(21);
 
     $this->actingAs($super)
         ->post('/settings/backup-interval', ['interval_hours' => 12])

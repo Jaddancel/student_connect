@@ -75,11 +75,11 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at'    => 'datetime',
-            'user_password'        => 'hashed',
-            'profile_pending'      => 'boolean',
-            'force_password_change'=> 'boolean',
-            'notify_on_login'      => 'boolean',
+            'email_verified_at' => 'datetime',
+            'user_password' => 'hashed',
+            'profile_pending' => 'boolean',
+            'force_password_change' => 'boolean',
+            'notify_on_login' => 'boolean',
         ];
     }
 
@@ -92,6 +92,31 @@ class User extends Authenticatable
     public function isGuest(): bool
     {
         return (int) $this->user_type === self::TYPE_GUEST;
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return (int) $this->user_type === self::TYPE_SUPERADMIN;
+    }
+
+    /** A regular system administrator (excludes super administrators). */
+    public function isAdmin(): bool
+    {
+        return (int) $this->user_type === self::TYPE_ADMIN;
+    }
+
+    /**
+     * System-level administrative access. Super administrators inherit every
+     * regular administrator capability and add the superadmin-only controls.
+     */
+    public function isAdministrative(): bool
+    {
+        return in_array((int) $this->user_type, [self::TYPE_SUPERADMIN, self::TYPE_ADMIN], true);
+    }
+
+    public function isOrganizationUser(): bool
+    {
+        return (int) $this->user_type === self::TYPE_OFFICER;
     }
 
     public function getAuthPassword()

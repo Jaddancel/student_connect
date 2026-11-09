@@ -130,7 +130,7 @@ class Form extends Model
             return false;
         }
 
-        if ((int) $user->user_type === 2) {
+        if ($user->isAdministrative()) {
             return true;
         }
 

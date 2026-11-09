@@ -642,7 +642,7 @@ final class ReportQueryEngine
             return null;
         }
 
-        if ((int) $user->user_type !== 2
+        if (! $user->isAdministrative()
             && ! DB::table('organization_officers')->where('user', (int) $user->getKey())->where('organization', $id)->exists()) {
             return null;
         }

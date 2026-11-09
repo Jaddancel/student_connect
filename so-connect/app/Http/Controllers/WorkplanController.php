@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Helpers\FormTemplateHelper;
 use App\Models\Approval;
-use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\GeneratedDocument;
 use App\Models\Request as ActionRequest;
@@ -23,7 +22,7 @@ class WorkplanController extends Controller
     {
         $user = $request->user();
         $userId = (int) $user->getKey();
-        $isAdmin = (int) $user->user_type === 2;
+        $isAdmin = $user->isAdministrative();
 
         $workplan = Workplan::query()->with(['semester', 'organization'])->findOrFail($workplan_id);
 
@@ -82,6 +81,7 @@ class WorkplanController extends Controller
                 ->get()
                 ->first(function ($sub) use ($workplan) {
                     $p = (array) ($sub->payload ?? []);
+
                     return (int) ($p['semester_id'] ?? 0) === (int) $workplan->semester_id;
                 });
 
@@ -133,7 +133,7 @@ class WorkplanController extends Controller
     ) {
         $user = $request->user();
         $userId = (int) $user->getKey();
-        $isAdmin = (int) $user->user_type === 2;
+        $isAdmin = $user->isAdministrative();
 
         $workplan = Workplan::query()->with('semester')->findOrFail($workplan_id);
 
@@ -149,9 +149,9 @@ class WorkplanController extends Controller
         }
 
         $validated = $request->validate([
-            'name'             => ['required', 'string', 'max:255'],
-            'advisername'      => ['nullable', 'string', 'max:255'],
-            'signature'        => ['nullable', 'image', 'mimes:jpeg,png', 'max:2048'],
+            'name' => ['required', 'string', 'max:255'],
+            'advisername' => ['nullable', 'string', 'max:255'],
+            'signature' => ['nullable', 'image', 'mimes:jpeg,png', 'max:2048'],
         ]);
 
         $plans = $workplanService->getApprovedPlansForWorkplan($workplan);
@@ -197,7 +197,7 @@ class WorkplanController extends Controller
                 ->implode(', ');
 
             return [
-                'title'  => (string) $plan->title,
+                'title' => (string) $plan->title,
                 'target' => \Illuminate\Support\Carbon::parse($plan->target_date)->format('M d, Y'),
                 'resources' => (string) ($plan->resources_needed ?? ''),
                 'people' => $names,
@@ -209,17 +209,17 @@ class WorkplanController extends Controller
         $sigDir = 'form-signatures/'.now()->format('Y/m');
 
         $payload = [
-            'organization_id'  => (int) $workplan->organization_id,
-            'semester_id'      => (int) $workplan->semester_id,
-            'organization'     => $orgRow?->name ?? 'Unknown Organization',
-            'schoolyear'       => $workplan->semester->name,
-            'activities'       => array_column($activities, 'title'),
-            'target'           => array_column($activities, 'target'),
-            'people'           => array_column($activities, 'people'),
-            'resources'        => array_column($activities, 'resources'),
-            'name'             => $validated['name'],
-            'advisername'      => $validated['advisername'] ?? '',
-            'signature'        => '',
+            'organization_id' => (int) $workplan->organization_id,
+            'semester_id' => (int) $workplan->semester_id,
+            'organization' => $orgRow?->name ?? 'Unknown Organization',
+            'schoolyear' => $workplan->semester->name,
+            'activities' => array_column($activities, 'title'),
+            'target' => array_column($activities, 'target'),
+            'people' => array_column($activities, 'people'),
+            'resources' => array_column($activities, 'resources'),
+            'name' => $validated['name'],
+            'advisername' => $validated['advisername'] ?? '',
+            'signature' => '',
         ];
 
         foreach (['signature'] as $sigField) {
@@ -257,7 +257,7 @@ class WorkplanController extends Controller
     {
         $user = $request->user();
         $userId = (int) $user->getKey();
-        $isAdmin = (int) $user->user_type === 2;
+        $isAdmin = $user->isAdministrative();
 
         $workplan = Workplan::query()->with('semester')->findOrFail($workplan_id);
 
@@ -280,6 +280,7 @@ class WorkplanController extends Controller
             ->get()
             ->first(function ($sub) use ($workplan) {
                 $p = (array) ($sub->payload ?? []);
+
                 return (int) ($p['semester_id'] ?? 0) === (int) $workplan->semester_id;
             });
 

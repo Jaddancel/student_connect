@@ -18,7 +18,7 @@ use Illuminate\Support\Str;
  * Read-only by contract: unlike the builder's editor flow this never seeds a
  * missing template — a form whose template row or .docx is gone simply 404s,
  * matching exactly what the directory lists. Available to organization
- * officers/presidents and to admins (who may want a blank copy to print).
+ * officers/presidents and to system administrators (who may want a blank copy to print).
  */
 class FormBlankPdfController extends Controller
 {

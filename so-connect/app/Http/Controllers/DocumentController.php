@@ -12,7 +12,7 @@ class DocumentController extends Controller
     {
         $user = $request->user();
         $userId = (int) $user->getKey();
-        $isAdmin = (int) $user->user_type === 2 || (int) $user->user_type === 1;
+        $isAdmin = $user->isAdministrative();
 
         $user->update(['documents_last_seen_at' => now()]);
         $filterOrgId = (int) $request->query('organization_id', 0);
@@ -59,6 +59,7 @@ class DocumentController extends Controller
 
             if (empty($orgIds)) {
                 $documents = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20);
+
                 return view('pages.documents.index', [
                     'title' => 'Documents',
                     'documents' => $documents,

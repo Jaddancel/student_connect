@@ -3,11 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Approval;
-use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Request as ActionRequest;
 use App\Models\Semester;
-use App\Models\User;
 use App\Services\DocumentGenerationService;
 use App\Services\OrganizationAuthorizationService;
 use Illuminate\Http\Request;
@@ -21,7 +19,7 @@ class PromotionRequestsPageController extends Controller
     {
         $user = $request->user();
         $userId = (int) $user->getKey();
-        $isAdmin = (int) $user->user_type === 2;
+        $isAdmin = $user->isAdministrative();
 
         $presidentOrganizationIds = $isAdmin
             ? null
@@ -51,40 +49,40 @@ class PromotionRequestsPageController extends Controller
                     $photoPath = (string) ($payload['photo'] ?? '');
 
                     return [
-                        'request_id'      => (int) $actionRequest->request_id,
-                        'target_user_id'  => 0,
+                        'request_id' => (int) $actionRequest->request_id,
+                        'target_user_id' => 0,
                         'organization_id' => $organizationId,
-                        'current_role'    => 'new',
-                        'requested_role'  => 'officer',
-                        'requested_at'    => $actionRequest->requested_at,
+                        'current_role' => 'new',
+                        'requested_role' => 'officer',
+                        'requested_at' => $actionRequest->requested_at,
                         'member_initiated' => false,
-                        'display_type'    => 'new_officer',
-                        'payload_name'    => trim(($payload['first_name'] ?? '').' '.($payload['last_name'] ?? '')),
-                        'review_payload'  => [
-                            'photo_url'            => $photoPath ? Storage::url($photoPath) : null,
-                            'email'                => $payload['email'] ?? '',
-                            'position'             => $payload['position'] ?? '',
-                            'contact_number'       => $payload['contact_number'] ?? '',
-                            'age'                  => $payload['age'] ?? '',
-                            'sex'                  => $payload['sex'] ?? '',
+                        'display_type' => 'new_officer',
+                        'payload_name' => trim(($payload['first_name'] ?? '').' '.($payload['last_name'] ?? '')),
+                        'review_payload' => [
+                            'photo_url' => $photoPath ? Storage::url($photoPath) : null,
+                            'email' => $payload['email'] ?? '',
+                            'position' => $payload['position'] ?? '',
+                            'contact_number' => $payload['contact_number'] ?? '',
+                            'age' => $payload['age'] ?? '',
+                            'sex' => $payload['sex'] ?? '',
                             'religious_affiliation' => $payload['religious_affiliation'] ?? '',
-                            'nationality'          => $payload['nationality'] ?? '',
-                            'birthday'             => $payload['birthday'] ?? '',
-                            'birthplace'           => $payload['birthplace'] ?? '',
-                            'present_address'      => $payload['present_address'] ?? '',
-                            'home_address'         => $payload['home_address'] ?? '',
-                            'parents_guardian'     => $payload['parents_guardian'] ?? '',
-                            'course'               => $payload['course'] ?? '',
-                            'year_level'           => $payload['year_level'] ?? '',
-                            'talents_hobbies'      => $payload['talents_hobbies'] ?? '',
-                            'financial_support'    => $payload['financial_support'] ?? [],
-                            'scholar_provider'     => $payload['scholar_provider'] ?? '',
-                            'others_specify'       => $payload['others_specify'] ?? '',
-                            'faculty_advisers'     => $payload['faculty_advisers'] ?? '',
-                            'semester'             => $payload['semester'] ?? '',
-                            'season'               => $payload['season'] ?? '',
-                            'school_year'          => $payload['school_year'] ?? '',
-                            'date_filed'           => $payload['date_filed'] ?? '',
+                            'nationality' => $payload['nationality'] ?? '',
+                            'birthday' => $payload['birthday'] ?? '',
+                            'birthplace' => $payload['birthplace'] ?? '',
+                            'present_address' => $payload['present_address'] ?? '',
+                            'home_address' => $payload['home_address'] ?? '',
+                            'parents_guardian' => $payload['parents_guardian'] ?? '',
+                            'course' => $payload['course'] ?? '',
+                            'year_level' => $payload['year_level'] ?? '',
+                            'talents_hobbies' => $payload['talents_hobbies'] ?? '',
+                            'financial_support' => $payload['financial_support'] ?? [],
+                            'scholar_provider' => $payload['scholar_provider'] ?? '',
+                            'others_specify' => $payload['others_specify'] ?? '',
+                            'faculty_advisers' => $payload['faculty_advisers'] ?? '',
+                            'semester' => $payload['semester'] ?? '',
+                            'season' => $payload['season'] ?? '',
+                            'school_year' => $payload['school_year'] ?? '',
+                            'date_filed' => $payload['date_filed'] ?? '',
                         ],
                     ];
                 }
@@ -96,16 +94,16 @@ class PromotionRequestsPageController extends Controller
                 }
 
                 return [
-                    'request_id'      => (int) $actionRequest->request_id,
-                    'target_user_id'  => $targetUserId,
+                    'request_id' => (int) $actionRequest->request_id,
+                    'target_user_id' => $targetUserId,
                     'organization_id' => $organizationId,
-                    'current_role'    => $currentRole,
-                    'requested_role'  => $this->nextRole($currentRole),
-                    'requested_at'    => $actionRequest->requested_at,
+                    'current_role' => $currentRole,
+                    'requested_role' => $this->nextRole($currentRole),
+                    'requested_at' => $actionRequest->requested_at,
                     'member_initiated' => (bool) (((array) ($actionRequest->payload ?? []))['member_initiated'] ?? false),
-                    'display_type'    => 'role_change',
-                    'payload_name'    => null,
-                    'review_payload'  => null,
+                    'display_type' => 'role_change',
+                    'payload_name' => null,
+                    'review_payload' => null,
                 ];
             })
             ->filter()
@@ -161,11 +159,11 @@ class PromotionRequestsPageController extends Controller
 
             return array_merge($row, [
                 'organization_name' => $orgNameMap[$row['organization_id']] ?? 'Unknown Organization',
-                'requester_name'    => $requesterName,
-                'status'            => $status,
-                'approved_at'       => $approval?->approved_at,
-                'can_decide'        => $status === 'pending',
-                'submission_id'     => $submissionId,
+                'requester_name' => $requesterName,
+                'status' => $status,
+                'approved_at' => $approval?->approved_at,
+                'can_decide' => $status === 'pending',
+                'submission_id' => $submissionId,
             ]);
         })->values();
 
@@ -182,7 +180,7 @@ class PromotionRequestsPageController extends Controller
     public function show(int $requestId, Request $request)
     {
         $user = $request->user();
-        $isAdmin = (int) $user->user_type === 2;
+        $isAdmin = $user->isAdministrative();
 
         if (! $isAdmin) {
             abort(403);
@@ -199,36 +197,36 @@ class PromotionRequestsPageController extends Controller
             $photoPath = (string) ($payload['photo'] ?? '');
             $displayType = 'new_officer';
             $reviewPayload = [
-                'photo_url'             => $photoPath ? Storage::url($photoPath) : null,
-                'email'                 => $payload['email'] ?? '',
-                'position'             => $payload['position'] ?? '',
-                'first_name'           => $payload['first_name'] ?? '',
-                'middle_name'          => $payload['middle_name'] ?? '',
-                'last_name'            => $payload['last_name'] ?? '',
-                'contact_number'       => $payload['contact_number'] ?? '',
-                'age'                  => $payload['age'] ?? '',
-                'sex'                  => $payload['sex'] ?? '',
+                'photo_url' => $photoPath ? Storage::url($photoPath) : null,
+                'email' => $payload['email'] ?? '',
+                'position' => $payload['position'] ?? '',
+                'first_name' => $payload['first_name'] ?? '',
+                'middle_name' => $payload['middle_name'] ?? '',
+                'last_name' => $payload['last_name'] ?? '',
+                'contact_number' => $payload['contact_number'] ?? '',
+                'age' => $payload['age'] ?? '',
+                'sex' => $payload['sex'] ?? '',
                 'religious_affiliation' => $payload['religious_affiliation'] ?? '',
-                'nationality'          => $payload['nationality'] ?? '',
-                'birthday'             => $payload['birthday'] ?? '',
-                'birthplace'           => $payload['birthplace'] ?? '',
-                'present_address'      => $payload['present_address'] ?? '',
-                'home_address'         => $payload['home_address'] ?? '',
-                'parents_guardian'     => $payload['parents_guardian'] ?? '',
-                'course'               => $payload['course'] ?? '',
-                'year_level'           => $payload['year_level'] ?? '',
-                'talents_hobbies'      => $payload['talents_hobbies'] ?? '',
-                'financial_support'    => $payload['financial_support'] ?? [],
-                'scholar_provider'     => $payload['scholar_provider'] ?? '',
-                'others_specify'       => $payload['others_specify'] ?? '',
-                'faculty_advisers'     => $payload['faculty_advisers'] ?? '',
-                'semester'             => $payload['semester'] ?? '',
-                'season'               => $payload['season'] ?? '',
-                'school_year'          => $payload['school_year'] ?? '',
-                'date_filed'           => $payload['date_filed'] ?? '',
-                'student_id'           => $payload['student_id'] ?? '',
-                'id_photo_front_url'   => ($payload['id_photo_front'] ?? '') ? Storage::url($payload['id_photo_front']) : null,
-                'id_photo_back_url'    => ($payload['id_photo_back'] ?? '') ? Storage::url($payload['id_photo_back']) : null,
+                'nationality' => $payload['nationality'] ?? '',
+                'birthday' => $payload['birthday'] ?? '',
+                'birthplace' => $payload['birthplace'] ?? '',
+                'present_address' => $payload['present_address'] ?? '',
+                'home_address' => $payload['home_address'] ?? '',
+                'parents_guardian' => $payload['parents_guardian'] ?? '',
+                'course' => $payload['course'] ?? '',
+                'year_level' => $payload['year_level'] ?? '',
+                'talents_hobbies' => $payload['talents_hobbies'] ?? '',
+                'financial_support' => $payload['financial_support'] ?? [],
+                'scholar_provider' => $payload['scholar_provider'] ?? '',
+                'others_specify' => $payload['others_specify'] ?? '',
+                'faculty_advisers' => $payload['faculty_advisers'] ?? '',
+                'semester' => $payload['semester'] ?? '',
+                'season' => $payload['season'] ?? '',
+                'school_year' => $payload['school_year'] ?? '',
+                'date_filed' => $payload['date_filed'] ?? '',
+                'student_id' => $payload['student_id'] ?? '',
+                'id_photo_front_url' => ($payload['id_photo_front'] ?? '') ? Storage::url($payload['id_photo_front']) : null,
+                'id_photo_back_url' => ($payload['id_photo_back'] ?? '') ? Storage::url($payload['id_photo_back']) : null,
             ];
             $requesterName = trim(($payload['first_name'] ?? '').' '.($payload['last_name'] ?? ''));
             $currentRole = 'new';
@@ -248,15 +246,15 @@ class PromotionRequestsPageController extends Controller
         $orgName = $orgNameMap[$organizationId] ?? 'Unknown Organization';
 
         return view('pages.sidebar.promotion-request-show', [
-            'title'           => 'Review Promotion Request',
-            'actionRequest'   => $actionRequest,
-            'displayType'     => $displayType,
-            'reviewPayload'   => $reviewPayload,
-            'approval'        => $approval,
-            'orgName'         => $orgName,
-            'requesterName'   => $requesterName,
-            'currentRole'     => $currentRole,
-            'requestedRole'   => $requestedRole,
+            'title' => 'Review Promotion Request',
+            'actionRequest' => $actionRequest,
+            'displayType' => $displayType,
+            'reviewPayload' => $reviewPayload,
+            'approval' => $approval,
+            'orgName' => $orgName,
+            'requesterName' => $requesterName,
+            'currentRole' => $currentRole,
+            'requestedRole' => $requestedRole,
             'memberInitiated' => $memberInitiated,
         ]);
     }
@@ -265,7 +263,7 @@ class PromotionRequestsPageController extends Controller
     {
         $user = $request->user();
         $userId = (int) $user->getKey();
-        $isAdmin = (int) $user->user_type === 2;
+        $isAdmin = $user->isAdministrative();
 
         $submission = FormSubmission::query()->with('form')->findOrFail($submissionId);
         $organizationId = (int) ($submission->organization_id ?? 0);
@@ -294,7 +292,7 @@ class PromotionRequestsPageController extends Controller
     {
         $user = $request->user();
         $userId = (int) $user->getKey();
-        $isAdmin = (int) $user->user_type === 2;
+        $isAdmin = $user->isAdministrative();
 
         $submission = FormSubmission::query()->findOrFail($submissionId);
         $organizationId = (int) ($submission->organization_id ?? 0);
@@ -415,6 +413,7 @@ class PromotionRequestsPageController extends Controller
             ->get(['u.user_id', 'p.first_name', 'p.middle_name', 'p.last_name', 'u.user_email'])
             ->mapWithKeys(function ($r) {
                 $name = trim(implode(' ', array_filter([$r->first_name, $r->middle_name, $r->last_name])));
+
                 return [(int) $r->user_id => $name !== '' ? $name : (string) $r->user_email];
             })
             ->all();

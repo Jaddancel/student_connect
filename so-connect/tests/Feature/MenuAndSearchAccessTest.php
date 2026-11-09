@@ -10,9 +10,8 @@ use Illuminate\Support\Facades\DB;
 uses(RefreshDatabase::class);
 
 /**
- * Form authoring is Admin-only (user_type 2). These cover the entry points
- * that used to also expose it to super admins (user_type 1): the sidebar
- * menu and the global dashboard search.
+ * Super administrators inherit every regular administrator capability while
+ * retaining their own system-control navigation.
  */
 function makeMenuUser(int $type): User
 {
@@ -39,7 +38,7 @@ function makeMenuUser(int $type): User
     ]);
 }
 
-it('does not show the form builder or template manager to super admins in the sidebar', function () {
+it('shows inherited admin tools and superadmin controls to super admins', function () {
     $superAdmin = makeMenuUser(1);
     $this->actingAs($superAdmin);
 
@@ -47,7 +46,11 @@ it('does not show the form builder or template manager to super admins in the si
         ->flatMap(fn ($group) => $group['items'])
         ->pluck('path');
 
-    expect($paths)->not->toContain('/admin/form-builder');
+    expect($paths)->toContain(
+        '/admin/form-builder',
+        '/admin/scoring',
+        '/admin/semesters',
+    );
 
     $superadminGroup = collect(MenuHelper::getMenuGroups())->firstWhere('title', 'Superadmin');
     expect(collect($superadminGroup['items'])->pluck('path'))->toContain(
@@ -98,12 +101,12 @@ it('shows membership requests under Requests for organization presidents only', 
     ]);
 });
 
-it('does not surface the template manager to super admins in dashboard search', function () {
+it('surfaces inherited admin tools to super admins in dashboard search', function () {
     $superAdmin = makeMenuUser(1);
 
     $paths = collect(DashboardSearchHelper::getItemsForUser($superAdmin))->pluck('path');
 
-    expect($paths)->not->toContain('/admin/templates');
+    expect($paths)->toContain('/admin/templates', '/promotion-requests');
 });
 
 it('still surfaces the template manager to admins in dashboard search', function () {

@@ -17,7 +17,7 @@ class EnsurePresidentOrAdmin
             return redirect()->route('home');
         }
 
-        if ((int) $user->user_type === 2) {
+        if ($user->isAdministrative()) {
             return $next($request);
         }
 

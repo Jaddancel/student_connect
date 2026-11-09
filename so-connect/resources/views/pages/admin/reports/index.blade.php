@@ -53,7 +53,7 @@
                         <span class="block text-2xl font-semibold text-gray-900 dark:text-white">{{ $totalReportCount }}</span>
                         <span class="text-xs text-gray-500 dark:text-gray-400">available reports</span>
                     </div>
-                    @if ((int) auth()->user()->user_type === 2)
+                    @if (auth()->user()->isAdministrative())
                         <a href="{{ route('admin.report-templates.index') }}" class="rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700 transition hover:border-brand-300 hover:text-brand-600 dark:border-gray-700 dark:text-gray-300">Manage templates</a>
                     @endif
                 </div>

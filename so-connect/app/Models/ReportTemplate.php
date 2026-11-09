@@ -44,7 +44,7 @@ class ReportTemplate extends Model
             return false;
         }
 
-        $isAdmin = (int) $user->user_type === 2;
+        $isAdmin = $user->isAdministrative();
         $isOfficer = (int) $user->user_type === 3 && Form::isAccessibleBy($user);
 
         return match ($this->audience ?: self::AUDIENCE_ADMINS) {

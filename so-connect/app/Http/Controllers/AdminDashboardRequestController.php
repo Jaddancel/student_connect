@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
- * Feeds the user-type-2 dashboard sections:
+ * Feeds the system-administrator dashboard sections:
  *   membership → New User (sign-up) + Organization Membership requests
  *   events     → Activity requests (the form bound to NEW_EVENT)
  *   policy     → requests filed from the forms required by the
@@ -42,7 +42,7 @@ class AdminDashboardRequestController extends Controller
             abort(401);
         }
 
-        if ((int) $user->user_type !== 2) {
+        if (! $user->isAdministrative()) {
             return response()->json([
                 'message' => 'You are not authorized to access dashboard requests.',
             ], 403);

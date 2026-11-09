@@ -276,10 +276,10 @@ class RequestDecisionController extends Controller
     public function approveWithSignatures(Request $request, int $requestId, DocumentGenerationService $documentGenerationService): JsonResponse
     {
         $validated = $request->validate([
-            'chair'            => ['required', 'string', 'max:255'],
-            'director'         => ['required', 'string', 'max:255'],
-            'signatureChair'   => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
-            'signatureDirector'=> ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            'chair' => ['required', 'string', 'max:255'],
+            'director' => ['required', 'string', 'max:255'],
+            'signatureChair' => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
+            'signatureDirector' => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
         ]);
 
         $actionRequest = ActionRequest::query()->with('requestType')->findOrFail($requestId);
@@ -309,25 +309,25 @@ class RequestDecisionController extends Controller
             return response()->json(['message' => 'Submission not found.'], 422);
         }
 
-        $sigDir = 'form-signatures/' . now()->format('Y/m');
+        $sigDir = 'form-signatures/'.now()->format('Y/m');
         $sigChairPath = '';
         $sigDirectorPath = '';
 
         if ($request->hasFile('signatureChair') && $request->file('signatureChair')->isValid()) {
             $file = $request->file('signatureChair');
-            $sigChairPath = $file->storeAs($sigDir, Str::lower(Str::random(16)) . '.' . $file->getClientOriginalExtension(), 'public');
+            $sigChairPath = $file->storeAs($sigDir, Str::lower(Str::random(16)).'.'.$file->getClientOriginalExtension(), 'public');
         }
 
         if ($request->hasFile('signatureDirector') && $request->file('signatureDirector')->isValid()) {
             $file = $request->file('signatureDirector');
-            $sigDirectorPath = $file->storeAs($sigDir, Str::lower(Str::random(16)) . '.' . $file->getClientOriginalExtension(), 'public');
+            $sigDirectorPath = $file->storeAs($sigDir, Str::lower(Str::random(16)).'.'.$file->getClientOriginalExtension(), 'public');
         }
 
         $payload = (array) ($submission->payload ?? []);
-        $payload['chair']            = $validated['chair'];
-        $payload['director']         = $validated['director'];
-        $payload['signatureChair']   = $sigChairPath;
-        $payload['signatureDirector']= $sigDirectorPath;
+        $payload['chair'] = $validated['chair'];
+        $payload['director'] = $validated['director'];
+        $payload['signatureChair'] = $sigChairPath;
+        $payload['signatureDirector'] = $sigDirectorPath;
         $submission->update(['payload' => $payload]);
 
         try {
@@ -345,7 +345,7 @@ class RequestDecisionController extends Controller
         $approval = Approval::query()->updateOrCreate(
             ['request' => (int) $actionRequest->getKey()],
             [
-                'admin'       => (int) $user->getKey(),
+                'admin' => (int) $user->getKey(),
                 'approved_at' => now(),
                 'is_rejected' => false,
             ]
@@ -358,9 +358,9 @@ class RequestDecisionController extends Controller
         }
 
         return response()->json([
-            'message'               => 'Request approved successfully.',
+            'message' => 'Request approved successfully.',
             'generated_document_id' => $generatedDocumentId,
-            'data'                  => ApprovalResource::make($approval->fresh()),
+            'data' => ApprovalResource::make($approval->fresh()),
         ]);
     }
 
@@ -386,7 +386,10 @@ class RequestDecisionController extends Controller
             return 'president';
         }
 
-        return 'admin';
+        // Historical code called this the "admin" dashboard, but the actor is
+        // an organization officer. Keep system administration and organization
+        // roles distinct in the authorization gate.
+        return 'officer';
     }
 
     private function authorizedOrganizationIdsForRequest(int $actionType, string $systemKey, int $userId): ?array
@@ -444,7 +447,7 @@ class RequestDecisionController extends Controller
      * officer and joins the organization they applied to.
      *
      * @param  array<string,mixed>  $payload
-     * @return int  the promoted user's id
+     * @return int the promoted user's id
      */
     private function promoteApplicant(User $applicant, array $payload, Approval $approval): int
     {
@@ -486,7 +489,7 @@ class RequestDecisionController extends Controller
      * requests filed before applicants got a pending account of their own.
      *
      * @param  array<string,mixed>  $payload
-     * @return int  the new user's id
+     * @return int the new user's id
      */
     private function createOfficerAccount(array $payload, Approval $approval): int
     {
@@ -838,7 +841,7 @@ class RequestDecisionController extends Controller
     }
 
     /**
-    * @return array{0:int,1:int,2:string,3:string,4:string,5:string,6:string}
+     * @return array{0:int,1:int,2:string,3:string,4:string,5:string,6:string}
      */
     protected function parseEventAction(?string $action): array
     {

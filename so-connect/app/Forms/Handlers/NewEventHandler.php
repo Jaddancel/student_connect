@@ -41,7 +41,7 @@ class NewEventHandler implements SystemFunctionHandler
             ->where('user', $userId)
             ->where('organization', $organizationId)
             ->exists();
-        if ((int) $request->user()->user_type !== 2 && ! $isOrganizationMember) {
+        if (! $request->user()->isAdministrative() && ! $isOrganizationMember) {
             throw ValidationException::withMessages([
                 'form' => 'You can only submit event requests for organizations you belong to.',
             ]);

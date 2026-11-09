@@ -1,13 +1,12 @@
 {{-- Proactive admin danger notifications (top-right stack), shown on every
      page load while a piece of setup the whole system depends on is missing.
-     Admins (user_type 2) only; each card is dismissible for the page but
+     System administrators only; each card is dismissible for the page but
      reappears on every load until the underlying setup is done. --}}
 @auth
     @php
-        // Form authoring (and the semesters page it links to) is Admin-only
-        // (user_type 2) — super admins would 403 on both, so they don't get
-        // either card.
-        $adminAlertIsFormAdmin = (int) (auth()->user()->user_type ?? 0) === 2;
+        // Super administrators inherit the same operational queues and form
+        // authoring tools as regular administrators.
+        $adminAlertIsFormAdmin = auth()->user()?->isAdministrative() ?? false;
 
         // No active or upcoming semester — the new school year has not been
         // defined yet. Submissions, event plans and scoring made in this gap

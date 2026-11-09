@@ -23,15 +23,15 @@ class AccomplishmentAttachmentLibrary
         return $query->limit($limit)->get()
             ->filter(fn (AccomplishmentMedia $media) => $disk->exists((string) $media->file_path))
             ->map(fn (AccomplishmentMedia $media) => [
-            'id' => (int) $media->getKey(),
-            'path' => (string) $media->file_path,
-            'url' => $disk->url((string) $media->file_path),
-            'title' => (string) ($media->activity_title ?: $media->original_name ?: basename((string) $media->file_path)),
-            'event_id' => $media->event_id ? (int) $media->event_id : null,
-            'organization_id' => (int) $media->organization_id,
-            'tags' => array_values((array) ($media->tags ?? [])),
-            'date' => optional($media->submitted_at)->format('M j, Y'),
-            'name' => (string) ($media->original_name ?: basename((string) $media->file_path)),
+                'id' => (int) $media->getKey(),
+                'path' => (string) $media->file_path,
+                'url' => $disk->url((string) $media->file_path),
+                'title' => (string) ($media->activity_title ?: $media->original_name ?: basename((string) $media->file_path)),
+                'event_id' => $media->event_id ? (int) $media->event_id : null,
+                'organization_id' => (int) $media->organization_id,
+                'tags' => array_values((array) ($media->tags ?? [])),
+                'date' => optional($media->submitted_at)->format('M j, Y'),
+                'name' => (string) ($media->original_name ?: basename((string) $media->file_path)),
             ])->values()->all();
     }
 
@@ -50,7 +50,7 @@ class AccomplishmentAttachmentLibrary
 
     public function scopeForUser(Builder $query, User $user): Builder
     {
-        if ((int) $user->user_type === 2 || (int) $user->user_type === 1) {
+        if ($user->isAdministrative()) {
             return $query;
         }
 

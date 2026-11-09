@@ -75,6 +75,13 @@ it('lets an admin open the builder pages', function () {
     $this->actingAs($admin)->get(route('admin.form-builder.create'))->assertOk();
 });
 
+it('lets a super admin inherit access to the builder pages', function () {
+    $superAdmin = makeUser(1);
+
+    $this->actingAs($superAdmin)->get(route('admin.form-builder.index'))->assertOk();
+    $this->actingAs($superAdmin)->get(route('admin.form-builder.create'))->assertOk();
+});
+
 it('requires the core fields on the new event form and keeps extension services optional', function () {
     app(\Database\Seeders\FormPagesSeeder::class)->run();
 
@@ -92,16 +99,11 @@ it('requires the core fields on the new event form and keeps extension services 
     expect((bool) $field->is_required)->toBeFalse();
 });
 
-it('blocks non-admins from the builder', function () {
+it('blocks organization users from the builder', function () {
     $member = makeUser(3);
 
     $this->actingAs($member)->get(route('admin.form-builder.index'))->assertForbidden();
 
-    // Form authoring is Admin-only (user_type 2); super admins are out too.
-    $superAdmin = makeUser(1);
-
-    $this->actingAs($superAdmin)->get(route('admin.form-builder.index'))->assertForbidden();
-    $this->actingAs($superAdmin)->get(route('admin.form-builder.create'))->assertForbidden();
 });
 
 it('stores a form with layout and fields', function () {
