@@ -181,7 +181,7 @@ class FormRequestController extends Controller
 
         $validated = $request->validate([
             'decision' => ['required', 'string', Rule::in(['approve', 'reject'])],
-            'rejection_reason' => ['nullable', 'string', 'max:1000'],
+            'rejection_reason' => ['nullable', 'required_if:decision,reject', 'string', 'min:3', 'max:1000'],
         ]);
 
         $actionRequest = $this->requestForForm($form, $requestId);
@@ -199,7 +199,11 @@ class FormRequestController extends Controller
                 ->with('success', 'Request approved.');
         }
 
-        $approvalService->reject($actionRequest, $userId, $validated['rejection_reason'] ?? null, $stage);
+        try {
+            $approvalService->reject($actionRequest, $userId, $validated['rejection_reason'] ?? null, $stage);
+        } catch (\Throwable $throwable) {
+            return back()->withErrors(['request' => $throwable->getMessage()]);
+        }
 
         return redirect()->route('admin.form-requests.index', $form)
             ->with('success', 'Request rejected — the requester can submit the form again.');

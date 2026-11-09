@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Mail\EventApprovedMail;
+use App\Helpers\FormTemplateHelper;
 use App\Http\Controllers\Controller;
-use App\Models\Approval;
+use App\Mail\EventApprovedMail;
 use App\Models\ActivityWaiverReview;
+use App\Models\Approval;
 use App\Models\Event;
 use App\Models\Event\EventDetail;
 use App\Models\EventPlan;
@@ -14,10 +15,9 @@ use App\Models\FormSubmission;
 use App\Models\GeneratedDocument;
 use App\Models\Request as ActionRequest;
 use App\Models\User;
-use App\Services\DocumentGenerationService;
 use App\Services\ActionLogger;
 use App\Services\ActivityWaiverApprovalGate;
-use App\Helpers\FormTemplateHelper;
+use App\Services\DocumentGenerationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +27,7 @@ use Illuminate\Validation\Rule;
 class ActivityRequestController extends Controller
 {
     private const FORM_ROUTE = 'activity-request';
+
     private const PAGE_TITLE = 'Activity Requests';
 
     public function index()
@@ -35,9 +36,9 @@ class ActivityRequestController extends Controller
 
         if (! $form) {
             return view('pages.admin.activity-requests.index', [
-                'title'       => self::PAGE_TITLE,
-                'pending'     => collect(),
-                'decided'     => collect(),
+                'title' => self::PAGE_TITLE,
+                'pending' => collect(),
+                'decided' => collect(),
                 'formMissing' => true,
             ]);
         }
@@ -54,15 +55,15 @@ class ActivityRequestController extends Controller
 
         if ($requests->isEmpty()) {
             return view('pages.admin.activity-requests.index', [
-                'title'       => self::PAGE_TITLE,
-                'pending'     => collect(),
-                'decided'     => collect(),
+                'title' => self::PAGE_TITLE,
+                'pending' => collect(),
+                'decided' => collect(),
                 'formMissing' => false,
             ]);
         }
 
         $requestIds = $requests->pluck('request_id')->all();
-        $approvals  = Approval::query()->whereIn('request', $requestIds)->get()->keyBy('request');
+        $approvals = Approval::query()->whereIn('request', $requestIds)->get()->keyBy('request');
 
         $requesterIds = $requests->pluck('user')->filter()->unique()->values()->all();
         $requesterNames = [];
@@ -91,7 +92,7 @@ class ActivityRequestController extends Controller
 
         $rows = $requests->map(function ($r) use ($approvals, $requesterNames, $orgNames, $eventPlansByRequestId) {
             $payload = (array) ($r->payload ?? []);
-            $orgId   = (int) ($r->organization_id ?? ($payload['organization_id'] ?? 0));
+            $orgId = (int) ($r->organization_id ?? ($payload['organization_id'] ?? 0));
             $submissionId = (int) ($payload['submission_id'] ?? 0);
             $activityTitle = '';
 
@@ -108,19 +109,19 @@ class ActivityRequestController extends Controller
             }
 
             return [
-                'request'        => $r,
-                'approval'       => $approvals->get($r->request_id),
+                'request' => $r,
+                'approval' => $approvals->get($r->request_id),
                 'requester_name' => $requesterNames[$r->user] ?? 'Unknown',
-                'org_name'       => $orgNames[$orgId] ?? 'Unknown Organization',
+                'org_name' => $orgNames[$orgId] ?? 'Unknown Organization',
                 'activity_title' => $activityTitle,
-                'submission_id'  => $submissionId,
+                'submission_id' => $submissionId,
             ];
         });
 
         return view('pages.admin.activity-requests.index', [
-            'title'       => self::PAGE_TITLE,
-            'pending'     => $rows->filter(fn ($row) => $row['approval'] === null)->values(),
-            'decided'     => $rows->filter(fn ($row) => $row['approval'] !== null)->take(30)->values(),
+            'title' => self::PAGE_TITLE,
+            'pending' => $rows->filter(fn ($row) => $row['approval'] === null)->values(),
+            'decided' => $rows->filter(fn ($row) => $row['approval'] !== null)->take(30)->values(),
             'formMissing' => false,
         ]);
     }
@@ -128,23 +129,23 @@ class ActivityRequestController extends Controller
     public function show(int $requestId, ActivityWaiverApprovalGate $waiverGate)
     {
         $actionRequest = ActionRequest::query()->findOrFail($requestId);
-        $payload       = (array) ($actionRequest->payload ?? []);
-        $submissionId  = (int) ($payload['submission_id'] ?? 0);
-        $submission    = $submissionId ? FormSubmission::query()->find($submissionId) : null;
+        $payload = (array) ($actionRequest->payload ?? []);
+        $submissionId = (int) ($payload['submission_id'] ?? 0);
+        $submission = $submissionId ? FormSubmission::query()->find($submissionId) : null;
 
         // Render answers from the submitted form's own fields so the details
         // show regardless of the builder form's field keys (the new_event form
         // is admin-authored, not the old hardcoded activity-request schema).
-        $form   = $submission?->form
+        $form = $submission?->form
             ?: \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_EVENT);
         $fields = $form ? $form->fields()->get() : collect();
 
         $approval = Approval::query()->where('request', $requestId)->first();
 
-        $orgId   = (int) ($actionRequest->organization_id ?? ($payload['organization_id'] ?? 0));
+        $orgId = (int) ($actionRequest->organization_id ?? ($payload['organization_id'] ?? 0));
         $orgName = 'Unknown Organization';
         if ($orgId > 0) {
-            $orgRow  = DB::table('organizations as o')
+            $orgRow = DB::table('organizations as o')
                 ->leftJoin('organization_details as od', 'od.organization_detail_id', '=', 'o.detail')
                 ->where('o.organization_id', $orgId)
                 ->select(DB::raw("COALESCE(od.name, 'Unknown Organization') as name"))
@@ -163,15 +164,15 @@ class ActivityRequestController extends Controller
         }
 
         return view('pages.admin.activity-requests.show', [
-            'title'           => self::PAGE_TITLE,
-            'actionRequest'   => $actionRequest,
-            'submission'      => $submission,
+            'title' => self::PAGE_TITLE,
+            'actionRequest' => $actionRequest,
+            'submission' => $submission,
             'submissionPayload' => $submission ? (array) ($submission->payload ?? []) : [],
-            'fields'          => $fields,
-            'approval'        => $approval,
-            'orgName'         => $orgName,
-            'requesterName'   => $requesterName,
-            'waiverGate'      => $waiverGate->evaluate($actionRequest),
+            'fields' => $fields,
+            'approval' => $approval,
+            'orgName' => $orgName,
+            'requesterName' => $requesterName,
+            'waiverGate' => $waiverGate->evaluate($actionRequest),
         ]);
     }
 
@@ -232,8 +233,7 @@ class ActivityRequestController extends Controller
         int $requestId,
         DocumentGenerationService $documentGenerationService,
         ActivityWaiverApprovalGate $waiverGate,
-    ): RedirectResponse
-    {
+    ): RedirectResponse {
         $user = $request->user();
         if (! $user) {
             abort(401);
@@ -241,11 +241,41 @@ class ActivityRequestController extends Controller
         $userId = (int) $user->getKey();
 
         $validated = $request->validate([
-            'decision'         => ['required', 'string', Rule::in(['approve', 'reject'])],
-            'rejection_reason' => ['nullable', 'string', 'max:1000'],
+            'decision' => ['required', 'string', Rule::in(['approve', 'reject'])],
+            'rejection_reason' => ['nullable', 'required_if:decision,reject', 'string', 'min:3', 'max:1000'],
         ]);
 
-        $actionRequest = ActionRequest::query()->findOrFail($requestId);
+        return DB::transaction(function () use ($requestId, $validated, $userId, $documentGenerationService, $waiverGate) {
+            $actionRequest = ActionRequest::query()
+                ->whereKey($requestId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (Approval::query()->where('request', $requestId)->whereNull('stage')->exists()) {
+                return back()->withErrors(['request' => 'This request has already been decided.']);
+            }
+
+            return $this->decideLocked(
+                $actionRequest,
+                $validated,
+                $userId,
+                $documentGenerationService,
+                $waiverGate,
+            );
+        }, 3);
+    }
+
+    /**
+     * @param  array{decision:string,rejection_reason?:string|null}  $validated
+     */
+    private function decideLocked(
+        ActionRequest $actionRequest,
+        array $validated,
+        int $userId,
+        DocumentGenerationService $documentGenerationService,
+        ActivityWaiverApprovalGate $waiverGate,
+    ): RedirectResponse {
+        $requestId = (int) $actionRequest->getKey();
 
         $form = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_EVENT);
         if (! $form) {
@@ -257,7 +287,7 @@ class ActivityRequestController extends Controller
             return back()->withErrors(['request' => 'This request does not belong to the activity request form.']);
         }
 
-        $isApproved         = $validated['decision'] === 'approve';
+        $isApproved = $validated['decision'] === 'approve';
         $generatedDocumentId = null;
 
         if ($isApproved) {
@@ -279,22 +309,20 @@ class ActivityRequestController extends Controller
             }
 
             try {
-                $generatedDocument   = $documentGenerationService->generateAllFromApprovedRequest($actionRequest, $userId)->first();
+                $generatedDocument = $documentGenerationService->generateAllFromApprovedRequest($actionRequest, $userId)->first();
                 $generatedDocumentId = (int) $generatedDocument->getKey();
             } catch (\Throwable $throwable) {
                 return back()->withErrors(['request' => $throwable->getMessage()]);
             }
         }
 
-        $approval = Approval::query()->updateOrCreate(
-            ['request' => $requestId],
-            [
-                'admin'            => $userId,
-                'approved_at'      => now(),
-                'is_rejected'      => ! $isApproved,
-                'rejection_reason' => $validated['rejection_reason'] ?? null,
-            ]
-        );
+        $approval = Approval::query()->create([
+            'request' => $requestId,
+            'admin' => $userId,
+            'approved_at' => now(),
+            'is_rejected' => ! $isApproved,
+            'rejection_reason' => $isApproved ? null : trim((string) $validated['rejection_reason']),
+        ]);
 
         if ($generatedDocumentId) {
             GeneratedDocument::where('request_id', $actionRequest->getKey())->where('status', 'generated')
@@ -305,16 +333,16 @@ class ActivityRequestController extends Controller
 
         if ($eventPlan && $isApproved) {
             $eventDetail = EventDetail::query()->create([
-                'name'       => (string) ($eventPlan->title ?? ''),
-                'location'   => (string) ($eventPlan->event_location ?? ''),
-                'desc_text'  => '',
+                'name' => (string) ($eventPlan->title ?? ''),
+                'location' => (string) ($eventPlan->event_location ?? ''),
+                'desc_text' => '',
                 'start_time' => $eventPlan->event_start_time,
-                'end_time'   => $eventPlan->event_end_time,
+                'end_time' => $eventPlan->event_end_time,
             ]);
 
             $event = Event::query()->create([
                 'organization' => (int) $eventPlan->organization_id,
-                'creator'      => $userId,
+                'creator' => $userId,
                 'event_detail' => (int) $eventDetail->getKey(),
             ]);
 

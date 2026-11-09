@@ -227,6 +227,36 @@ it('tells a rejected applicant why, and shows the reason on their dashboard', fu
         ->assertSee('2 attempts remaining', false);
 });
 
+it('requires a rejection reason and never replaces a completed signup decision', function () {
+    Mail::fake();
+    guestSignupForm();
+    $applicant = submitGuestSignup(guestSignupOrganization());
+    $request = ActionRequest::query()->where('action_type', 11)->firstOrFail();
+    $admin = recordsUser(2);
+
+    $this->actingAs($admin)
+        ->postJson('/api/requests/'.$request->getKey().'/decision', ['decision' => 'reject'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('rejection_reason');
+
+    $this->assertDatabaseMissing('approvals', ['request' => $request->getKey()]);
+
+    $this->actingAs($admin)
+        ->postJson('/api/requests/'.$request->getKey().'/decision', [
+            'decision' => 'reject',
+            'rejection_reason' => 'The submitted student ID is unreadable.',
+        ])
+        ->assertOk();
+
+    $this->actingAs($admin)
+        ->postJson('/api/requests/'.$request->getKey().'/decision', ['decision' => 'approve'])
+        ->assertConflict()
+        ->assertJsonPath('message', 'This request stage has already been decided.');
+
+    expect(Approval::query()->where('request', $request->getKey())->count())->toBe(1)
+        ->and($applicant->fresh()->isGuest())->toBeTrue();
+});
+
 it('prefills the sign-up form from the last submission when a rejected guest retries', function () {
     Mail::fake();
     guestSignupForm();

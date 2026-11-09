@@ -202,7 +202,7 @@
                             <form method="POST" action="{{ route('admin.accomplishment-report-requests.decide', $actionRequest->request_id) }}" class="space-y-3">
                                 @csrf
                                 <input type="hidden" name="decision" value="reject" />
-                                <textarea name="rejection_reason" rows="3" placeholder="Reason for rejection (optional)"
+                                <textarea name="rejection_reason" rows="3" required minlength="3" maxlength="1000" placeholder="Reason for rejection (required)"
                                     class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-2 focus:ring-brand-500/10 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
                                 <button type="submit" class="rounded-lg bg-error-500 px-4 py-2 text-sm font-medium text-white hover:bg-error-600">
                                     Confirm Reject

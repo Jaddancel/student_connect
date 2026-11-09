@@ -2,13 +2,12 @@
 
 namespace App\Forms\Handlers;
 
+use App\Forms\FieldType;
 use App\Models\Approval;
 use App\Models\Form;
 use App\Models\FormSubmission;
 use App\Models\Request as ActionRequest;
 use App\Models\RequestType;
-use App\Forms\FieldType;
-use App\Services\RequestApprovalService;
 use App\Services\RequestTypeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -60,11 +59,8 @@ class MembershipRegistrationHandler implements SystemFunctionHandler
                     ->whereColumn('a.request', 'requests.request_id')
                     ->where(function ($nested) {
                         $nested->whereNull('a.stage')
-                            ->orWhere('a.stage', 'admin');
-                    })
-                    ->where(function ($nested) {
-                        $nested->where('a.is_rejected', false)
-                            ->orWhereNull('a.is_rejected');
+                            ->orWhere('a.stage', 'admin')
+                            ->orWhere('a.is_rejected', true);
                     });
             })
             ->exists();

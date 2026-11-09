@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\RecognitionRequestController;
 use App\Http\Controllers\Admin\RequestRecordController;
 use App\Http\Controllers\Admin\SemesterController;
 use App\Http\Controllers\Admin\StudentRankingController;
+use App\Http\Controllers\Admin\UnifiedRequestController;
 use App\Http\Controllers\Admin\WorkplanRequestController;
 use App\Http\Controllers\Auth\GoogleLinkController;
 use App\Http\Controllers\Auth\InvitationController;
@@ -466,12 +467,17 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->whereNumber('requestId')
         ->name('admin.activity-requests.waiver-review');
 
+    Route::get('/admin/requests', [UnifiedRequestController::class, 'index'])
+        ->name('admin.requests.index');
+    Route::post('/admin/requests/bulk', [UnifiedRequestController::class, 'bulk'])
+        ->name('admin.requests.bulk');
+
     Route::get('/admin/project-requests', [ProjectRequestController::class, 'index'])
         ->name('admin.project-requests.index');
     Route::get('/admin/project-requests/{requestId}', [ProjectRequestController::class, 'show'])
         ->whereNumber('requestId')
         ->name('admin.project-requests.show');
-    Route::post('/admin/project-requests/{requestId}/decide', [ProjectRequestController::class, 'decide'])
+    Route::post('/admin/project-requests/{requestId}/decide', [UnifiedRequestController::class, 'decide'])
         ->whereNumber('requestId')
         ->name('admin.project-requests.decide');
 
@@ -480,7 +486,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/joint-statement-requests/{requestId}', [JointStatementRequestController::class, 'show'])
         ->whereNumber('requestId')
         ->name('admin.joint-statement-requests.show');
-    Route::post('/admin/joint-statement-requests/{requestId}/decide', [JointStatementRequestController::class, 'decide'])
+    Route::post('/admin/joint-statement-requests/{requestId}/decide', [UnifiedRequestController::class, 'decide'])
         ->whereNumber('requestId')
         ->name('admin.joint-statement-requests.decide');
     Route::post('/admin/joint-statement-requests/{requestId}/generate', [JointStatementRequestController::class, 'generate'])
@@ -495,7 +501,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/accomplishment-report-requests/{requestId}', [AccomplishmentReportRequestController::class, 'show'])
         ->whereNumber('requestId')
         ->name('admin.accomplishment-report-requests.show');
-    Route::post('/admin/accomplishment-report-requests/{requestId}/decide', [AccomplishmentReportRequestController::class, 'decide'])
+    Route::post('/admin/accomplishment-report-requests/{requestId}/decide', [UnifiedRequestController::class, 'decide'])
         ->whereNumber('requestId')
         ->name('admin.accomplishment-report-requests.decide');
 
@@ -504,7 +510,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/financial-report-requests/{requestId}', [FinancialReportRequestController::class, 'show'])
         ->whereNumber('requestId')
         ->name('admin.financial-report-requests.show');
-    Route::post('/admin/financial-report-requests/{requestId}/decide', [FinancialReportRequestController::class, 'decide'])
+    Route::post('/admin/financial-report-requests/{requestId}/decide', [UnifiedRequestController::class, 'decide'])
         ->whereNumber('requestId')
         ->name('admin.financial-report-requests.decide');
 
@@ -513,7 +519,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/recognition-requests/{requestId}', [RecognitionRequestController::class, 'show'])
         ->whereNumber('requestId')
         ->name('admin.recognition-requests.show');
-    Route::post('/admin/recognition-requests/{requestId}/decide', [RecognitionRequestController::class, 'decide'])
+    Route::post('/admin/recognition-requests/{requestId}/decide', [UnifiedRequestController::class, 'decide'])
         ->whereNumber('requestId')
         ->name('admin.recognition-requests.decide');
 
@@ -522,7 +528,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/workplan-requests/{requestId}', [WorkplanRequestController::class, 'show'])
         ->whereNumber('requestId')
         ->name('admin.workplan-requests.show');
-    Route::post('/admin/workplan-requests/{requestId}/decide', [WorkplanRequestController::class, 'decide'])
+    Route::post('/admin/workplan-requests/{requestId}/decide', [UnifiedRequestController::class, 'decide'])
         ->whereNumber('requestId')
         ->name('admin.workplan-requests.decide');
 

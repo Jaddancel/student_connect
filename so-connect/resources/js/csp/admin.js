@@ -31,6 +31,31 @@ export default function registerAdmin(Alpine) {
         },
     }));
 
+    // pages/admin/requests/index: pending-row selection and guarded bulk decisions.
+    Alpine.data("adminUnifiedRequestSelection", ({ available = [] } = {}) => ({
+        available: available.map(String),
+        selected: [],
+        decision: "approve",
+        toggleAll(event) {
+            this.selected = event.target.checked ? [...this.available] : [];
+        },
+        allSelected() {
+            return this.available.length > 0 && this.available.every((id) => this.selected.includes(id));
+        },
+        confirmBulk(event) {
+            if (this.selected.length === 0) {
+                event.preventDefault();
+                window.alert("Select at least one pending request.");
+                return;
+            }
+
+            const verb = this.decision === "approve" ? "Approve" : "Reject";
+            if (!window.confirm(`${verb} ${this.selected.length} selected request(s)?`)) {
+                event.preventDefault();
+            }
+        },
+    }));
+
     // pages/admin/accounts/create: dynamic faculty adviser rows.
     Alpine.data("adminAccountAdvisers", ({ advisers = [""] } = {}) => ({
         advisers,

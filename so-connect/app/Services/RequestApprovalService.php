@@ -37,6 +37,25 @@ class RequestApprovalService
         ?string $stage = null,
         ?int $approvalAdminId = null,
     ): Approval {
+        return DB::transaction(function () use ($actionRequest, $approverUserId, $stage, $approvalAdminId) {
+            $lockedRequest = ActionRequest::query()
+                ->with('requestType')
+                ->whereKey($actionRequest->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $this->assertPending($lockedRequest, $stage);
+
+            return $this->approveLocked($lockedRequest, $approverUserId, $stage, $approvalAdminId);
+        }, 3);
+    }
+
+    private function approveLocked(
+        ActionRequest $actionRequest,
+        int $approverUserId,
+        ?string $stage,
+        ?int $approvalAdminId,
+    ): Approval {
         $actionRequest->loadMissing('requestType');
 
         $actionType = (int) $actionRequest->action_type;
@@ -59,21 +78,14 @@ class RequestApprovalService
             app(DocumentGenerationService::class)->generateFromApprovedRequest($actionRequest, $approverUserId);
         }
 
-        $approvalMatch = ['request' => (int) $actionRequest->getKey()];
-        if ($stage !== null && $stage !== '') {
-            $approvalMatch['stage'] = $stage;
-        }
-
-        $approval = Approval::query()->updateOrCreate(
-            $approvalMatch,
-            [
-                'admin' => $approvalAdminId ?? $approverUserId,
-                'approved_at' => now(),
-                'stage' => $stage,
-                'is_rejected' => false,
-                'rejection_reason' => null,
-            ]
-        );
+        $approval = Approval::query()->create([
+            'request' => (int) $actionRequest->getKey(),
+            'admin' => $approvalAdminId ?? $approverUserId,
+            'approved_at' => now(),
+            'stage' => $stage,
+            'is_rejected' => false,
+            'rejection_reason' => null,
+        ]);
 
         // Link the document generated above back to its approval (matches the
         // per-form admin pages, which read GeneratedDocument.approval_id).
@@ -176,32 +188,45 @@ class RequestApprovalService
     }
 
     /**
-     * The reject counterpart of {@see approve()}: records the rejection (with
-     * an optional reason) and flips the event-plan status where applicable —
+     * The reject counterpart of {@see approve()}: records the rejection with
+     * its required reason and flips the event-plan status where applicable —
      * rejection has no other domain side effects (the requester starts over).
      */
     public function reject(ActionRequest $actionRequest, int $adminUserId, ?string $reason = null, ?string $stage = null): Approval
+    {
+        $reason = is_string($reason) ? trim($reason) : '';
+        if ($reason === '') {
+            throw new \LogicException('A rejection reason is required.');
+        }
+
+        return DB::transaction(function () use ($actionRequest, $adminUserId, $reason, $stage) {
+            $lockedRequest = ActionRequest::query()
+                ->with('requestType')
+                ->whereKey($actionRequest->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $this->assertPending($lockedRequest, $stage);
+
+            return $this->rejectLocked($lockedRequest, $adminUserId, $reason, $stage);
+        }, 3);
+    }
+
+    private function rejectLocked(ActionRequest $actionRequest, int $adminUserId, string $reason, ?string $stage): Approval
     {
         $actionRequest->loadMissing('requestType');
 
         $actionType = (int) $actionRequest->action_type;
         $systemKey = (string) ($actionRequest->requestType?->system_key ?? '');
 
-        $approvalMatch = ['request' => (int) $actionRequest->getKey()];
-        if ($stage !== null && $stage !== '') {
-            $approvalMatch['stage'] = $stage;
-        }
-
-        $approval = Approval::query()->updateOrCreate(
-            $approvalMatch,
-            [
-                'admin' => $adminUserId,
-                'approved_at' => now(),
-                'stage' => $stage,
-                'is_rejected' => true,
-                'rejection_reason' => ($reason !== null && trim($reason) !== '') ? trim($reason) : null,
-            ]
-        );
+        $approval = Approval::query()->create([
+            'request' => (int) $actionRequest->getKey(),
+            'admin' => $adminUserId,
+            'approved_at' => now(),
+            'stage' => $stage,
+            'is_rejected' => true,
+            'rejection_reason' => $reason,
+        ]);
 
         if ($this->isEventPlanRequest($actionType, $systemKey)) {
             $payload = (array) ($actionRequest->payload ?? []);
@@ -213,6 +238,19 @@ class RequestApprovalService
         }
 
         return $approval;
+    }
+
+    private function assertPending(ActionRequest $actionRequest, ?string $stage): void
+    {
+        $query = Approval::query()->where('request', (int) $actionRequest->getKey());
+
+        $stage !== null && $stage !== ''
+            ? $query->where('stage', $stage)
+            : $query->whereNull('stage');
+
+        if ($query->exists()) {
+            throw new \LogicException('This request stage has already been decided.');
+        }
     }
 
     private function shouldAutoApproveForPresident(ActionRequest $actionRequest, int $requesterUserId): bool

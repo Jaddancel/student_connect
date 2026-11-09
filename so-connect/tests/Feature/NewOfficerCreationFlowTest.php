@@ -36,11 +36,11 @@ function makeOfficerWithOrg(string $email, string $role = 'officer'): array
     $org = Organization::query()->create(['organization_type' => 1, 'detail' => null]);
 
     DB::table('organization_officers')->insert([
-        'role'          => $role,
-        'organization'  => (int) $org->getKey(),
-        'user'          => (int) $user->getKey(),
-        'yearterm'      => null,
-        'member_since'  => now(),
+        'role' => $role,
+        'organization' => (int) $org->getKey(),
+        'user' => (int) $user->getKey(),
+        'yearterm' => null,
+        'member_since' => now(),
         'registered_at' => now(),
         'reassigned_at' => now(),
     ]);
@@ -67,17 +67,17 @@ function makeSuperadminUser(string $email): User
 function makeDirectoryPayload(int $organizationId): array
 {
     return [
-        'first_name'    => 'New', 'middle_name' => 'M', 'last_name' => 'Officer',
-        'email'         => 'newofficer@example.test',
+        'first_name' => 'New', 'middle_name' => 'M', 'last_name' => 'Officer',
+        'email' => 'newofficer@example.test',
         'organization_id' => $organizationId,
-        'semester'      => '1st', 'season' => 'fall', 'school_year' => '2024-2025',
-        'position'      => 'Secretary', 'contact_number' => '9171234567',
-        'age'           => 20, 'sex' => 'Female',
-        'nationality'   => 'Filipino', 'birthday' => '2004-01-01',
+        'semester' => '1st', 'season' => 'fall', 'school_year' => '2024-2025',
+        'position' => 'Secretary', 'contact_number' => '9171234567',
+        'age' => 20, 'sex' => 'Female',
+        'nationality' => 'Filipino', 'birthday' => '2004-01-01',
         'present_address' => 'Barangay Lahug, Cebu City',
         'parents_guardian' => 'Guardian Name',
-        'course'        => 'BS Computer Science', 'year_level' => '2nd Year',
-        'date_filed'    => '2024-08-01',
+        'course' => 'BS Computer Science', 'year_level' => '2nd Year',
+        'date_filed' => '2024-08-01',
     ];
 }
 
@@ -93,11 +93,11 @@ it('user type 3 submitting directory form creates action_type=11 request and a f
         ['name' => 'Directory of Student Leader', 'is_active' => true, 'is_published' => true, 'created_by' => null]
     );
 
-    $photo     = UploadedFile::fake()->create('photo.jpg', 100, 'image/jpeg');
+    $photo = UploadedFile::fake()->create('photo.jpg', 100, 'image/jpeg');
     $signature = UploadedFile::fake()->create('sig.jpg', 50, 'image/jpeg');
 
     $payload = array_merge(makeDirectoryPayload((int) $org->getKey()), [
-        'photo'     => $photo,
+        'photo' => $photo,
         'signature' => $signature,
     ]);
 
@@ -181,31 +181,35 @@ it('admin rejecting action_type=11 creates rejection approval and no action_type
     ]);
 
     $this->actingAs($admin)
-        ->postJson('/api/requests/'.$actionRequest->getKey().'/decision', ['decision' => 'reject'])
+        ->postJson('/api/requests/'.$actionRequest->getKey().'/decision', [
+            'decision' => 'reject',
+            'rejection_reason' => 'The submitted directory details are incomplete.',
+        ])
         ->assertOk();
 
     $approval = Approval::query()->where('request', (int) $actionRequest->getKey())->first();
     expect($approval)->not->toBeNull()
-        ->and($approval->is_rejected)->toBeTrue();
+        ->and($approval->is_rejected)->toBeTrue()
+        ->and($approval->rejection_reason)->toBe('The submitted directory details are incomplete.');
 
     expect(ActionRequest::query()->where('action_type', 12)->exists())->toBeFalse();
 });
 
 it('admin direct creation creates all records immediately without a request queue', function () {
     $admin = makeAdminUser('admin-direct@example.test');
-    $org   = Organization::query()->create(['organization_type' => 1, 'detail' => null]);
+    $org = Organization::query()->create(['organization_type' => 1, 'detail' => null]);
 
     $this->actingAs($admin)
         ->post(route('admin.officers.store'), [
-            'organization_id'       => (int) $org->getKey(),
-            'email'                 => 'direct-officer@example.test',
-            'first_name'            => 'Direct', 'middle_name' => 'D', 'last_name' => 'Officer',
-            'position'              => 'Treasurer', 'contact_number' => '9171234567',
-            'age'                   => 21, 'sex' => 'Male',
-            'nationality'           => 'Filipino', 'birthday' => '2003-05-15',
-            'course'                => 'BS IT', 'year_level' => '3rd Year',
-            'country'               => 'Philippines', 'province' => 'Cebu',
-            'town'                  => 'Cebu City', 'barangay' => 'Labangon',
+            'organization_id' => (int) $org->getKey(),
+            'email' => 'direct-officer@example.test',
+            'first_name' => 'Direct', 'middle_name' => 'D', 'last_name' => 'Officer',
+            'position' => 'Treasurer', 'contact_number' => '9171234567',
+            'age' => 21, 'sex' => 'Male',
+            'nationality' => 'Filipino', 'birthday' => '2003-05-15',
+            'course' => 'BS IT', 'year_level' => '3rd Year',
+            'country' => 'Philippines', 'province' => 'Cebu',
+            'town' => 'Cebu City', 'barangay' => 'Labangon',
         ])
         ->assertRedirect(route('admin.officers.create'));
 
@@ -293,7 +297,7 @@ it('allows user types 2 and 3 to view their profiles without profile editing con
 });
 
 it('officer dashboard includes a quick link to the student leader directory form', function () {
-    [$officer, ] = makeOfficerWithOrg('officer-dashboard-link@example.test');
+    [$officer] = makeOfficerWithOrg('officer-dashboard-link@example.test');
 
     $this->actingAs($officer)
         ->get(route('dashboard'))
@@ -303,7 +307,7 @@ it('officer dashboard includes a quick link to the student leader directory form
 });
 
 it('activity-request form prefills presidentContactNo from profile', function () {
-    [$officer, ] = makeOfficerWithOrg('officer-contact@example.test');
+    [$officer] = makeOfficerWithOrg('officer-contact@example.test');
 
     $this->actingAs($officer)
         ->get(route('activity-request'))
@@ -312,7 +316,7 @@ it('activity-request form prefills presidentContactNo from profile', function ()
 });
 
 it('joint-statement form prefills president_name and president_contact from profile', function () {
-    [$officer, ] = makeOfficerWithOrg('officer-joint@example.test');
+    [$officer] = makeOfficerWithOrg('officer-joint@example.test');
 
     $profile = Profile::query()->where('profile_id', $officer->profile)->first();
 

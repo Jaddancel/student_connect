@@ -34,6 +34,8 @@ class ActionLogger
 
     public const CATEGORY_BEST_ORGANIZATION = 'best_organization';
 
+    public const CATEGORY_REQUESTS = 'requests';
+
     /**
      * Human labels for the category filter dropdown/exports.
      *
@@ -52,6 +54,7 @@ class ActionLogger
             self::CATEGORY_SUPPORT => 'Support Tickets',
             self::CATEGORY_WAIVER_REVIEW => 'Waiver Review / Activity Approval',
             self::CATEGORY_BEST_ORGANIZATION => 'Best Organization Selection / Award',
+            self::CATEGORY_REQUESTS => 'Requests & Approvals',
         ];
     }
 

@@ -44,16 +44,35 @@ class RequestDecisionController extends Controller
     {
         $validated = $request->validate([
             'decision' => ['required', 'string', Rule::in(['approve', 'reject'])],
-            'rejection_reason' => ['nullable', 'string', 'max:1000'],
+            'rejection_reason' => ['nullable', 'required_if:decision,reject', 'string', 'min:3', 'max:1000'],
         ]);
 
-        $actionRequest = ActionRequest::query()->with('requestType')->findOrFail($requestId);
         $user = $request->user();
 
         if (! $user) {
             abort(401);
         }
 
+        return DB::transaction(function () use ($requestId, $validated, $user, $documentGenerationService) {
+            $actionRequest = ActionRequest::query()
+                ->with('requestType')
+                ->whereKey($requestId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            return $this->decideLocked($validated, $actionRequest, $user, $documentGenerationService);
+        }, 3);
+    }
+
+    /**
+     * @param  array{decision:string,rejection_reason?:string|null}  $validated
+     */
+    private function decideLocked(
+        array $validated,
+        ActionRequest $actionRequest,
+        User $user,
+        DocumentGenerationService $documentGenerationService,
+    ): JsonResponse {
         $actionType = (int) $actionRequest->action_type;
         $requestType = $actionRequest->requestType;
         $systemKey = (string) ($requestType?->system_key ?? '');
@@ -76,6 +95,18 @@ class RequestDecisionController extends Controller
                     'message' => 'You are not authorized to decide this request.',
                 ], 403);
             }
+        }
+
+        $decisionStage = $this->isMembershipRequest($actionType, $systemKey) ? 'president' : null;
+        $existingDecision = Approval::query()->where('request', (int) $actionRequest->getKey());
+        $decisionStage === null
+            ? $existingDecision->whereNull('stage')
+            : $existingDecision->where('stage', $decisionStage);
+
+        if ($existingDecision->exists()) {
+            return response()->json([
+                'message' => 'This request stage has already been decided.',
+            ], 409);
         }
 
         if ($this->isMembershipRequest($actionType, $systemKey)) {
@@ -117,17 +148,15 @@ class RequestDecisionController extends Controller
             $this->maybeCreateOrganization($actionRequest);
         }
 
-        $approval = Approval::query()->updateOrCreate(
-            ['request' => (int) $actionRequest->getKey()],
-            [
-                'admin' => (int) $user->getKey(),
-                'approved_at' => now(),
-                'is_rejected' => $validated['decision'] === 'reject',
-                'rejection_reason' => $validated['decision'] === 'reject'
-                    ? (($validated['rejection_reason'] ?? '') !== '' ? $validated['rejection_reason'] : null)
-                    : null,
-            ]
-        );
+        $approval = Approval::query()->create([
+            'request' => (int) $actionRequest->getKey(),
+            'admin' => (int) $user->getKey(),
+            'approved_at' => now(),
+            'is_rejected' => $validated['decision'] === 'reject',
+            'rejection_reason' => $validated['decision'] === 'reject'
+                ? trim((string) $validated['rejection_reason'])
+                : null,
+        ]);
 
         if ($generatedDocumentId > 0) {
             \App\Models\GeneratedDocument::where('request_id', (int) $actionRequest->getKey())
@@ -282,13 +311,43 @@ class RequestDecisionController extends Controller
             'signatureDirector' => ['required', 'file', 'mimes:jpeg,png', 'max:2048'],
         ]);
 
-        $actionRequest = ActionRequest::query()->with('requestType')->findOrFail($requestId);
         $user = $request->user();
 
         if (! $user) {
             abort(401);
         }
 
+        return DB::transaction(function () use ($request, $requestId, $validated, $user, $documentGenerationService) {
+            $actionRequest = ActionRequest::query()
+                ->with('requestType')
+                ->whereKey($requestId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (Approval::query()->where('request', $requestId)->whereNull('stage')->exists()) {
+                return response()->json(['message' => 'This request has already been decided.'], 409);
+            }
+
+            return $this->approveWithSignaturesLocked(
+                $request,
+                $validated,
+                $actionRequest,
+                $user,
+                $documentGenerationService,
+            );
+        }, 3);
+    }
+
+    /**
+     * @param  array{chair:string,director:string,signatureChair:mixed,signatureDirector:mixed}  $validated
+     */
+    private function approveWithSignaturesLocked(
+        Request $request,
+        array $validated,
+        ActionRequest $actionRequest,
+        User $user,
+        DocumentGenerationService $documentGenerationService,
+    ): JsonResponse {
         $actionType = (int) $actionRequest->action_type;
         $requestType = $actionRequest->requestType;
         $systemKey = (string) ($requestType?->system_key ?? '');
@@ -342,14 +401,12 @@ class RequestDecisionController extends Controller
 
         $this->maybeCreateOrganization($actionRequest);
 
-        $approval = Approval::query()->updateOrCreate(
-            ['request' => (int) $actionRequest->getKey()],
-            [
-                'admin' => (int) $user->getKey(),
-                'approved_at' => now(),
-                'is_rejected' => false,
-            ]
-        );
+        $approval = Approval::query()->create([
+            'request' => (int) $actionRequest->getKey(),
+            'admin' => (int) $user->getKey(),
+            'approved_at' => now(),
+            'is_rejected' => false,
+        ]);
 
         if ($generatedDocumentId > 0) {
             \App\Models\GeneratedDocument::where('request_id', (int) $actionRequest->getKey())

@@ -109,6 +109,31 @@ it('blocks direct approval requests when the waiver gate has not passed', functi
     ]);
 })->with(['missing', 'failed', 'unvalidated']);
 
+it('requires a rejection reason and keeps the first activity decision', function () {
+    $admin = recordsUser(2);
+    [$actionRequest] = activityWaiverRequest([]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.activity-requests.decide', $actionRequest), ['decision' => 'reject'])
+        ->assertSessionHasErrors('rejection_reason');
+
+    $this->actingAs($admin)
+        ->post(route('admin.activity-requests.decide', $actionRequest), [
+            'decision' => 'reject',
+            'rejection_reason' => 'The required waiver was not submitted.',
+        ])
+        ->assertRedirect(route('admin.activity-requests.index'));
+
+    $this->actingAs($admin)
+        ->post(route('admin.activity-requests.decide', $actionRequest), [
+            'decision' => 'reject',
+            'rejection_reason' => 'A later reviewer tried to replace the decision.',
+        ])
+        ->assertSessionHasErrors('request');
+
+    expect(\App\Models\Approval::query()->where('request', $actionRequest->getKey())->count())->toBe(1);
+});
+
 it('allows an admin to review an unvalidated waiver and records the audit trail', function () {
     $admin = recordsUser(2);
     [$actionRequest] = activityWaiverRequest(['waivers/unvalidated.png']);

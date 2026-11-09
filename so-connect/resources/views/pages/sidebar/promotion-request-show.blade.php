@@ -343,7 +343,7 @@
                             </button>
                             <div x-show="rejectOpen" x-cloak x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0" class="mt-3 max-w-md">
                                 <div class="space-y-3">
-                                    <textarea id="rejection-reason" rows="3" placeholder="Reason for rejection (optional)"
+                                    <textarea id="rejection-reason" rows="3" required minlength="3" maxlength="1000" placeholder="Reason for rejection (required)"
                                         class="w-full rounded-lg border border-gray-300 bg-transparent px-3.5 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-2 focus:ring-brand-500/10 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
                                     <button type="button"
                                         data-decide-request="{{ $actionRequest->request_id }}" data-decision="reject"
@@ -369,7 +369,11 @@
 
     <script @nonce>
         function decideRequest(requestId, decision) {
-            const reason = document.getElementById('rejection-reason')?.value ?? '';
+            const reason = (document.getElementById('rejection-reason')?.value ?? '').trim();
+            if (decision === 'reject' && reason.length < 3) {
+                window.alert('Enter a rejection reason of at least 3 characters.');
+                return;
+            }
 
             fetch('/api/requests/' + requestId + '/decision', {
                 method: 'POST',
@@ -379,14 +383,21 @@
                 },
                 body: JSON.stringify({ decision, rejection_reason: reason }),
             })
-            .then(r => r.json())
+            .then(async (response) => {
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.message ?? 'The request could not be decided.');
+                }
+
+                return data;
+            })
             .then(data => {
                 if (data.message) {
                     window.location.reload();
                 }
             })
-            .catch(() => {
-                alert('Request failed. Please try again.');
+            .catch((error) => {
+                window.alert(error.message || 'Request failed. Please try again.');
             });
         }
 

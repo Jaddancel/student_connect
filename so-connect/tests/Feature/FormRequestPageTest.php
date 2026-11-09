@@ -144,6 +144,39 @@ it('rejects with a reason from the form request page', function () {
     expect(GeneratedDocument::query()->where('request_id', $actionRequest->request_id)->exists())->toBeFalse();
 });
 
+it('requires a reason and keeps a form request decision terminal', function () {
+    Storage::fake('public');
+    config(['documents.disk' => 'public']);
+
+    $org = recordsOrganization('Terminal Requests Org');
+    $officer = frpOfficer((int) $org->getKey());
+    $form = frpForm(['route_name' => 'terminal-facility-request']);
+
+    $this->actingAs($officer)
+        ->post(route('forms.render.submit', $form->route_name), ['purpose' => 'Leadership camp'])
+        ->assertSessionHasNoErrors();
+
+    $actionRequest = ActionRequest::query()->where('form_id', $form->id)->firstOrFail();
+    $admin = recordsUser(2);
+
+    $this->actingAs($admin)
+        ->post(route('admin.form-requests.decide', [$form, $actionRequest]), ['decision' => 'reject'])
+        ->assertSessionHasErrors('rejection_reason');
+
+    $this->actingAs($admin)
+        ->post(route('admin.form-requests.decide', [$form, $actionRequest]), [
+            'decision' => 'reject',
+            'rejection_reason' => 'The request is missing its event schedule.',
+        ])
+        ->assertRedirect(route('admin.form-requests.index', $form));
+
+    $this->actingAs($admin)
+        ->post(route('admin.form-requests.decide', [$form, $actionRequest]), ['decision' => 'approve'])
+        ->assertSessionHasErrors('request');
+
+    expect(Approval::query()->where('request', $actionRequest->getKey())->count())->toBe(1);
+});
+
 it('requires president approval before admin enrollment for a membership request', function () {
     $homeOrg = recordsOrganization('Home Org');
     $targetOrg = recordsOrganization('Target Org');
@@ -214,6 +247,13 @@ it('requires president approval before admin enrollment for a membership request
         ->postJson('/api/requests/'.$actionRequest->getKey().'/decision', ['decision' => 'approve'])
         ->assertOk();
 
+    $this->actingAs($president)
+        ->postJson('/api/requests/'.$actionRequest->getKey().'/decision', [
+            'decision' => 'reject',
+            'rejection_reason' => 'A stale second decision must not replace approval.',
+        ])
+        ->assertConflict();
+
     $memberRow = DB::table('organization_officers')
         ->where('user', $applicant->getKey())
         ->where('organization', $targetOrg->getKey())
@@ -225,6 +265,13 @@ it('requires president approval before admin enrollment for a membership request
         (int) $admin->getKey(),
         'admin',
     );
+
+    expect(fn () => app(\App\Services\RequestApprovalService::class)->reject(
+        $actionRequest,
+        (int) $admin->getKey(),
+        'A stale second Admin decision must not replace approval.',
+        'admin',
+    ))->toThrow(\LogicException::class, 'already been decided');
 
     $memberRow = DB::table('organization_officers')
         ->where('user', $applicant->getKey())
@@ -285,6 +332,15 @@ it('lists president-rejected membership requests as decided', function () {
         ->assertSee('Recent Decisions')
         ->assertSee('Rejected')
         ->assertSee('Membership not approved');
+
+    $this->actingAs($applicant)
+        ->post(route('forms.render.submit', $form->route_name), [
+            'organization_id' => (string) $targetOrg->getKey(),
+            'position' => 'Treasurer',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect(ActionRequest::query()->where('form_id', $form->id)->where('action_type', 1)->count())->toBe(2);
 });
 
 it('has no request page for sign-up, new-event and new-workplan bindings', function () {

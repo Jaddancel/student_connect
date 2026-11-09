@@ -127,14 +127,21 @@ class MenuHelper
             // every form has its own request page (forms bound to sign-up /
             // new-event / new-workplan are covered by the dedicated queues).
             $requestItems = [
+                ['section' => 'Core Requests', 'icon' => 'task', 'name' => 'Requests & Approvals Center', 'path' => '/admin/requests', 'badge' => $badges['unified_requests']],
                 ['section' => 'Core Requests', 'icon' => 'task',  'name' => 'Activity Requests',    'path' => '/admin/activity-requests', 'badge' => $badges['activity_requests']],
-                ['section' => 'Core Requests', 'icon' => 'forms', 'name' => 'Workplan Submissions', 'path' => '/admin/workplan-requests', 'badge' => $badges['workplan']],
                 ['section' => 'Core Requests', 'icon' => 'user-profile', 'name' => 'Promotion Requests', 'path' => '/promotion-requests', 'badge' => $badges['promotion_requests']],
             ];
 
             $formRequestPages = \App\Models\Form::query()
                 ->with('category:id,name,display_order,is_active')
                 ->where('is_active', true)
+                ->whereNotIn('route_name', [
+                    'project-request',
+                    'joint-statement',
+                    'accomplishment-report',
+                    'financial-report',
+                    'organization-recognition',
+                ])
                 ->where(function ($query) {
                     $query->whereNull('system_function')
                         ->orWhereIn('system_function', [
@@ -431,6 +438,18 @@ class MenuHelper
         // Function-backed badges resolve through the binding.
         $activityFormId = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_EVENT)?->getKey();
         $workplanFormId = \App\Forms\SystemFunction::form(\App\Forms\SystemFunction::NEW_WORKPLAN)?->getKey();
+        $unifiedRouteFormIds = \App\Models\Form::query()
+            ->whereIn('route_name', [
+                'project-request', 'joint-statement', 'accomplishment-report',
+                'financial-report', 'organization-recognition',
+            ])
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $unifiedFormIds = array_values(array_unique(array_filter([
+            ...$unifiedRouteFormIds,
+            $workplanFormId ? (int) $workplanFormId : null,
+        ])));
 
         $pendingByForm = function (?int $formId) use ($approvedIds): int {
             if (! $formId) {
@@ -461,9 +480,15 @@ class MenuHelper
             ->map(fn ($count) => (int) $count)
             ->all();
 
+        $unifiedPending = array_sum(array_map(
+            fn (int $formId) => (int) ($pendingPerForm[$formId] ?? 0),
+            $unifiedFormIds,
+        ));
+
         return [
             'activity_requests' => $pendingByForm($activityFormId ? (int) $activityFormId : null),
             'workplan' => $pendingByForm($workplanFormId ? (int) $workplanFormId : null),
+            'unified_requests' => $unifiedPending,
             'promotion_requests' => $pendingPromotions,
             'form' => $pendingPerForm,
         ];
